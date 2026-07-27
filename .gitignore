@@ -1,1 +1,81 @@
+# Environment variables and local secrets
 .env
+.env.*
+!.env.example
+!.env.*.example
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+build/
+dist/
+wheels/
+
+# Django
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Tests, coverage, type checking and linting
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# Celery and local runtime data
+celerybeat-schedule
+celerybeat-schedule.*
+celery*.pid
+*.pid
+logs/
+tmp/
+run/
+
+# Node.js and frontend tooling
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/install-state.gz
+.parcel-cache/
+.vite/
+
+# Oracle client credentials and local network configuration
+**/wallet/
+**/oracle_wallet/
+cwallet.sso
+ewallet*.p12
+*.pfx
+*.jks
+ojdbc.properties
+tnsnames.ora
+sqlnet.ora
+!*.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
