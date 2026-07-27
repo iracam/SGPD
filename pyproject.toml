@@ -1,0 +1,51 @@
+[project]
+name = "sgpd"
+version = "0.1.0"
+description = "SGPD / DesligaFlow — Sistema de Gestão do Processo Demissional"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.2.8,<5.3",
+    "djangorestframework>=3.17.1,<3.18",
+    "oracledb>=3.4,<5",
+    "python-dotenv>=1.1,<2",
+    "whitenoise>=6.9,<7",
+]
+
+[dependency-groups]
+dev = [
+    "django-stubs>=5.2,<6",
+    "mypy>=1.15,<2",
+    "pytest>=8.3,<10",
+    "pytest-django>=4.11,<5",
+    "ruff>=0.12,<1",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "DJ"]
+ignore = ["DJ008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["mypy_django_plugin.main"]
+strict = true
+warn_unused_ignores = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"

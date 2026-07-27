@@ -1,0 +1,1 @@
+"""SGPD Django applications."""

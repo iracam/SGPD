@@ -23,11 +23,11 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Nome institucional: `SGPD`
 - Nome amigável: `DesligaFlow`
 
-## Stack recomendada
+## Stack homologada na fundação
 
-- Python
-- Django
-- Django REST Framework
+- Python 3.13
+- Django 5.2 LTS
+- Django REST Framework 3.17
 - Django Templates
 - HTMX
 - Alpine.js
@@ -39,6 +39,38 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - cadastro de usuários e papéis no SGPD, com autenticação local inicial e vinculação futura ao LDAP/Active Directory
 - Microsoft 365 SMTP para notificações
 - filesystem local privado para evidências
+
+As versões exatas, inclusive dependências transitivas, estão registradas em
+`uv.lock`.
+
+## Execução local
+
+Pré-requisitos: `uv`, Oracle Instant Client 19.28 e um `.env` criado a partir
+de `.env.example`.
+
+```bash
+uv sync --dev
+uv run manage.py check
+uv run manage.py runserver
+```
+
+Endpoints operacionais:
+
+- `GET /health/live/`: processo Django ativo;
+- `GET /health/ready/`: conexão Oracle disponível por `SELECT 1 FROM DUAL`.
+
+Validações locais:
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy apps config tests manage.py
+uv run manage.py makemigrations --check --dry-run --settings=config.settings.test
+```
+
+As migrations Oracle somente podem ser aplicadas após revisão do SQL e
+liberação explícita de `CREATE TABLE` e quota para o próprio usuário `SGPD`.
 
 ## Escopo técnico atual
 
@@ -82,8 +114,11 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 10. Valores informados serão tratados como pretensões de cobrança.
 11. A liberação final continuará sob responsabilidade do DP.
 
-## Estado inicial
+## Estado atual
 
-Este repositório deverá começar pela fase de descoberta e fundação. O Codex deve primeiro levantar o ambiente, documentar lacunas, propor o plano detalhado e somente depois implementar.
+A descoberta do ambiente e o contrato SQL do Senior estão concluídos. A
+fundação Django está criada e validada localmente; a aplicação conecta ao
+Oracle com `python-oracledb` em modo Thick. A aplicação das migrations no DEV
+aguarda privilégios DDL e quota para `SGPD`.
 
 Consulte `PROMPT.md` para o procedimento completo.

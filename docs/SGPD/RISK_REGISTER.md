@@ -17,7 +17,7 @@
 | R13 | Auditoria incompleta | Média | Alto | Service de auditoria e testes |
 | R14 | Upload malicioso | Média | Alto | Validação, antivírus e storage privado |
 | R15 | Escopo crescer antes do MVP | Alta | Alto | Roadmap e checkpoints |
-| R16 | Python local não homologado para a stack | Média | Médio | Definir versão no `pyproject.toml` e criar ambiente isolado |
+| R16 | Divergência futura da versão Python homologada | Baixa | Médio | Python 3.13 fixado no `pyproject.toml`, ambiente isolado e `uv.lock` versionado |
 | R17 | Filesystem local com 96% de utilização | Alta | Alto | Liberar ou ampliar espaço antes de imagens, dependências e evidências |
 | R18 | Criação futura de HML ou PRD sem paridade com DEV | Baixa | Alto | Exigir nova decisão e inventário antes de ampliar ambientes |
 | R19 | Exposição do `.env` local com credenciais | Média | Muito alto | Ignorar no Git, restringir permissões e nunca registrar valores em logs |
@@ -31,3 +31,5 @@
 | R27 | Consulta direta expor CPF completo ou dados excessivos | Média | Muito alto | Mascarar por padrão, autorização por finalidade e projeções mínimas |
 | R28 | `INNER JOIN` omitir colaborador com cadastro relacionado incompleto | Média | Alto | Validar regra funcional, reconciliar contagens e tratar inconsistências explicitamente |
 | R29 | Senha local continuar ativa indevidamente após vínculo com AD | Média | Alto | Desabilitar autenticação local comum após vinculação e restringir contas de contingência |
+| R30 | Migrations não poderem criar objetos no schema `SGPD` | Confirmado | Alto | DBA deve conceder `CREATE TABLE` e quota no tablespace designado ao mesmo usuário `SGPD`; revisar SQL antes de aplicar |
+| R31 | Oracle Client ausente ou incompatível impedir conexão em modo Thick | Baixa | Alto | Fixar Instant Client 19.28 no DEV, validar no readiness e falhar na inicialização sem expor segredo |

@@ -17,6 +17,8 @@ Estratégia:
 
 - cadastrar todos os usuários e seus e-mails no SGPD;
 - usar autenticação local no MVP;
+- usar o model customizado `accounts.User` desde a primeira migration;
+- manter e-mail único e identificador AD único e anulável;
 - vincular futuramente a conta SGPD a uma identidade do Active Directory;
 - usar identificador corporativo estável e único para a vinculação;
 - não criar perfis ou permissões automaticamente a partir do Senior;
@@ -186,6 +188,8 @@ Não registrar em log:
 ## 12. Banco
 
 - conta única `SGPD` para runtime e migrations no DEV, conforme risco aceito na ADR-022;
+- o mesmo usuário ainda depende de `CREATE TABLE` e quota no tablespace
+  designado para receber as tabelas SGPD;
 - grants externos mínimos, especialmente nos objetos `VETORH`;
 - rotação de senha;
 - segredo fora do código;

@@ -17,12 +17,12 @@
 
 - [x] Confirmar sistema operacional do DEV: Debian 13.6, kernel 6.12, x86_64.
 - [x] Confirmar versão do Python no ambiente local: CPython 3.13.5.
-  - Homologação da versão do projeto permanece pendente.
+  - Python 3.13 homologado no `pyproject.toml`.
 - [x] Confirmar versão do Oracle Database: Oracle 19c.
 - [x] Confirmar driver Oracle disponível.
   - Oracle Instant Client 19.28 em `/opt/oracle/instantclient_19_28`.
   - SQLcl local 26.1 disponível; conexão Oracle do `.env` validada.
-  - Pacote Python `oracledb` será instalado na fundação.
+  - `python-oracledb` 4.0.2 instalado e validado em modo Thick.
 - [x] Confirmar escopo de ambientes: somente DEV; HML e PRD fora do escopo atual.
 - [x] Confirmar padrão de secrets do DEV.
   - Usuário, senha e e-mail no `.env`; usuários individuais seguem `nome.sobrenome`.
@@ -104,29 +104,31 @@
 ### Arquitetura
 
 - [x] Criar ADRs iniciais.
-- [ ] Validar módulos Django.
-- [ ] Definir estrutura de settings.
+- [x] Validar módulos Django.
+- [x] Definir estrutura de settings.
 - [ ] Definir filas.
 - [ ] Definir storage.
-- [ ] Definir logging.
-- [ ] Definir health checks.
+- [x] Definir logging.
+- [x] Definir health checks.
 - [ ] Definir backups.
 - [ ] Definir observabilidade.
 
 ## Checkpoint 1 — Fundação técnica
 
 - [x] Repositório criado.
-- [ ] `pyproject.toml` criado.
-- [ ] Django iniciado.
-- [ ] Settings do DEV.
+- [x] `pyproject.toml` criado.
+- [x] Django iniciado.
+- [x] Settings do DEV.
 - [x] `.env.example`.
-- [ ] Oracle conectado.
+- [x] Oracle conectado.
+  - Modo Thick obrigatório para o verificador atual da conta `SGPD`.
+  - Aplicação de migrations pendente de `CREATE TABLE` e quota.
 - [ ] Redis conectado, quando requerido.
 - [ ] Worker conectado, quando requerido.
-- [ ] Health check.
-- [ ] Logging estruturado.
-- [ ] Testes executando.
-- [ ] Lint e format.
+- [x] Health check.
+- [x] Logging estruturado.
+- [x] Testes executando.
+- [x] Lint e format.
 - [x] CI/CD não aplicável ao escopo atual.
 
 ## Checkpoint 2 — Integração cadastral
@@ -358,4 +360,20 @@ Próximo passo: iniciar a fundação técnica e implementar o repository que con
 Comandos executados: inspeção de privilégios de SGPD; consultas de metadados; contagem global de integridade; execução repetida do script SQLcl read-only; validação do wrapper local.
 Arquivos alterados: AGENTS.md, .env.example, README.md, documentação em docs/SGPD e scripts/oracle/validate_senior_reference_queries.sql.
 Testes: empresas=7, filiais probe=1, tipos probe=1, colaboradores probe=5, detalhe=1; consultas paginadas/detalhe em até 42 ms na execução final; USU_DATALT DATE anulável; DATAFA sentinela em 1.815 de 1.889 elegíveis; nenhum DML ou DDL executado.
+```
+
+### 2026-07-27 — Fundação Django e conexão Oracle
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 0 — Descoberta e fundação / Fundação técnica
+O que foi concluído: Python 3.13 e Django 5.2 LTS homologados; dependências bloqueadas com uv; projeto Django, settings, usuário local extensível para AD, WhiteNoise, logs JSON, correlation ID e health checks implementados.
+Decisões: usar python-oracledb Thick com Instant Client 19.28 porque o modo Thin não suporta o verificador atual de SGPD; usar SQLite em memória apenas nos testes unitários; manter SGPD como única conta Oracle conforme ADR-022.
+Riscos: SGPD não possui privilégio de sistema nem quota, portanto as migrations não podem ser aplicadas; o modo Thick torna o Instant Client obrigatório; autenticação e autorização funcionais ainda não foram implementadas.
+Pendências: DBA conceder CREATE TABLE e quota no tablespace designado ao próprio SGPD; aplicar e validar migrations após revisão; implementar repository Senior sem models.
+Próximo passo: implementar e testar o repository de leitura do contrato Senior, sem depender de migrations.
+Comandos executados: uv sync; ruff; mypy; pytest; manage.py check; makemigrations --check; sqlmigrate; SELECT 1 FROM DUAL; health/ready; consultas read-only a USER_SYS_PRIVS e USER_TS_QUOTAS.
+Arquivos alterados: pyproject.toml, uv.lock, manage.py, apps/accounts, apps/core, config, tests, .env.example, README.md e documentação em docs/SGPD.
+Testes: 7 testes passaram; ruff, format, mypy e Django check sem erros; migration sem divergências; SQL Oracle revisado sem aplicação; readiness DEV respondeu 200; nenhum DDL ou DML executado.
 ```

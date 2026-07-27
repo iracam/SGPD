@@ -9,13 +9,13 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "2ff777098846d7e92c386ad81e8cbe8bc31496c6c9c33748c6226842c68481ec",
-      "bytes": 6171
+      "sha256": "b1d022f9ce3db399ea6697f0e38e410d3f4254eb61b6429d731d0253dc8d5622",
+      "bytes": 6569
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "47da32b408700862afd64f0092897f9c784ceb1bfe1450ac14e134deddce988c",
-      "bytes": 18287
+      "sha256": "1ffc395f7a8e2d0d814858d5e1ddc70516b72e8baf3daa642fe762333b343a7b",
+      "bytes": 20102
     },
     {
       "file": "DATA_MODEL.md",
@@ -24,13 +24,13 @@
     },
     {
       "file": "DECISIONS.md",
-      "sha256": "09224a3bf2dc3f3dc5fda2d96df959b07462dc18ab4dda986abd5593d19224f7",
-      "bytes": 9232
+      "sha256": "58a89b786e9ec8314c18b9e52acb783fd0c0cd650074e178094fe97894f1c8b6",
+      "bytes": 10271
     },
     {
       "file": "ENVIRONMENT.md",
-      "sha256": "1450f15602c825bfac9bd0347c74992ee511c153711b95159f0ca8d5dd10652c",
-      "bytes": 7626
+      "sha256": "ca31171fe62e0955152ec9798f8f7a29e1191cf598490b2bc4f515824d935a60",
+      "bytes": 7401
     },
     {
       "file": "GLOSSARY.md",
@@ -49,8 +49,8 @@
     },
     {
       "file": "README.md",
-      "sha256": "53a76969100c236a290b855a4d3b1d09c76a1a68e6ed901e3199c2cf688c57df",
-      "bytes": 3596
+      "sha256": "a1ae20ac5994b45f047d350e8b4be3fc8f14a70cf96b487ecd50ee4007b5f9b9",
+      "bytes": 4527
     },
     {
       "file": "REQUIREMENTS.md",
@@ -59,8 +59,8 @@
     },
     {
       "file": "RISK_REGISTER.md",
-      "sha256": "a87322ff32e4c32b7a84fbc818641a95c70ce6b76e0a9d34a04a633e163806b9",
-      "bytes": 4046
+      "sha256": "eb31956eaad0db65695a88dd572df7f24f3809d91d3b86b670bc3778a1de6974",
+      "bytes": 4477
     },
     {
       "file": "ROADMAP.md",
@@ -69,8 +69,8 @@
     },
     {
       "file": "SECURITY.md",
-      "sha256": "a5e63557df248bfb317e25164f2f9881797c15dbc292fe9d0016c1b714e6cefb",
-      "bytes": 5903
+      "sha256": "943aef99793bc907a86b8b86e29da753d26ddd97ac6ea8d66d3fd5a1b0f5fb0d",
+      "bytes": 6151
     },
     {
       "file": "VISION.md",

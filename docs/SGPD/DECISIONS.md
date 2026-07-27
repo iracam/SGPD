@@ -336,3 +336,30 @@ O processo da aplicação terá privilégios de owner sobre o schema SGPD. Um er
 - revisão de migrations e proibição de DDL dinâmico;
 - logs e auditoria sem segredos;
 - testes de contrato e revisão do escopo de grants.
+
+## ADR-023 — Fundação Python, Django e conexão Oracle
+
+### Decisão
+
+Adotar Python 3.13, Django 5.2 LTS, Django REST Framework 3.17 e `uv` com
+lockfile. Usar `python-oracledb` em modo Thick no DEV, carregando o Oracle
+Instant Client 19.28 indicado por `ORACLE_CLIENT_LIB_DIR`.
+
+### Motivos
+
+- Django 5.2 é LTS e suporta Python 3.13;
+- o lockfile torna a instalação local reproduzível;
+- o modo Thin recusou o verificador de senha legado da conta `SGPD`
+  (`DPY-3015`);
+- o modo Thick conectou com sucesso usando a mesma conta, sem criar usuário
+  adicional ou alterar a credencial no Oracle.
+
+### Consequências
+
+- o Oracle Instant Client passa a ser pré-requisito do ambiente DEV;
+- uma falha ao carregar o client interrompe a inicialização com erro genérico,
+  sem registrar credenciais;
+- testes unitários usam SQLite em memória e testes de contrato separados
+  validam o Oracle real;
+- migrations permanecem bloqueadas até `SGPD` receber `CREATE TABLE` e quota
+  no tablespace definido pela administração do banco.

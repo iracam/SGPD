@@ -26,7 +26,9 @@ Django + HTMX + Alpine
 
 ### Aplicação web
 
-- Django;
+- Python 3.13;
+- Django 5.2 LTS;
+- Django REST Framework 3.17;
 - templates server-side;
 - HTMX para interações parciais;
 - Alpine.js para comportamento local;
@@ -40,6 +42,8 @@ WhiteNoise não será usado para servir evidências ou outros uploads de usuári
 
 - Oracle Database 19c;
 - Oracle Instant Client 19.28 disponível no DEV;
+- `python-oracledb` em modo Thick, necessário porque a credencial `SGPD`
+  possui verificador de senha não suportado pelo modo Thin;
 - schema próprio;
 - migrations controladas;
 - sequences ou identity conforme padrão homologado;
@@ -92,24 +96,17 @@ Backup, retenção e antivírus ainda deverão ser definidos antes do uso com da
 
 ## 3. Aplicações Django
 
-Estrutura sugerida:
+Estrutura incremental adotada:
 
 ```text
 apps/
 ├── accounts/
-├── core/
-├── references/
-├── sectors/
-├── templates_engine/
-├── offboarding/
-├── pending_items/
-├── evidence/
-├── approvals/
-├── notifications/
-├── integrations/
-├── audit/
-└── reporting/
+└── core/
 ```
+
+Novos módulos serão criados somente quando o respectivo checkpoint exigir.
+`accounts` contém a conta local extensível para vínculo futuro ao AD e `core`
+contém os endpoints operacionais. Não existem models para objetos do Senior.
 
 ## 4. Serviços de domínio
 
@@ -188,11 +185,12 @@ A UI server-side pode usar services diretamente. API não precisa ser a única c
 
 ## 7. Observabilidade
 
-- logs JSON;
-- correlation ID;
+- logs JSON configurados na saída padrão;
+- correlation ID aceito em `X-Correlation-ID` ou gerado pela aplicação e
+  devolvido na resposta;
 - métricas de tarefas;
 - monitoramento de filas;
-- health checks;
+- health checks separados em liveness e readiness;
 - registro de falhas de integração;
 - alertas para e-mails falhos;
 - métricas de latência, timeout e indisponibilidade das consultas ao Senior.
@@ -216,6 +214,7 @@ HML e PRD não fazem parte da estrutura atual. Caso sejam criados futuramente, d
 
 ## 10. Testes
 
+- SQLite em memória para testes unitários da fundação;
 - unitários para regras;
 - integração para Oracle;
 - testes de services;
