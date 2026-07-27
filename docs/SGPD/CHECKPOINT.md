@@ -136,12 +136,13 @@
 - [x] Estratégia sem models `REF_*` definida.
 - [x] Objetos Senior e grants iniciais validados.
 - [x] Contrato SQL parametrizado versionado.
-- [ ] Repository Django sem models.
+- [x] Repository Django sem models.
 - [x] Paginação, limites e timeout inicial definidos.
-- [ ] Tratamento de indisponibilidade.
-- [ ] Logs e métricas de consulta.
+- [x] Tratamento de indisponibilidade.
+- [x] Logs de consulta e telemetria básica de duração/linhas.
 - [x] Script SQLcl de teste de contrato.
-- [ ] Cascata funcionando.
+- [x] Cascata funcionando no repository.
+  - Endpoints e seleção na interface ainda pendentes.
 - [ ] Snapshot validado.
 
 ## Checkpoint 3 — Configuração funcional
@@ -376,4 +377,20 @@ Próximo passo: implementar e testar o repository de leitura do contrato Senior,
 Comandos executados: uv sync; ruff; mypy; pytest; manage.py check; makemigrations --check; sqlmigrate; SELECT 1 FROM DUAL; health/ready; consultas read-only a USER_SYS_PRIVS e USER_TS_QUOTAS.
 Arquivos alterados: pyproject.toml, uv.lock, manage.py, apps/accounts, apps/core, config, tests, .env.example, README.md e documentação em docs/SGPD.
 Testes: 7 testes passaram; ruff, format, mypy e Django check sem erros; migration sem divergências; SQL Oracle revisado sem aplicação; readiness DEV respondeu 200; nenhum DDL ou DML executado.
+```
+
+### 2026-07-27 — Repository de leitura do Senior
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 2 — Integração cadastral
+O que foi concluído: repository Python sem models para Empresa → Filial → Tipo → Colaborador → Detalhe; DTOs imutáveis; validação de parâmetros; timeout por chamada; falha segura; logs de duração e quantidade.
+Decisões: manter SQL runtime centralizado em apps/integrations/senior; lista não projeta CPF; detalhe retorna somente CPF mascarado; limite padrão de colaboradores 20 e máximo global 100.
+Riscos: contrato SQL runtime e documento homologado devem evoluir juntos; 49 colaboradores seguem sem descrição de centro de custo; concorrência ainda não foi medida.
+Pendências: expor a cascata em endpoints autenticados; homologar LEFT JOIN do centro de custo; criar snapshot na abertura do processo.
+Próximo passo: implementar endpoints autenticados da cascata com validação e respostas de indisponibilidade.
+Comandos executados: pytest; ruff; mypy; Django shell com cascata real usando SGPD e cinco SELECTs limitados.
+Arquivos alterados: .env.example, apps/integrations/senior, config/settings/base.py, config/logging.py, tests/test_senior_repository.py e documentação em docs/SGPD.
+Testes: 21 testes passaram; cascata Oracle real retornou uma linha por etapa; consultas entre 4,82 ms e 58,01 ms; USU_DATALT convertido em datetime; CPF confirmado como mascarado; nenhum DDL ou DML executado.
 ```

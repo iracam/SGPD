@@ -20,4 +20,7 @@ class JsonFormatter(logging.Formatter):
         }
         if record.exc_info and record.exc_info[0] is not None:
             payload["exception_type"] = record.exc_info[0].__name__
+        for attribute in ("query_name", "elapsed_ms", "row_count"):
+            if hasattr(record, attribute):
+                payload[attribute] = getattr(record, attribute)
         return json.dumps(payload, ensure_ascii=False)

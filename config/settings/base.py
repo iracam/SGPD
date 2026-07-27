@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "apps.accounts",
     "apps.core",
+    "apps.integrations",
 ]
 
 MIDDLEWARE = [
@@ -138,6 +139,9 @@ REST_FRAMEWORK = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+SENIOR_QUERY_TIMEOUT_MS = env_int("SENIOR_QUERY_TIMEOUT_MS", 5_000)
+SENIOR_QUERY_MAX_PAGE_SIZE = env_int("SENIOR_QUERY_MAX_PAGE_SIZE", 100)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOGGING = {

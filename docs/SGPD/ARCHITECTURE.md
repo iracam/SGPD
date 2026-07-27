@@ -101,12 +101,15 @@ Estrutura incremental adotada:
 ```text
 apps/
 ├── accounts/
-└── core/
+├── core/
+└── integrations/
+    └── senior/
 ```
 
 Novos módulos serão criados somente quando o respectivo checkpoint exigir.
 `accounts` contém a conta local extensível para vínculo futuro ao AD e `core`
-contém os endpoints operacionais. Não existem models para objetos do Senior.
+contém os endpoints operacionais. `integrations/senior` contém SQL, DTOs e o
+repository somente leitura. Não existem models para objetos do Senior.
 
 ## 4. Serviços de domínio
 

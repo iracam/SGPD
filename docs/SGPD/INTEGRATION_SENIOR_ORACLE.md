@@ -122,9 +122,10 @@ Para o SGPD, “ativo/elegível” significa “não demitido”. Portanto, outr
 - nenhum usuário, gestor, e-mail, papel ou permissão do sistema será provisionado pelo Senior;
 - a integração futura com AD vinculará identidades às contas SGPD existentes apenas para autenticação.
 
-## 6. Padrão de implementação futura
+## 6. Implementação
 
-O acesso deve usar `django.db.connection.cursor()` ou conexão Oracle dedicada homologada, encapsulada em um repository sem models:
+O acesso está implementado em `apps/integrations/senior/`, encapsulado em um
+repository sem models:
 
 ```text
 Django view / endpoint
@@ -147,6 +148,18 @@ Regras:
 - logs com correlation ID, sem SQL contendo valores pessoais;
 - testes de contrato para colunas e grants;
 - nenhuma tentativa de criar, alterar ou excluir objetos do Senior.
+
+O repository:
+
+- retorna dataclasses imutáveis, não models Django;
+- valida inteiros, busca, offset e limite antes de abrir o cursor;
+- aplica `oracledb.Connection.call_timeout` por consulta e restaura o valor
+  anterior;
+- converte erros de banco em erro de integração sem detalhes sensíveis;
+- rejeita colunas ausentes e duplicidade da chave do colaborador como quebra
+  de contrato;
+- registra nome lógico da consulta, duração e quantidade de linhas, sem
+  parâmetros, SQL ou dados pessoais.
 
 ### Contrato SQL versionado
 
@@ -175,7 +188,10 @@ scripts/oracle/run_senior_contract_validation.sh
 
 O wrapper lê a conexão `SGPD` do `.env` sem exibir credenciais.
 
-No DEV, as consultas paginadas e o detalhe executaram em até 57 ms na amostra validada. O tempo não inclui a abertura da conexão e deverá ser acompanhado novamente com volume e concorrência reais.
+No DEV, a cascata real executada pelo repository retornou uma linha em cada
+etapa. As consultas levaram entre 4,82 ms e 58,01 ms na amostra, com conexão
+persistente; o detalhe confirmou `USU_DATALT` como `datetime` e CPF mascarado.
+O desempenho deverá ser acompanhado novamente com volume e concorrência reais.
 
 ## 7. Snapshot
 
@@ -216,7 +232,6 @@ Nessa situação:
 ## 10. Pendências de descoberta
 
 - confirmar versão exata do Senior HCM, distinta da versão do Oracle;
-- homologar o contrato de acesso direto às tabelas internas;
 - homologar com o negócio o uso de `LEFT JOIN` para centro de custo ausente;
 - medir plano e tempo das consultas sob concorrência;
 - definir estratégia de homologação e monitoramento.

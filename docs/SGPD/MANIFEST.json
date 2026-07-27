@@ -9,13 +9,13 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "b1d022f9ce3db399ea6697f0e38e410d3f4254eb61b6429d731d0253dc8d5622",
-      "bytes": 6569
+      "sha256": "8421e614ad241d577bc995e1008d59ee8c9a6c371a673d9657ae60af8e44dbe5",
+      "bytes": 6687
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "1ffc395f7a8e2d0d814858d5e1ddc70516b72e8baf3daa642fe762333b343a7b",
-      "bytes": 20102
+      "sha256": "f6680ddf56b331abde448fab382b828d46c173800285ad2d2e9cb9a148deda60",
+      "bytes": 21665
     },
     {
       "file": "DATA_MODEL.md",
@@ -39,8 +39,8 @@
     },
     {
       "file": "INTEGRATION_SENIOR_ORACLE.md",
-      "sha256": "9d4ea8190fd05c69183accc856caf05a01a0b7fd55a0dfb3b759f369f735e9d9",
-      "bytes": 9264
+      "sha256": "fda2cc580747f1fef085d84d83e9209791b05c956bfb4bb0a71abe2893363f50",
+      "bytes": 9770
     },
     {
       "file": "PROMPT.md",
