@@ -3,22 +3,19 @@
 ## 1. Visão geral
 
 ```text
-Usuário corporativo
-        |
-        v
-Nginx / Reverse Proxy
-        |
-        v
+Usuário DEV
+    |
+    v
 Django + HTMX + Alpine
-        |
-        +-----------------------+
-        |                       |
-        v                       v
-Oracle SGPD                 Redis
-        |                       |
-        v                       v
-Views / Integração          Worker assíncrono
-Senior HCM                  E-mail / sincronização
+    |
+    +--> WhiteNoise (arquivos estáticos)
+    |
+    +--> Oracle SGPD --> Views / Integração Senior HCM
+    |
+    +--> Redis em container, quando necessário
+             |
+             v
+        Worker assíncrono
 ```
 
 ## 2. Componentes
@@ -30,11 +27,15 @@ Senior HCM                  E-mail / sincronização
 - HTMX para interações parciais;
 - Alpine.js para comportamento local;
 - Tailwind/daisyUI para layout;
+- WhiteNoise para arquivos estáticos;
 - DRF para APIs internas e futuras integrações.
+
+WhiteNoise não será usado para servir evidências ou outros uploads de usuários.
 
 ### Banco
 
-- Oracle;
+- Oracle Database 19c;
+- Oracle Instant Client 19.28 disponível no DEV;
 - schema próprio;
 - migrations controladas;
 - sequences ou identity conforme padrão homologado;
@@ -42,7 +43,7 @@ Senior HCM                  E-mail / sincronização
 
 ### Processamento assíncrono
 
-Usar Celery ou Django-Q2 para:
+Quando o processamento assíncrono se tornar necessário, usar Celery ou Django-Q2 para:
 
 - envio de e-mails;
 - sincronização com Senior;
@@ -53,7 +54,7 @@ Usar Celery ou Django-Q2 para:
 
 ### Cache e filas
 
-Redis para:
+Redis será iniciado em container somente quando houver funcionalidade que dependa dele. Seus usos previstos são:
 
 - broker;
 - cache;
@@ -73,14 +74,16 @@ MVP recomendado: LDAP/AD direto, com grupos mapeados para papéis.
 
 ### Arquivos
 
-Opções:
+No DEV, evidências serão armazenadas no filesystem local privado:
 
-- filesystem corporativo;
-- storage S3 compatível;
-- object storage interno;
-- banco apenas para metadados.
+- caminho configurável por `EVIDENCE_STORAGE_PATH`;
+- padrão inicial `media/evidence`;
+- metadados e hash SHA-256 mantidos no Oracle;
+- acesso somente por views autorizadas da aplicação;
+- diretório fora dos arquivos estáticos e não servido pelo WhiteNoise;
+- permissões do sistema operacional restritas ao usuário da aplicação.
 
-Recomendação: storage externo ao Oracle, com hash SHA-256 no banco.
+Backup, retenção e antivírus ainda deverão ser definidos antes do uso com dados reais.
 
 ## 3. Aplicações Django
 
@@ -182,32 +185,20 @@ A UI server-side pode usar services diretamente. API não precisa ser a única c
 
 ## 8. Ambientes
 
-- desenvolvimento;
-- homologação;
-- produção.
+O escopo atual possui somente o ambiente DEV.
 
-Cada ambiente deverá ter:
+HML e PRD não fazem parte da estrutura atual. Caso sejam criados futuramente, deverão ser tratados por nova decisão arquitetural, com credenciais, schema, storage e logs separados.
 
-- schema próprio;
-- credenciais próprias;
-- storage próprio;
-- SMTP controlado;
-- variáveis de ambiente;
-- logs separados.
+## 9. Execução no DEV
 
-## 9. Implantação
-
-Sugestão:
-
-- Docker Compose para DEV/HML;
-- Gunicorn;
-- Nginx;
-- Redis;
-- worker Celery;
-- scheduler Celery Beat;
+- servidor Django no ambiente DEV;
+- WhiteNoise para arquivos estáticos;
+- sem Nginx ou reverse proxy no escopo atual;
+- sem pipeline de CI/CD;
 - Oracle externo;
-- armazenamento de evidências externo;
-- systemd ou plataforma de containers em produção.
+- Redis em container somente quando necessário;
+- worker e scheduler somente quando houver casos de uso assíncronos;
+- armazenamento de evidências separado dos arquivos estáticos.
 
 ## 10. Testes
 

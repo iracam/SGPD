@@ -19,6 +19,14 @@ O Senior HCM permanece como fonte oficial de:
 - situação do vínculo;
 - dados necessários ao processo de rescisão.
 
+## 2.1 Ambiente confirmado
+
+- Oracle Database 19c;
+- Oracle Instant Client 19.28 disponível em `/opt/oracle/instantclient_19_28`;
+- MCP Oracle SQLcl disponível;
+- conexão DEV salva para Senior/Vetorh;
+- nenhuma consulta ao catálogo executada nesta etapa.
+
 ## 3. Schema proposto
 
 ```text
@@ -218,5 +226,5 @@ Em caso de falha de sincronização:
 - disponibilidade de `DT_ATUALIZACAO`;
 - política de acesso ao Oracle;
 - política de criação de views;
-- ambiente de homologação;
+- estratégia de validação da integração no DEV;
 - possibilidade de web services oficiais.

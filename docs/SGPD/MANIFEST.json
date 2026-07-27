@@ -4,18 +4,18 @@
   "files": [
     {
       "file": "AGENTS.md",
-      "sha256": "954b6ff0baad00a52efeef4fe5b83747d143ac8531d81af9eaf64f0adc844810",
-      "bytes": 6638
+      "sha256": "f7af72b1a228951d7face4850c57cdb1c697db0243ffb79160f1f89f14240247",
+      "bytes": 6743
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "f387a4ff2b832eee13f9f0e07469ff1b57c2408b45b5280555369117cf518e2a",
-      "bytes": 4430
+      "sha256": "7dac8e58a0c2b2b0caf27d7dfb54f54f08199bca9a6325120579ddc12b76a667",
+      "bytes": 5086
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "90bb587cc0bba5c21bd58951ca06457c359b8e04720ee618076a049a9dc21359",
-      "bytes": 3567
+      "sha256": "50063e10f52870ed24ef9d7c4a070a3de3b58c3f525b642763d68e459a266d77",
+      "bytes": 9885
     },
     {
       "file": "DATA_MODEL.md",
@@ -24,8 +24,13 @@
     },
     {
       "file": "DECISIONS.md",
-      "sha256": "6b091ac5e0f601578cd6140c2e02e7573b732e835987be2f4ca587fde1fc37da",
-      "bytes": 2686
+      "sha256": "984f82f12ef08dcd446d4da626103de3bc6cc83f0cdcdd89ef597f60fe17ec9d",
+      "bytes": 5459
+    },
+    {
+      "file": "ENVIRONMENT.md",
+      "sha256": "6fa060cfc032712717607f29fe0c4ffa649ee0609a5a46ec2ad7d26a57170113",
+      "bytes": 7212
     },
     {
       "file": "GLOSSARY.md",
@@ -34,18 +39,18 @@
     },
     {
       "file": "INTEGRATION_SENIOR_ORACLE.md",
-      "sha256": "80ced0da5600dd53bbe9be64b9345901fe893e4e1938c17ea243a32459b84af5",
-      "bytes": 4273
+      "sha256": "95100810cde296fa0a2327d2f02cbd6c07b681a127d6fd0f9b9886c3b9250bd6",
+      "bytes": 4557
     },
     {
       "file": "PROMPT.md",
-      "sha256": "3a354169a876a42ee04308d93832d9b6f16453ffdcfa58c58b630541f16266fe",
-      "bytes": 6689
+      "sha256": "807783d0bda00702ab8e56ccc9419de32d3d38ba20720c113680bca78b424b71",
+      "bytes": 6949
     },
     {
       "file": "README.md",
-      "sha256": "45c91f2dce746d16cb2a4dc27bcf7b44bd554c414a72d6cc5955155a6d03e107",
-      "bytes": 2864
+      "sha256": "62df7433732eab396f943ceb27856fa42936f3e1fb0c96661678aff3793cc1dd",
+      "bytes": 3323
     },
     {
       "file": "REQUIREMENTS.md",
@@ -54,18 +59,18 @@
     },
     {
       "file": "RISK_REGISTER.md",
-      "sha256": "9f836ee8d0b221a2e9cb1a32a077e3054c176c3b00075a12fc47332a2e7cc9c5",
-      "bytes": 1452
+      "sha256": "b2ad6828569645bb44ea5a272bca840f010411619890a72764783508197df0c3",
+      "bytes": 2914
     },
     {
       "file": "ROADMAP.md",
-      "sha256": "9d2888c8bf8b1cb7cbae78fb6b152f248a831fdffe9eb69380e8cae7d25739df",
-      "bytes": 3396
+      "sha256": "8bb7dd8933e5ceb53696b61ceda90e037b1a9ed435e77beb90c1dc23aab66aee",
+      "bytes": 3560
     },
     {
       "file": "SECURITY.md",
-      "sha256": "ee56ee99f0c1c06dacd0e2db388c0aa79dc7cb6a4060863cfb67350b40c323f0",
-      "bytes": 4089
+      "sha256": "913acb09724db41a4b1d0c98c9b2fc64fe67151afdd30770f662cc4506ad13e5",
+      "bytes": 4822
     },
     {
       "file": "VISION.md",

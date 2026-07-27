@@ -32,21 +32,33 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - HTMX
 - Alpine.js
 - Tailwind CSS ou daisyUI
-- Oracle Database
+- WhiteNoise para arquivos estáticos
+- Oracle Database 19c
 - Celery ou Django-Q2 para tarefas assíncronas
-- Redis para filas e cache
+- Redis em container quando filas, cache ou locks forem necessários
 - LDAP/Active Directory para autenticação
-- SMTP corporativo para notificações
+- Microsoft 365 SMTP para notificações
+- filesystem local privado para evidências
 
-## Estrutura da documentação (./docs/SGDP/)
+## Escopo técnico atual
+
+- somente ambiente DEV;
+- sem Nginx;
+- sem CI/CD;
+- WhiteNoise não atende evidências ou uploads;
+- Redis e worker serão introduzidos sob demanda.
+
+## Estrutura da documentação (`./docs/SGPD/`)
 
 - `VISION.md`: visão do produto.
+- `ENVIRONMENT.md`: inventário e matriz dos ambientes.
 - `REQUIREMENTS.md`: requisitos funcionais e não funcionais.
 - `WORKFLOWS.md`: fluxo e estados do processo.
 - `DATA_MODEL.md`: modelo conceitual inicial.
 - `ARCHITECTURE.md`: arquitetura da solução.
 - `INTEGRATION_SENIOR_ORACLE.md`: integração com Senior HCM e Oracle.
 - `SECURITY.md`: segurança, LGPD e auditoria.
+- `RISK_REGISTER.md`: registro e mitigação de riscos.
 - `DECISIONS.md`: decisões arquiteturais iniciais.
 - `ROADMAP.md`: fases de implementação.
 - `CHECKPOINT.md`: controle de progresso do projeto.

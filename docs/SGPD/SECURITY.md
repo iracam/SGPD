@@ -112,6 +112,15 @@ Recomendações:
 - download autorizado;
 - logs de acesso.
 
+### Storage no DEV
+
+- filesystem local privado em caminho configurado por `EVIDENCE_STORAGE_PATH`;
+- diretório inicial `media/evidence`;
+- nunca servir pelo WhiteNoise;
+- acesso somente por endpoint autenticado e autorizado;
+- permissões restritas ao usuário da aplicação;
+- backup, retenção e antivírus obrigatórios antes de usar dados reais.
+
 ## 8. Auditoria
 
 Eventos mínimos:
@@ -180,6 +189,15 @@ Não registrar em log:
 - acesso restrito por rede;
 - auditoria administrativa;
 - conexão criptografada.
+
+## 12.1 Secrets no DEV
+
+- credenciais ficam somente no `.env` ignorado pelo Git;
+- usuários individuais seguem `nome.sobrenome`;
+- a convenção de usuário não se aplica a senhas;
+- senhas devem ser fortes, não previsíveis e rotacionáveis;
+- usuário, senha e e-mail SMTP não devem aparecer no `.env.example`;
+- restringir a leitura do `.env` ao usuário da aplicação.
 
 ## 13. Desenvolvimento seguro
 

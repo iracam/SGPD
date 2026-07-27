@@ -62,12 +62,13 @@ O agente não deve:
 - HTMX.
 - Alpine.js.
 - Tailwind CSS/daisyUI.
-- Redis.
-- Celery ou Django-Q2.
+- WhiteNoise para arquivos estáticos.
+- Redis em container, quando necessário.
+- Celery ou Django-Q2, quando necessário.
 - Pytest.
 - Ruff.
 - Mypy quando viável.
-- Docker Compose para ambiente local.
+- Docker Compose para serviços auxiliares do DEV.
 
 O agente deve confirmar versões existentes antes de alterar.
 

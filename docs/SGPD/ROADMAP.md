@@ -35,15 +35,18 @@ Checkpoint 0 aprovado.
 ### Entregas
 
 - projeto Django;
-- configuração por ambiente;
+- configuração do ambiente DEV;
 - conexão Oracle;
 - autenticação;
 - usuários e papéis;
 - auditoria base;
 - layout;
+- WhiteNoise para arquivos estáticos;
+- filesystem privado para evidências;
+- SMTP Microsoft 365;
 - health check;
 - logging;
-- CI;
+- comandos locais de validação, sem CI/CD;
 - testes iniciais.
 
 ### Saída esperada
@@ -140,6 +143,7 @@ Valores controlados sem desconto automático.
 
 ### Entregas
 
+- Redis em container;
 - fila de e-mail;
 - templates;
 - lembretes;

@@ -17,3 +17,13 @@
 | R13 | Auditoria incompleta | Média | Alto | Service de auditoria e testes |
 | R14 | Upload malicioso | Média | Alto | Validação, antivírus e storage privado |
 | R15 | Escopo crescer antes do MVP | Alta | Alto | Roadmap e checkpoints |
+| R16 | Python local não homologado para a stack | Média | Médio | Definir versão no `pyproject.toml` e criar ambiente isolado |
+| R17 | Filesystem local com 96% de utilização | Alta | Alto | Liberar ou ampliar espaço antes de imagens, dependências e evidências |
+| R18 | Criação futura de HML ou PRD sem paridade com DEV | Baixa | Alto | Exigir nova decisão e inventário antes de ampliar ambientes |
+| R19 | Exposição do `.env` local com credenciais | Média | Muito alto | Ignorar no Git, restringir permissões e nunca registrar valores em logs |
+| R20 | Ferramentas Python globais com versões divergentes | Alta | Médio | Usar ambiente virtual e lockfile do projeto |
+| R21 | LDAP/AD ainda indefinido | Alta | Alto | Fechar grupos, endpoint e TLS antes da autenticação corporativa |
+| R22 | Uso indevido do WhiteNoise para evidências ou uploads | Média | Muito alto | Restringir WhiteNoise a estáticos e usar storage privado para evidências |
+| R23 | Ausência de CI/CD permitir validações locais inconsistentes | Média | Médio | Padronizar comandos locais e registrar evidências de testes |
+| R24 | Perda ou acesso direto às evidências no filesystem local | Média | Muito alto | Permissões restritas, backup, retenção, antivírus e download autorizado |
+| R25 | SMTP AUTH ou permissão de remetente bloquearem notificações | Média | Alto | Validar autenticação e `Send As` no Microsoft 365 antes de habilitar envios |

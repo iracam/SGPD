@@ -59,7 +59,7 @@ Primeiro:
 5. identifique conexão Oracle;
 6. identifique infraestrutura;
 7. identifique testes;
-8. identifique CI;
+8. identifique os comandos locais de validação;
 9. identifique código já implementado;
 10. identifique riscos.
 
@@ -76,20 +76,19 @@ Levante e documente, sem expor segredos:
 - versão do Oracle;
 - driver Oracle;
 - variáveis necessárias;
-- Redis;
-- worker;
-- Nginx;
-- Gunicorn;
+- WhiteNoise;
+- estratégia de Redis sob demanda;
+- worker, quando necessário;
 - storage;
 - SMTP;
 - Active Directory;
-- ambientes DEV/HML/PRD.
+- ambiente DEV.
 
 Crie ou atualize:
 
-- `docs/ENVIRONMENT.md`;
+- `docs/SGPD/ENVIRONMENT.md`;
 - `.env.example`;
-- `docs/RISKS.md`.
+- `docs/SGPD/RISK_REGISTER.md`.
 
 ## Etapa 3 — Senior HCM
 
@@ -153,15 +152,15 @@ Pare após o plano se existirem lacunas críticas.
 Quando a fundação for autorizada ou o repositório estiver vazio:
 
 1. crie projeto Django;
-2. configure settings por ambiente;
+2. configure settings do DEV;
 3. configure Oracle;
-4. configure Redis;
-5. configure worker;
+4. configure WhiteNoise para arquivos estáticos;
+5. adie Redis e worker até existir dependência funcional;
 6. configure logs JSON;
 7. configure health check;
 8. configure pytest;
 9. configure Ruff;
-10. configure CI;
+10. documente comandos locais de validação;
 11. crie apps base;
 12. crie autenticação;
 13. crie auditoria inicial.
@@ -245,8 +244,9 @@ Django Templates + HTMX + Alpine
 Django Services
 Django REST Framework para APIs
 Oracle
-Redis
-Celery ou Django-Q2
+WhiteNoise para arquivos estáticos
+Redis em container, quando necessário
+Celery ou Django-Q2, quando necessário
 LDAP/AD
 Storage externo para arquivos
 ```
