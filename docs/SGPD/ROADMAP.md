@@ -60,7 +60,7 @@ Aplicação acessível e autenticada.
 
 - repository de consultas SQL sem models;
 - contrato homologado dos objetos `VETORH`;
-- grants mínimos para o usuário operacional;
+- grants `SELECT` do owner `SGPD` nos objetos `VETORH` homologados;
 - consultas parametrizadas e paginadas;
 - tratamento de timeout e indisponibilidade;
 - logs e métricas de consulta;

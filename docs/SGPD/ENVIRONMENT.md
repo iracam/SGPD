@@ -68,7 +68,7 @@ O repositório ainda não possui:
 | Host/SO | Debian 13.6 confirmado |
 | Python | 3.13.5 do sistema; versão do projeto pendente de homologação |
 | Oracle | Database 19c e Instant Client 19.28 confirmados |
-| Oracle SGPD | Owner `SGPD` configurado e conexão validada no serviço `senior_pdb1`; usuário operacional pendente |
+| Oracle SGPD | Owner `SGPD` configurado e validado como conexão única de runtime e migrations no DEV |
 | Senior HCM | Schema `VETORH` no mesmo serviço; cinco grants `SELECT` confirmados para `SGPD` |
 | Redis | Container sob demanda |
 | Worker | Adiado até necessidade |
@@ -87,7 +87,7 @@ HML e PRD estão explicitamente fora do escopo atual.
 O arquivo `.env.example` define, sem valores sensíveis:
 
 - aplicação e settings Django;
-- conexão Oracle única do runtime com `SGPD_APP`;
+- conexão Oracle única do runtime e migrations com `SGPD`;
 - leitura direta dos objetos `VETORH` autorizados pela mesma conexão;
 - Oracle Instant Client e wallet/TNS;
 - WhiteNoise;
@@ -99,9 +99,7 @@ O arquivo `.env.example` define, sem valores sensíveis:
 
 O nome `SGPD_DB_NAME` foi alinhado à configuração local validada. Os demais nomes devem ser confirmados durante a criação dos settings.
 
-O usuário `SGPD_OWNER` não faz parte das variáveis de runtime. Credenciais de migrations deverão ser fornecidas apenas ao processo controlado de implantação.
-
-O `.env` local contém atualmente o owner `SGPD` para descoberta. Ele não poderá ser reutilizado como usuário de runtime. A conexão separada com o owner `VETORH` também não faz parte do contrato da aplicação.
+O `.env` local contém o owner `SGPD`, que será reutilizado no runtime DEV por decisão explícita. A conexão separada com o owner `VETORH` não faz parte do contrato da aplicação.
 
 ## 6. Segredos
 
@@ -122,7 +120,7 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 1. Homologar Python 3.12 ou 3.13 para Django e `python-oracledb`.
 2. Adotar formalmente `uv` e definir estratégia de lock.
 3. Definir modo Thin ou Thick do `python-oracledb`.
-4. Criar `SGPD_APP`, confirmar DSN, TLS/wallet e reproduzir nele os grants mínimos de runtime.
+4. Confirmar TLS/wallet da conexão única `SGPD`.
 5. Escolher Celery ou Django-Q2.
 6. Confirmar SMTP AUTH e a permissão `Send As` da conta de envio.
 7. Definir identificador, endpoints, TLS e processo de vinculação ao AD na fase futura.
@@ -137,7 +135,7 @@ O inventário e as decisões do bloco Ambiente estão concluídos.
 As instalações, conexões e validações restantes pertencem à fundação técnica:
 
 - homologar Python e o gerenciador;
-- instalar `python-oracledb`, criar `SGPD_APP` e confirmar o contrato de conexão;
+- instalar `python-oracledb` e confirmar o contrato da conexão única `SGPD`;
 - configurar WhiteNoise;
 - testar SMTP AUTH;
 - configurar permissões e proteção do filesystem de evidências;

@@ -49,7 +49,7 @@ Exemplo:
 
 - quem informa um valor não deve necessariamente aprová-lo;
 - quem administra templates não deve liberar processos;
-- owner do banco não deve ser usuário da aplicação;
+- no DEV, o owner `SGPD` é o usuário da aplicação por exceção registrada; o owner `VETORH` permanece proibido;
 - operadores não devem apagar auditoria;
 - evidências sensíveis devem ter acesso restrito.
 
@@ -185,8 +185,8 @@ Não registrar em log:
 
 ## 12. Banco
 
-- contas separadas;
-- grants mínimos;
+- conta única `SGPD` para runtime e migrations no DEV, conforme risco aceito na ADR-022;
+- grants externos mínimos, especialmente nos objetos `VETORH`;
 - rotação de senha;
 - segredo fora do código;
 - backup criptografado;
@@ -208,7 +208,7 @@ Não registrar em log:
 - usar somente `SELECT` nos objetos `VETORH` homologados;
 - qualificar todos os nomes de objetos pelo schema;
 - usar bind variables e nunca interpolar filtros;
-- não usar os owners `SGPD` ou `VETORH` no runtime;
+- usar somente `SGPD` no runtime DEV e nunca usar `VETORH`;
 - não criar models para objetos do Senior;
 - mascarar CPF nas listagens;
 - limitar projeção, volume, paginação e tempo de consulta;

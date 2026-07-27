@@ -3,7 +3,7 @@
 | ID | Risco | Probabilidade | Impacto | Mitigação |
 |---|---|---:|---:|---|
 | R01 | Acoplamento às tabelas internas do Senior | Alta | Alto | Contrato SQL homologado, objetos qualificados, testes de contrato e revisão a cada upgrade |
-| R02 | Uso do owner pela aplicação | Alta no estado atual | Alto | Separar owner `SGPD`, usuário operacional `SGPD_APP` e owner `VETORH` |
+| R02 | Uso do owner `SGPD` pela aplicação ampliar impacto de falha ou credencial comprometida | Decisão aceita no DEV | Muito alto | `.env` 600, SQL centralizado, sem DDL no runtime, migrations revisadas, auditoria e reavaliação antes de outro ambiente |
 | R03 | Dados de colaborador alterados após abertura | Alta | Alto | Snapshot imutável |
 | R04 | Checklist alterado afetar histórico | Alta | Alto | Versionamento |
 | R05 | Desconto indevido | Média | Muito alto | Pretensão, aprovação e segregação |
@@ -27,7 +27,7 @@
 | R23 | Ausência de CI/CD permitir validações locais inconsistentes | Média | Médio | Padronizar comandos locais e registrar evidências de testes |
 | R24 | Perda ou acesso direto às evidências no filesystem local | Média | Muito alto | Permissões restritas, backup, retenção, antivírus e download autorizado |
 | R25 | SMTP AUTH ou permissão de remetente bloquearem notificações | Média | Alto | Validar autenticação e `Send As` no Microsoft 365 antes de habilitar envios |
-| R26 | Owner `SGPD` ou `VETORH` ser usado pela aplicação | Alta no estado atual | Muito alto | Criar usuário operacional separado e remover credenciais do owner do runtime |
+| R26 | Owner `VETORH` ser usado indevidamente pela aplicação | Baixa | Muito alto | Configurar somente `SGPD` no runtime e manter `VETORH` restrito a consultas administrativas explícitas |
 | R27 | Consulta direta expor CPF completo ou dados excessivos | Média | Muito alto | Mascarar por padrão, autorização por finalidade e projeções mínimas |
 | R28 | `INNER JOIN` omitir colaborador com cadastro relacionado incompleto | Média | Alto | Validar regra funcional, reconciliar contagens e tratar inconsistências explicitamente |
 | R29 | Senha local continuar ativa indevidamente após vínculo com AD | Média | Alto | Desabilitar autenticação local comum após vinculação e restringir contas de contingência |

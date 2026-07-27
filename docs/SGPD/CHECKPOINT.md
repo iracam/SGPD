@@ -60,11 +60,14 @@
   - E-mails serão mantidos no cadastro local de usuários.
 - [x] Confirmar data de atualização.
   - `VETORH.R034FUN.USU_DATALT`, tipo Oracle `DATE`, anulável.
+- [x] Confirmar tratamento da data de afastamento.
+  - `DATAFA` nula ou igual a `DATE '1900-12-31'` retorna `NULL`; demais valores permanecem `DATE`.
 - [x] Confirmar regras de colaborador ativo.
   - Regra homologada: `SITAFA <> 7`, isto é, qualquer situação diferente de “Demitido”.
   - `R010SIT` confirmou 1 = Trabalhando, 2 = Férias e 7 = Demitido.
 - [ ] Definir estratégia de homologação.
-- [ ] Criar usuário operacional separado do owner e reproduzir grants mínimos.
+- [x] Definir usuário Oracle do runtime.
+  - Por decisão explícita no DEV, usar o owner `SGPD`; não criar `SGPD_APP`.
 
 ### Processo funcional
 
@@ -130,11 +133,12 @@
 
 - [x] Estratégia sem models `REF_*` definida.
 - [x] Objetos Senior e grants iniciais validados.
-- [ ] Repository SQL parametrizado.
-- [ ] Paginação, limites e timeout.
+- [x] Contrato SQL parametrizado versionado.
+- [ ] Repository Django sem models.
+- [x] Paginação, limites e timeout inicial definidos.
 - [ ] Tratamento de indisponibilidade.
 - [ ] Logs e métricas de consulta.
-- [ ] Testes de contrato.
+- [x] Script SQLcl de teste de contrato.
 - [ ] Cascata funcionando.
 - [ ] Snapshot validado.
 
@@ -284,9 +288,9 @@ Responsável: Codex
 Fase: Fase 0 — Descoberta e fundação / Senior HCM
 O que foi concluído: owner SGPD do DEV conectado; Oracle 19.15 confirmado; schema VETORH identificado; grants SELECT e consulta de colaboradores validados sem expor dados pessoais.
 Decisões: consultar VETORH diretamente por SQL parametrizado na camada repository/service; não criar models Senior, views Oracle locais, tabelas REF_*, cargas ou sincronização; persistir somente o snapshot da abertura.
-Riscos: owner SGPD ainda está no .env e não pode ser usuário de runtime; acesso direto acopla o SGPD ao contrato físico do Senior; CPF, performance, disponibilidade e joins internos exigem controles; versão do produto Senior HCM ainda não confirmada.
-Pendências: criar SGPD_APP com grants mínimos; decidir necessidade de local; mapear gestor e fonte do e-mail; homologar DATAFA sentinela e INNER JOIN; medir consultas e definir timeout/paginação.
-Próximo passo: criar o usuário operacional e fechar o contrato SQL do fluxo Empresa → Filial → Tipo → Colaborador.
+Riscos: owner SGPD ainda está no .env e não pode ser usuário de runtime; acesso direto acopla o SGPD ao contrato físico do Senior; CPF, performance, disponibilidade e joins internos exigem controles; versão do produto Senior HCM ainda não confirmada. [Separação do owner superada posteriormente pela ADR-022.]
+Pendências: criar SGPD_APP com grants mínimos; decidir necessidade de local; mapear gestor e fonte do e-mail; homologar DATAFA sentinela e INNER JOIN; medir consultas e definir timeout/paginação. [SGPD_APP, local, gestor e e-mail resolvidos por decisões posteriores.]
+Próximo passo: criar o usuário operacional e fechar o contrato SQL do fluxo Empresa → Filial → Tipo → Colaborador. [Criação do usuário superada posteriormente pela ADR-022.]
 Comandos executados: inspeção segura do .env; conexão SQLcl; consultas a metadados de sessão, versão, grants e objetos; probe limitado da consulta fornecida; chmod 600 no .env.
 Arquivos alterados: .env.example, README.md e documentação em docs/SGPD.
 Testes: conexão SGPD bem-sucedida; cinco grants SELECT diretos confirmados; cinco objetos VETORH válidos; probe da consulta retornou uma linha; nenhum DML ou DDL executado.
@@ -302,7 +306,7 @@ O que foi concluído: catálogo completo de situações consultado em R010SIT co
 Decisões: colaborador elegível é aquele com SITAFA <> 7; para o SGPD, ativo significa não demitido, inclusive quando houver outro afastamento.
 Riscos: a regra inclui todos os afastamentos diferentes de 7 e deverá permanecer explícita para não ser reduzida indevidamente aos códigos 1 e 2.
 Pendências: decidir necessidade de local no MVP; mapear gestor; definir Senior ou AD/LDAP como fonte do e-mail.
-Próximo passo: fechar os atributos do contrato e criar SGPD_APP com os grants mínimos.
+Próximo passo: fechar os atributos do contrato e criar SGPD_APP com os grants mínimos. [Criação do usuário superada posteriormente pela ADR-022.]
 Comandos executados: SELECT * FROM R010SIT ORDER BY CODSIT com o usuário VETORH.
 Arquivos alterados: docs/SGPD/REQUIREMENTS.md, docs/SGPD/INTEGRATION_SENIOR_ORACLE.md, docs/SGPD/CHECKPOINT.md e docs/SGPD/MANIFEST.json.
 Testes: consulta somente leitura concluída; 1 = Trabalhando, 2 = Férias e 7 = Demitido confirmados; nenhum DML ou DDL executado.
@@ -338,4 +342,20 @@ Próximo passo: concluir as pendências restantes do contrato Senior.
 Comandos executados: consulta a ALL_TAB_COLUMNS e probe não nulo em VETORH.R034FUN, usando SGPD.
 Arquivos alterados: docs/SGPD/REQUIREMENTS.md, docs/SGPD/DATA_MODEL.md, docs/SGPD/INTEGRATION_SENIOR_ORACLE.md, docs/SGPD/CHECKPOINT.md e docs/SGPD/MANIFEST.json.
 Testes: coluna USU_DATALT confirmada como DATE, armazenamento de 7 bytes, anulável e com ao menos um valor não nulo; nenhum DML ou DDL executado.
+```
+
+### 2026-07-27 — Contrato SQL e decisão do usuário Oracle
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 0 — Descoberta e fundação / Senior HCM
+O que foi concluído: SGPD_APP descartado por decisão explícita; owner SGPD definido como conexão única DEV; cinco consultas parametrizadas versionadas e validadas.
+Decisões: usar SGPD para runtime e migrations; não criar outro usuário Oracle; LEFT JOIN em R018CCU para não ocultar colaboradores; paginação máxima 100 e timeout inicial de 5 segundos.
+Riscos: owner no runtime amplia impacto de falha; 49 de 1.889 colaboradores elegíveis não possuem referência em R018CCU; desempenho sob concorrência ainda não medido.
+Pendências: implementar repository Django sem models; homologar centro de custo ausente; tratar indisponibilidade; adicionar logs, métricas e testes automatizados após a fundação.
+Próximo passo: iniciar a fundação técnica e implementar o repository que consome o contrato SQL.
+Comandos executados: inspeção de privilégios de SGPD; consultas de metadados; contagem global de integridade; execução repetida do script SQLcl read-only; validação do wrapper local.
+Arquivos alterados: AGENTS.md, .env.example, README.md, documentação em docs/SGPD e scripts/oracle/validate_senior_reference_queries.sql.
+Testes: empresas=7, filiais probe=1, tipos probe=1, colaboradores probe=5, detalhe=1; consultas paginadas/detalhe em até 42 ms na execução final; USU_DATALT DATE anulável; DATAFA sentinela em 1.815 de 1.889 elegíveis; nenhum DML ou DDL executado.
 ```

@@ -34,6 +34,10 @@ Usar Django Templates + HTMX + Alpine.js.
 
 ## ADR-003 — Oracle como banco principal
 
+### Estado
+
+Alterada pela ADR-022 para o ambiente DEV.
+
 ### Decisão
 
 Usar Oracle Database 19c, conforme padrão definido.
@@ -41,8 +45,7 @@ Usar Oracle Database 19c, conforme padrão definido.
 ### Restrições
 
 - owner exclusivo;
-- application user separado;
-- sync user separado;
+- segregação de usuários originalmente prevista;
 - Oracle Instant Client 19.28 disponível em `/opt/oracle/instantclient_19_28`;
 - migrations revisadas;
 - nada de acesso direto de escrita ao Senior.
@@ -280,7 +283,7 @@ A view Django deverá delegar a consulta a um service/repository. Somente o snap
 - maior acoplamento ao contrato físico do Senior;
 - indisponibilidade do Senior impede novas pesquisas e snapshots;
 - consultas exigem bind variables, paginação, timeout e testes de contrato;
-- o usuário de runtime deve ser separado dos owners `SGPD` e `VETORH`;
+- a separação do owner `SGPD` foi posteriormente excepcionada pela ADR-022; `VETORH` continua proibido no runtime;
 - o snapshot do processo continua obrigatório e imutável.
 
 ## ADR-021 — Cadastro local de usuários e vinculação futura ao AD
@@ -305,3 +308,31 @@ O Senior HCM não será fonte de identidades ou autorizações. O MVP terá aute
 - gestor deverá ser selecionado entre usuários SGPD na abertura do processo;
 - nome e e-mail do gestor serão preservados historicamente no processo;
 - a indisponibilidade futura do AD não altera os dados cadastrais e de autorização mantidos no SGPD.
+
+## ADR-022 — Owner SGPD como usuário de runtime no DEV
+
+### Decisão
+
+Usar o owner `SGPD` como conexão única para runtime e migrations no ambiente DEV. Não criar `SGPD_APP` ou outro usuário Oracle para a aplicação.
+
+### Limites
+
+- a decisão vale para o único ambiente DEV atualmente em escopo;
+- `VETORH` continua proibido como usuário da aplicação;
+- o acesso ao Senior continua limitado a `SELECT` nos objetos homologados;
+- nenhum DDL deve ser emitido pelo código de runtime;
+- migrations continuam sendo operações explícitas e revisadas;
+- uma futura criação de HML ou PRD exigirá nova avaliação desta exceção.
+
+### Risco aceito
+
+O processo da aplicação terá privilégios de owner sobre o schema SGPD. Um erro de aplicação ou comprometimento de credencial terá impacto maior do que teria com um usuário operacional restrito.
+
+### Controles compensatórios
+
+- `.env` com modo `600` e fora do Git;
+- credencial exclusiva do SGPD, nunca compartilhada com `VETORH`;
+- SQL do Senior centralizado, parametrizado e somente leitura;
+- revisão de migrations e proibição de DDL dinâmico;
+- logs e auditoria sem segredos;
+- testes de contrato e revisão do escopo de grants.

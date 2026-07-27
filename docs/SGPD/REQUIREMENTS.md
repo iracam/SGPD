@@ -331,11 +331,13 @@ O SGPD utilizará schema/owner exclusivo.
 
 ### RNF-003 — Separação de credenciais
 
-A aplicação não utilizará o owner para operação diária.
+No DEV, a aplicação utilizará o owner `SGPD` para operação diária e migrations. Não será criado outro usuário Oracle para o SGPD neste ambiente.
+
+Essa exceção não autoriza o uso do owner `VETORH` nem qualquer escrita nos objetos do Senior.
 
 ### RNF-004 — Segurança
 
-Aplicação deverá seguir princípios de menor privilégio.
+A aplicação deverá seguir princípios de menor privilégio nas integrações. O risco adicional dos privilégios amplos do owner `SGPD` no DEV será aceito e compensado por revisão de SQL, ausência de DDL em runtime, secrets protegidos e testes.
 
 ### RNF-005 — Auditoria
 

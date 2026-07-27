@@ -28,7 +28,7 @@ O termo “view local” neste projeto identifica a view da aplicação que cons
 - conexão salva `DEV@VETORH` no MCP aponta para um serviço não registrado e não foi usada na validação final;
 - a conexão separada configurada com o owner `VETORH` funciona, mas é administrativa e não deve ser usada pela aplicação.
 
-O `.env` real usa hoje o owner `SGPD`. Isso é suficiente para descoberta e migrations controladas, mas não homologa seu uso como usuário de runtime. Antes da aplicação, deve existir um usuário operacional separado, com grants mínimos.
+O `.env` real usa o owner `SGPD`. Por decisão explícita para o DEV, essa será a conexão única de runtime e migrations; não será criado `SGPD_APP`. O risco e os controles compensatórios estão registrados na ADR-022.
 
 ## 4. Objetos e grants confirmados
 
@@ -76,6 +76,8 @@ NUMEMP + CODFIL + TIPCOL + NUMCAD
 
 `R034FUN.USU_DATALT` foi validada como coluna Oracle `DATE`, anulável, com registros preenchidos. Ela deve ser retornada como data e preservada no snapshot para rastreabilidade da versão cadastral consultada. Como o acesso é online, esse campo não será usado para carga incremental.
 
+`R034FUN.DATAFA` será retornada como `NULL` quando estiver nula ou contiver a sentinela `DATE '1900-12-31'`. Nos demais casos, continuará sendo retornada como `DATE`, sem formatação textual no SQL. Entre os 1.889 elegíveis validados, 1.815 usam a sentinela e 74 possuem outra data.
+
 ### Relações validadas
 
 ```text
@@ -84,6 +86,15 @@ R034FUN.(NUMEMP, CODFIL) = R030FIL.(NUMEMP, CODFIL)
 R034FUN.(ESTCAR, CODCAR) = R024CAR.(ESTCAR, CODCAR)
 R034FUN.(NUMEMP, CODCCU) = R018CCU.(NUMEMP, CODCCU)
 ```
+
+Na validação global dos 1.889 colaboradores com `SITAFA <> 7`:
+
+- situação sem referência: 0;
+- filial sem referência: 0;
+- cargo sem referência: 0;
+- centro de custo sem referência: 49.
+
+Por isso, o contrato usa `LEFT JOIN` em `R018CCU`, preservando o colaborador quando a descrição do centro de custo estiver ausente. Os demais relacionamentos permanecem `INNER JOIN` com base na integridade observada.
 
 ### Regra homologada de elegibilidade
 
@@ -137,6 +148,35 @@ Regras:
 - testes de contrato para colunas e grants;
 - nenhuma tentativa de criar, alterar ou excluir objetos do Senior.
 
+### Contrato SQL versionado
+
+As consultas parametrizadas estão em [`sql/senior_reference_queries.sql`](sql/senior_reference_queries.sql):
+
+- `listar_empresas`;
+- `listar_filiais`;
+- `listar_tipos_colaborador`;
+- `listar_colaboradores`;
+- `obter_colaborador`.
+
+Limites iniciais:
+
+- `offset` mínimo: 0;
+- empresas, filiais e tipos: limite máximo de 100;
+- colaboradores: limite padrão de 20 e máximo de 100;
+- timeout inicial por chamada Oracle: 5 segundos.
+
+O script `scripts/oracle/validate_senior_reference_queries.sql` valida binds, paginação, projeções, detalhe, integridade dos joins e `USU_DATALT`, retornando somente contagens e metadados.
+
+Execução local a partir da raiz:
+
+```bash
+scripts/oracle/run_senior_contract_validation.sh
+```
+
+O wrapper lê a conexão `SGPD` do `.env` sem exibir credenciais.
+
+No DEV, as consultas paginadas e o detalhe executaram em até 57 ms na amostra validada. O tempo não inclui a abertura da conexão e deverá ser acompanhado novamente com volume e concorrência reais.
+
 ## 7. Snapshot
 
 No início do processo:
@@ -153,8 +193,8 @@ O snapshot é persistência de domínio do SGPD. Ele não é cache nem réplica 
 ## 8. Segurança e segregação
 
 - nunca usar o owner `VETORH` na aplicação;
-- nunca usar o owner `SGPD` como usuário de runtime;
-- conceder ao futuro usuário operacional `SELECT` apenas nos objetos homologados do Senior;
+- usar `SGPD` como conexão única do runtime DEV;
+- manter os `SELECT` de `SGPD` limitados aos objetos homologados do Senior;
 - conceder DML apenas nos objetos necessários do SGPD;
 - manter credenciais fora do código;
 - não registrar DSN, senha ou CPF completo;
@@ -177,9 +217,6 @@ Nessa situação:
 
 - confirmar versão exata do Senior HCM, distinta da versão do Oracle;
 - homologar o contrato de acesso direto às tabelas internas;
-- criar e validar o usuário operacional separado do owner;
-- confirmar tratamento de `DATAFA = DATE '1900-12-31'`;
-- decidir se `INNER JOIN` deve excluir colaboradores com referência incompleta;
-- medir plano e tempo das consultas com filtros reais;
-- definir timeout e limites de paginação;
+- homologar com o negócio o uso de `LEFT JOIN` para centro de custo ausente;
+- medir plano e tempo das consultas sob concorrência;
 - definir estratégia de homologação e monitoramento.

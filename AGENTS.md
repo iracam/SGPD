@@ -37,7 +37,8 @@ Não implemente grandes blocos sem verificar o checkpoint atual.
 O agente não deve:
 
 - escrever diretamente em tabelas internas do Senior;
-- usar o owner Oracle como usuário da aplicação;
+- usar o owner `VETORH` como usuário da aplicação;
+- criar outro usuário Oracle para a aplicação no DEV; por decisão explícita, o owner `SGPD` é a conexão única desse ambiente, com a exceção e os riscos registrados na ADR-022;
 - armazenar senha no código;
 - inventar nomes de tabelas do Senior;
 - criar integração destrutiva;

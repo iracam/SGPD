@@ -74,7 +74,7 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 2. O SGPD é o orquestrador do processo.
 3. Nenhuma escrita direta será feita em tabelas internas do Senior.
 4. O banco Oracle do SGPD terá owner exclusivo.
-5. O usuário da aplicação não será o owner do schema.
+5. No DEV, por decisão explícita, o owner `SGPD` será também o usuário da aplicação; não será criado `SGPD_APP`.
 6. Referências do Senior serão consultadas em tempo real por SQL `SELECT` parametrizado, sem models ou cópias `REF_*` no SGPD.
 7. Dados do colaborador serão copiados para um snapshot na abertura do processo.
 8. Regras e checklists serão versionados.
