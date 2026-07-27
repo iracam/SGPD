@@ -6,7 +6,7 @@ Levantamento executado em 2026-07-27 no ambiente DEV.
 
 Este é o único ambiente no escopo atual. HML e PRD não serão configurados nesta etapa.
 
-Nenhum segredo foi lido ou registrado. A inspeção considerou apenas nomes de variáveis, executáveis, versões, estado de serviços e arquivos de configuração.
+Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nomes de variáveis, executáveis, versões, estado de serviços e arquivos de configuração; as credenciais locais foram usadas somente pelo cliente Oracle durante o teste de conexão.
 
 ## 2. Ambiente local confirmado
 
@@ -29,14 +29,14 @@ Nenhum segredo foi lido ou registrado. A inspeção considerou apenas nomes de v
 | Oracle Database | 19c | Versão confirmada para o projeto |
 | Oracle Instant Client | 19.28 em `/opt/oracle/instantclient_19_28` | Cliente nativo confirmado |
 | Driver Python Oracle | `oracledb` e `cx_Oracle` ausentes | `python-oracledb` será instalado na fundação |
-| SQL*Plus / SQLcl local | Ausentes | MCP Oracle SQLcl disponível |
-| MCP Oracle | Ativo, com conexão DEV salva para Senior/Vetorh | Disponibilidade confirmada; conexão ainda não inspecionada |
+| SQLcl local | 26.1 em `/opt/sqlcl/bin/sql` | Conexões Oracle validadas |
+| MCP Oracle | Ativo, com conexão `DEV@VETORH` salva | Definição aponta para serviço não registrado; não usada na validação final |
 | Redis | Somente `redis-cli` 8.0.2; servidor local ausente/inativo | Será iniciado em container quando necessário |
 | Celery / Django-Q2 | Ausentes | Worker adiado até existir caso de uso |
 | Gunicorn | Ausente | Fora da execução DEV atual |
 | Nginx | Ausente/inativo | Não será utilizado; estáticos serão servidos por WhiteNoise |
 | WhiteNoise | Ainda não instalado | Será configurado com a fundação Django |
-| LDAP tools | `ldapsearch` ausente | Autenticação corporativa não testável |
+| LDAP tools | `ldapsearch` ausente | Não bloqueia o MVP local; necessário na integração futura com AD |
 | SMTP | Microsoft 365, `smtp.office365.com:587`, TLS/STARTTLS | Remetente definido; credenciais ficarão no `.env` |
 | Evidências | Filesystem local privado | Caminho inicial `media/evidence`, fora do WhiteNoise |
 | Pytest | executável global 9.0.3 e módulo do Python 8.3.5 | Conflito será eliminado pelo ambiente virtual do projeto |
@@ -57,7 +57,7 @@ O repositório ainda não possui:
 - definição do container Redis e do worker, ambos adiados;
 - configuração de testes, lint ou tipagem;
 - configuração de SMTP;
-- configuração de LDAP/Active Directory;
+- configuração futura de LDAP/Active Directory;
 - definição de storage de evidências;
 - health checks e observabilidade.
 
@@ -68,12 +68,12 @@ O repositório ainda não possui:
 | Host/SO | Debian 13.6 confirmado |
 | Python | 3.13.5 do sistema; versão do projeto pendente de homologação |
 | Oracle | Database 19c e Instant Client 19.28 confirmados |
-| Oracle SGPD | Conexão da aplicação ainda não configurada |
-| Senior HCM | Acesso MCP DEV disponível; catálogo ainda não inspecionado |
+| Oracle SGPD | Owner `SGPD` configurado e conexão validada no serviço `senior_pdb1`; usuário operacional pendente |
+| Senior HCM | Schema `VETORH` no mesmo serviço; cinco grants `SELECT` confirmados para `SGPD` |
 | Redis | Container sob demanda |
 | Worker | Adiado até necessidade |
 | SMTP | Microsoft 365; remetente `noreply@bsabioenergia.com.br`; credenciais no `.env` |
-| LDAP/AD | Não configurado |
+| Autenticação | Local no MVP; LDAP/AD não configurado e previsto para fase futura |
 | Estáticos | WhiteNoise definido; instalação pendente |
 | Evidências | Filesystem local privado em `media/evidence` |
 | Nginx / proxy | Não utilizado |
@@ -87,8 +87,8 @@ HML e PRD estão explicitamente fora do escopo atual.
 O arquivo `.env.example` define, sem valores sensíveis:
 
 - aplicação e settings Django;
-- conexão Oracle do SGPD com `SGPD_APP`;
-- conexão somente leitura da integração com `SGPD_SYNC`;
+- conexão Oracle única do runtime com `SGPD_APP`;
+- leitura direta dos objetos `VETORH` autorizados pela mesma conexão;
 - Oracle Instant Client e wallet/TNS;
 - WhiteNoise;
 - Redis e Celery opcionais;
@@ -97,9 +97,11 @@ O arquivo `.env.example` define, sem valores sensíveis:
 - storage local ou S3 compatível;
 - cookies seguros.
 
-Os nomes são preliminares e devem ser confirmados durante a criação dos settings.
+O nome `SGPD_DB_NAME` foi alinhado à configuração local validada. Os demais nomes devem ser confirmados durante a criação dos settings.
 
 O usuário `SGPD_OWNER` não faz parte das variáveis de runtime. Credenciais de migrations deverão ser fornecidas apenas ao processo controlado de implantação.
+
+O `.env` local contém atualmente o owner `SGPD` para descoberta. Ele não poderá ser reutilizado como usuário de runtime. A conexão separada com o owner `VETORH` também não faz parte do contrato da aplicação.
 
 ## 6. Segredos
 
@@ -110,7 +112,7 @@ O usuário `SGPD_OWNER` não faz parte das variáveis de runtime. Credenciais de
 - usuários individuais seguem a convenção `nome.sobrenome`;
 - senhas não podem seguir padrão previsível;
 - o `.env` deve ter permissões restritas ao usuário da aplicação;
-- credenciais de SGPD, Senior, SMTP, LDAP e storage devem ser distintas e rotacionáveis;
+- credenciais de SGPD, SMTP, LDAP e storage devem ser distintas e rotacionáveis;
 - nenhuma string de conexão deve ser registrada em logs.
 
 Nenhum valor real de usuário, senha ou token deve ser incluído no repositório.
@@ -120,10 +122,10 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 1. Homologar Python 3.12 ou 3.13 para Django e `python-oracledb`.
 2. Adotar formalmente `uv` e definir estratégia de lock.
 3. Definir modo Thin ou Thick do `python-oracledb`.
-4. Confirmar DSNs, TLS, wallets e grants de `SGPD_APP` e `SGPD_SYNC`.
+4. Criar `SGPD_APP`, confirmar DSN, TLS/wallet e reproduzir nele os grants mínimos de runtime.
 5. Escolher Celery ou Django-Q2.
 6. Confirmar SMTP AUTH e a permissão `Send As` da conta de envio.
-7. Definir grupos e endpoints LDAP/AD.
+7. Definir identificador, endpoints, TLS e processo de vinculação ao AD na fase futura.
 8. Definir backup, retenção e antivírus das evidências.
 9. Definir o Compose do Redis quando surgir a primeira dependência.
 10. Liberar espaço no filesystem local antes de baixar imagens e dependências.
@@ -135,7 +137,7 @@ O inventário e as decisões do bloco Ambiente estão concluídos.
 As instalações, conexões e validações restantes pertencem à fundação técnica:
 
 - homologar Python e o gerenciador;
-- instalar `python-oracledb` e confirmar contratos de conexão;
+- instalar `python-oracledb`, criar `SGPD_APP` e confirmar o contrato de conexão;
 - configurar WhiteNoise;
 - testar SMTP AUTH;
 - configurar permissões e proteção do filesystem de evidências;

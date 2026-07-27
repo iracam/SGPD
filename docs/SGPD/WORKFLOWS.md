@@ -6,7 +6,7 @@
 DP abre processo
     |
     v
-Sistema consulta referências do Senior
+Sistema consulta o Senior em tempo real por SELECT parametrizado
     |
     v
 Sistema cria snapshot do colaborador

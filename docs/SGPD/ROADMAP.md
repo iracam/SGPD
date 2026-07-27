@@ -19,7 +19,7 @@
 - mapa AS-IS;
 - mapa TO-BE;
 - matriz de papéis;
-- contrato preliminar das views;
+- contrato preliminar das consultas SQL ao Senior;
 - arquitetura validada;
 - backlog;
 - riscos;
@@ -37,8 +37,9 @@ Checkpoint 0 aprovado.
 - projeto Django;
 - configuração do ambiente DEV;
 - conexão Oracle;
-- autenticação;
-- usuários e papéis;
+- cadastro local de usuários, gestores, e-mails e papéis;
+- autenticação local;
+- campos de vinculação futura ao AD;
 - auditoria base;
 - layout;
 - WhiteNoise para arquivos estáticos;
@@ -57,13 +58,13 @@ Aplicação acessível e autenticada.
 
 ### Entregas
 
-- tabelas `REF_*`;
-- rotina de carga;
-- views de integração;
-- carga inicial;
-- incremental;
-- painel de sincronização;
-- logs e reprocessamento;
+- repository de consultas SQL sem models;
+- contrato homologado dos objetos `VETORH`;
+- grants mínimos para o usuário operacional;
+- consultas parametrizadas e paginadas;
+- tratamento de timeout e indisponibilidade;
+- logs e métricas de consulta;
+- testes de contrato;
 - seleção em cascata.
 
 ### Saída esperada
@@ -189,7 +190,7 @@ Fluxo ponta a ponta concluído.
 
 Possíveis integrações:
 
-- AD;
+- AD/LDAP para autenticação corporativa das contas já cadastradas no SGPD;
 - controle de acesso;
 - e-mail;
 - VPN;

@@ -2,229 +2,184 @@
 
 ## 1. Objetivo
 
-Utilizar dados do Senior HCM para abastecer os cadastros de referência do SGPD sem escrever diretamente nas tabelas internas do produto.
+Consultar dados cadastrais do Senior HCM diretamente no Oracle, em tempo real e somente por `SELECT`, sem escrever nos objetos do Senior e sem replicar referências em models ou tabelas `REF_*` do SGPD.
 
-## 2. Fonte oficial
+## 2. Decisão de acesso
 
-O Senior HCM permanece como fonte oficial de:
+- o Senior HCM permanece como fonte oficial;
+- a conexão Oracle do SGPD acessa objetos `VETORH` no mesmo serviço;
+- os nomes dos objetos são qualificados pelo schema;
+- o acesso ocorre por SQL parametrizado em um repository/service chamado pelas views Django;
+- não serão criados models Django, inclusive `managed = False`, para objetos do Senior;
+- não serão criadas views Oracle locais nesta etapa;
+- nenhum dado consultado é persistido até a abertura do processo;
+- na abertura, o SGPD cria seu próprio snapshot histórico e auditável.
 
-- empresas;
-- filiais;
-- tipos de colaborador;
-- colaboradores;
-- cargos;
-- locais;
-- centros de custo;
-- gestores;
-- situação do vínculo;
-- dados necessários ao processo de rescisão.
+O termo “view local” neste projeto identifica a view da aplicação que consome a camada de consulta. O SQL e as credenciais não devem ficar na view de apresentação.
 
-## 2.1 Ambiente confirmado
+## 3. Ambiente validado em 2026-07-27
 
-- Oracle Database 19c;
-- Oracle Instant Client 19.28 disponível em `/opt/oracle/instantclient_19_28`;
-- MCP Oracle SQLcl disponível;
-- conexão DEV salva para Senior/Vetorh;
-- nenhuma consulta ao catálogo executada nesta etapa.
+- Oracle Database 19c Enterprise Edition, versão 19.15.0.0.0;
+- Oracle Instant Client 19.28;
+- SQLcl local 26.1;
+- serviço configurado no `.env` acessível;
+- sessão do owner do SGPD confirmada como `SGPD`;
+- schema de origem confirmado como `VETORH`;
+- conexão salva `DEV@VETORH` no MCP aponta para um serviço não registrado e não foi usada na validação final;
+- a conexão separada configurada com o owner `VETORH` funciona, mas é administrativa e não deve ser usada pela aplicação.
 
-## 3. Schema proposto
+O `.env` real usa hoje o owner `SGPD`. Isso é suficiente para descoberta e migrations controladas, mas não homologa seu uso como usuário de runtime. Antes da aplicação, deve existir um usuário operacional separado, com grants mínimos.
 
-```text
-SENIOR_OWNER
-    Dados internos do Senior HCM
+## 4. Objetos e grants confirmados
 
-HCM_INTEGRACAO
-    Views controladas para leitura
+Foram confirmados grants diretos `SELECT`, concedidos por `VETORH` a `SGPD`, nos seguintes objetos válidos:
 
-SGPD_OWNER
-    Estrutura do SGPD
+| Objeto | Tipo | Grant |
+|---|---|---|
+| `VETORH.R010SIT` | `TABLE` | `SELECT` |
+| `VETORH.R018CCU` | `TABLE` | `SELECT` |
+| `VETORH.R024CAR` | `TABLE` | `SELECT` |
+| `VETORH.R030FIL` | `TABLE` | `SELECT` |
+| `VETORH.R034FUN` | `TABLE` | `SELECT` |
 
-SGPD_APP
-    Usuário de execução da aplicação
+A consulta de colaboradores foi compilada e executada pela sessão `SGPD`, retornando uma linha no probe limitado. Nenhum DML ou DDL foi executado.
 
-SGPD_SYNC
-    Usuário de sincronização
-```
+## 5. Contrato preliminar da consulta
 
-## 4. Privilégios
-
-### SGPD_OWNER
-
-- criar e alterar objetos do SGPD;
-- executar migrations;
-- não ser utilizado pela aplicação.
-
-### SGPD_APP
-
-- `SELECT`, `INSERT`, `UPDATE` e `DELETE` somente nos objetos necessários;
-- execução de procedures autorizadas;
-- sem `CREATE TABLE`;
-- sem leitura direta das tabelas do Senior.
-
-### SGPD_SYNC
-
-- `SELECT` nas views de integração;
-- escrita nas tabelas `REF_*` do SGPD;
-- sem escrita no Senior.
-
-## 5. Views sugeridas
-
-- `VW_SGPD_EMPRESAS`
-- `VW_SGPD_FILIAIS`
-- `VW_SGPD_TIPOS_COLABORADOR`
-- `VW_SGPD_COLABORADORES`
-- `VW_SGPD_CARGOS`
-- `VW_SGPD_LOCAIS`
-- `VW_SGPD_CENTROS_CUSTO`
-- `VW_SGPD_GESTORES`
-- `VW_SGPD_SITUACOES`
-
-## 6. Contrato mínimo das views
-
-### VW_SGPD_EMPRESAS
-
-- `COD_EMPRESA`
-- `NOME_EMPRESA`
-- `ATIVO`
-- `DT_ATUALIZACAO`
-
-### VW_SGPD_FILIAIS
-
-- `COD_EMPRESA`
-- `COD_FILIAL`
-- `NOME_FILIAL`
-- `ATIVO`
-- `DT_ATUALIZACAO`
-
-### VW_SGPD_TIPOS_COLABORADOR
-
-- `COD_EMPRESA`
-- `COD_FILIAL`
-- `COD_TIPO`
-- `DESCRICAO`
-- `ATIVO`
-- `DT_ATUALIZACAO`
-
-### VW_SGPD_COLABORADORES
-
-- `COD_EMPRESA`
-- `COD_FILIAL`
-- `COD_TIPO`
-- `MATRICULA`
-- `NOME`
-- `CPF`
-- `EMAIL`
-- `COD_CARGO`
-- `CARGO`
-- `COD_LOCAL`
-- `LOCAL`
-- `COD_CENTRO_CUSTO`
-- `CENTRO_CUSTO`
-- `MATRICULA_GESTOR`
-- `NOME_GESTOR`
-- `DATA_ADMISSAO`
-- `COD_SITUACAO`
-- `SITUACAO`
-- `ATIVO`
-- `DT_ATUALIZACAO`
-
-## 7. Estratégia de sincronização
-
-### Carga inicial
-
-- ler todas as views;
-- inserir registros locais;
-- registrar execução;
-- validar contagens;
-- gerar relatório de inconsistências.
-
-### Carga incremental
-
-- usar `DT_ATUALIZACAO` quando confiável;
-- usar hash dos campos relevantes;
-- atualizar somente alterações;
-- inativar registros não mais disponíveis;
-- nunca excluir referência já usada.
-
-### Reconciliação periódica
-
-Executar uma carga completa em periodicidade definida para corrigir divergências.
-
-## 8. Idempotência
-
-A chave de negócio deve impedir duplicidade.
-
-Exemplo para colaborador:
+### Chave do colaborador
 
 ```text
-COD_EMPRESA + COD_FILIAL + COD_TIPO + MATRICULA
+NUMEMP + CODFIL + TIPCOL + NUMCAD
 ```
 
-## 9. Snapshot
+### Mapeamento validado
+
+| Campo lógico | Origem |
+|---|---|
+| empresa | `R034FUN.NUMEMP` |
+| filial | `R034FUN.CODFIL` |
+| razão social | `R030FIL.RAZSOC` |
+| tipo do colaborador | `R034FUN.TIPCOL` |
+| matrícula | `R034FUN.NUMCAD` |
+| nome | `R034FUN.NOMFUN` |
+| CPF | `R034FUN.NUMCPF` |
+| data de admissão | `R034FUN.DATADM` |
+| código de afastamento | `R034FUN.SITAFA` |
+| descrição do afastamento | `R010SIT.DESSIT` |
+| data de afastamento | `R034FUN.DATAFA` |
+| estrutura de cargo | `R034FUN.ESTCAR` |
+| código de cargo | `R034FUN.CODCAR` |
+| descrição do cargo | `R024CAR.TITCAR` |
+| centro de custo | `R034FUN.CODCCU` |
+| descrição do centro de custo | `R018CCU.NOMCCU` |
+| data de atualização da origem | `R034FUN.USU_DATALT` |
+
+`R034FUN.USU_DATALT` foi validada como coluna Oracle `DATE`, anulável, com registros preenchidos. Ela deve ser retornada como data e preservada no snapshot para rastreabilidade da versão cadastral consultada. Como o acesso é online, esse campo não será usado para carga incremental.
+
+### Relações validadas
+
+```text
+R034FUN.SITAFA = R010SIT.CODSIT
+R034FUN.(NUMEMP, CODFIL) = R030FIL.(NUMEMP, CODFIL)
+R034FUN.(ESTCAR, CODCAR) = R024CAR.(ESTCAR, CODCAR)
+R034FUN.(NUMEMP, CODCCU) = R018CCU.(NUMEMP, CODCCU)
+```
+
+### Regra homologada de elegibilidade
+
+Consulta completa de `R010SIT`, executada em 2026-07-27 com o usuário administrativo `VETORH`, confirmou:
+
+| `CODSIT` | `DESSIT` | Elegível no SGPD |
+|---:|---|---|
+| 1 | Trabalhando | Sim |
+| 2 | Férias | Sim |
+| 7 | Demitido | Não |
+
+A regra funcional é:
+
+```sql
+R034FUN.SITAFA <> 7
+```
+
+Para o SGPD, “ativo/elegível” significa “não demitido”. Portanto, outros afastamentos cadastrados em `R010SIT` também permanecem elegíveis enquanto seu código for diferente de 7.
+
+### Limites do contrato cadastral
+
+- local de trabalho foi retirado do escopo e não será consultado nem usado nas regras do MVP;
+- gestor não vem do Senior: será um usuário cadastrado no SGPD e selecionado na abertura do processo;
+- e-mail não vem do Senior: será mantido no perfil do usuário do SGPD;
+- nenhum usuário, gestor, e-mail, papel ou permissão do sistema será provisionado pelo Senior;
+- a integração futura com AD vinculará identidades às contas SGPD existentes apenas para autenticação.
+
+## 6. Padrão de implementação futura
+
+O acesso deve usar `django.db.connection.cursor()` ou conexão Oracle dedicada homologada, encapsulada em um repository sem models:
+
+```text
+Django view / endpoint
+    -> service de consulta
+        -> repository Oracle read-only
+            -> SELECT parametrizado em VETORH.*
+```
+
+Regras:
+
+- bind variables para empresa, filial, tipo, matrícula e busca textual;
+- filtros mínimos obrigatórios antes de listar colaboradores;
+- paginação e limite de linhas;
+- timeout configurado;
+- aliases técnicos estáveis, sem depender de rótulos de apresentação;
+- datas retornadas como datas, não como strings formatadas;
+- `USU_DATALT` retornada como marcador anulável de atualização da origem;
+- CPF mascarado por padrão e CPF completo somente no caso de uso autorizado;
+- tratamento explícito de indisponibilidade;
+- logs com correlation ID, sem SQL contendo valores pessoais;
+- testes de contrato para colunas e grants;
+- nenhuma tentativa de criar, alterar ou excluir objetos do Senior.
+
+## 7. Snapshot
 
 No início do processo:
 
-1. consultar `REF_COLABORADOR`;
-2. validar se está ativo ou elegível;
-3. copiar todos os dados necessários;
-4. registrar versão e data da referência;
-5. impedir alteração automática do snapshot.
+1. executar novamente a consulta pela chave completa;
+2. validar que existe exatamente um colaborador elegível;
+3. validar permissão do usuário solicitante;
+4. copiar os dados necessários para o snapshot do SGPD na mesma transação da abertura;
+5. registrar data da consulta e identidade externa;
+6. impedir atualização automática do snapshot.
 
-## 10. Escrita no Senior
+O snapshot é persistência de domínio do SGPD. Ele não é cache nem réplica cadastral do Senior.
 
-Não deve ocorrer no MVP.
+## 8. Segurança e segregação
 
-Integração futura poderá usar:
+- nunca usar o owner `VETORH` na aplicação;
+- nunca usar o owner `SGPD` como usuário de runtime;
+- conceder ao futuro usuário operacional `SELECT` apenas nos objetos homologados do Senior;
+- conceder DML apenas nos objetos necessários do SGPD;
+- manter credenciais fora do código;
+- não registrar DSN, senha ou CPF completo;
+- restringir o `.env` local a modo `600`;
+- revisar periodicamente os grants.
 
-- web service oficial;
-- API;
-- procedure homologada;
-- tabela de integração fornecida pelo fornecedor;
-- fila intermediária.
+## 9. Falhas
 
-Qualquer escrita deve possuir:
+Como não existe réplica local, indisponibilidade do Senior impede novas pesquisas e a abertura de processos que dependam de um snapshot novo.
 
-- contrato;
-- idempotência;
-- log;
-- retry;
-- resposta;
-- correlação;
-- homologação.
+Nessa situação:
 
-## 11. Falhas
+- processos e snapshots existentes continuam disponíveis;
+- a aplicação informa indisponibilidade sem expor detalhes do Oracle;
+- a falha é registrada com correlation ID;
+- a consulta pode ser repetida com backoff limitado;
+- não se usa dado cadastral antigo para abrir processo silenciosamente.
 
-Em caso de falha de sincronização:
+## 10. Pendências de descoberta
 
-- preservar os últimos dados válidos;
-- registrar execução com erro;
-- permitir reprocessamento;
-- alertar administradores;
-- impedir abertura apenas quando a falha tornar o cadastro inconsistente.
-
-## 12. Segurança
-
-- mascarar CPF quando não necessário;
-- nunca registrar senha;
-- usar conexão TLS conforme ambiente;
-- rotacionar credenciais;
-- limitar grants;
-- auditar consultas administrativas;
-- não expor nomes de tabelas internas do Senior na UI.
-
-## 13. Itens a levantar antes da implementação
-
-- versão exata do Senior HCM;
-- owner atual;
-- tabelas ou views homologadas;
-- chaves de empresa, filial, tipo e colaborador;
-- regra de colaborador ativo;
-- origem do gestor;
-- origem do e-mail;
-- timezone;
-- charset;
-- disponibilidade de `DT_ATUALIZACAO`;
-- política de acesso ao Oracle;
-- política de criação de views;
-- estratégia de validação da integração no DEV;
-- possibilidade de web services oficiais.
+- confirmar versão exata do Senior HCM, distinta da versão do Oracle;
+- homologar o contrato de acesso direto às tabelas internas;
+- criar e validar o usuário operacional separado do owner;
+- confirmar tratamento de `DATAFA = DATE '1900-12-31'`;
+- decidir se `INNER JOIN` deve excluir colaboradores com referência incompleta;
+- medir plano e tempo das consultas com filtros reais;
+- definir timeout e limites de paginação;
+- definir estratégia de homologação e monitoramento.

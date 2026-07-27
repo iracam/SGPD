@@ -49,9 +49,13 @@ Usar Oracle Database 19c, conforme padrão definido.
 
 ## ADR-004 — Sincronização local de referências
 
+### Estado
+
+Substituída pela ADR-020 em 2026-07-27.
+
 ### Decisão
 
-Manter tabelas `REF_*` no SGPD.
+Não se aplica mais. A decisão inicial previa tabelas `REF_*` no SGPD.
 
 ### Motivos
 
@@ -131,7 +135,7 @@ Valores lançados por setores serão solicitações de análise.
 
 ### Decisão
 
-Notificações, sincronizações e escaladas serão assíncronas.
+Notificações e escaladas serão assíncronas. Consultas cadastrais ao Senior são online e não usam sincronização.
 
 ## ADR-011 — Evidências fora do Oracle
 
@@ -247,3 +251,57 @@ Armazenar evidências no filesystem local privado do DEV.
 - calcular SHA-256 e manter metadados no Oracle;
 - restringir permissões no sistema operacional;
 - definir backup, retenção e antivírus antes de armazenar dados reais.
+
+## ADR-020 — Consulta direta ao Senior sem models
+
+### Decisão
+
+Consultar os objetos homologados de `VETORH` diretamente no Oracle por SQL `SELECT` parametrizado.
+
+Não criar:
+
+- models Django para tabelas ou views do Senior;
+- models não gerenciados;
+- tabelas locais `REF_*`;
+- carga inicial, incremental ou reconciliação cadastral;
+- views Oracle locais nesta etapa.
+
+A view Django deverá delegar a consulta a um service/repository. Somente o snapshot criado na abertura do processo será persistido no SGPD.
+
+### Motivos
+
+- decisão funcional de consultar a fonte oficial em tempo real;
+- objetos `VETORH` estão no mesmo serviço Oracle;
+- grants `SELECT` já foram concedidos ao schema SGPD para o contrato inicial;
+- elimina defasagem e operação de sincronização.
+
+### Consequências
+
+- maior acoplamento ao contrato físico do Senior;
+- indisponibilidade do Senior impede novas pesquisas e snapshots;
+- consultas exigem bind variables, paginação, timeout e testes de contrato;
+- o usuário de runtime deve ser separado dos owners `SGPD` e `VETORH`;
+- o snapshot do processo continua obrigatório e imutável.
+
+## ADR-021 — Cadastro local de usuários e vinculação futura ao AD
+
+### Decisão
+
+Cadastrar no SGPD todos os usuários, gestores, e-mails, papéis e escopos.
+
+O Senior HCM não será fonte de identidades ou autorizações. O MVP terá autenticação local. Em fase posterior, cada conta SGPD poderá ser vinculada a uma identidade do Active Directory para autenticação corporativa com uma única senha.
+
+### Regras
+
+- o perfil funcional continua pertencendo ao SGPD após a vinculação;
+- a vinculação usa identificador corporativo estável e único, não apenas e-mail;
+- uma identidade AD não pode ser vinculada a mais de uma conta SGPD;
+- papéis e permissões não serão importados automaticamente do Senior;
+- a senha local comum será desabilitada após ativar AD, mantendo apenas contingência administrativa controlada;
+- local de trabalho não faz parte do cadastro nem das regras do MVP.
+
+### Consequências
+
+- gestor deverá ser selecionado entre usuários SGPD na abertura do processo;
+- nome e e-mail do gestor serão preservados historicamente no processo;
+- a indisponibilidade futura do AD não altera os dados cadastrais e de autorização mantidos no SGPD.

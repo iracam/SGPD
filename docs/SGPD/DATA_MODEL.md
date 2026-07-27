@@ -10,30 +10,41 @@
 - Separar dados cadastrais, operacionais, auditoria e integração.
 - Não armazenar arquivos grandes diretamente no banco sem decisão explícita.
 - Manter hash, metadados e vínculo do arquivo no banco.
+- Não modelar nem replicar tabelas cadastrais do Senior no SGPD.
+- Consultar referências do Senior por SQL somente leitura e persistir apenas o snapshot necessário ao processo.
 
 ## 2. Domínios principais
 
-### Referências integradas
+### Usuários e identidade
 
-- `REF_EMPRESA`
-- `REF_FILIAL`
-- `REF_TIPO_COLABORADOR`
-- `REF_COLABORADOR`
-- `REF_CARGO`
-- `REF_LOCAL`
-- `REF_CENTRO_CUSTO`
-- `REF_GESTOR`
+Usuários, gestores, e-mails, papéis e escopos pertencem ao SGPD e não são obtidos do Senior.
 
-Campos comuns:
+#### USUARIO_PERFIL
 
 - `ID`
-- `CODIGO_EXTERNO`
-- `DESCRICAO`
+- `USUARIO_ID`
+- `NOME`
+- `EMAIL`
 - `ATIVO`
-- `DT_ATUALIZACAO_ORIGEM`
-- `DT_SINCRONIZACAO`
-- `HASH_ORIGEM`
-- `DADOS_EXTRAS_JSON`
+- `AD_IDENTIFICADOR`
+- `AD_USUARIO`
+- `AD_VINCULADO_EM`
+- `CRIADO_EM`
+- `ATUALIZADO_EM`
+
+Os campos de AD são opcionais até a integração futura. `AD_IDENTIFICADOR` deverá ser único quando preenchido. O cadastro SGPD permanece responsável por papéis, permissões e escopos após a vinculação.
+
+### Referências do Senior não persistidas
+
+Empresa, filial, tipo de colaborador, colaborador, cargo, centro de custo e situação funcional não terão models ou tabelas `REF_*`. Local de trabalho não faz parte do contrato.
+
+A identidade externa utilizada nas consultas e no snapshot é:
+
+```text
+NUMEMP + CODFIL + TIPCOL + NUMCAD
+```
+
+Campos necessários para filtros e regras serão transportados como valores vindos da consulta e copiados para o snapshot. O SGPD não manterá foreign keys para objetos internos do Senior.
 
 ### Setores e responsáveis
 
@@ -57,10 +68,9 @@ Campos comuns:
 - `ID`
 - `SETOR_ID`
 - `USUARIO_ID`
-- `EMAIL`
 - `TIPO_RESPONSABILIDADE`
-- `EMPRESA_ID`
-- `FILIAL_ID`
+- `EMPRESA_CODIGO`
+- `FILIAL_CODIGO`
 - `DATA_INICIO`
 - `DATA_FIM`
 - `RECEBE_NOTIFICACAO`
@@ -100,12 +110,12 @@ Campos comuns:
 - `ID`
 - `NOME`
 - `PRIORIDADE`
-- `EMPRESA_ID`
-- `FILIAL_ID`
-- `TIPO_COLABORADOR_ID`
-- `CARGO_ID`
-- `LOCAL_ID`
-- `CENTRO_CUSTO_ID`
+- `EMPRESA_CODIGO`
+- `FILIAL_CODIGO`
+- `TIPO_COLABORADOR_CODIGO`
+- `ESTRUTURA_CARGO_CODIGO`
+- `CARGO_CODIGO`
+- `CENTRO_CUSTO_CODIGO`
 - `GRUPO_ID`
 - `ATIVO`
 - `VALIDO_DE`
@@ -147,10 +157,13 @@ A regra poderá usar expressão declarativa em fase posterior.
 - `UUID`
 - `NUMERO`
 - `STATUS`
-- `EMPRESA_ID`
-- `FILIAL_ID`
-- `TIPO_COLABORADOR_ID`
-- `COLABORADOR_ID`
+- `EMPRESA_CODIGO`
+- `FILIAL_CODIGO`
+- `TIPO_COLABORADOR_CODIGO`
+- `COLABORADOR_MATRICULA`
+- `GESTOR_USUARIO_ID`
+- `GESTOR_NOME_SNAPSHOT`
+- `GESTOR_EMAIL_SNAPSHOT`
 - `ABERTO_POR_ID`
 - `DATA_ABERTURA`
 - `DATA_PREVISTA_DESLIGAMENTO`
@@ -173,15 +186,20 @@ A regra poderá usar expressão declarativa em fase posterior.
 - `FILIAL_CODIGO`
 - `FILIAL_NOME`
 - `TIPO_COLABORADOR_CODIGO`
+- `TIPO_COLABORADOR_DESCRICAO`
 - `MATRICULA`
 - `NOME`
 - `CPF_MASCARADO`
+- `CODIGO_AFASTAMENTO`
+- `DESCRICAO_AFASTAMENTO`
+- `DATA_AFASTAMENTO`
+- `ESTRUTURA_CARGO_CODIGO`
+- `CARGO_CODIGO`
 - `CARGO`
-- `LOCAL`
+- `CENTRO_CUSTO_CODIGO`
 - `CENTRO_CUSTO`
-- `GESTOR`
-- `EMAIL`
 - `DATA_ADMISSAO`
+- `ORIGEM_ATUALIZADA_EM`
 - `SITUACAO`
 - `DADOS_EXTRAS_JSON`
 - `CRIADO_EM`
@@ -350,27 +368,18 @@ A regra poderá usar expressão declarativa em fase posterior.
 
 ### Integração
 
-#### INTEGRACAO_EXECUCAO
+#### INTEGRACAO_CONSULTA_EVENTO
 
 - `ID`
-- `ROTINA`
+- `TIPO_CONSULTA`
 - `INICIADA_EM`
-- `FINALIZADA_EM`
+- `DURACAO_MS`
 - `STATUS`
 - `REGISTROS_LIDOS`
-- `REGISTROS_INSERIDOS`
-- `REGISTROS_ATUALIZADOS`
-- `REGISTROS_INATIVADOS`
-- `ERROS`
+- `CODIGO_ERRO`
+- `CORRELATION_ID`
 
-#### INTEGRACAO_ERRO
-
-- `ID`
-- `EXECUCAO_ID`
-- `CHAVE_ORIGEM`
-- `MENSAGEM`
-- `DETALHE`
-- `CRIADO_EM`
+Esse evento não armazena CPF, filtros pessoais, SQL com valores interpolados ou payload de resposta.
 
 ## 3. Índices recomendados
 
@@ -379,8 +388,7 @@ A regra poderá usar expressão declarativa em fase posterior.
 - empresa e filial;
 - status e data limite das tarefas;
 - status e bloqueio das pendências;
-- chaves externas das tabelas de referência;
-- hash de origem;
+- identidade externa do colaborador (`empresa`, `filial`, `tipo`, `matrícula`);
 - UUIDs públicos;
 - correlation ID da auditoria.
 

@@ -9,7 +9,7 @@
 - Backend: Django
 - UI: Django Templates + HTMX + Alpine
 - Integração principal: Senior HCM
-- Autenticação prevista: Active Directory/LDAP
+- Autenticação: local no MVP, com vinculação futura das contas SGPD ao Active Directory
 
 ## Checkpoint 0 — Descoberta
 
@@ -21,7 +21,7 @@
 - [x] Confirmar versão do Oracle Database: Oracle 19c.
 - [x] Confirmar driver Oracle disponível.
   - Oracle Instant Client 19.28 em `/opt/oracle/instantclient_19_28`.
-  - MCP Oracle SQLcl disponível com conexão DEV salva para Senior/Vetorh.
+  - SQLcl local 26.1 disponível; conexão Oracle do `.env` validada.
   - Pacote Python `oracledb` será instalado na fundação.
 - [x] Confirmar escopo de ambientes: somente DEV; HML e PRD fora do escopo atual.
 - [x] Confirmar padrão de secrets do DEV.
@@ -41,20 +41,30 @@
 ### Senior HCM
 
 - [ ] Confirmar versão.
-- [ ] Confirmar owner.
-- [ ] Confirmar views disponíveis.
-- [ ] Mapear empresa.
-- [ ] Mapear filial.
-- [ ] Mapear tipo de colaborador.
-- [ ] Mapear colaborador.
-- [ ] Mapear cargo.
-- [ ] Mapear local.
-- [ ] Mapear centro de custo.
-- [ ] Mapear gestor.
-- [ ] Mapear e-mail.
-- [ ] Confirmar data de atualização.
-- [ ] Confirmar regras de colaborador ativo.
+- [x] Confirmar owner.
+  - Schema de origem `VETORH`.
+- [x] Confirmar objetos e grants disponíveis.
+  - `SGPD` possui `SELECT` direto em `R034FUN`, `R010SIT`, `R030FIL`, `R024CAR` e `R018CCU`.
+- [x] Definir estratégia de acesso.
+  - Consulta online por SQL parametrizado, sem models Senior, views Oracle locais, tabelas `REF_*` ou sincronização.
+- [x] Mapear empresa.
+- [x] Mapear filial.
+- [x] Mapear tipo de colaborador.
+- [x] Mapear colaborador.
+- [x] Mapear cargo.
+- [x] Retirar local do contrato e das regras do MVP.
+- [x] Mapear centro de custo.
+- [x] Retirar gestor da integração Senior.
+  - Gestores serão usuários cadastrados no SGPD.
+- [x] Retirar e-mail da integração Senior.
+  - E-mails serão mantidos no cadastro local de usuários.
+- [x] Confirmar data de atualização.
+  - `VETORH.R034FUN.USU_DATALT`, tipo Oracle `DATE`, anulável.
+- [x] Confirmar regras de colaborador ativo.
+  - Regra homologada: `SITAFA <> 7`, isto é, qualquer situação diferente de “Demitido”.
+  - `R010SIT` confirmou 1 = Trabalhando, 2 = Férias e 7 = Demitido.
 - [ ] Definir estratégia de homologação.
+- [ ] Criar usuário operacional separado do owner e reproduzir grants mínimos.
 
 ### Processo funcional
 
@@ -74,7 +84,12 @@
 
 ### Segurança
 
-- [ ] Definir grupos AD.
+- [x] Retirar grupos AD como fonte de papéis.
+  - Papéis e escopos serão mantidos exclusivamente no SGPD.
+- [ ] Definir identificador e fluxo de vinculação futura ao AD.
+- [x] Definir origem dos usuários.
+  - Todos os usuários, gestores e e-mails serão cadastrados no SGPD.
+  - AD será vinculado futuramente apenas como provedor de autenticação.
 - [ ] Definir papéis.
 - [ ] Definir escopo por empresa/filial.
 - [ ] Definir dados sensíveis.
@@ -113,13 +128,13 @@
 
 ## Checkpoint 2 — Integração cadastral
 
-- [ ] Models `REF_*`.
-- [ ] Views Senior definidas.
-- [ ] Carga inicial.
-- [ ] Incremental.
-- [ ] Reconciliação.
-- [ ] Logs.
-- [ ] Reprocessamento.
+- [x] Estratégia sem models `REF_*` definida.
+- [x] Objetos Senior e grants iniciais validados.
+- [ ] Repository SQL parametrizado.
+- [ ] Paginação, limites e timeout.
+- [ ] Tratamento de indisponibilidade.
+- [ ] Logs e métricas de consulta.
+- [ ] Testes de contrato.
 - [ ] Cascata funcionando.
 - [ ] Snapshot validado.
 
@@ -259,4 +274,68 @@ Próximo passo: iniciar o levantamento do Senior HCM ou homologar a fundação D
 Comandos executados: confirmação oficial dos parâmetros SMTP e revisão cruzada da documentação.
 Arquivos alterados: .env.example, README.md e documentação em docs/SGPD.
 Testes: variáveis sem segredos; consistência documental; manifesto e links validados.
+```
+
+### 2026-07-27 — Descoberta do acesso direto ao Senior HCM
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 0 — Descoberta e fundação / Senior HCM
+O que foi concluído: owner SGPD do DEV conectado; Oracle 19.15 confirmado; schema VETORH identificado; grants SELECT e consulta de colaboradores validados sem expor dados pessoais.
+Decisões: consultar VETORH diretamente por SQL parametrizado na camada repository/service; não criar models Senior, views Oracle locais, tabelas REF_*, cargas ou sincronização; persistir somente o snapshot da abertura.
+Riscos: owner SGPD ainda está no .env e não pode ser usuário de runtime; acesso direto acopla o SGPD ao contrato físico do Senior; CPF, performance, disponibilidade e joins internos exigem controles; versão do produto Senior HCM ainda não confirmada.
+Pendências: criar SGPD_APP com grants mínimos; decidir necessidade de local; mapear gestor e fonte do e-mail; homologar DATAFA sentinela e INNER JOIN; medir consultas e definir timeout/paginação.
+Próximo passo: criar o usuário operacional e fechar o contrato SQL do fluxo Empresa → Filial → Tipo → Colaborador.
+Comandos executados: inspeção segura do .env; conexão SQLcl; consultas a metadados de sessão, versão, grants e objetos; probe limitado da consulta fornecida; chmod 600 no .env.
+Arquivos alterados: .env.example, README.md e documentação em docs/SGPD.
+Testes: conexão SGPD bem-sucedida; cinco grants SELECT diretos confirmados; cinco objetos VETORH válidos; probe da consulta retornou uma linha; nenhum DML ou DDL executado.
+```
+
+### 2026-07-27 — Homologação da situação funcional
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 0 — Descoberta e fundação / Senior HCM
+O que foi concluído: catálogo completo de situações consultado em R010SIT com o usuário VETORH; códigos 1, 2 e 7 confirmados.
+Decisões: colaborador elegível é aquele com SITAFA <> 7; para o SGPD, ativo significa não demitido, inclusive quando houver outro afastamento.
+Riscos: a regra inclui todos os afastamentos diferentes de 7 e deverá permanecer explícita para não ser reduzida indevidamente aos códigos 1 e 2.
+Pendências: decidir necessidade de local no MVP; mapear gestor; definir Senior ou AD/LDAP como fonte do e-mail.
+Próximo passo: fechar os atributos do contrato e criar SGPD_APP com os grants mínimos.
+Comandos executados: SELECT * FROM R010SIT ORDER BY CODSIT com o usuário VETORH.
+Arquivos alterados: docs/SGPD/REQUIREMENTS.md, docs/SGPD/INTEGRATION_SENIOR_ORACLE.md, docs/SGPD/CHECKPOINT.md e docs/SGPD/MANIFEST.json.
+Testes: consulta somente leitura concluída; 1 = Trabalhando, 2 = Férias e 7 = Demitido confirmados; nenhum DML ou DDL executado.
+```
+
+### 2026-07-27 — Fronteira de usuários e identidade
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 0 — Descoberta e fundação / Identidade
+O que foi concluído: local retirado do MVP; gestor e e-mail retirados do contrato Senior; origem cadastral dos usuários definida.
+Decisões: todos os usuários, gestores, e-mails, papéis e escopos serão cadastrados no SGPD; autenticação local no MVP; vinculação futura ao AD somente para autenticação com uma única senha.
+Riscos: vínculo AD incorreto ou duplicado; manutenção indevida de senha local após a vinculação; alteração de gestor ou e-mail afetar histórico se não houver snapshot.
+Pendências: definir papéis, política de senha local, identificador corporativo imutável, fluxo de vinculação ao AD e contas de contingência.
+Próximo passo: detalhar cadastro de usuários e papéis da fundação técnica.
+Comandos executados: revisão cruzada de requisitos, arquitetura, dados, integração, segurança, roadmap e checkpoint.
+Arquivos alterados: README.md e documentação em docs/SGPD.
+Testes: consistência documental, manifesto e diff validados; nenhum model, migration ou código criado.
+```
+
+### 2026-07-27 — Data de atualização do colaborador
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 0 — Descoberta e fundação / Senior HCM
+O que foi concluído: R034FUN.USU_DATALT confirmada como data de atualização da origem.
+Decisões: retornar USU_DATALT como DATE anulável e preservá-la no snapshot; não usar o campo para sincronização, pois a consulta ao Senior é online.
+Riscos: registros podem possuir USU_DATALT nula; a aplicação não deve interpretar nulo como ausência ou invalidade do colaborador.
+Pendências: incluir o campo no contrato SQL implementado e nos testes de integração.
+Próximo passo: concluir as pendências restantes do contrato Senior.
+Comandos executados: consulta a ALL_TAB_COLUMNS e probe não nulo em VETORH.R034FUN, usando SGPD.
+Arquivos alterados: docs/SGPD/REQUIREMENTS.md, docs/SGPD/DATA_MODEL.md, docs/SGPD/INTEGRATION_SENIOR_ORACLE.md, docs/SGPD/CHECKPOINT.md e docs/SGPD/MANIFEST.json.
+Testes: coluna USU_DATALT confirmada como DATE, armazenamento de 7 bytes, anulável e com ao menos um valor não nulo; nenhum DML ou DDL executado.
 ```

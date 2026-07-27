@@ -13,12 +13,16 @@
 
 ## 2. Autenticação
 
-Preferência:
+Estratégia:
 
-- Active Directory/LDAP;
-- TLS obrigatório quando disponível;
-- grupos corporativos mapeados para papéis;
-- contas locais apenas para contingência controlada;
+- cadastrar todos os usuários e seus e-mails no SGPD;
+- usar autenticação local no MVP;
+- vincular futuramente a conta SGPD a uma identidade do Active Directory;
+- usar identificador corporativo estável e único para a vinculação;
+- não criar perfis ou permissões automaticamente a partir do Senior;
+- manter papéis e escopos no SGPD mesmo após a vinculação ao AD;
+- desabilitar a senha local comum após ativar a autenticação AD, preservando somente contingência administrativa controlada;
+- exigir TLS na integração futura com AD;
 - MFA quando a infraestrutura permitir.
 
 ## 3. Autorização
@@ -198,6 +202,18 @@ Não registrar em log:
 - senhas devem ser fortes, não previsíveis e rotacionáveis;
 - usuário, senha e e-mail SMTP não devem aparecer no `.env.example`;
 - restringir a leitura do `.env` ao usuário da aplicação.
+
+## 12.2 Consulta direta ao Senior
+
+- usar somente `SELECT` nos objetos `VETORH` homologados;
+- qualificar todos os nomes de objetos pelo schema;
+- usar bind variables e nunca interpolar filtros;
+- não usar os owners `SGPD` ou `VETORH` no runtime;
+- não criar models para objetos do Senior;
+- mascarar CPF nas listagens;
+- limitar projeção, volume, paginação e tempo de consulta;
+- registrar falhas e latência sem incluir SQL com dados pessoais;
+- revisar grants e contrato após atualização do Senior.
 
 ## 13. Desenvolvimento seguro
 

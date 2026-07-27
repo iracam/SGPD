@@ -36,7 +36,7 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Oracle Database 19c
 - Celery ou Django-Q2 para tarefas assíncronas
 - Redis em container quando filas, cache ou locks forem necessários
-- LDAP/Active Directory para autenticação
+- cadastro de usuários e papéis no SGPD, com autenticação local inicial e vinculação futura ao LDAP/Active Directory
 - Microsoft 365 SMTP para notificações
 - filesystem local privado para evidências
 
@@ -75,11 +75,12 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 3. Nenhuma escrita direta será feita em tabelas internas do Senior.
 4. O banco Oracle do SGPD terá owner exclusivo.
 5. O usuário da aplicação não será o owner do schema.
-6. Dados do colaborador serão copiados para um snapshot na abertura do processo.
-7. Regras e checklists serão versionados.
-8. Pendências serão entidades próprias e auditáveis.
-9. Valores informados serão tratados como pretensões de cobrança.
-10. A liberação final continuará sob responsabilidade do DP.
+6. Referências do Senior serão consultadas em tempo real por SQL `SELECT` parametrizado, sem models ou cópias `REF_*` no SGPD.
+7. Dados do colaborador serão copiados para um snapshot na abertura do processo.
+8. Regras e checklists serão versionados.
+9. Pendências serão entidades próprias e auditáveis.
+10. Valores informados serão tratados como pretensões de cobrança.
+11. A liberação final continuará sob responsabilidade do DP.
 
 ## Estado inicial
 

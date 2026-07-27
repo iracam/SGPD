@@ -4,7 +4,11 @@
 
 ### RF-001 — Autenticação
 
-O sistema deverá autenticar usuários preferencialmente por Active Directory/LDAP.
+Todos os usuários, inclusive gestores, deverão ser cadastrados no SGPD com nome, e-mail, situação e papéis.
+
+No MVP, a autenticação será local. Em fase posterior, cada cadastro poderá ser vinculado a uma conta do Active Directory para autenticação corporativa com uma única senha.
+
+O Senior HCM não será fonte de usuários, gestores, e-mails, papéis ou permissões.
 
 ### RF-002 — Perfis e permissões
 
@@ -32,11 +36,11 @@ Campos mínimos:
 
 Cada setor poderá possuir um ou mais responsáveis.
 
+O responsável deverá referenciar um usuário cadastrado no SGPD. Nome e e-mail virão do perfil desse usuário.
+
 Campos mínimos:
 
 - usuário;
-- nome;
-- e-mail;
 - setor;
 - principal ou substituto;
 - data de início;
@@ -51,19 +55,31 @@ Campos mínimos:
 
 ### RF-005 — Integração de empresas
 
-O sistema deverá consultar ou sincronizar empresas do Senior HCM.
+O sistema deverá consultar empresas diretamente no Senior HCM por SQL somente leitura.
+
+Não serão criados models Django nem tabelas locais `REF_*` para dados cadastrais do Senior.
 
 ### RF-006 — Integração de filiais
 
-Ao selecionar uma empresa, o sistema deverá listar apenas filiais relacionadas.
+Ao selecionar uma empresa, o sistema deverá consultar e listar apenas filiais relacionadas, usando parâmetros vinculados.
 
 ### RF-007 — Integração de tipos de colaborador
 
-Ao selecionar empresa e filial, o sistema deverá listar os tipos de colaborador aplicáveis.
+Ao selecionar empresa e filial, o sistema deverá consultar os tipos de colaborador aplicáveis diretamente no Senior.
 
 ### RF-008 — Integração de colaboradores
 
-Ao selecionar empresa, filial e tipo, o sistema deverá listar colaboradores compatíveis.
+Ao selecionar empresa, filial e tipo, o sistema deverá consultar colaboradores compatíveis diretamente no Senior.
+
+A consulta deverá:
+
+- usar somente `SELECT`;
+- usar nomes de objetos qualificados pelo schema `VETORH`;
+- considerar elegível o colaborador com `R034FUN.SITAFA <> 7`;
+- usar bind variables para filtros;
+- possuir paginação e limite;
+- não expor CPF completo em listagens;
+- ficar encapsulada em uma camada de consulta, sem models para objetos do Senior.
 
 ### RF-009 — Abertura de processo
 
@@ -73,6 +89,7 @@ O DP deverá abrir um processo informando:
 - filial;
 - tipo de colaborador;
 - colaborador;
+- gestor imediato cadastrado no SGPD;
 - data de abertura automática;
 - data prevista de desligamento;
 - data limite;
@@ -89,17 +106,19 @@ No momento da abertura, o sistema deverá copiar para o processo:
 - matrícula;
 - nome;
 - cargo;
-- local;
 - centro de custo;
-- gestor;
-- e-mail;
 - data de admissão;
+- data de atualização da origem (`R034FUN.USU_DATALT`);
 - situação;
 - empresa;
 - filial;
 - tipo de colaborador.
 
 Alterações posteriores no Senior não deverão alterar o snapshot.
+
+O snapshot é uma entidade do SGPD e não contradiz a ausência de models para referências do Senior.
+
+O gestor é uma atribuição do processo, selecionada entre usuários cadastrados no SGPD. Nome e e-mail do gestor deverão ser preservados historicamente na abertura sem consultar o Senior.
 
 ### RF-011 — Grupos de validação
 
@@ -114,7 +133,6 @@ O sistema poderá sugerir grupos com base em:
 - tipo de colaborador;
 - cargo;
 - centro de custo;
-- local;
 - categoria;
 - vínculo;
 - outros atributos disponíveis.
@@ -347,9 +365,9 @@ Dados pessoais devem ser exibidos conforme necessidade e perfil.
 
 Banco e arquivos deverão fazer parte da política corporativa de backup.
 
-### RNF-012 — Idempotência
+### RNF-012 — Consultas sem efeitos colaterais
 
-Rotinas de sincronização deverão poder ser repetidas sem duplicar dados.
+Consultas ao Senior deverão poder ser repetidas sem alterar dados no Senior ou no SGPD. A criação do snapshot ocorrerá somente no caso de uso transacional de abertura do processo.
 
 ### RNF-013 — Versionamento
 

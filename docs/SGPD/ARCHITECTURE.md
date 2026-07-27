@@ -10,7 +10,11 @@ Django + HTMX + Alpine
     |
     +--> WhiteNoise (arquivos estáticos)
     |
-    +--> Oracle SGPD --> Views / Integração Senior HCM
+    +--> Oracle 19c
+           |
+           +--> Schema SGPD (dados operacionais)
+           |
+           +--> VETORH (SELECT direto em objetos autorizados)
     |
     +--> Redis em container, quando necessário
              |
@@ -46,7 +50,6 @@ WhiteNoise não será usado para servir evidências ou outros uploads de usuári
 Quando o processamento assíncrono se tornar necessário, usar Celery ou Django-Q2 para:
 
 - envio de e-mails;
-- sincronização com Senior;
 - escaladas;
 - lembretes;
 - geração de relatórios;
@@ -64,13 +67,15 @@ Redis será iniciado em container somente quando houver funcionalidade que depen
 
 ### Autenticação
 
-Opções:
+O cadastro funcional de usuários pertence ao SGPD:
 
-1. LDAP/Active Directory direto;
-2. autenticação corporativa central;
-3. Keycloak em fase posterior.
+- usuários, gestores, e-mails, papéis e escopos são mantidos no schema SGPD;
+- o Senior HCM não provisiona usuários;
+- o MVP usa autenticação local;
+- a vinculação futura ao Active Directory adicionará um identificador externo à conta existente;
+- após a vinculação, o AD será o provedor de autenticação e o SGPD continuará como fonte de perfis e autorizações.
 
-MVP recomendado: LDAP/AD direto, com grupos mapeados para papéis.
+O vínculo com AD não deve usar apenas e-mail como chave. Deverá usar identificador corporativo estável e impedir associação duplicada.
 
 ### Arquivos
 
@@ -120,8 +125,17 @@ Serviços sugeridos:
 - `EvaluateProcessReadinessService`
 - `ReleaseForTerminationService`
 - `CloseOffboardingProcessService`
-- `SyncSeniorReferencesService`
+- `QuerySeniorEmployeesService`
 - `EscalateOverdueTasksService`
+
+### Consulta ao Senior
+
+- views Django e endpoints chamam um service/repository de consulta;
+- o repository usa cursor Oracle e SQL `SELECT` parametrizado;
+- não existem models Django, models não gerenciados ou tabelas `REF_*` para objetos do Senior;
+- a conexão de runtime do SGPD recebe grants explícitos apenas nos objetos `VETORH` homologados;
+- SQL não fica espalhado em templates, serializers ou views de apresentação;
+- a abertura do processo copia o resultado autorizado para o snapshot histórico do SGPD.
 
 ## 5. Eventos de domínio
 
@@ -181,7 +195,7 @@ A UI server-side pode usar services diretamente. API não precisa ser a única c
 - health checks;
 - registro de falhas de integração;
 - alertas para e-mails falhos;
-- painel de sincronização.
+- métricas de latência, timeout e indisponibilidade das consultas ao Senior.
 
 ## 8. Ambientes
 
@@ -207,5 +221,5 @@ HML e PRD não fazem parte da estrutura atual. Caso sejam criados futuramente, d
 - testes de services;
 - testes de autorização;
 - testes de workflow;
-- testes de sincronização;
+- testes de contrato e integração das consultas somente leitura ao Senior;
 - testes end-to-end dos fluxos críticos.
