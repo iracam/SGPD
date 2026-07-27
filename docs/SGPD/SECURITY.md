@@ -39,6 +39,11 @@ Autorização deve considerar:
 - sensibilidade do dado;
 - estado do processo.
 
+Os endpoints cadastrais do Senior exigem autenticação desde a primeira
+implementação. A restrição adicional por papel, empresa e filial deverá ser
+adicionada após a definição funcional desses escopos; até lá, eles não devem
+ser tratados como autorização final do MVP.
+
 Exemplo:
 
 - responsável do setor vê somente tarefas do próprio setor;

@@ -141,8 +141,8 @@
 - [x] Tratamento de indisponibilidade.
 - [x] Logs de consulta e telemetria básica de duração/linhas.
 - [x] Script SQLcl de teste de contrato.
-- [x] Cascata funcionando no repository.
-  - Endpoints e seleção na interface ainda pendentes.
+- [x] Cascata funcionando no repository e em endpoints autenticados.
+  - Seleção na interface ainda pendente.
 - [ ] Snapshot validado.
 
 ## Checkpoint 3 — Configuração funcional
@@ -393,4 +393,20 @@ Próximo passo: implementar endpoints autenticados da cascata com validação e 
 Comandos executados: pytest; ruff; mypy; Django shell com cascata real usando SGPD e cinco SELECTs limitados.
 Arquivos alterados: .env.example, apps/integrations/senior, config/settings/base.py, config/logging.py, tests/test_senior_repository.py e documentação em docs/SGPD.
 Testes: 21 testes passaram; cascata Oracle real retornou uma linha por etapa; consultas entre 4,82 ms e 58,01 ms; USU_DATALT convertido em datetime; CPF confirmado como mascarado; nenhum DDL ou DML executado.
+```
+
+### 2026-07-27 — Endpoints autenticados da cascata Senior
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 2 — Integração cadastral
+O que foi concluído: quatro endpoints GET autenticados para empresa, filial, tipo e colaborador; paginação sem COUNT; payload explícito; tradução segura de erros 400, 502 e 503.
+Decisões: exigir IsAuthenticated mesmo antes da definição dos papéis; usar employee_type como parâmetro estável; omitir CPF de toda listagem HTTP; não expor endpoint de detalhe nesta etapa.
+Riscos: autorização granular por papel/empresa/filial ainda depende da definição funcional de papéis; a UI da cascata ainda não existe.
+Pendências: definir papéis e escopos; implementar seleção HTMX; criar o caso de uso de abertura e snapshot.
+Próximo passo: obter os grants DDL para aplicar a base de autenticação ou, em paralelo, iniciar a UI HTMX da seleção cadastral.
+Comandos executados: uv sync; pytest; ruff; mypy; Django check; execução direta das quatro APIViews autenticadas contra o Oracle real.
+Arquivos alterados: pyproject.toml, uv.lock, config/urls.py, apps/integrations/senior/api.py, apps/integrations/senior/urls.py, tests/test_senior_api.py e documentação em docs/SGPD.
+Testes: 31 testes passaram; acesso anônimo bloqueado; quatro views reais responderam 200 com uma linha por etapa; consultas entre 0,70 ms e 39,46 ms; payload de colaborador sem campo CPF; nenhum DDL ou DML executado.
 ```

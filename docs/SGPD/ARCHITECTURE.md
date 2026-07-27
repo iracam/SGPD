@@ -158,14 +158,22 @@ Eventos devem ser usados para desacoplar notificações e integrações.
 
 ## 6. API
 
-Endpoints iniciais sugeridos:
+Endpoints cadastrais implementados:
 
 ```text
 GET  /api/v1/references/companies/
 GET  /api/v1/references/branches/?company=
 GET  /api/v1/references/employee-types/?company=&branch=
-GET  /api/v1/references/employees/?company=&branch=&type=&q=
+GET  /api/v1/references/employees/?company=&branch=&employee_type=&q=
+```
 
+Todos exigem usuário autenticado. A listagem de colaboradores não retorna CPF,
+usa limite padrão de 20 e máximo absoluto de 100. A paginação por offset não
+executa `COUNT(*)`.
+
+Endpoints de domínio planejados:
+
+```text
 POST /api/v1/processes/
 GET  /api/v1/processes/
 GET  /api/v1/processes/{uuid}/

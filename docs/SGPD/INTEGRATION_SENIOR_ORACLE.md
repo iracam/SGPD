@@ -161,6 +161,22 @@ O repository:
 - registra nome lógico da consulta, duração e quantidade de linhas, sem
   parâmetros, SQL ou dados pessoais.
 
+### Endpoints da cascata
+
+Os quatro endpoints `GET /api/v1/references/` estão implementados com
+autenticação obrigatória:
+
+- `companies/`;
+- `branches/?company=`;
+- `employee-types/?company=&branch=`;
+- `employees/?company=&branch=&employee_type=&q=`.
+
+As respostas incluem `offset`, `limit` e `results`, sem executar contagem
+global. Parâmetros inválidos retornam `400`, indisponibilidade retorna `503` e
+quebra do contrato de origem retorna `502`. Detalhes do driver e do Oracle não
+são devolvidos ao cliente. A listagem de colaboradores não contém CPF, nem
+mesmo mascarado.
+
 ### Contrato SQL versionado
 
 As consultas parametrizadas estão em [`sql/senior_reference_queries.sql`](sql/senior_reference_queries.sql):
@@ -188,10 +204,12 @@ scripts/oracle/run_senior_contract_validation.sh
 
 O wrapper lê a conexão `SGPD` do `.env` sem exibir credenciais.
 
-No DEV, a cascata real executada pelo repository retornou uma linha em cada
-etapa. As consultas levaram entre 4,82 ms e 58,01 ms na amostra, com conexão
-persistente; o detalhe confirmou `USU_DATALT` como `datetime` e CPF mascarado.
-O desempenho deverá ser acompanhado novamente com volume e concorrência reais.
+No DEV, a cascata real executada pelo repository e pelas quatro views
+autenticadas retornou uma linha em cada etapa e status `200`. Na execução das
+views, as consultas levaram entre 0,70 ms e 39,46 ms com conexão persistente.
+O payload da listagem foi inspecionado por nomes de campos e não expôs CPF. O
+detalhe interno confirmou `USU_DATALT` como `datetime` e CPF mascarado. O
+desempenho deverá ser acompanhado novamente com volume e concorrência reais.
 
 ## 7. Snapshot
 

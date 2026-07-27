@@ -9,13 +9,13 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "8421e614ad241d577bc995e1008d59ee8c9a6c371a673d9657ae60af8e44dbe5",
-      "bytes": 6687
+      "sha256": "d3ac189eb80eceaabbf248e2564ea3c34c2994d83b164908ce3601bd621e6afc",
+      "bytes": 6933
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "f6680ddf56b331abde448fab382b828d46c173800285ad2d2e9cb9a148deda60",
-      "bytes": 21665
+      "sha256": "55a0d1bb633c58a46c9ab379ecac22079a82c5629ffdbee46ac7f419164a46b5",
+      "bytes": 23138
     },
     {
       "file": "DATA_MODEL.md",
@@ -39,8 +39,8 @@
     },
     {
       "file": "INTEGRATION_SENIOR_ORACLE.md",
-      "sha256": "fda2cc580747f1fef085d84d83e9209791b05c956bfb4bb0a71abe2893363f50",
-      "bytes": 9770
+      "sha256": "e99d9406d3869811b0e801b2ec37929e4a8e667f9d982a194338b5d0f0d7e0e7",
+      "bytes": 10506
     },
     {
       "file": "PROMPT.md",
@@ -59,8 +59,8 @@
     },
     {
       "file": "RISK_REGISTER.md",
-      "sha256": "eb31956eaad0db65695a88dd572df7f24f3809d91d3b86b670bc3778a1de6974",
-      "bytes": 4477
+      "sha256": "04957b2a978c17d9afe0b6b22aa7a6ffc2e2265d688afff4a663e1d1d4d4ab6d",
+      "bytes": 4708
     },
     {
       "file": "ROADMAP.md",
@@ -69,8 +69,8 @@
     },
     {
       "file": "SECURITY.md",
-      "sha256": "943aef99793bc907a86b8b86e29da753d26ddd97ac6ea8d66d3fd5a1b0f5fb0d",
-      "bytes": 6151
+      "sha256": "8da6a848752681df06607ce3dd8df56f1beeb62867e86ecc8dea9f4b873b0401",
+      "bytes": 6435
     },
     {
       "file": "VISION.md",
