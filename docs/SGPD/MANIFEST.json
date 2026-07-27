@@ -1,0 +1,81 @@
+{
+  "project": "SGPD / DesligaFlow",
+  "generated_on": "2026-07-27",
+  "files": [
+    {
+      "file": "AGENTS.md",
+      "sha256": "954b6ff0baad00a52efeef4fe5b83747d143ac8531d81af9eaf64f0adc844810",
+      "bytes": 6638
+    },
+    {
+      "file": "ARCHITECTURE.md",
+      "sha256": "f387a4ff2b832eee13f9f0e07469ff1b57c2408b45b5280555369117cf518e2a",
+      "bytes": 4430
+    },
+    {
+      "file": "CHECKPOINT.md",
+      "sha256": "90bb587cc0bba5c21bd58951ca06457c359b8e04720ee618076a049a9dc21359",
+      "bytes": 3567
+    },
+    {
+      "file": "DATA_MODEL.md",
+      "sha256": "17513c2d02b1f2fdd0f9edae32f10846c6f177c07895ea5dc54daf736d37d169",
+      "bytes": 6003
+    },
+    {
+      "file": "DECISIONS.md",
+      "sha256": "6b091ac5e0f601578cd6140c2e02e7573b732e835987be2f4ca587fde1fc37da",
+      "bytes": 2686
+    },
+    {
+      "file": "GLOSSARY.md",
+      "sha256": "d9ec62ce1dd81bdb852e4a9d77623701637fe15be7cf6d335ad72a1b86ae89bd",
+      "bytes": 1272
+    },
+    {
+      "file": "INTEGRATION_SENIOR_ORACLE.md",
+      "sha256": "80ced0da5600dd53bbe9be64b9345901fe893e4e1938c17ea243a32459b84af5",
+      "bytes": 4273
+    },
+    {
+      "file": "PROMPT.md",
+      "sha256": "3a354169a876a42ee04308d93832d9b6f16453ffdcfa58c58b630541f16266fe",
+      "bytes": 6689
+    },
+    {
+      "file": "README.md",
+      "sha256": "45c91f2dce746d16cb2a4dc27bcf7b44bd554c414a72d6cc5955155a6d03e107",
+      "bytes": 2864
+    },
+    {
+      "file": "REQUIREMENTS.md",
+      "sha256": "7e44c88cc70f1e87a814365177a911a8e6b8238cae53b25ec26eb9c8bb856916",
+      "bytes": 7622
+    },
+    {
+      "file": "RISK_REGISTER.md",
+      "sha256": "9f836ee8d0b221a2e9cb1a32a077e3054c176c3b00075a12fc47332a2e7cc9c5",
+      "bytes": 1452
+    },
+    {
+      "file": "ROADMAP.md",
+      "sha256": "9d2888c8bf8b1cb7cbae78fb6b152f248a831fdffe9eb69380e8cae7d25739df",
+      "bytes": 3396
+    },
+    {
+      "file": "SECURITY.md",
+      "sha256": "ee56ee99f0c1c06dacd0e2db388c0aa79dc7cb6a4060863cfb67350b40c323f0",
+      "bytes": 4089
+    },
+    {
+      "file": "VISION.md",
+      "sha256": "6fd8c0b05388fa15d6a82ff96a9dde4fdf8ed506df12dfa725352b7ea3b28c62",
+      "bytes": 3649
+    },
+    {
+      "file": "WORKFLOWS.md",
+      "sha256": "f25018eb4ff95627c22c203e018a8e61fbb0f6e42b90fbd7f58c88452243f2b2",
+      "bytes": 4211
+    }
+  ]
+}
