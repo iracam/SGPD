@@ -67,7 +67,7 @@ Redis e worker continuam adiados até surgir um caso de uso.
 | Host/SO | Debian 13.6 confirmado |
 | Python | 3.13 homologado; dependências gerenciadas por `uv` |
 | Oracle | Database 19c e Instant Client 19.28 confirmados |
-| Oracle SGPD | Owner `SGPD` configurado e validado como conexão única de runtime e migrations no DEV |
+| Oracle SGPD | Owner `SGPD` configurado como conexão única; `CREATE TABLE` sem `ADMIN OPTION` e quota de 500 MB em `PIMS_DATA` |
 | Senior HCM | Schema `VETORH` no mesmo serviço; cinco grants `SELECT` confirmados para `SGPD` |
 | Redis | Container sob demanda |
 | Worker | Adiado até necessidade |
@@ -123,8 +123,7 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 5. Definir backup, retenção e antivírus das evidências.
 6. Definir o Compose do Redis quando surgir a primeira dependência.
 7. Liberar espaço no filesystem local antes de armazenar evidências.
-8. Obter `CREATE TABLE` e quota no tablespace designado para o próprio `SGPD`
-   antes de aplicar migrations.
+8. Aplicar e validar as migrations revisadas no schema `SGPD`.
 
 ## 8. Estado do bloco de ambiente
 
@@ -132,7 +131,7 @@ O inventário e as decisões do bloco Ambiente estão concluídos.
 
 As validações restantes da fundação técnica são:
 
-- liberar e aplicar as migrations no schema `SGPD`;
+- aplicar e validar as migrations no schema `SGPD`;
 - testar SMTP AUTH;
 - configurar permissões e proteção do filesystem de evidências;
 - liberar espaço no filesystem antes de armazenar evidências.

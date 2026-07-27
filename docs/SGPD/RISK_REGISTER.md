@@ -31,6 +31,6 @@
 | R27 | Consulta direta expor CPF completo ou dados excessivos | Média | Muito alto | Mascarar por padrão, autorização por finalidade e projeções mínimas |
 | R28 | `INNER JOIN` omitir colaborador com cadastro relacionado incompleto | Média | Alto | Validar regra funcional, reconciliar contagens e tratar inconsistências explicitamente |
 | R29 | Senha local continuar ativa indevidamente após vínculo com AD | Média | Alto | Desabilitar autenticação local comum após vinculação e restringir contas de contingência |
-| R30 | Migrations não poderem criar objetos no schema `SGPD` | Confirmado | Alto | DBA deve conceder `CREATE TABLE` e quota no tablespace designado ao mesmo usuário `SGPD`; revisar SQL antes de aplicar |
+| R30 | Migrations não poderem criar objetos no schema `SGPD` | Mitigado em 2026-07-27 | Alto | `CREATE TABLE` sem `ADMIN OPTION` e quota de 500 MB em `PIMS_DATA` concedidos ao mesmo usuário `SGPD`; revisar SQL antes de aplicar |
 | R31 | Oracle Client ausente ou incompatível impedir conexão em modo Thick | Baixa | Alto | Fixar Instant Client 19.28 no DEV, validar no readiness e falhar na inicialização sem expor segredo |
 | R32 | Usuário autenticado consultar referências fora do futuro escopo de empresa/filial | Média | Alto | Definir papéis e escopos antes do MVP e adicionar permissão objetiva aos endpoints; manter CPF ausente das listagens |

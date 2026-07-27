@@ -193,8 +193,8 @@ Não registrar em log:
 ## 12. Banco
 
 - conta única `SGPD` para runtime e migrations no DEV, conforme risco aceito na ADR-022;
-- o mesmo usuário ainda depende de `CREATE TABLE` e quota no tablespace
-  designado para receber as tabelas SGPD;
+- `CREATE TABLE` concedido diretamente ao `SGPD`, sem `ADMIN OPTION`;
+- quota finita de 500 MB em `PIMS_DATA`, sem `UNLIMITED TABLESPACE`;
 - grants externos mínimos, especialmente nos objetos `VETORH`;
 - rotação de senha;
 - segredo fora do código;

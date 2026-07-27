@@ -69,8 +69,9 @@ uv run mypy apps config tests manage.py
 uv run manage.py makemigrations --check --dry-run --settings=config.settings.test
 ```
 
-As migrations Oracle somente podem ser aplicadas após revisão do SQL e
-liberação explícita de `CREATE TABLE` e quota para o próprio usuário `SGPD`.
+As migrations Oracle somente podem ser aplicadas após revisão do SQL. O
+próprio usuário `SGPD` possui `CREATE TABLE` sem `ADMIN OPTION` e quota finita
+de 500 MB em `PIMS_DATA`.
 
 ## Escopo técnico atual
 
@@ -118,7 +119,8 @@ liberação explícita de `CREATE TABLE` e quota para o próprio usuário `SGPD`
 
 A descoberta do ambiente e o contrato SQL do Senior estão concluídos. A
 fundação Django está criada e validada localmente; a aplicação conecta ao
-Oracle com `python-oracledb` em modo Thick. A aplicação das migrations no DEV
-aguarda privilégios DDL e quota para `SGPD`.
+Oracle com `python-oracledb` em modo Thick. Os privilégios mínimos de criação
+do schema foram concedidos ao `SGPD`; a aplicação das migrations permanece uma
+ação separada e revisável.
 
 Consulte `PROMPT.md` para o procedimento completo.

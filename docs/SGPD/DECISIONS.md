@@ -361,5 +361,5 @@ Instant Client 19.28 indicado por `ORACLE_CLIENT_LIB_DIR`.
   sem registrar credenciais;
 - testes unitários usam SQLite em memória e testes de contrato separados
   validam o Oracle real;
-- migrations permanecem bloqueadas até `SGPD` receber `CREATE TABLE` e quota
-  no tablespace definido pela administração do banco.
+- `SGPD` recebeu `CREATE TABLE` sem `ADMIN OPTION` e quota finita de 500 MB em
+  `PIMS_DATA`; migrations continuam sendo ações explícitas após revisão do SQL.

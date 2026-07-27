@@ -122,7 +122,9 @@
 - [x] `.env.example`.
 - [x] Oracle conectado.
   - Modo Thick obrigatório para o verificador atual da conta `SGPD`.
-  - Aplicação de migrations pendente de `CREATE TABLE` e quota.
+  - `CREATE TABLE` sem `ADMIN OPTION` e quota de 500 MB em `PIMS_DATA`
+    concedidos ao mesmo usuário `SGPD`.
+  - Aplicação das migrations permanece pendente de execução explícita.
 - [ ] Redis conectado, quando requerido.
 - [ ] Worker conectado, quando requerido.
 - [x] Health check.
@@ -409,4 +411,20 @@ Próximo passo: obter os grants DDL para aplicar a base de autenticação ou, em
 Comandos executados: uv sync; pytest; ruff; mypy; Django check; execução direta das quatro APIViews autenticadas contra o Oracle real.
 Arquivos alterados: pyproject.toml, uv.lock, config/urls.py, apps/integrations/senior/api.py, apps/integrations/senior/urls.py, tests/test_senior_api.py e documentação em docs/SGPD.
 Testes: 31 testes passaram; acesso anônimo bloqueado; quatro views reais responderam 200 com uma linha por etapa; consultas entre 0,70 ms e 39,46 ms; payload de colaborador sem campo CPF; nenhum DDL ou DML executado.
+```
+
+### 2026-07-27 — Grants mínimos para migrations no SGPD
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 1 — Fundação técnica / Oracle
+O que foi concluído: conta SGPD e tablespace padrão inspecionados pela conexão administrativa PRD@PIMSCS; privilégio CREATE TABLE e quota de 500 MB em PIMS_DATA concedidos ao próprio SGPD.
+Decisões: manter usuário único SGPD conforme ADR-022; usar quota finita; não conceder ADMIN OPTION, UNLIMITED TABLESPACE, privilégios ANY, CREATE USER ou grants adicionais no VETORH.
+Riscos: o owner permanece no runtime conforme risco já aceito; 500 MB deverão ser monitorados conforme o schema crescer.
+Pendências: aplicar migrations somente após nova confirmação/revisão do plano e validar os objetos criados.
+Próximo passo: executar migrate no DEV e verificar plano, objetos, índices, constraints, quota consumida e rollback operacional.
+Comandos executados: inspeções read-only em DBA_USERS, SESSION_PRIVS, DBA_SYS_PRIVS, DBA_TS_QUOTAS e capacidade do PIMS_DATA; GRANT CREATE TABLE TO SGPD; ALTER USER SGPD QUOTA 500M ON PIMS_DATA; confirmação pela conexão Django SGPD.
+Arquivos alterados: README.md e documentação em docs/SGPD.
+Testes: SGPD confirmou USER_SYS_PRIVS = CREATE TABLE e USER_TS_QUOTAS = PIMS_DATA/500 MB; grant sem ADMIN OPTION; nenhum usuário criado; nenhum objeto Senior alterado.
 ```
