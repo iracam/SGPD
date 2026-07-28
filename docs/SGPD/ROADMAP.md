@@ -46,7 +46,8 @@ Checkpoint 0 aprovado.
 - conexão Oracle;
 - cadastro local de usuários, gestores, e-mails e papéis;
 - autenticação local;
-- campos de vinculação futura ao AD;
+- descoberta de usuários/grupos, importação explícita, vínculo e autenticação
+  AD em estágios;
 - auditoria base;
 - layout;
 - WhiteNoise para arquivos estáticos;
@@ -71,6 +72,12 @@ uma mensagem de prova aceita pelo Microsoft 365. Em 2026-07-28, a autorização
 dos services, a imutabilidade da auditoria contra operações em lote e a
 concorrência do último superusuário foram endurecidas antes do versionamento do
 checkpoint.
+
+Em 2026-07-28, a integração AD foi antecipada da Fase 10 e implementada com
+`django-auth-ldap` e `python-ldap`: pesquisa por OU/grupo, criação local
+explícita já vinculada, vínculo posterior, autenticação somente de contas
+previamente vinculadas e contingência administrativa. A ativação no AD real
+permanece pendente de homologação do `.env`, TLS, bases e filtros.
 
 ## Fase 2 — Referências Senior
 
@@ -133,6 +140,32 @@ preservado.
 
 O plano completo, com as sete fases e seus critérios de conclusão, está em
 `MIGRATION_FRONTEND_SPA.md`.
+
+## Fase 2.7 — Configuração técnica de autenticação
+
+Inserida antes da configuração funcional por solicitação explícita, sem
+antecipar setores, grupos de validação, templates ou workflow.
+
+### Entregas
+
+- central de Configurações com cards de módulos atuais e futuros;
+- visibilidade, rotas e API exclusivas de `is_superuser`;
+- singleton LDAP versionado no schema SGPD, com baseline do `.env`;
+- senha de bind cifrada e nunca projetada;
+- upload privado e validação X.509 do bundle de CA;
+- validação do contrato, teste de bind/RootDSE e auditoria;
+- transporte único para descoberta e login, com LDAPS automático quando TLS
+  estiver selecionado e warning permanente quando não estiver;
+- ativação do login condicionada a probe correspondente e contingência local;
+  com TLS, também a CA válida.
+
+### Estado em 2026-07-28
+
+Implementação e testes concluídos. A ADR-032 simplificou o transporte em uma
+única escolha administrativa: com TLS usa LDAPS e CA; sem TLS funciona para
+descoberta e login com aviso explícito. A migration de remoção do campo legado
+ainda precisa ser aplicada no Oracle DEV. O login AD permanece desligado até o
+teste controlado da configuração escolhida.
 
 ## Fase 3 — Configuração funcional
 
@@ -253,7 +286,7 @@ Fluxo ponta a ponta concluído.
 
 Possíveis integrações:
 
-- AD/LDAP para autenticação corporativa das contas já cadastradas no SGPD;
+- homologação operacional e evolução da integração AD/LDAP já implementada;
 - controle de acesso;
 - e-mail;
 - VPN;
@@ -264,9 +297,10 @@ Possíveis integrações:
 - SAP;
 - Senior HCM para retorno da rescisão.
 
-O vínculo administrativo do lado SGPD não antecipa a autenticação AD desta
-fase: ele apenas preserva a identidade externa única e sua trilha de
-confirmação.
+A capacidade AD foi antecipada para a fundação por necessidade operacional. A
+Fase 10 preserva apenas evoluções futuras, como MFA coordenado pela
+infraestrutura, reconciliação periódica ou integrações adicionais; papéis e
+escopos continuam exclusivamente no SGPD.
 
 ## Critério de MVP
 

@@ -12,7 +12,9 @@ atual e a fase autorizada estão em `CHECKPOINT.md`.
 
 Todos os usuários, inclusive gestores, deverão ser cadastrados no SGPD com nome, e-mail, situação e papéis.
 
-No MVP, a autenticação será local. Em fase posterior, cada cadastro poderá ser vinculado a uma conta do Active Directory para autenticação corporativa com uma única senha.
+O SGPD deverá preservar autenticação local para contas não vinculadas e
+contingência administrativa. Cada cadastro poderá ser vinculado a uma conta do
+Active Directory para autenticação corporativa com uma única senha.
 
 O Senior HCM não será fonte de usuários, gestores, e-mails, papéis ou permissões.
 
@@ -27,7 +29,49 @@ A manutenção deverá:
 
 O vínculo administrativo com o AD deverá usar identificador opaco único,
 usuário do diretório, data, administrador responsável e justificativa. O
-vínculo não equivale à autenticação AD, que dependerá de contrato homologado.
+`objectGUID` será a chave estável; e-mail não poderá ser usado como chave.
+
+A administração deverá permitir:
+
+- cadastrar uma conta local e vinculá-la posteriormente após consulta ao AD;
+- consultar usuários e grupos por busca paginada e limitada;
+- restringir a consulta por OU e por associação direta ou aninhada a grupo;
+- criar explicitamente uma conta local já vinculada a uma identidade
+  selecionada no AD;
+- não exigir justificativa digitada para essa importação, pois a origem, o
+  ator, o `objectGUID` e o motivo padronizado são registrados automaticamente
+  na auditoria;
+- detectar conflito de identidade, login e e-mail sem mesclar pessoas
+  automaticamente;
+- rejeitar provisionamento implícito durante o login.
+
+Quando a autenticação AD estiver habilitada, contas comuns vinculadas não
+poderão fazer fallback para senha local. Papéis, permissões e escopos
+continuarão exclusivamente no SGPD e não serão importados de grupos AD. Um
+superusuário local de contingência deverá ser preservado e testado. A API e a
+SPA deverão bloquear definição, redefinição e troca de senha local nessas
+contas, salvo a contingência configurada. Enquanto a autenticação AD estiver
+desligada, a senha local poderá ser definida para testes controlados.
+
+A configuração técnica de LDAP e autenticação deverá:
+
+- ser visível e mutável somente por conta ativa com `IS_SUPERUSER=true`,
+  criada por `createsuperuser` ou pelo bootstrap administrativo;
+- não ser delegável por papel funcional;
+- permitir editar transporte, bind, bases, grupo, filtros, limites e switches;
+- nunca devolver a senha de bind pela API e mantê-la cifrada em repouso;
+- aceitar upload limitado de certificado ou bundle X.509 de CA em storage
+  privado, com validação de estrutura, finalidade, validade e hash SHA-256;
+- validar o contrato sem persistir e testar bind e RootDSE sem listar pessoas;
+- aplicar uma única escolha de transporte a descoberta, busca, importação,
+  vínculo e login;
+- montar LDAPS automaticamente e exigir CA válida quando TLS estiver ativo;
+- permitir LDAP simples quando TLS estiver desativado por decisão explícita do
+  SuperAdmin, exibindo aviso permanente de que a credencial técnica e as
+  senhas dos usuários trafegam sem criptografia;
+- exigir probe da mesma configuração e SuperAdmin local com senha utilizável
+  antes de ativar o login AD;
+- usar controle otimista e auditar alterações, upload e testes de conexão.
 
 ### RF-002 — Perfis e permissões
 

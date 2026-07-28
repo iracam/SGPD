@@ -16,19 +16,86 @@
 Estratégia:
 
 - cadastrar todos os usuários e seus e-mails no SGPD;
-- usar autenticação local no MVP;
+- manter autenticação local enquanto o AD estiver desabilitado e para a
+  contingência administrativa controlada;
 - usar o model customizado `accounts.User` desde a primeira migration;
 - manter e-mail único e identificador AD único e anulável;
-- permitir vínculo administrativo auditado da conta SGPD a uma identidade do
-  Active Directory, sem ativar autenticação LDAP;
-- usar identificador corporativo estável e único para a vinculação;
+- permitir vínculo auditado de uma conta SGPD existente ou criação local
+  explícita a partir de uma identidade pesquisada no Active Directory;
+- usar `objectGUID`, convertido para UUID canônico, como identificador
+  corporativo estável e único para a vinculação;
 - exigir confirmação humana e justificativa para vínculo e desvínculo;
 - exigir troca da senha temporária no próximo acesso quando configurado;
 - não criar perfis ou permissões automaticamente a partir do Senior;
+- não criar conta implicitamente quando credenciais AD válidas forem
+  apresentadas no login;
 - manter papéis e escopos no SGPD mesmo após a vinculação ao AD;
-- desabilitar a senha local comum após ativar a autenticação AD, preservando somente contingência administrativa controlada;
-- exigir TLS na integração futura com AD;
+- bloquear o fallback para senha local de contas comuns vinculadas quando a
+  autenticação AD estiver ativa;
+- aplicar o mesmo bloqueio à definição, redefinição e troca de senha, tanto no
+  service quanto na interface, evitando armazenar uma credencial que a política
+  de login recusaria;
+- preservar somente contingência administrativa de superusuário, controlada
+  por configuração e testada antes da ativação;
+- aplicar a mesma escolha de transporte a descoberta e autenticação;
+- usar LDAPS montado automaticamente, validação do certificado e cadeia
+  corporativa confiável quando TLS estiver selecionado;
+- permitir LDAP simples por escolha explícita do SuperAdmin, mantendo warning
+  permanente de que a credencial técnica e a senha do usuário trafegam sem
+  criptografia;
+- usar conta técnica AD somente leitura e nunca registrar senha, DN consultado,
+  filtro preenchido ou atributos pessoais retornados;
+- excluir contas desabilitadas no AD e, quando configurado, restringir
+  elegibilidade por OU e grupo direto ou aninhado;
+- tratar grupos AD exclusivamente como filtro de elegibilidade, nunca como
+  fonte de papéis ou permissões;
 - MFA quando a infraestrutura permitir.
+
+Descoberta e autenticação possuem chaves de ativação independentes. Isso
+permite homologar transporte, bind, filtros, importação e vínculo antes de
+habilitar o backend de login. Falha do AD produz erro genérico, sem enumeração
+de usuário e sem fallback silencioso para senha local de conta comum
+vinculada. O runbook está em `INTEGRATION_ACTIVE_DIRECTORY.md`.
+
+Quando `LDAP_AUTHENTICATION_ENABLED=false`, uma conta vinculada pode receber
+senha local para homologação controlada. Ao ativar o login AD, a API passa a
+recusar novas definições e redefinições para contas comuns vinculadas; somente
+o superusuário coberto por `LDAP_LOCAL_SUPERUSER_FALLBACK=true` conserva essa
+capacidade.
+
+Sem TLS, a credencial técnica e as senhas de login trafegam sem criptografia.
+O system check, a central de configurações e a importação exibem alerta
+permanente. Esse aviso não altera a opção administrativa nem apresenta LDAP
+simples como transporte seguro.
+
+### Administração técnica de autenticação
+
+A central `/fe/configuracoes` e os endpoints `/api/v1/settings/` exigem
+diretamente uma conta ativa com `is_superuser=true`. Essa autoridade não é uma
+permissão delegável por papel: mesmo um administrador funcional com todas as
+permissões de contas recebe `403`.
+
+Na configuração LDAP:
+
+- a senha de bind nunca é devolvida pela API, auditoria ou logs;
+- quando informada pela tela, é cifrada com Fernet usando chave derivada do
+  `DJANGO_SECRET_KEY`; a troca dessa chave exige regravação coordenada do
+  segredo;
+- o certificado ou bundle de CA é limitado a 512 KiB, validado como X.509,
+  exige `Basic Constraints: CA`, validade vigente e recebe hash SHA-256;
+- o PEM normalizado fica em storage privado com arquivo `0600` e diretório
+  `0700`, fora do WhiteNoise;
+- a ativação de login AD exige probe de bind e RootDSE da mesma configuração e
+  ao menos um SuperAdmin ativo com senha local utilizável; quando TLS estiver
+  selecionado, exige também CA válida;
+- com TLS ativo, a substituição da CA desabilita o login AD e invalida o probe
+  anterior até que a nova cadeia seja testada; sem TLS, a CA não interfere no
+  login nem no probe;
+- o fingerprint do probe usa HMAC com chave derivada do segredo da aplicação;
+  não persiste hash simples que funcione como verificador offline da senha;
+- alterações usam versão otimista; atualização, upload e teste geram eventos
+  append-only com motivos operacionais padronizados no servidor, sem
+  justificativa digitada, segredo, filtro preenchido ou caminho privado.
 
 A SPA autentica por sessão Django com proteção CSRF em origem única, conforme a
 ADR-026:
@@ -188,6 +255,10 @@ Recomendações:
 - diretório inicial `media/evidence`;
 - nunca servir pelo WhiteNoise;
 - acesso somente por endpoint autenticado e autorizado.
+
+Certificados de integração não usam o storage de evidências. Eles ficam em
+`SYSTEM_CONFIGURATION_STORAGE_PATH`, também privado e não servido pelo
+WhiteNoise.
 
 ## 8. Auditoria
 

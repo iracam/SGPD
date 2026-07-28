@@ -279,6 +279,10 @@ criado na abertura do processo será persistido no SGPD.
 
 ## ADR-021 — Cadastro local de usuários e vinculação futura ao AD
 
+Complementada pela ADR-029 em 2026-07-28 quanto à implementação e ativação da
+integração. Permanecem vigentes a propriedade local do cadastro funcional e a
+separação entre identidade AD e autorização SGPD.
+
 ### Decisão
 
 Cadastrar no SGPD todos os usuários, gestores, e-mails, papéis e escopos.
@@ -357,6 +361,9 @@ Instant Client 19.28 indicado por `ORACLE_CLIENT_LIB_DIR`.
   explícitas após revisão do SQL.
 
 ## ADR-024 — Papéis com escopo e vínculo administrativo com o AD
+
+Complementada pela ADR-029 em 2026-07-28. O vínculo administrativo passou a ser
+verificado no diretório quando a descoberta AD está habilitada.
 
 ### Decisão
 
@@ -600,3 +607,220 @@ pontos de quebra. Todo SCSS de layout usa exclusivamente
   mesmos dados;
 - a conclusão de cada fase de interface exige conferência visual em todos os
   pontos de quebra, começando pelo menor.
+
+## ADR-029 — Active Directory com provisionamento explícito e ativação em estágios
+
+### Estado
+
+Aceita em 2026-07-28. A escolha de transporte da seção de segurança foi
+substituída pela ADR-032.
+
+### Decisão
+
+Implementar a integração corporativa com `django-auth-ldap` 5.3.x e
+`python-ldap` 3.4.x, preservando Django 5.2 LTS e Django REST Framework nas
+versões mais recentes compatíveis resolvidas pelo projeto.
+
+Separar a ativação em dois estágios:
+
+1. `LDAP_ENABLED` para descoberta administrativa, importação explícita e
+   vínculo verificado;
+2. `LDAP_AUTHENTICATION_ENABLED` para autenticação corporativa de contas SGPD
+   previamente vinculadas.
+
+O SGPD suporta os dois fluxos necessários:
+
+- cadastrar a conta local e vinculá-la posteriormente a uma identidade
+  pesquisada no AD;
+- pesquisar usuários/grupos e criar explicitamente uma conta local já
+  vinculada, sem papel ou permissão automática.
+
+### Identidade e autorização
+
+- `objectGUID`, convertido do formato binário little-endian para UUID canônico,
+  é a chave estável do vínculo;
+- login e e-mail servem para apresentação e detecção de conflitos, não como
+  chave;
+- credenciais AD válidas nunca criam usuário durante o login;
+- grupos e OUs podem restringir o público elegível, mas não concedem papéis,
+  permissões ou escopos;
+- perfil, situação, papéis, permissões e escopos continuam exclusivamente no
+  SGPD;
+- a conta importada recebe senha local inutilizável;
+- a importação não solicita justificativa manual; ator, origem, identidade e
+  motivo operacional padronizado compõem a auditoria;
+- conta comum vinculada não faz fallback para senha local quando o AD está
+  ativo;
+- definição, redefinição e troca de senha local são igualmente bloqueadas
+  quando a política de autenticação não permite usar essa credencial;
+- um superusuário local de contingência pode ser mantido por configuração
+  explícita.
+
+### Segurança e operação
+
+- usar LDAPS ou StartTLS com validação obrigatória da cadeia de certificados;
+- usar conta técnica AD somente leitura;
+- excluir usuários desabilitados pelo `userAccountControl`;
+- permitir base por OU, grupo direto ou aninhado e filtro fixo revisado;
+- escapar toda entrada de busca, paginar e limitar resultados;
+- não registrar senha, filtro preenchido, DN pesquisado ou atributos pessoais;
+- validar configuração pelo system check e conectividade pelo comando
+  `check_active_directory`;
+- ativar autenticação somente após validar descoberta, importação, vínculo,
+  contingência e comportamento de falha.
+
+### Consequências
+
+- `django-auth-ldap` e `python-ldap` passam a ser dependências diretas
+  documentadas e bloqueadas em `uv.lock`;
+- os headers e bibliotecas nativas OpenLDAP/SASL/OpenSSL tornam-se
+  pré-requisitos de build;
+- indisponibilidade do AD bloqueia login de contas comuns vinculadas, sem
+  fallback silencioso que enfraqueça a política corporativa;
+- a operação no AD real só é considerada homologada depois de preencher URI,
+  bind, CA, bases e grupo/filtro no `.env` e executar o runbook
+  `INTEGRATION_ACTIVE_DIRECTORY.md`;
+- nenhuma migration de banco é necessária, pois os campos de identidade
+  existentes atendem ao contrato.
+
+## ADR-030 — Descoberta LDAP sem TLS como exceção temporária no DEV
+
+### Estado
+
+Substituída pela ADR-032 em 2026-07-28. O texto abaixo preserva a exceção
+histórica que permitiu a primeira homologação.
+
+### Decisão
+
+Permitir LDAP simples exclusivamente para descoberta administrativa no ambiente
+DEV, mediante todas as condições:
+
+- `DJANGO_DEBUG=true`;
+- `LDAP_ENABLED=true`;
+- `LDAP_ALLOW_INSECURE_DISCOVERY=true`;
+- `LDAP_AUTHENTICATION_ENABLED=false`;
+- conta técnica de leitura;
+- warning permanente no system check e na SPA.
+
+A autenticação AD continua exigindo LDAPS ou StartTLS. O backend revalida o
+contrato no momento do login e recusa LDAP simples, independentemente do modo
+como o processo Django foi iniciado.
+
+### Risco aceito
+
+O bind simples transmite o usuário e a senha da conta técnica sem criptografia
+na rede. A exceção não torna o transporte seguro e não é autorizada para senha
+de usuário final, HML ou PRD.
+
+### Saída da exceção
+
+Obter a CA `BSA-AD-CA` por canal confiável, instalá-la no trust store ou
+configurar `LDAP_TLS_CA_CERT_FILE`, retornar para
+`ldaps://ad.bsa.local:636`, definir
+`LDAP_ALLOW_INSECURE_DISCOVERY=false`, repetir o probe e somente então avaliar
+`LDAP_AUTHENTICATION_ENABLED=true`.
+
+## ADR-031 — Configuração LDAP dinâmica e exclusiva de SuperAdmin
+
+### Estado
+
+Aceita em 2026-07-28. As condições de transporte dos itens 2 e 3 da ativação
+foram substituídas pela ADR-032.
+
+### Decisão
+
+Criar uma central técnica em `/fe/configuracoes`, começando por LDAP e
+autenticação, cuja autoridade é diretamente `User.is_superuser`. Essa
+capacidade vale para contas criadas por `createsuperuser` ou pelo bootstrap
+administrativo e não será incluída no catálogo de permissões delegáveis.
+
+Persistir a configuração efetiva no singleton `SGPD_LDAP_CONFIG`, com versão
+otimista e o `.env` como baseline enquanto o registro não existir. O backend
+LDAP monta sua configuração por instância de autenticação, para que a mudança
+validada entre em vigor sem mutação de settings globais ou reinício.
+
+### Segredos e certificados
+
+- a senha de bind informada pela SPA é cifrada com Fernet usando uma chave
+  derivada do `DJANGO_SECRET_KEY`;
+- a API retorna apenas se existe segredo configurado, nunca seu valor ou
+  ciphertext;
+- a rotação do `DJANGO_SECRET_KEY` exige regravação coordenada da senha LDAP;
+- o certificado ou bundle é validado como X.509 de CA vigente, normalizado para
+  PEM e limitado a 512 KiB;
+- o arquivo fica em `SYSTEM_CONFIGURATION_STORAGE_PATH`, com permissões
+  privadas e fora do WhiteNoise; Oracle recebe somente nome, hash e metadados.
+
+### Ativação e auditoria
+
+O login AD só pode ser habilitado quando:
+
+1. a descoberta estiver habilitada;
+2. o transporte for LDAPS ou StartTLS com validação obrigatória;
+3. a CA estiver válida e corresponder ao hash registrado;
+4. o bind e o RootDSE tiverem passado para o mesmo fingerprint de configuração;
+5. existir SuperAdmin ativo com senha local utilizável e fallback preservado.
+
+A rotação do certificado desabilita a autenticação AD e invalida o probe
+anterior; um novo teste é obrigatório antes da reativação.
+O componente secreto do fingerprint é um HMAC com chave derivada do segredo da
+aplicação, não um hash simples da senha de bind.
+
+Atualização, upload e teste geram eventos append-only com correlation ID e
+motivos operacionais padronizados no servidor, sem depender de justificativa
+digitada e sem senha, caminho privado ou filtro preenchido.
+
+### Consequências
+
+- `cryptography`, já transitiva de `python-oracledb`, torna-se dependência
+  direta pelo uso de Fernet e X.509;
+- a tabela nova é pequena e singleton; a migration é somente aditiva;
+- indisponibilidade do Oracle antes da migration mantém o baseline do ambiente
+  para comandos de implantação, sem autorizar login fora das validações
+  existentes;
+- o risco R49 passa a representar a manutenção contínua desses controles.
+
+## ADR-032 — Transporte LDAP único e simplificado
+
+### Estado
+
+Aceita em 2026-07-28 por decisão explícita do projeto.
+
+### Decisão
+
+Descoberta, busca de grupos e usuários, importação, vínculo e autenticação usam
+uma única escolha de transporte administrada pelo SuperAdmin:
+
+- `Negociar TLS` marcado monta `ldaps://` automaticamente; o campo recebe
+  somente host ou host e porta, e a CA válida é obrigatória para ativar o
+  login;
+- `Negociar TLS` desmarcado monta `ldap://` automaticamente e permite os mesmos
+  fluxos, inclusive login, sem uma segunda chave de exceção.
+
+LDAP simples deve exibir warning permanente de que a credencial técnica e as
+senhas dos usuários trafegam sem criptografia. O aviso torna o risco explícito,
+mas não bloqueia a escolha administrativa. StartTLS permanece aceito somente
+para compatibilidade de baselines antigos do ambiente e não é apresentado na
+central.
+
+A importação de usuários não recebe grupo adicional. Ela aplica exatamente a
+base, o grupo obrigatório e o filtro salvos. A pesquisa de grupos passa para a
+central de configurações, onde preenche o grupo obrigatório.
+
+### Controles preservados
+
+- senha de bind cifrada e nunca projetada;
+- conta técnica somente leitura;
+- probe da mesma configuração antes de ativar o login;
+- contingência local de SuperAdmin;
+- filtro de contas ativas, limites, paginação e escape LDAP;
+- CA validada quando TLS estiver selecionado;
+- warning `sgpd.AD900` e aviso na SPA enquanto LDAP simples estiver ativo.
+
+### Consequências
+
+- a ADR-030 deixa de ser regra vigente;
+- `LDAP_ALLOW_INSECURE_DISCOVERY` e o campo equivalente são removidos;
+- o risco R48 passa a incluir também a senha do usuário quando o login operar
+  sem TLS;
+- o transporte deixa de variar entre descoberta e autenticação.

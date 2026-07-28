@@ -3,13 +3,15 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fase 2.5 concluída até G; Fase 3 ainda não iniciada
-- Estado: SPA cobre autenticação, contas e cascata Senior; interface server-side da aplicação removida
+- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 ainda não iniciada
+- Estado: SPA cobre autenticação, contas, configuração técnica LDAP e cascata Senior; interface server-side removida
 - Banco: Oracle
 - Backend: Django API-only, com Django Admin somente leitura preservado
 - UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028
 - Integração principal: Senior HCM
-- Autenticação: local no MVP, por sessão Django com CSRF em origem única, com vinculação futura das contas SGPD ao Active Directory
+- Autenticação: sessão Django com CSRF em origem única; local operacional;
+  descoberta e login AD compartilham o transporte da ADR-032; LDAP simples
+  funciona com warning e login AD permanece desligado até teste controlado
 
 ## Checkpoint 0 — Descoberta
 
@@ -92,11 +94,14 @@
 - [x] Implementar fluxo administrativo de vínculo e desvínculo AD.
   - Identificador opaco, único e normalizado; confirmação, justificativa,
     responsável e auditoria.
-- [ ] Homologar atributo identificador, endpoint, TLS, base de busca e backend
-  de autenticação com a Infraestrutura.
+- [x] Implementar descoberta, importação explícita, vínculo verificado e
+  backend AD, sem provisionamento implícito ou papéis derivados de grupos.
+- [ ] Homologar URI, bind, cadeia TLS, bases e grupo/filtro no AD real com a
+  Infraestrutura.
 - [x] Definir origem dos usuários.
-  - Todos os usuários, gestores e e-mails serão cadastrados no SGPD.
-  - AD será vinculado futuramente apenas como provedor de autenticação.
+  - Todos os usuários, gestores, e-mails, papéis e escopos pertencem ao SGPD.
+  - Uma conta pode ser cadastrada localmente ou criada explicitamente a partir
+    de uma identidade AD; o login nunca provisiona conta.
 - [x] Definir papéis.
   - Catálogo inicial com nove papéis; permissões evoluem com os módulos.
 - [x] Definir escopo por empresa/filial.
@@ -136,11 +141,15 @@
   - Modo Thick obrigatório para o verificador atual da conta `SGPD`.
   - `CREATE TABLE` e `CREATE SEQUENCE`, ambos sem `ADMIN OPTION`, e quota de
     500 MB em `PIMS_DATA` concedidos ao mesmo usuário `SGPD`.
-  - 23 migrations aplicadas; 12 constraints SGPD habilitados e validados.
+  - 25 migrations aplicadas; constraints SGPD habilitadas e validadas.
 - [x] Cadastro e manutenção auditada de usuários.
 - [x] Autenticação local e troca obrigatória de senha temporária.
 - [x] Papéis, permissões e escopos.
 - [x] Vínculo administrativo com o AD.
+- [x] Descoberta, importação explícita e autenticação AD em estágios.
+  - Django 5.2.16, DRF 3.17.1, `django-auth-ldap` 5.3.0 e
+    `python-ldap` 3.4.7 bloqueados, sem regressão.
+  - Ativação no diretório real permanece pendente de configuração homologada.
 - [x] Auditoria de login, logout, falha e manutenção de contas.
 - [x] Primeira conta humana de administração.
   - Criada pelo bootstrap interativo, com papel global
@@ -275,6 +284,66 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [x] Testes acoplados à UI antiga removidos.
 - [x] Suíte completa, lint, format, mypy e migrations sem divergência.
 - [x] Checkpoint atualizado.
+
+## Checkpoint 2.6 — Integração Active Directory
+
+- [x] Separar descoberta e autenticação em chaves de ativação independentes.
+- [x] Implementar cliente LDAP somente leitura, TLS obrigatório para
+  autenticação, timeouts, paginação, limites e RootDSE.
+- [x] Usar `objectGUID` como identificador estável e excluir contas
+  desabilitadas.
+- [x] Permitir filtro por OU, grupo direto/aninhado e filtro administrativo
+  fixo.
+- [x] Implementar pesquisa de grupos e usuários na API e na SPA.
+- [x] Implementar criação explícita de usuário local já vinculado, sem papel
+  automático e com senha inutilizável.
+- [x] Revalidar no AD o vínculo posterior de conta local.
+- [x] Implementar autenticação somente para conta previamente vinculada, sem
+  provisionamento no login.
+- [x] Bloquear fallback local para conta comum vinculada e preservar
+  contingência configurável de superusuário.
+- [x] Implementar system check, probe operacional, auditoria e testes.
+- [x] Documentar `.env`, dependências nativas, filtros e comandos
+  `ldapsearch` em `INTEGRATION_ACTIVE_DIRECTORY.md`.
+- [x] Confirmar domínio, FQDN, portas, certificado e RootDSE.
+  - `ad.bsa.local` resolve para `192.168.1.20`; LDAP 389 e LDAPS 636 acessíveis.
+  - RootDSE confirmou `DC=bsa,DC=local`; certificado identifica
+    `ad.bsa.local` e foi emitido por `BSA-AD-CA`.
+- [x] Validar bind técnico, bases e DN exato do grupo `BSA_SGPD`.
+  - A primeira validação usou a exceção histórica da ADR-030, substituída pela
+    escolha única de transporte da ADR-032.
+  - Filtro encontrou quatro usuários ativos elegíveis, sem exibir identidades.
+- [x] Executar probe e filtro contra o AD corporativo.
+- [ ] Se TLS for escolhido, instalar a CA `BSA-AD-CA` e repetir o probe.
+- [ ] Executar importação/vínculo e login AD controlados com o transporte
+  escolhido pelo SuperAdmin.
+
+## Checkpoint 2.7 — Configuração técnica LDAP/Autenticação
+
+- [x] Criar seção de menu e central de Configurações somente para SuperAdmin.
+- [x] Criar cards para LDAP e módulos futuros.
+- [x] Implementar guarda de rota e API com autoridade direta por
+  `is_superuser`, sem permissão delegável.
+- [x] Persistir singleton LDAP versionado no schema SGPD com baseline do
+  `.env`.
+- [x] Cifrar senha de bind e nunca projetá-la ou auditá-la.
+- [x] Implementar upload privado de CA, limite, normalização PEM, hash e
+  validação X.509.
+- [x] Implementar validação não persistente do contrato.
+- [x] Implementar teste de bind e RootDSE sem listar dados pessoais.
+- [x] Aplicar uma escolha única de transporte a descoberta e login: LDAPS e CA
+  quando TLS estiver marcado; LDAP simples com warning quando desmarcado.
+- [x] Exigir probe correspondente e contingência local antes de ativar login
+  AD.
+- [x] Remover o campo de exceção DEV e a seleção de grupo adicional na
+  importação.
+- [x] Permitir buscar o grupo obrigatório na central de Configurações.
+- [x] Manter campos com alvo de 44 px no móvel e densidade compacta no desktop.
+- [x] Auditar atualização, upload e teste com correlation ID.
+- [x] Cobrir autorização, versão concorrente, segredo, certificado, probe,
+  API, guarda, menu e tela com testes automatizados.
+- [ ] Aplicar no Oracle DEV a migration revisada que remove a coluna legada
+  `ALLOW_INSECURE_DISCOVERY`.
 
 ## Checkpoint 3 — Configuração funcional
 
@@ -805,4 +874,132 @@ Próximo passo: modelar o menor incremento de setores da Fase 3, com autorizaç�
 Comandos executados: inventário de Markdown versionado; leitura integral e buscas cruzadas com rg; inspeção das rotas Django e Angular, settings e lockfiles; validação de links locais com Node; jq empty; git diff --check; regeneração e validação SHA-256 do manifesto.
 Arquivos alterados: AGENTS.md, PROMPT.md, README.md, docs/SGPD/ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, ENVIRONMENT.md, INTEGRATION_SENIOR_ORACLE.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, VISION.md, WORKFLOWS.md e MANIFEST.json. GLOSSARY.md foi revisado e não exigiu alteração.
 Testes: 17 documentos Markdown vigentes com links locais válidos; arquivos JSON validados; manifesto íntegro por tamanho e SHA-256; busca de referências operacionais obsoletas sem divergência fora das seções históricas identificadas; diff sem erros de whitespace. A suíte de aplicação não foi repetida porque esta revisão alterou somente documentação; a validação completa registrada na Fase G permanece aplicável ao mesmo código.
+```
+
+### 2026-07-28 — Integração Active Directory
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.6 — Integração Active Directory
+O que foi concluído: dependências LDAP nas versões mais recentes compatíveis sem regressão de Django ou DRF; configuração tipada e validada; cliente python-ldap somente leitura com TLS, RootDSE, paginação e filtros seguros; backend django-auth-ldap sem provisionamento implícito; criação local explícita já vinculada e vínculo posterior revalidado por objectGUID; bloqueio de fallback local para conta comum vinculada; APIs e interface Angular para status, grupos, usuários e importação; system check, probe operacional, testes e runbook.
+Decisões: AD autentica e filtra elegibilidade, mas o SGPD continua proprietário de cadastro funcional, situação, papéis, permissões e escopos; objectGUID é a chave estável; descoberta e autenticação possuem chaves independentes; conta importada recebe senha inutilizável; somente superusuário local configurado pode servir de contingência; nenhum usuário ou papel é criado implicitamente pelo login ou por grupos.
+Riscos: indisponibilidade/TLS do AD e base/filtro amplo registrados em R46 e R47; vínculo incorreto, fallback local e confusão entre capacidade implementada e homologação real mitigados em R21, R29 e R33.
+Pendências: o .env real ainda precisa de URI com ldap:// ou ldaps://, bind inequívoco, CA e bases/grupo/filtro homologados; executar probe, buscas, importação e login no AD corporativo antes de habilitar autenticação.
+Próximo passo: obter da Infraestrutura o domínio/base, DN ou UPN da conta técnica, cadeia de CA e grupo/OU elegível; habilitar primeiro somente LDAP_ENABLED e seguir o runbook.
+Comandos executados: uv lock --upgrade-package django --upgrade-package djangorestframework --upgrade-package django-auth-ldap --upgrade-package python-ldap; uv sync --dev; suíte backend, Ruff, format, mypy, Django check, migrations check; suíte e build frontend; inspeção sanitizada do .env.
+Arquivos alterados: pyproject.toml, uv.lock, .env.example, config/settings/base.py, apps/accounts, apps/integrations/active_directory, frontend/src/app/features/usuarios, README.md e documentação em docs/SGPD.
+Testes: 165 testes backend e 33 testes frontend passaram; Ruff, format, mypy, Django check e migrations sem divergência; build inicial de 495,51 kB permaneceu abaixo do orçamento. O comando check_active_directory recusou corretamente a execução porque LDAP_ENABLED ainda está falso; o probe no AD real permanece pendente por configuração incompleta.
+```
+
+### 2026-07-28 — Descoberta do endpoint AD corporativo
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.6 — Homologação operacional do Active Directory
+O que foi concluído: .env preparado, ainda desativado, com LDAPS ad.bsa.local:636, base ampla DC=bsa,DC=local e DNs candidatos para a OU Grupos e o grupo BSA_SGPD; DNS, portas, handshake TLS e RootDSE inspecionados sem usar credenciais.
+Decisões: usar FQDN, e não IP, para preservar a validação do certificado; manter LDAP_ENABLED e LDAP_AUTHENTICATION_ENABLED falsos até instalar a CA e validar o bind; tratar os DNs derivados do caminho amigável como candidatos até confirmação autenticada.
+Riscos: o certificado é emitido pela CA interna BSA-AD-CA, ainda ausente do trust store; habilitar agora falharia de forma segura. A existência da OU e do grupo não pôde ser confirmada anonimamente porque o AD exige bind.
+Pendências: obter a CA BSA-AD-CA em PEM/CRT por canal confiável; preencher UPN/DN e senha da conta técnica; confirmar os DNs; executar check_active_directory, busca, importação e login controlado.
+Próximo passo: instalar a CA e preencher o bind; habilitar somente LDAP_ENABLED para o primeiro probe.
+Comandos executados: resolução DNS; teste TCP 636/389; openssl s_client com verificação e inspeção de metadados; ldapsearch anônimo do RootDSE; tentativa anônima controlada de validar os DNs, recusada pelo AD por exigir bind.
+Arquivos alterados: .env local, docs/SGPD/INTEGRATION_ACTIVE_DIRECTORY.md, ENVIRONMENT.md, CHECKPOINT.md e MANIFEST.json.
+Testes: ad.bsa.local resolveu para 192.168.1.20; portas 636 e 389 aceitaram conexão; certificado apresentou CN/SAN ad.bsa.local, emissor BSA-AD-CA e validade de 2026-02-09 a 2027-02-09; RootDSE confirmou defaultNamingContext DC=bsa,DC=local; nenhum segredo foi exibido ou transmitido.
+```
+
+### 2026-07-28 — Exceção temporária de descoberta LDAP sem TLS
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.6 — Homologação operacional do Active Directory
+O que foi concluído: suporte explícito a LDAP simples somente para descoberta no DEV; LDAP_ALLOW_INSECURE_DISCOVERY protegido por DEBUG=true e incompatível com autenticação AD; warning no system check, API e SPA; settings de teste isolados do endpoint real; .env ativado em ldap://ad.bsa.local:389; bind, RootDSE, bases, DN exato do grupo e filtro de membros ativos validados.
+Decisões: aceitar temporariamente o risco do bind técnico sem criptografia por instrução explícita; manter LDAP_AUTHENTICATION_ENABLED=false e bloquear login AD no backend até restaurar TLS; registrar a exceção na ADR-030 e o risco R48.
+Riscos: usuário e senha da conta técnica trafegam sem criptografia na rede DEV. Nenhuma senha de usuário final foi transmitida; o modo é proibido em HML/PRD.
+Pendências: obter e instalar BSA-AD-CA, retornar a LDAPS 636, remover LDAP_ALLOW_INSECURE_DISCOVERY e somente então homologar importação/vínculo e login.
+Próximo passo: testar pesquisa administrativa e vínculo controlado na SPA; em paralelo, obter a CA para encerrar a exceção.
+Comandos executados: manage.py check; check_active_directory; bind LDAP simples; busca exata do DN do grupo; filtro ativo e associação aninhada limitado a 50 resultados; suítes backend/frontend e validações estáticas.
+Arquivos alterados: .env, .env.example, config/settings/base.py, config/settings/test.py, apps/integrations/active_directory, comando check_active_directory, frontend de usuários, testes e documentação em docs/SGPD.
+Testes: probe confirmou bind e RootDSE; CN=BSA_SGPD,OU=Grupos,OU=BSAbioenergia,DC=bsa,DC=local retornou exatamente um grupo; filtro encontrou quatro usuários ativos elegíveis sem exibir identidades; warning sgpd.AD900 emitido; autenticação permaneceu desligada; 169 testes backend e 34 frontend passaram; Ruff, format, mypy, Django check de testes e migrations sem divergência; build inicial de 495,51 kB.
+```
+
+### 2026-07-28 — Compatibilidade Oracle no provisionamento pelo AD
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.6 — Homologação operacional do Active Directory
+O que foi concluído: correção do erro 500 no POST /api/v1/accounts/directory/users/create/, causado pela combinação SELECT ... FOR UPDATE com FETCH FIRST gerada por first()/exists() e não suportada pelo backend Oracle; revisão de todos os bloqueios pessimistas do módulo de contas; correção preventiva do mesmo padrão na atribuição de papel.
+Decisões: usar get() nas consultas bloqueadas cobertas por chaves únicas, pois o Django omite o limite quando o backend declara supports_select_for_update_with_limit=false; materializar sem slicing os pequenos conjuntos candidatos de conflito por login e e-mail; preservar transaction.atomic(), idempotência por objectGUID, constraints, tratamento de corrida por IntegrityError e auditoria existente.
+Riscos: nenhum schema, dado, dependência, configuração LDAP ou regra de autorização foi alterado. A consulta bloqueada sem correspondência não bloqueia uma linha inexistente; a proteção final contra corrida continua nas constraints únicas do Oracle e na tradução de IntegrityError já existente.
+Pendências: repetir pela SPA a criação da identidade que originou o erro para confirmar o ciclo HTTP completo no processo de desenvolvimento já recarregado.
+Próximo passo: repetir a ação Criar usuário local na SPA; o endpoint responde HTTP 201 tanto na primeira execução quanto na repetição idempotente e devolve a conta vinculada.
+Comandos executados: busca integral por select_for_update; testes direcionados; suíte backend completa; Ruff; format; mypy; inspeção de migrations e diff.
+Arquivos alterados: apps/accounts/services.py, tests/test_active_directory.py, tests/test_accounts_services.py, docs/SGPD/CHECKPOINT.md e docs/SGPD/MANIFEST.json.
+Testes: 171 testes backend passaram; dois testes novos simulam as capacidades relevantes do Oracle (FOR UPDATE disponível e FOR UPDATE com limite indisponível) e falhariam com o padrão anterior; mypy sem erros; Ruff e format sem divergência; nenhuma migration criada.
+```
+
+### 2026-07-28 — Reset operacional do schema SGPD DEV
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.6 — Homologação operacional do Active Directory
+O que foi concluído: limpeza integral e explicitamente solicitada dos dados funcionais do schema Oracle SGPD para reiniciar os testes de criação e vínculo AD; usuários, superusuários, sessões, papéis, atribuições e auditoria foram zerados.
+Decisões: executar django-admin flush, preservando estrutura, tabelas e histórico de migrations; revisar previamente o SQL gerado e confirmar CURRENT_SCHEMA=SGPD e as 14 tabelas-alvo; não executar rollback de migrations, DROP, DML no Senior ou alteração no owner VETORH.
+Riscos: o flush usa TRUNCATE no Oracle e os dados removidos não são recuperáveis pela aplicação; eventual recuperação depende de backup externo. A operação foi autorizada explicitamente para o ambiente DEV. O warning AD900 permanece esperado enquanto a descoberta LDAP simples estiver ativa.
+Pendências: recriar o catálogo de papéis e a primeira conta administrativa pelo bootstrap auditado; repetir a importação/vinculação controlada do AD.
+Próximo passo: executar bootstrap_roles e, em seguida, bootstrap_identity_admin; autenticar na SPA e repetir o fluxo de criação local a partir da identidade AD.
+Comandos executados: inspeção somente leitura de CURRENT_SCHEMA e USER_TABLES; sqlflush; flush --noinput; contagens pós-reset; verificação de constraints e migrate --check.
+Arquivos alterados: somente dados no schema Oracle SGPD e documentação em docs/SGPD/CHECKPOINT.md e MANIFEST.json; nenhum código, migration, dependência ou configuração foi alterado.
+Testes: users=0, superusers=0, roles=0, role_assignments=0, account_audit=0 e sessions=0; 23 migrations preservadas; 9 content types e 41 permissões padrão recriados pelo post_migrate; zero constraints desabilitadas; migrate --check sem pendências.
+```
+
+### 2026-07-28 — Importação AD sem justificativa e política única de senha local
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.6 — Homologação operacional do Active Directory
+O que foi concluído: remoção da justificativa manual na criação de conta a partir do AD; auditoria preservada com motivo operacional padronizado; botão Criar vinculada habilitado somente quando a identidade possui sAMAccountName, givenName, sn e mail e não possui vínculo ou conflito local; mensagem em português para cada atributo ausente; política única de senha local aplicada pelo backend de autenticação, services, API e SPA.
+Decisões: o POST de importação recebe somente objectGUID e o servidor reconsulta a identidade; importação é uma operação determinística cuja origem, ator e motivo não dependem de texto livre; vínculo e desvínculo posteriores continuam exigindo justificativa; local_password_allowed é calculado no servidor e projetado no usuário; conta comum vinculada pode receber e usar senha local enquanto LDAP_AUTHENTICATION_ENABLED=false, mas definição, redefinição, troca e fallback são bloqueados quando o login AD está ativo; superusuário só conserva senha local quando LDAP_LOCAL_SUPERUSER_FALLBACK=true.
+Riscos: mitigado R29 também na manutenção de senha, eliminando a possibilidade de gravar uma credencial que a política de login recusaria. A autenticação local temporária de conta vinculada continua possível no DEV enquanto o login AD estiver desligado e deve ser removida operacionalmente ao ativá-lo.
+Pendências: recriar catálogo e superusuário após o reset já executado; repetir na SPA importação sem justificativa, redefinição e login local com autenticação AD desligada; após restaurar TLS, homologar visualmente o bloqueio com autenticação AD ativa.
+Próximo passo: executar bootstrap_roles e bootstrap_identity_admin, importar uma identidade elegível, definir senha local e confirmar login enquanto LDAP_AUTHENTICATION_ENABLED=false.
+Comandos executados: testes direcionados de accounts e Active Directory; suíte backend completa; Ruff; format; mypy; Django check; migrations check; suíte Vitest e build Angular.
+Arquivos alterados: apps/accounts/api_accounts.py, api_directory.py, serializers.py e services.py; apps/integrations/active_directory/backends.py e config.py; frontend de usuários; testes backend/frontend; documentação e MANIFEST.json.
+Testes: 176 testes backend e 38 testes frontend passaram; regressões cobrem importação sem reason, auditoria padronizada, requisitos ausentes, senha local funcional com AD desligado, bloqueio sem alteração/auditoria com AD ativo e contingência de superusuário ligada/desligada; Ruff, format e mypy sem erros; Django check e migrations sem divergência; build inicial de 495,51 kB dentro do orçamento.
+```
+
+### 2026-07-28 — Central de Configurações e administração LDAP
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Configuração técnica de autenticação
+O que foi concluído: central de Configurações na SPA, com card ativo de LDAP/autenticação e reservas visuais para módulos futuros; seção de navegação e rotas restritas a SuperAdmin; singleton versionado SGPD_LDAP_CONFIG; senha de bind cifrada; upload privado de bundle CA PEM/DER; validação X.509, validade, BasicConstraints e hash SHA-256; validação não persistente dos parâmetros; teste salvo de bind e RootDSE; carregamento dinâmico pelo backend django-auth-ldap; proteção de ativação, rotação segura da CA e auditoria sem segredos.
+Decisões: SuperAdmin técnico é exclusivamente User.is_superuser, atributo definido tanto pelo createsuperuser quanto pelo bootstrap_identity_admin, sem confusão com papel funcional; a API e cada service repetem essa autorização; o .env permanece como baseline até o primeiro salvamento; a configuração efetiva pode mudar sem reiniciar o processo; o certificado fica em storage privado e fora do WhiteNoise; o login AD só pode ser ativado com TLS, CA vigente, probe bem-sucedido da mesma versão/fingerprint e contingência local utilizável; atualização, upload e teste não dependem de justificativa digitada e recebem motivos operacionais padronizados no servidor; ADR-031 registrada.
+Riscos: a primeira revisão do SQL revelou NVARCHAR2(2048), que o Oracle 19c recusou com ORA-00910; os campos DN/filtro foram limitados a 2000, o SQL foi novamente revisado e a migration aditiva aplicada. R49 registra exposição de segredo, CA inválida e ativação sem contingência. A exceção LDAP simples da ADR-030 e R48 continua ativa apenas para descoberta no DEV; o login AD permanece desligado.
+Pendências: obter e enviar a BSA-AD-CA por canal confiável, retornar a LDAPS 636, executar o teste de conexão salvo e só então homologar a ativação do login AD; e-mail, arquivos/evidências e parâmetros do processo continuam apenas como cards de roadmap.
+Próximo passo: instalar a BSA-AD-CA pela nova tela, retirar LDAP_ALLOW_INSECURE_DISCOVERY e homologar o login corporativo com conta controlada, preservando o SuperAdmin local.
+Comandos executados: sqlmigrate e revisão de SQL Oracle; migrate e migrate --plan; inspeção somente leitura de tabela e constraints; uv lock --offline; pytest; Ruff; format; mypy; Django check; makemigrations --check; Vitest; build Angular; conferência em Chromium 150 nos breakpoints 360, 390, 768, 1024 e 1440 px.
+Arquivos alterados: apps/system_settings; configuração e integração Active Directory; eventos de auditoria de accounts; frontend/src/app/features/configuracoes, guarda SuperAdmin, rotas e layout; pyproject.toml, uv.lock, .env.example; testes backend/frontend; README.md e documentação em docs/SGPD.
+Testes: 199 testes backend e 44 testes frontend passaram; autorização negada testada para anônimo, usuário comum, staff e usuário com permissões funcionais; regressões cobrem cifra sem projeção, concorrência otimista, bloqueio de alteração/exclusão em lote, rollback de arquivo quando a auditoria falha, upload privado sem justificativa manual, PEM/DER, conteúdo inválido, certificado não CA ou expirado, rotação com desligamento do login, probe/fingerprint, corrida durante probe, bloqueios de ativação e auditoria. Ruff, format, mypy, Django check, migrations e build sem divergência; migration aplicada e plano final vazio. A conferência visual não encontrou overflow horizontal nos cinco pontos de quebra, manteve campos textuais a 16 px no móvel e confirmou os estados mobile e desktop.
+```
+
+### 2026-07-28 — Transporte LDAP único e formulários compactos
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Refinamento da configuração LDAP/Autenticação
+O que foi concluído: campos de edição mantidos com alvo de toque de 44 px no móvel e reduzidos para 2,25 rem no desktop; configuração LDAP simplificada para uma única escolha “Negociar TLS”, próxima ao certificado da CA; endereço do servidor sem protocolo, com ldap:// ou ldaps:// e portas padrão montados automaticamente; remoção da exceção “Permitir LDAP simples somente no DEV”; descoberta, importação, vínculo e login usando o mesmo transporte; LDAP simples liberado por decisão explícita do SuperAdmin com aviso forte; importação sem grupo opcional e busca de grupos transferida para a central de Configurações, usando a configuração salva.
+Decisões: TLS marcado significa LDAPS e exige CA válida; TLS desmarcado significa LDAP simples para todos os fluxos e não exige CA, mas mantém aviso de que a credencial técnica e a senha do usuário trafegam sem criptografia; ativação do login continua exigindo probe da mesma configuração e contingência local de SuperAdmin; base, grupo obrigatório e filtro adicional salvos são aplicados exatamente às buscas e ao login; esquemas informados manualmente são recusados pela API.
+Riscos: LDAP simples mantém o risco muito alto R48 por decisão administrativa explícita; a conta técnica deve permanecer somente leitura e nenhuma credencial pode ser registrada. A migration 0002 remove definitivamente a coluna legada ALLOW_INSECURE_DISCOVERY; o SQL Oracle foi revisado, mas não aplicado ao DEV nesta execução.
+Pendências: aplicar a migration system_settings 0002 no Oracle DEV em janela controlada; executar probe, descoberta e login controlado no AD real com o transporte escolhido; se TLS for escolhido, instalar antes a BSA-AD-CA.
+Próximo passo: aplicar a migration revisada e homologar o fluxo completo no AD corporativo com uma conta controlada, preservando o SuperAdmin local.
+Comandos executados: pytest; Ruff check e format; Mypy; Django check; makemigrations --check; sqlmigrate somente leitura contra Oracle; Vitest; build Angular; busca por media query max-width; diff check; conferência em Chromium 150 com SQLite efêmero; regeneração e validação do manifesto e dos links locais.
+Arquivos alterados: configuração, cliente, backend e checks do Active Directory; central system_settings e migration 0002; APIs de diretório; configuração e telas Angular de LDAP e usuários; tokens globais de formulário; .env.example; testes; README.md e documentação em docs/SGPD.
+Testes: 204 testes backend e 46 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 496,08 kB; nenhuma media query max-width foi introduzida; diff sem erros de whitespace; manifesto de 19 arquivos e links locais de 16 documentos íntegros. O sqlmigrate confirmou somente ALTER TABLE SGPD_LDAP_CONFIG DROP COLUMN ALLOW_INSECURE_DISCOVERY, sem executar DDL. No Chromium, o campo de servidor mediu 31,5 px em 1440 px e 44 px em 390 px, sem overflow horizontal; o aviso forte apareceu somente com TLS desmarcado e os rótulos legados permaneceram ausentes.
 ```

@@ -185,7 +185,8 @@ frontend/src/app/
     ├── colaboradores/
     ├── usuarios/
     ├── papeis/
-    └── auditoria/
+    ├── auditoria/
+    └── configuracoes/
 ```
 
 Cada feature possui componente, template e SCSS; service e models próprios são
@@ -207,6 +208,8 @@ páginas usam `loadComponent` e declaram `title`.
 | `/fe/usuarios`, `/fe/usuarios/:id` | administração de usuários |
 | `/fe/papeis` | papéis e permissões |
 | `/fe/auditoria` | auditoria de contas |
+| `/fe/configuracoes` | cards técnicos, somente SuperAdmin |
+| `/fe/configuracoes/autenticacao` | LDAP, CA e testes, somente SuperAdmin |
 | `/fe/senha` | troca da própria senha |
 
 ### 5.3 Autenticação
@@ -238,6 +241,7 @@ com `visibleNavItems` filtrando pelo contexto devolvido por
 | Usuários | `/fe/usuarios` | `pi pi-users` | `manage_users` |
 | Papéis | `/fe/papeis` | `pi pi-shield` | `manage_roles` |
 | Auditoria | `/fe/auditoria` | `pi pi-history` | `view_account_audit` |
+| Configurações | `/fe/configuracoes` | `pi pi-cog` | `is_superuser` |
 
 Os módulos das Fases 3 a 6 — setores, processos, pendências, valores e
 liberação — entram nessa mesma lista conforme cada checkpoint avançar.
@@ -302,6 +306,9 @@ automático ao foco e desloca o layout.
 **Alvos de toque.** Mínimo de 44 × 44 px para qualquer elemento interativo no
 estado base, incluindo ações dentro de listas e cartões. Os padrões do PrimeNG
 ficam abaixo disso e são ajustados por token.
+
+Em `lg`, campos de edição de uma linha usam altura compacta de `2.25rem`,
+preservando os 44 px no estado base para telas de toque.
 
 **Peso.** O orçamento de build permanece em 600 kB de aviso e 1 MB de erro para
 o bundle inicial, agora com justificativa de rede móvel. Toda página é

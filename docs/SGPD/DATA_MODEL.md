@@ -2,8 +2,9 @@
 
 ## Estado do documento
 
-Este é o modelo conceitual do produto. Na implementação atual, apenas contas,
-papéis, escopos e auditoria de contas possuem models e migrations aplicados. Os
+Este é o modelo conceitual do produto. Na implementação atual, contas, papéis,
+escopos, auditoria de contas e configuração técnica LDAP possuem models e
+migrations. Os
 demais domínios serão detalhados e implementados nos checkpoints das Fases 3 a
 9; seus nomes abaixo não autorizam criação antecipada de schema.
 
@@ -46,8 +47,11 @@ Usuários, gestores, e-mails, papéis e escopos pertencem ao SGPD e não são ob
 
 O vínculo AD exige simultaneamente identificador opaco, usuário, data e
 administrador responsável. `AD_IDENTIFIER` é único e normalizado. O vínculo
-administrativo não ativa autenticação LDAP/AD; a autenticação permanece local
-até a homologação do contrato do diretório.
+usa o `objectGUID` do Active Directory convertido para UUID canônico; login e
+e-mail são atributos informativos, não a chave. A mesma estrutura atende tanto
+ao cadastro local com vínculo posterior quanto à criação explícita a partir do
+AD, sem nova migration. Ativar o backend LDAP é uma decisão de configuração
+independente do vínculo.
 
 #### SGPD_ROLE
 
@@ -111,6 +115,23 @@ de filial. A revogação é lógica, com data, responsável e auditoria.
 Registra login, logout, falha de autenticação, criação e alteração de usuário,
 senha, papel, atribuição, revogação e vínculo/desvínculo AD. O model não
 permite alteração ou exclusão por usuários funcionais.
+
+#### SGPD_LDAP_CONFIG
+
+Singleton técnico, administrável somente por `IS_SUPERUSER=true`:
+
+- switches independentes de descoberta e autenticação;
+- URI, bind, bases, grupo, filtro, timeouts e limites;
+- senha de bind cifrada, nunca projetada pela API;
+- nome privado, hash SHA-256, subject, issuer e validade do bundle de CA;
+- resultado, duração, ator e fingerprint do último teste de conexão;
+- responsável, data de atualização e versão otimista.
+
+O arquivo de CA fica fora do Oracle e do WhiteNoise, em
+`SYSTEM_CONFIGURATION_STORAGE_PATH`. O registro não pode ser excluído pela
+aplicação. A ativação de autenticação exige teste bem-sucedido cujo fingerprint
+corresponda exatamente ao transporte, segredo, filtros, limites e certificado
+vigentes.
 
 ### Referências do Senior não persistidas
 

@@ -99,7 +99,8 @@ O cadastro funcional de usuários pertence ao SGPD:
 
 - usuários, gestores, e-mails, papéis e escopos são mantidos no schema SGPD;
 - o Senior HCM não provisiona usuários;
-- o MVP usa autenticação local;
+- a autenticação local permanece disponível enquanto a integração AD estiver
+  desabilitada e para a contingência administrativa controlada;
 - a SPA autentica por sessão Django com proteção CSRF em origem única,
   conforme a ADR-026; não há JWT nem credencial em armazenamento local;
 - a administração de contas usa services transacionais, expostos por
@@ -113,15 +114,40 @@ O cadastro funcional de usuários pertence ao SGPD:
   auditados com correlation ID;
 - eventos de auditoria rejeitam alteração e exclusão tanto por instância quanto
   por operações em lote do ORM;
-- o vínculo administrativo com o Active Directory adiciona identificador
-  externo opaco e único à conta existente, após confirmação humana;
-- após a homologação e ativação futura da autenticação AD, o diretório será o
-  provedor de autenticação e o SGPD continuará como fonte de perfis e
-  autorizações.
+- `LDAP_ENABLED` habilita descoberta administrativa de grupos e usuários,
+  importação explícita e vínculo verificado;
+- `LDAP_AUTHENTICATION_ENABLED` habilita separadamente o backend
+  `django-auth-ldap`, sem provisionamento implícito no login;
+- a identidade é resolvida pelo `objectGUID` estável, convertido para UUID
+  canônico; e-mail e login não são chaves de vínculo;
+- uma conta SGPD pode ser cadastrada localmente e vinculada depois, ou criada
+  explicitamente a partir de uma identidade pesquisada no AD;
+- contas comuns vinculadas deixam de aceitar senha local quando a autenticação
+  AD está ativa; somente a contingência de superusuário configurada permanece;
+- grupos AD restringem pesquisa e elegibilidade, mas nunca criam papéis,
+  permissões ou escopos no SGPD.
+- a configuração LDAP efetiva usa o singleton versionado
+  `SGPD_LDAP_CONFIG`, com o `.env` como baseline de primeiro boot;
+- `/api/v1/settings/ldap/` e a SPA em
+  `/fe/configuracoes/autenticacao` são exclusivas de `is_superuser`, sem
+  permissão funcional delegável;
+- a senha de bind persistida é cifrada com Fernet a partir do
+  `DJANGO_SECRET_KEY` e nunca é projetada; a rotação dessa chave exige
+  regravação coordenada do segredo;
+- certificados enviados ficam no storage privado
+  `SYSTEM_CONFIGURATION_STORAGE_PATH`, fora do WhiteNoise, e são normalizados
+  para PEM com hash e metadados no Oracle;
+- o backend LDAP monta sua configuração a cada autenticação, de forma que uma
+  alteração validada entra em vigor sem mutar settings globais ou reiniciar o
+  processo.
 
-O vínculo com AD não usa e-mail como chave, impede associação duplicada e não
-ativa autenticação LDAP. Endpoint, TLS, base de busca, atributo identificador e
-backend de autenticação ainda dependem de homologação com a Infraestrutura.
+O backend, os filtros, as APIs e a interface estão implementados conforme a
+ADR-029 e a simplificação de transporte da ADR-032. Descoberta, busca,
+importação, vínculo e login usam a mesma escolha do SuperAdmin. Com TLS, a
+aplicação monta LDAPS e valida a CA; sem TLS, LDAP simples continua funcional
+com warning permanente sobre credenciais e senhas sem criptografia. Bind,
+bases e grupo estão homologados. O contrato completo está em
+`INTEGRATION_ACTIVE_DIRECTORY.md`.
 
 ### Arquivos
 
@@ -141,7 +167,9 @@ Estrutura incremental adotada:
 apps/
 ├── accounts/
 ├── core/
+├── system_settings/
 └── integrations/
+    ├── active_directory/
     └── senior/
 
 frontend/
@@ -151,11 +179,14 @@ frontend/
 ```
 
 Novos módulos serão criados somente quando o respectivo checkpoint exigir.
-`accounts` contém conta local, papéis, escopos, services, autorização, API,
-vínculo administrativo com o AD e auditoria de contas. `core` contém os
-endpoints operacionais e a view que serve a SPA. `integrations/senior` contém
-SQL, DTOs e o repository somente leitura. Não existem models para objetos do
-Senior.
+`accounts` contém conta local, papéis, escopos, services, autorização, API e
+auditoria de contas. `core` contém os endpoints operacionais e a view que serve
+a SPA. `integrations/active_directory` contém configuração tipada, cliente
+LDAP somente leitura, backend de autenticação e verificação operacional.
+`integrations/senior` contém SQL, DTOs e o repository somente leitura. Não
+existem models para objetos do AD ou do Senior.
+`system_settings` contém o singleton LDAP, criptografia de segredo, validação
+X.509, services auditados e a API exclusiva de SuperAdmin.
 
 A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
 
@@ -172,7 +203,8 @@ Serviços administrativos implementados:
 - `UpdateRoleService`
 - `AssignRoleService`
 - `RevokeRoleService`
-- `LinkAdIdentityService`
+- `LinkDirectoryIdentityService`
+- `CreateUserFromDirectoryService`
 - `UnlinkAdIdentityService`
 
 Serviços de workflow planejados para as fases 3 a 9:
@@ -265,7 +297,25 @@ GET  POST   /api/v1/accounts/roles/
 GET  PATCH  /api/v1/accounts/roles/{id}/
 GET         /api/v1/accounts/permissions/
 GET         /api/v1/accounts/audit/
+GET         /api/v1/accounts/directory/status/
+GET         /api/v1/accounts/directory/groups/?q=
+GET         /api/v1/accounts/directory/users/?q=
+POST        /api/v1/accounts/directory/users/create/
 ```
+
+Endpoints de configuração técnica, todos exclusivos de SuperAdmin:
+
+```text
+GET  PUT /api/v1/settings/ldap/
+POST     /api/v1/settings/ldap/validate/
+POST     /api/v1/settings/ldap/certificate/
+POST     /api/v1/settings/ldap/certificate/validate/
+POST     /api/v1/settings/ldap/connection-test/
+```
+
+Além da proteção redundante na API e nos services, a ativação do login AD exige
+fingerprint de probe correspondente à configuração e à CA vigentes. A senha e
+o caminho privado não aparecem em payloads nem em eventos.
 
 Cada endpoint valida entrada, invoca o service correspondente e traduz o
 resultado. Nenhum implementa regra de negócio.
@@ -276,6 +326,20 @@ o catálogo de permissões, `link_ad_identity` para o vínculo com o AD e
 `view_account_audit` para a auditoria. O service revalida a mesma permissão no
 próprio limite, conforme a ADR-024, de modo que a checagem do endpoint é
 redundante por decisão e não é o único guarda.
+
+Descoberta e importação AD são explicitamente administrativas. As buscas
+validam e escapam a entrada, aplicam paginação e limite, excluem contas
+desabilitadas e podem restringir por OU, grupo direto ou grupo aninhado. O
+service de criação exige simultaneamente `link_ad_identity` e `manage_users`,
+revalida a identidade por `objectGUID`, cria a conta com senha inutilizável e
+gera os eventos `USER_CREATED` e `AD_LINKED` na mesma transação. O POST recebe
+somente o identificador selecionado; a auditoria usa motivo padronizado, sem
+exigir justificativa manual. Nenhum papel é atribuído automaticamente.
+
+O payload administrativo de usuário projeta a política efetiva
+`local_password_allowed`. Quando o login AD está ativo, o service de senha e a
+SPA bloqueiam redefinição para conta comum vinculada; a exceção é calculada
+pela mesma configuração de contingência usada pelo backend de autenticação.
 
 As listagens usam paginação por `offset` e `limit`, com padrão de 50 e teto de
 200, sem `COUNT(*)`. A auditoria aceita filtro por `target_user` e
@@ -298,6 +362,10 @@ Códigos em uso:
 | `not_found` | 404 | recurso inexistente |
 | `method_not_allowed` | 405 | verbo não suportado |
 | `throttled` | 429 | excesso de tentativas de login |
+| `directory_not_configured` | 503 | integração AD desabilitada ou incompleta |
+| `directory_unavailable` | 503 | AD, bind ou TLS indisponível |
+| `directory_contract_error` | 502 | atributos retornados fora do contrato |
+| `directory_identity_not_found` | 404 | identidade não elegível ou inexistente |
 | `senior_unavailable` | 503 | Senior HCM indisponível |
 | `senior_contract_error` | 502 | resposta inválida da fonte cadastral |
 

@@ -33,7 +33,8 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Oracle Database 19c
 - Celery ou Django-Q2 para tarefas assíncronas
 - Redis em container quando filas, cache ou locks forem necessários
-- cadastro de usuários e papéis no SGPD, com autenticação local inicial e vinculação futura ao LDAP/Active Directory
+- cadastro de usuários e papéis no SGPD, com autenticação local e integração
+  configurável com LDAP/Active Directory por `django-auth-ldap`
 - Microsoft 365 SMTP para notificações
 - filesystem local privado para evidências
 
@@ -49,8 +50,12 @@ Admin é a única interface server-side preservada.
 
 ## Execução local
 
-Pré-requisitos: `uv`, Oracle Instant Client 19.28 e um `.env` criado a partir
-de `.env.example`.
+Pré-requisitos: `uv`, Oracle Instant Client 19.28, cabeçalhos OpenLDAP/SASL e
+um `.env` criado a partir de `.env.example`. No Debian:
+
+```bash
+sudo apt-get install build-essential ldap-utils libldap2-dev libsasl2-dev libssl-dev python3-dev
+```
 
 ```bash
 uv sync --dev
@@ -91,8 +96,9 @@ npm --prefix frontend run build
 
 As migrations Oracle somente podem ser aplicadas após revisão do SQL. O
 próprio usuário `SGPD` possui `CREATE TABLE` e `CREATE SEQUENCE`, ambos sem
-`ADMIN OPTION`, e quota finita de 500 MB em `PIMS_DATA`. As 23 migrations
-iniciais foram aplicadas e validadas no DEV.
+`ADMIN OPTION`, e quota finita de 500 MB em `PIMS_DATA`. As 25 migrations do
+baseline foram aplicadas e validadas no DEV; a remoção do campo LDAP legado
+está versionada e aguarda aplicação revisada.
 
 Não executar rollback para `zero` após existirem usuários ou auditoria: isso
 removeria fisicamente o histórico. Correções de schema devem usar migration
@@ -101,13 +107,38 @@ revisado.
 
 Administração funcional de contas:
 
-- `/fe/login`: autenticação local;
+- `/fe/login`: autenticação local ou AD, conforme ativação e vínculo da conta;
 - `/fe/usuarios`: criação e manutenção auditada de usuários;
 - `/fe/papeis`: papéis, permissões e escopos;
 - `/fe/auditoria`: auditoria de contas;
 - `uv run manage.py bootstrap_roles`: catálogo inicial idempotente de papéis;
 - `uv run manage.py bootstrap_identity_admin`: bootstrap interativo, único e
   auditado da primeira conta humana.
+- `uv run manage.py check_active_directory`: valida configuração, transporte, bind e
+  RootDSE sem listar dados pessoais.
+
+Integração Active Directory:
+
+- `/fe/configuracoes`: central técnica visível somente a SuperAdmin;
+- `/fe/configuracoes/autenticacao`: configuração auditada de LDAP, upload e
+  validação da CA, validação do contrato e teste de bind/RootDSE;
+- `/fe/usuarios`: consulta usuários segundo os filtros salvos e cria conta
+  local já vinculada;
+- `/fe/usuarios/:id`: pesquisa e vincula uma identidade à conta existente;
+- descoberta e autenticação possuem switches independentes;
+- credenciais AD válidas nunca criam usuário ou permissão implicitamente;
+- grupos AD podem restringir elegibilidade, mas papéis e escopos continuam no
+  SGPD;
+- a senha de bind salva pela interface fica cifrada e nunca é devolvida pela
+  API; o certificado fica em storage privado fora do WhiteNoise;
+- descoberta e login usam o mesmo transporte escolhido pelo SuperAdmin;
+- com TLS, o SGPD monta LDAPS automaticamente e exige CA válida; sem TLS,
+  funciona com aviso permanente de que a credencial técnica e as senhas dos
+  usuários trafegam sem criptografia;
+- o login AD só pode ser ativado depois de teste bem-sucedido da mesma
+  configuração e contingência local de SuperAdmin;
+- configuração e filtros estão em
+  `docs/SGPD/INTEGRATION_ACTIVE_DIRECTORY.md`.
 
 Consulta cadastral Senior:
 
@@ -137,6 +168,7 @@ A SPA vive em `frontend/`. As versões exatas estão em
 - `DATA_MODEL.md`: modelo conceitual de referência e estado de implementação.
 - `ARCHITECTURE.md`: arquitetura da solução.
 - `INTEGRATION_SENIOR_ORACLE.md`: integração com Senior HCM e Oracle.
+- `INTEGRATION_ACTIVE_DIRECTORY.md`: descoberta, vínculo e autenticação AD.
 - `SECURITY.md`: segurança, LGPD e auditoria.
 - `RISK_REGISTER.md`: registro e mitigação de riscos.
 - `DECISIONS.md`: decisões arquiteturais vigentes e índice das substituídas.
@@ -170,9 +202,15 @@ fundação Django está criada e validada localmente; a aplicação conecta ao
 Oracle com `python-oracledb` em modo Thick. A base de autenticação, usuários,
 papéis, escopos, vínculo administrativo com o AD e auditoria foi aplicada no
 Oracle DEV. O catálogo inicial contém nove papéis e cinco permissões
-delegáveis; a autenticação LDAP/AD real continua dependente de contrato com a
-Infraestrutura. A primeira conta humana foi criada explicitamente pelo
-bootstrap auditado; nenhuma conta é criada automaticamente.
+delegáveis. A descoberta LDAP, a importação/vinculação verificada e o backend
+de autenticação foram implementados com Django 5.2.16 LTS,
+`django-auth-ldap` 5.3.0 e `python-ldap` 3.4.7. Bind, bases e grupo foram
+validados. O transporte de descoberta e login é uma escolha única: TLS monta
+LDAPS automaticamente; LDAP simples permanece operacional com aviso explícito
+de exposição das credenciais. O login AD permanece desligado até concluir um
+teste controlado da configuração escolhida.
+A primeira conta humana foi criada explicitamente pelo bootstrap auditado;
+nenhuma conta é criada automaticamente pelo login AD.
 
 A seleção cadastral da Fase 2 está concluída e usa o mesmo repository e a
 mesma autorização por escopo dos endpoints JSON. O `LEFT JOIN` de centro de

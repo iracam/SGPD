@@ -35,9 +35,12 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | Gunicorn | Ausente | Fora da execução DEV atual |
 | Nginx | Ausente/inativo | Não será utilizado; estáticos serão servidos por WhiteNoise |
 | WhiteNoise | 6.12.0 | Serve assets da SPA e estáticos do Django Admin; nunca evidências |
-| LDAP tools | `ldapsearch` ausente | Não bloqueia o MVP local; necessário na integração futura com AD |
+| LDAP nativo | OpenLDAP 2.6.10; `ldapsearch` e headers de desenvolvimento instalados | Pré-requisitos de build e diagnóstico confirmados |
+| LDAP Python | `django-auth-ldap` 5.3.0 / `python-ldap` 3.4.7 | Instalados e bloqueados em `uv.lock`, sem regressão de Django ou DRF |
+| Active Directory | `ad.bsa.local` → `192.168.1.20`; LDAP 389 e LDAPS 636 acessíveis; RootDSE `DC=bsa,DC=local` | Endpoint e domínio confirmados; CA `BSA-AD-CA`, bind e DNs de OU/grupo ainda pendentes de homologação |
 | SMTP | Microsoft 365, `smtp.office365.com:587`, TLS/STARTTLS | SMTP AUTH e remetente configurado validados em 2026-07-28 |
 | Evidências | Filesystem local privado | Caminho inicial `media/evidence`, fora do WhiteNoise |
+| Configuração técnica | Filesystem local privado | Certificados em `media/system-configuration`, fora do WhiteNoise |
 | Pytest | 9.1.1 no ambiente do projeto | Configurado com pytest-django |
 | Ruff | 0.16.0 no ambiente do projeto | Lint e formatação configurados no `pyproject.toml` |
 | Mypy | 1.20.2 no ambiente do projeto | Modo strict com django-stubs |
@@ -53,7 +56,7 @@ O repositório possui:
 - WhiteNoise para assets da SPA e estáticos do Django Admin;
 - configuração de testes, lint, formatação e tipagem;
 - configuração de SMTP;
-- configuração futura de LDAP/Active Directory;
+- integração LDAP/Active Directory com descoberta e autenticação em estágios;
 - definição de storage de evidências;
 - health checks e logs JSON com correlation ID.
 
@@ -71,7 +74,7 @@ Redis e worker continuam adiados até surgir um caso de uso.
 | Redis | Container sob demanda |
 | Worker | Adiado até necessidade |
 | SMTP | Microsoft 365; SMTP AUTH e `Send As` validados com uma mensagem de prova aceita |
-| Autenticação | Local; usuários, papéis e escopos aplicados; vínculo AD administrativo disponível; LDAP/AD real não configurado |
+| Autenticação | Local operacional; descoberta e login AD compartilham o transporte definido pelo SuperAdmin; LDAP simples funciona com warning; login AD desligado até teste controlado |
 | Estáticos | WhiteNoise configurado para assets da SPA e Django Admin |
 | Frontend | SPA Angular 21 + PrimeNG 21 em operação; Node 24.18.0 e npm 11.16.0 homologados |
 | Evidências | Filesystem local privado em `media/evidence` |
@@ -92,11 +95,16 @@ O arquivo `.env.example` define, sem valores sensíveis:
 - WhiteNoise;
 - SMTP;
 - caminho do storage local de evidências;
-- limitação de tentativas de login.
+- caminho do storage privado de configuração técnica;
+- limitação de tentativas de login;
+- configuração AD completa: chaves independentes de descoberta e autenticação,
+  URI, TLS/CA, bind, bases, grupo/filtro, timeouts, paginação e contingência.
 
-As variáveis de Redis/Celery, LDAP/AD e S3 são reservas explícitas para fases
-futuras e ainda não são consumidas pelos settings atuais. Sua presença não
-significa que essas integrações estejam implantadas.
+As variáveis de LDAP/AD são o baseline de primeiro boot. Depois do primeiro
+salvamento por SuperAdmin, o singleton versionado do schema SGPD passa a ser a
+fonte dinâmica dos backends e consultas, sempre sujeito às chaves explícitas
+de descoberta e autenticação. Redis/Celery e S3 continuam como reservas para
+fases futuras.
 
 O `.env` local contém o owner `SGPD`, que será reutilizado no runtime DEV por decisão explícita. A conexão separada com o owner `VETORH` não faz parte do contrato da aplicação.
 
@@ -105,7 +113,8 @@ O `.env` local contém o owner `SGPD`, que será reutilizado no runtime DEV por 
 - arquivos `.env` reais são ignorados pelo Git;
 - `.env.example` não contém credenciais;
 - wallets, arquivos TNS locais e keystores são ignorados;
-- usuário, senha e e-mail das integrações ficarão no `.env` local;
+- usuário, senha e e-mail das integrações partem do `.env` local; a senha de
+  bind informada pela central é persistida cifrada e nunca projetada;
 - usuários individuais seguem a convenção `nome.sobrenome`;
 - senhas não podem seguir padrão previsível;
 - o `.env` deve ter permissões restritas ao usuário da aplicação;
@@ -118,9 +127,14 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 
 1. Confirmar TLS/wallet da conexão única `SGPD`.
 2. Escolher Celery ou Django-Q2 quando houver processamento assíncrono.
-3. Homologar atributo identificador, endpoints, TLS e backend de autenticação
-   LDAP/AD. O vínculo administrativo do lado SGPD já está implementado.
+3. Decidir operacionalmente entre TLS e LDAP simples. Para TLS, instalar a CA
+   `BSA-AD-CA`; sem TLS, aceitar explicitamente o warning de credenciais e
+   senhas sem criptografia. Bind, bases, grupo `BSA_SGPD` e descoberta já foram
+   validados no DEV.
 4. Definir o Compose do Redis quando surgir a primeira dependência.
+
+O procedimento de descoberta de domínio, OUs e grupos, os filtros LDAP e a
+sequência de ativação estão em `INTEGRATION_ACTIVE_DIRECTORY.md`.
 
 ## 8. Estado do bloco de ambiente
 

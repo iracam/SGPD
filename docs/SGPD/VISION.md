@@ -57,7 +57,11 @@ O SGPD será uma aplicação web corporativa para:
 
 ## 3. Usuários
 
-Todos os perfis abaixo serão cadastrados no SGPD. Gestores, e-mails, papéis e escopos não virão do Senior HCM. A autenticação será local no MVP e poderá ser vinculada futuramente ao Active Directory.
+Todos os perfis abaixo pertencem ao SGPD. Gestores, e-mails, papéis e escopos
+não virão do Senior HCM nem de grupos AD. A conta poderá ser cadastrada
+localmente e vinculada depois, ou criada explicitamente a partir de uma
+identidade pesquisada no Active Directory. A autenticação AD somente aceitará
+contas previamente vinculadas e nunca provisionará usuário durante o login.
 
 ### Departamento Pessoal
 
