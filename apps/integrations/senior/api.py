@@ -11,10 +11,14 @@ from rest_framework.response import Response
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_400_BAD_REQUEST,
+    HTTP_403_FORBIDDEN,
     HTTP_502_BAD_GATEWAY,
     HTTP_503_SERVICE_UNAVAILABLE,
 )
 from rest_framework.views import APIView
+
+from apps.accounts.authorization import allowed_company_codes, has_permission
+from apps.accounts.models import User
 
 from .dto import Branch, Company, Employee, EmployeeType
 from .exceptions import (
@@ -22,6 +26,7 @@ from .exceptions import (
     SeniorQueryValidationError,
     SeniorUnavailableError,
 )
+from .permissions import SENIOR_REFERENCE_PERMISSION
 from .repository import SeniorRepository
 
 logger = logging.getLogger(__name__)
@@ -96,6 +101,28 @@ class SeniorAPIView(APIView):
     permission_classes = [IsAuthenticated]
     repository_class = SeniorRepository
 
+    def _is_authorized(
+        self,
+        request: Request,
+        *,
+        company: int | None = None,
+        branch: int | None = None,
+    ) -> bool:
+        if not isinstance(request.user, User):
+            return False
+        return has_permission(
+            request.user,
+            SENIOR_REFERENCE_PERMISSION,
+            company_code=company,
+            branch_code=branch,
+        )
+
+    def _forbidden(self) -> Response:
+        return Response(
+            {"detail": "Usuário sem permissão para este escopo cadastral."},
+            status=HTTP_403_FORBIDDEN,
+        )
+
     def _respond(
         self,
         *,
@@ -103,6 +130,7 @@ class SeniorAPIView(APIView):
         payload: Callable[[T], dict[str, object]],
         offset: int,
         limit: int,
+        result_filter: Callable[[T], bool] | None = None,
     ) -> Response:
         try:
             results = operation()
@@ -119,6 +147,9 @@ class SeniorAPIView(APIView):
                 {"detail": "Resposta inválida da fonte cadastral."},
                 status=HTTP_502_BAD_GATEWAY,
             )
+
+        if result_filter is not None:
+            results = [item for item in results if result_filter(item)]
 
         return Response(
             {
@@ -138,12 +169,24 @@ class CompanyListAPIView(SeniorAPIView):
         except SeniorQueryValidationError as exc:
             return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
 
+        user = request.user
+        if not isinstance(user, User):
+            return self._forbidden()
+        allowed_companies = allowed_company_codes(user, SENIOR_REFERENCE_PERMISSION)
+        if allowed_companies == set():
+            return self._forbidden()
+
         repository = self.repository_class()
         return self._respond(
             operation=lambda: repository.list_companies(offset=offset, limit=limit),
             payload=_company_payload,
             offset=offset,
             limit=limit,
+            result_filter=(
+                None
+                if allowed_companies is None
+                else lambda company: company.company in allowed_companies
+            ),
         )
 
 
@@ -156,6 +199,8 @@ class BranchListAPIView(SeniorAPIView):
         except SeniorQueryValidationError as exc:
             return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
 
+        if not self._is_authorized(request, company=company):
+            return self._forbidden()
         repository = self.repository_class()
         return self._respond(
             operation=lambda: repository.list_branches(
@@ -179,6 +224,8 @@ class EmployeeTypeListAPIView(SeniorAPIView):
         except SeniorQueryValidationError as exc:
             return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
 
+        if not self._is_authorized(request, company=company, branch=branch):
+            return self._forbidden()
         repository = self.repository_class()
         return self._respond(
             operation=lambda: repository.list_employee_types(
@@ -204,6 +251,8 @@ class EmployeeListAPIView(SeniorAPIView):
         except SeniorQueryValidationError as exc:
             return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
 
+        if not self._is_authorized(request, company=company, branch=branch):
+            return self._forbidden()
         search = request.query_params.get("q")
         repository = self.repository_class()
         return self._respond(

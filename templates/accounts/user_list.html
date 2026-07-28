@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="card">
+    <h1>Usuários</h1>
+    <div class="actions"><a class="button" href="{% url 'accounts:user-create' %}">Criar usuário</a></div>
+    <form method="get">
+      <label for="q">Pesquisar</label>
+      <input id="q" name="q" value="{{ query }}" placeholder="Login, nome ou e-mail">
+      <button type="submit">Pesquisar</button>
+    </form>
+    <table>
+      <thead><tr><th>Login</th><th>Nome</th><th>E-mail</th><th>Situação</th><th>AD</th></tr></thead>
+      <tbody>
+      {% for item in users %}
+        <tr>
+          <td><a href="{% url 'accounts:user-detail' item.pk %}">{{ item.username }}</a></td>
+          <td>{{ item.get_full_name|default:"—" }}</td>
+          <td>{{ item.email }}</td>
+          <td>{% if item.is_active %}Ativo{% else %}Inativo{% endif %}</td>
+          <td>{% if item.has_ad_link %}Vinculado{% else %}Não vinculado{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">Nenhum usuário encontrado.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

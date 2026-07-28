@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Seleção cadastral Senior — SGPD{% endblock %}
+
+{% block extra_head %}
+  <script src="{% static 'vendor/htmx/htmx-2.0.10.min.js' %}" defer></script>
+  <script>
+    document.addEventListener("htmx:beforeSwap", function (event) {
+      if ([400, 403, 502, 503].includes(event.detail.xhr.status)) {
+        event.detail.shouldSwap = true;
+        event.detail.isError = false;
+      }
+    });
+  </script>
+{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h1>Seleção cadastral Senior</h1>
+    <p class="muted">
+      Consulte Empresa → Filial → Tipo de colaborador → Colaborador. As opções
+      respeitam seu escopo no SGPD e a fonte Senior é acessada somente para leitura.
+    </p>
+
+    {% if integration_error %}
+      <div class="notice error" role="alert">{{ integration_error }}</div>
+    {% else %}
+      <form id="senior-reference-form" class="cascade-form" method="get" autocomplete="off">
+        <div class="field">
+          <label for="id_company">Empresa</label>
+          <select
+            id="id_company"
+            name="company"
+            required
+            hx-get="{% url 'senior-ui:branches' %}"
+            hx-trigger="change"
+            hx-target="#cascade-fields"
+            hx-swap="outerHTML"
+            hx-include="#senior-reference-form"
+            hx-indicator="#cascade-loading"
+            hx-disabled-elt="this"
+          >
+            <option value="">Selecione a empresa</option>
+            {% for company in companies %}
+              <option value="{{ company.company }}">Empresa {{ company.company }}</option>
+            {% endfor %}
+          </select>
+          {% if not companies %}
+            <p class="muted">Nenhuma empresa disponível no seu escopo.</p>
+          {% endif %}
+        </div>
+
+        {% include "senior/partials/cascade_fields.html" %}
+
+        <p id="cascade-loading" class="htmx-indicator muted" role="status">
+          Consultando o Senior HCM…
+        </p>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Uso da seleção</h2>
+    <p class="muted">
+      Esta etapa apenas consulta e seleciona referências. O snapshot será criado
+      somente no futuro caso de uso transacional de abertura do processo.
+    </p>
+  </section>
+{% endblock %}

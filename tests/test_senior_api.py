@@ -2,10 +2,11 @@ from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
+from django.contrib.auth.models import Permission
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.accounts.models import User
+from apps.accounts.models import Role, RoleAssignment, ScopeType, User
 from apps.integrations.senior.api import (
     BranchListAPIView,
     CompanyListAPIView,
@@ -22,9 +23,15 @@ from apps.integrations.senior.repository import SeniorRepository
 
 
 @pytest.fixture
-def authenticated_client() -> APIClient:
+def authenticated_client(db: None) -> APIClient:
     client = APIClient()
-    client.force_authenticate(user=User(username="usuario.teste"))
+    user = User.objects.create_user(
+        username="usuario.teste",
+        email="usuario.teste@example.invalid",
+        password="test-only-password",
+        is_superuser=True,
+    )
+    client.force_authenticate(user=user)
     return client
 
 
@@ -47,6 +54,89 @@ def test_reference_endpoints_require_authentication() -> None:
     response = APIClient().get(reverse("senior:companies"))
 
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_reference_endpoints_reject_authenticated_user_without_role() -> None:
+    user = User.objects.create_user(
+        username="sem.escopo",
+        email="sem.escopo@example.invalid",
+        password="No-scope-test!2026",
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.get(reverse("senior:companies"))
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Usuário sem permissão para este escopo cadastral."}
+
+
+@pytest.mark.django_db
+def test_company_endpoint_filters_results_by_role_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = User.objects.create_user(
+        username="dp.empresa.um",
+        email="dp.empresa.um@example.invalid",
+        password="Scoped-dp-test!2026",
+    )
+    permission = Permission.objects.get(codename="query_senior_references")
+    role = Role.objects.create(code="DP_TESTE", name="DP de teste")
+    role.permissions.add(permission)
+    assignment = RoleAssignment(
+        user=user,
+        role=role,
+        scope_type=ScopeType.COMPANY,
+        company_code=1,
+        scope_key="E:1",
+        assigned_by=user,
+    )
+    assignment.full_clean()
+    assignment.save()
+    repository = Mock(spec=SeniorRepository)
+    repository.list_companies.return_value = [Company(company=1), Company(company=2)]
+    install_repository(monkeypatch, CompanyListAPIView, repository)
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.get(reverse("senior:companies"))
+
+    assert response.status_code == 200
+    assert response.json()["results"] == [{"company": 1}]
+
+
+@pytest.mark.django_db
+def test_branch_endpoint_rejects_company_outside_role_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = User.objects.create_user(
+        username="dp.empresa.restrita",
+        email="dp.empresa.restrita@example.invalid",
+        password="Restricted-dp-test!2026",
+    )
+    permission = Permission.objects.get(codename="query_senior_references")
+    role = Role.objects.create(code="DP_RESTRITO", name="DP restrito")
+    role.permissions.add(permission)
+    assignment = RoleAssignment(
+        user=user,
+        role=role,
+        scope_type=ScopeType.COMPANY,
+        company_code=1,
+        scope_key="E:1",
+        assigned_by=user,
+    )
+    assignment.full_clean()
+    assignment.save()
+    repository = Mock(spec=SeniorRepository)
+    install_repository(monkeypatch, BranchListAPIView, repository)
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    response = client.get(reverse("senior:branches"), {"company": 2})
+
+    assert response.status_code == 403
+    repository.list_branches.assert_not_called()
 
 
 def test_company_endpoint_returns_paginated_contract(

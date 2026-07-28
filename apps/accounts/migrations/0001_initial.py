@@ -127,6 +127,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         blank=True,
                         max_length=150,
+                        null=True,
                         verbose_name="usuário no AD",
                     ),
                 ),
@@ -165,6 +166,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={
+                "db_table": "SGPD_USER",
                 "verbose_name": "usuário",
                 "verbose_name_plural": "usuários",
             },

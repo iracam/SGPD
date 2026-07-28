@@ -1,0 +1,48 @@
+<div id="employee-field">
+  {% if employees is not None %}
+    <div class="field">
+      <label for="id_employee_search">Buscar colaborador</label>
+      <input
+        id="id_employee_search"
+        type="search"
+        name="q"
+        value="{{ query }}"
+        maxlength="100"
+        placeholder="Nome ou matrícula"
+        hx-get="{% url 'senior-ui:employees' %}"
+        hx-trigger="input changed delay:400ms, search"
+        hx-target="#employee-field"
+        hx-swap="outerHTML"
+        hx-include="#senior-reference-form"
+        hx-indicator="#cascade-loading"
+      >
+      <p class="muted">A consulta retorna no máximo 20 resultados por busca.</p>
+    </div>
+  {% endif %}
+
+  <div class="field">
+    <label for="id_employee">Colaborador</label>
+    <select
+      id="id_employee"
+      name="employee"
+      required
+      {% if not employees %}disabled{% endif %}
+    >
+      <option value="">
+        {% if employees is not None %}
+          Selecione o colaborador
+        {% else %}
+          Selecione primeiro o tipo de colaborador
+        {% endif %}
+      </option>
+      {% for employee in employees %}
+        <option value="{{ employee.registration }}">
+          {{ employee.registration }} — {{ employee.name }} — {{ employee.job_description }}
+        </option>
+      {% endfor %}
+    </select>
+    {% if employees is not None and not employees %}
+      <p class="muted">Nenhum colaborador elegível foi encontrado para a busca.</p>
+    {% endif %}
+  </div>
+</div>

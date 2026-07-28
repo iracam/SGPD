@@ -1,0 +1,116 @@
+"""Explicit role-and-scope authorization for SGPD use cases."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from functools import wraps
+from typing import ParamSpec, TypeVar, cast
+
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q, QuerySet
+from django.http import HttpRequest, HttpResponse
+from django.utils import timezone
+
+from .models import RoleAssignment, ScopeType, User
+
+P = ParamSpec("P")
+R = TypeVar("R", bound=HttpResponse)
+
+
+def _permission_parts(permission: str) -> tuple[str, str]:
+    app_label, separator, codename = permission.partition(".")
+    if not separator:
+        return "accounts", app_label
+    return app_label, codename
+
+
+def effective_assignments(user: User, permission: str) -> QuerySet[RoleAssignment]:
+    now = timezone.now()
+    app_label, codename = _permission_parts(permission)
+    return RoleAssignment.objects.filter(
+        user=user,
+        user__is_active=True,
+        role__is_active=True,
+        role__permissions__content_type__app_label=app_label,
+        role__permissions__codename=codename,
+        is_active=True,
+        valid_from__lte=now,
+    ).filter(Q(valid_until__isnull=True) | Q(valid_until__gt=now))
+
+
+def has_permission(
+    user: User,
+    permission: str,
+    *,
+    company_code: int | None = None,
+    branch_code: int | None = None,
+) -> bool:
+    if not user.is_authenticated or not user.is_active:
+        return False
+    if user.is_superuser:
+        return True
+
+    app_label, codename = _permission_parts(permission)
+    if user.user_permissions.filter(
+        content_type__app_label=app_label,
+        codename=codename,
+    ).exists():
+        return True
+
+    assignments = effective_assignments(user, permission)
+    if company_code is None:
+        return assignments.filter(scope_type=ScopeType.GLOBAL).exists()
+    if branch_code is None:
+        return assignments.filter(
+            Q(scope_type=ScopeType.GLOBAL)
+            | Q(scope_type=ScopeType.COMPANY, company_code=company_code)
+        ).exists()
+    return assignments.filter(
+        Q(scope_type=ScopeType.GLOBAL)
+        | Q(scope_type=ScopeType.COMPANY, company_code=company_code)
+        | Q(
+            scope_type=ScopeType.BRANCH,
+            company_code=company_code,
+            branch_code=branch_code,
+        )
+    ).exists()
+
+
+def allowed_company_codes(user: User, permission: str) -> set[int] | None:
+    """Return None for global access, otherwise the explicit allowed companies."""
+
+    if not user.is_authenticated or not user.is_active:
+        return set()
+    if user.is_superuser:
+        return None
+    app_label, codename = _permission_parts(permission)
+    if user.user_permissions.filter(
+        content_type__app_label=app_label,
+        codename=codename,
+    ).exists():
+        return None
+    assignments = effective_assignments(user, permission)
+    if assignments.filter(scope_type=ScopeType.GLOBAL).exists():
+        return None
+    company_codes = assignments.exclude(company_code__isnull=True).values_list(
+        "company_code",
+        flat=True,
+    )
+    return {company_code for company_code in company_codes if company_code is not None}
+
+
+def permission_required(
+    permission: str,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def decorator(view: Callable[P, R]) -> Callable[P, R]:
+        @wraps(view)
+        def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
+            request = cast(HttpRequest, args[0])
+            user = cast(User, request.user)
+            if not has_permission(user, permission):
+                raise PermissionDenied
+            return view(*args, **kwargs)
+
+        return wrapped
+
+    return decorator

@@ -267,6 +267,56 @@ SELECT COUNT(*) AS elegiveis,
   FROM vetorh.r034fun a
  WHERE a.sitafa <> 7;
 
+SELECT base.quantidade AS colaboradores_base,
+       joined_left.quantidade AS colaboradores_com_left_join,
+       joined_inner.quantidade AS colaboradores_com_inner_join_centro_custo,
+       base.quantidade - joined_inner.quantidade AS preservados_pelo_left_join
+  FROM (
+      SELECT COUNT(*) AS quantidade
+        FROM vetorh.r034fun a
+       WHERE a.sitafa <> 7
+  ) base
+  CROSS JOIN (
+      SELECT COUNT(*) AS quantidade
+        FROM vetorh.r034fun a
+        INNER JOIN vetorh.r010sit b
+                ON b.codsit = a.sitafa
+        INNER JOIN vetorh.r030fil c
+                ON c.numemp = a.numemp
+               AND c.codfil = a.codfil
+        INNER JOIN vetorh.r024car d
+                ON d.estcar = a.estcar
+               AND d.codcar = a.codcar
+        LEFT JOIN vetorh.r018ccu e
+               ON e.numemp = a.numemp
+              AND e.codccu = a.codccu
+       WHERE a.sitafa <> 7
+  ) joined_left
+  CROSS JOIN (
+      SELECT COUNT(*) AS quantidade
+        FROM vetorh.r034fun a
+        INNER JOIN vetorh.r010sit b
+                ON b.codsit = a.sitafa
+        INNER JOIN vetorh.r030fil c
+                ON c.numemp = a.numemp
+               AND c.codfil = a.codfil
+        INNER JOIN vetorh.r024car d
+                ON d.estcar = a.estcar
+               AND d.codcar = a.codcar
+        INNER JOIN vetorh.r018ccu e
+                ON e.numemp = a.numemp
+               AND e.codccu = a.codccu
+       WHERE a.sitafa <> 7
+  ) joined_inner;
+
+SELECT COUNT(*) AS chaves_centro_custo_duplicadas
+  FROM (
+      SELECT e.numemp, e.codccu
+        FROM vetorh.r018ccu e
+       GROUP BY e.numemp, e.codccu
+      HAVING COUNT(*) > 1
+  );
+
 SELECT column_name, data_type, nullable
   FROM all_tab_columns
  WHERE owner = 'VETORH'
