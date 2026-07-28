@@ -2,19 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from functools import wraps
-from typing import ParamSpec, TypeVar, cast
-
-from django.core.exceptions import PermissionDenied
 from django.db.models import Q, QuerySet
-from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 
 from .models import RoleAssignment, ScopeType, User
-
-P = ParamSpec("P")
-R = TypeVar("R", bound=HttpResponse)
 
 
 def _permission_parts(permission: str) -> tuple[str, str]:
@@ -104,20 +95,3 @@ def allowed_company_codes(user: User, permission: str) -> set[int] | None:
         flat=True,
     )
     return {company_code for company_code in company_codes if company_code is not None}
-
-
-def permission_required(
-    permission: str,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorator(view: Callable[P, R]) -> Callable[P, R]:
-        @wraps(view)
-        def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
-            request = cast(HttpRequest, args[0])
-            user = cast(User, request.user)
-            if not has_permission(user, permission):
-                raise PermissionDenied
-            return view(*args, **kwargs)
-
-        return wrapped
-
-    return decorator

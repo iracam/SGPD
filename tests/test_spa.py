@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 from django.test import Client
 
+from apps.accounts.models import User
+
 pytestmark = pytest.mark.django_db
 
 
@@ -40,6 +42,40 @@ def test_client_side_routes_fall_back_to_the_shell(bundle: Path) -> None:
 
         assert response.status_code == 200, route
         assert b"<app-root>" in response.content
+
+
+def test_removed_server_side_routes_fall_back_to_the_shell(bundle: Path) -> None:
+    for route in ("/accounts/login/", "/accounts/users/", "/references/senior/"):
+        response = Client().get(route)
+
+        assert response.status_code == 200, route
+        assert b"<app-root>" in response.content
+
+
+def test_temporary_password_redirects_browser_navigation_to_spa(bundle: Path) -> None:
+    user = User.objects.create_user(
+        username="senha.temporaria.spa",
+        email="senha.temporaria.spa@example.invalid",
+        password="Temporary-spa-test!2026",
+        must_change_password=True,
+    )
+    client = Client()
+    client.force_login(user)
+
+    response = client.get("/fe/painel")
+
+    assert response.status_code == 302
+    assert response["Location"] == "/fe/senha"
+    password_page = client.get(response["Location"])
+    assert password_page.status_code == 200
+    assert b"<app-root>" in password_page.content
+
+
+def test_django_admin_login_remains_available(bundle: Path) -> None:
+    response = Client().get("/admin/login/")
+
+    assert response.status_code == 200
+    assert b"<app-root>" not in response.content
 
 
 @pytest.mark.parametrize(

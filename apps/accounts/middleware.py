@@ -12,15 +12,16 @@ from django.urls import reverse
 from .models import User
 
 API_PREFIX = "/api/"
+SPA_PASSWORD_PATH = "/fe/senha"
 
 
 class PasswordChangeRequiredMiddleware:
     """Force temporary-password rotation without blocking operational endpoints.
 
-    Server-side navigation is redirected. API callers cannot follow a redirect
-    meaningfully, so they receive a typed 403 and the SPA routes the user to the
-    password screen. Dropping the guard for ``/api/`` would silently remove the
-    obligation to rotate a temporary password.
+    API callers receive a typed 403 and the SPA routes the user to the password
+    screen. Direct browser navigation is redirected to the SPA route. Dropping
+    the guard for ``/api/`` would silently remove the obligation to rotate a
+    temporary password.
     """
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
@@ -48,10 +49,6 @@ class PasswordChangeRequiredMiddleware:
                         status=403,
                     )
             else:
-                allowed_paths = {
-                    reverse("accounts:change-own-password"),
-                    reverse("accounts:logout"),
-                }
-                if path not in allowed_paths and not path.startswith(("/static/", "/health/")):
-                    return redirect("accounts:change-own-password")
+                if path != SPA_PASSWORD_PATH and not path.startswith(("/static/", "/health/")):
+                    return redirect(SPA_PASSWORD_PATH)
         return self.get_response(request)
