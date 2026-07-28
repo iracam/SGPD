@@ -17,6 +17,12 @@
   @include bp.from(bp.$lg) {
     grid-template-columns: 17rem 1fr;
   }
+
+  &--collapsed {
+    @include bp.from(bp.$lg) {
+      grid-template-columns: 4.5rem 1fr;
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ topbar */
@@ -55,6 +61,20 @@
   @include bp.from(bp.$lg) {
     display: inline-flex;
     margin-left: auto;
+  }
+}
+
+.workspace--collapsed .topbar {
+  @include bp.from(bp.$lg) {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-inline: 0.5rem;
+  }
+}
+
+.workspace--collapsed .topbar__collapse {
+  @include bp.from(bp.$lg) {
+    margin-left: 0;
   }
 }
 
@@ -195,6 +215,13 @@
   }
 }
 
+.workspace--collapsed .nav__link {
+  @include bp.from(bp.$lg) {
+    justify-content: center;
+    padding-inline: 0;
+  }
+}
+
 /* ----------------------------------------------------------------- sessão */
 
 .session {
@@ -260,6 +287,23 @@
 .workspace--collapsed .session__user {
   @include bp.from(bp.$lg) {
     display: none;
+  }
+}
+
+.workspace--collapsed .session__actions {
+  @include bp.from(bp.$lg) {
+    ::ng-deep .p-button {
+      justify-content: center;
+      padding-inline: 0;
+    }
+
+    ::ng-deep .p-button-label {
+      display: none;
+    }
+
+    ::ng-deep .p-button-icon {
+      margin: 0;
+    }
   }
 }
 

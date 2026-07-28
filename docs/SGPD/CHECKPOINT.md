@@ -238,7 +238,8 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [x] Testes de frontend com Vitest.
 - [x] Conferência visual em 360, 390, 768, 1024 e 1440 px.
   - Executada em Chromium 150 com sessão real, contra SQLite efêmero.
-  - 67 verificações automatizadas sem falha; seis defeitos corrigidos.
+  - 77 verificações automatizadas sem falha; sete defeitos corrigidos.
+  - Inclui o recolhimento da barra lateral no desktop.
 - [x] PrimeNG fixado na 21, última versão MIT.
 
 ### Fase E — Telas de contas
@@ -707,4 +708,20 @@ Comandos executados: npm install; npx ng build; npx ng test; uv run pytest; uv r
 Arquivos alterados: frontend/package.json, frontend/package-lock.json, frontend/src/styles.scss, frontend/src/app/app.config.ts, frontend/src/app/core/layout, frontend/src/app/features/login, frontend/src/app/features/senha e documentação em docs/SGPD.
 Testes: 67 verificações automatizadas nos cinco pontos de quebra sem falha, cobrindo ausência de rolagem horizontal, alvos de toque de 44 px no estado base, campos com no mínimo 16 px no móvel, raiz de 16 px e 14 px conforme o ponto de quebra, menu filtrado pelo contexto do servidor, gaveta fora da tela por padrão e abrindo ao toque, barra lateral permanente a partir de 1024 px, alternância de tema e retenção do usuário com senha temporária na tela de troca; 151 testes de backend e 12 de frontend passaram; bundle inicial reduziu de 504,89 kB para 463,84 kB brutos.
 Defeitos corrigidos: campo de usuário renderizava a 14 px no móvel, pois o seletor empatava em especificidade com o tema injetado em runtime e perdia por ordem, o que dispara zoom automático no iOS; grade do desktop com linha única deslocava a barra superior e empurrava a navegação para o rodapé; classes passadas por styleClass do PrimeNG não recebiam o atributo de encapsulamento, deixando o botão de menu visível no desktop e os botões de sessão sem largura total; gaveta iniciava sob a barra superior e ocultava o primeiro item do menu; botões de sessão em severidade secundária ficavam ilegíveis sobre o fundo escuro; campo de senha ficava mais estreito que os demais porque a classe não alcançava o host do componente.
+```
+
+### 2026-07-28 — Correção do recolhimento da barra lateral
+
+```text
+Data: 2026-07-28
+Responsável: Claude
+Fase: Fase 2.5 — Migração da interface / Fase D
+O que foi concluído: correção do recolhimento da barra lateral no desktop, que ocultava os rótulos mas mantinha a coluna na largura expandida; nomes acessíveis nos botões de sessão; extensão da conferência visual para exercitar o recolhimento.
+Decisões: declarar a largura recolhida como variante da grade, e não apenas ocultar rótulos; empilhar marca e botão na topbar quando recolhida, para caberem em 4,5 rem; reduzir os botões de sessão a ícone quando recolhidos e suprir o nome acessível por ariaLabel, já que o rótulo em display none sai da árvore de acessibilidade.
+Riscos: nenhum novo. O defeito passou pela conferência anterior porque o script não exercitava o botão de recolher; a lacuna foi fechada com cinco verificações novas por ponto de quebra de desktop.
+Pendências: Fases E, F e G.
+Próximo passo: executar a Fase E.
+Comandos executados: npx ng build; conferência em Chromium; uv run pytest; uv run ruff; uv run mypy; npx ng test.
+Arquivos alterados: frontend/src/app/core/layout/authenticated-layout.scss, frontend/src/app/core/layout/authenticated-layout.html e docs/SGPD/CHECKPOINT.md.
+Testes: 77 verificações nos cinco pontos de quebra sem falha, incluindo estreitamento efetivo da coluna de 17 rem para 4,5 rem, deslocamento do conteúdo, ocultação dos rótulos, preservação do nome acessível e ausência de rolagem horizontal ao recolher; 151 testes de backend e 12 de frontend passaram.
 ```

@@ -76,6 +76,7 @@
           [outlined]="true"
           icon="pi pi-key"
           label="Minha senha"
+          ariaLabel="Minha senha"
           (onClick)="openPasswordPage()"
         ></p-button>
 
@@ -85,6 +86,7 @@
           [outlined]="true"
           [icon]="themeService.theme() === 'dark' ? 'pi pi-sun' : 'pi pi-moon'"
           [label]="themeService.theme() === 'dark' ? 'Tema claro' : 'Tema escuro'"
+          [ariaLabel]="themeService.theme() === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'"
           (onClick)="toggleTheme()"
         ></p-button>
 
@@ -94,6 +96,7 @@
           [outlined]="true"
           icon="pi pi-sign-out"
           label="Sair"
+          ariaLabel="Sair da sessão"
           (onClick)="logout()"
         ></p-button>
       </div>
