@@ -9,13 +9,13 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "6848e93fd109b5073be8c02d8e45a87082c3dcfb3fc87dacc0cf6db47ba2382b",
-      "bytes": 13740
+      "sha256": "8803540e99fec0517a480a0c968d813b838d7a07901a6295e147fe5956d87dcd",
+      "bytes": 14006
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "b6da559eb54df320bd677f627532eddafe879f247fd733eefb10bc74f6fe4f44",
-      "bytes": 62713
+      "sha256": "5009e7f8e1382d41ea47faade97c8ff54abbde89d7a8ae06c1ccee149cfc2061",
+      "bytes": 65566
     },
     {
       "file": "DATA_MODEL.md",
@@ -39,13 +39,13 @@
     },
     {
       "file": "INTEGRATION_SENIOR_ORACLE.md",
-      "sha256": "b4b05aa603017a509c0136640c445d0ccb014dbe1f21dc5f0ee5f2ce1b66fbbb",
-      "bytes": 12528
+      "sha256": "70f7248a23c51c54ce64d728fa1df256d0ac2864dbd36b38fe20dbeb4b2fc53f",
+      "bytes": 12761
     },
     {
       "file": "MIGRATION_FRONTEND_SPA.md",
-      "sha256": "5604bfded5d1ddaaf646b7d11835e8452a498340c35b31f95b7eb4704d0ab598",
-      "bytes": 20738
+      "sha256": "0892b127b7779ba5053fdb708f687a7113406bfae9a22a12f1538a907739f657",
+      "bytes": 20724
     },
     {
       "file": "PROMPT.md",
@@ -54,8 +54,8 @@
     },
     {
       "file": "README.md",
-      "sha256": "f21a776a3fbc4d0bcabfc9a678ab73fb552fafe344f0aee57bddc3e363397237",
-      "bytes": 8484
+      "sha256": "2b2a48122ff52dcf424a9074601141fcb98428e1bbedf9b5dd3620cf3cb44f29",
+      "bytes": 8553
     },
     {
       "file": "REQUIREMENTS.md",
@@ -69,8 +69,8 @@
     },
     {
       "file": "ROADMAP.md",
-      "sha256": "5ab389c56ae818670981f4c60959890f73689db64e91974377875534405df9ef",
-      "bytes": 6368
+      "sha256": "63ccfe78528c51c6512036bb49902f98ce1ebf9e92c0ba2b87d3e37d62153ee7",
+      "bytes": 6528
     },
     {
       "file": "SECURITY.md",

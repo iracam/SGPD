@@ -229,7 +229,8 @@ compatível com empresa/filial. A listagem de colaboradores não retorna CPF,
 usa limite padrão de 20 e máximo absoluto de 100. A paginação por offset não
 executa `COUNT(*)`.
 
-Interface cadastral server-side, em remoção pela Fase F da migração:
+Interface cadastral server-side substituída na SPA pela Fase F e mantida
+temporariamente até a remoção da Fase G:
 
 ```text
 GET /references/senior/
@@ -244,7 +245,11 @@ busca de colaboradores retorna no máximo 20 opções e não exibe CPF. Resposta
 de erro preservam os estados HTTP `400`, `403`, `502` e `503` e são exibidas no
 alvo parcial sem detalhes do Oracle.
 
-Endpoints de autenticação e contexto planejados para a SPA:
+A SPA consome os mesmos quatro endpoints na rota `/fe/colaboradores`, cancela
+consultas obsoletas ao trocar um nível, limita a busca remota a 100 caracteres
+e 20 colaboradores e não projeta CPF ou cria snapshot.
+
+Endpoints de autenticação e contexto implementados para a SPA:
 
 ```text
 GET  /api/v1/auth/csrf/
@@ -260,7 +265,7 @@ empresa e filial do usuário autenticado. Ele orienta a navegação da SPA e
 substitui o context processor da interface server-side; a decisão de
 autorização continua sendo aplicada em cada endpoint e em cada service.
 
-Endpoints de contas planejados:
+Endpoints de contas implementados:
 
 ```text
 GET  POST   /api/v1/accounts/users/

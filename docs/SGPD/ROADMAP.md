@@ -119,8 +119,10 @@ Interface definitiva em operação, com o Django exposto apenas como API.
 
 ### Estado em 2026-07-28
 
-Fase A concluída: decisões registradas e documentação atualizada, sem alteração
-de código. As demais fases não foram iniciadas.
+Fases A a F concluídas. A SPA autentica, administra contas e papéis, consulta a
+auditoria e executa a cascata Empresa → Filial → Tipo → Colaborador sobre os
+quatro endpoints Senior homologados. A Fase G permanece pendente para remover
+a interface server-side, o HTMX e os testes antigos.
 
 O plano completo, com as sete fases e seus critérios de conclusão, está em
 `MIGRATION_FRONTEND_SPA.md`.

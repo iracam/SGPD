@@ -2,7 +2,7 @@
 
 ## 0. Estado deste documento
 
-Plano aprovado em 2026-07-28. Fases A, B, C e D concluídas; E, F e G pendentes.
+Plano aprovado em 2026-07-28. Fases A a F concluídas; G pendente.
 O andamento detalhado está no checkpoint 2.5 de `CHECKPOINT.md`.
 
 Este documento substitui a interface server-side homologada nas Fases 1 e 2 por

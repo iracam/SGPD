@@ -1,0 +1,249 @@
+<header class="pagina-cabecalho">
+  <div>
+    <h1 class="page-title">Colaboradores</h1>
+    <p class="page-lead">
+      Consulte Empresa → Filial → Tipo de colaborador → Colaborador diretamente no Senior
+      HCM.
+    </p>
+  </div>
+</header>
+
+<section class="painel-consulta" aria-labelledby="titulo-consulta">
+  <div class="painel-consulta__cabecalho">
+    <div>
+      <h2 id="titulo-consulta">Seleção cadastral</h2>
+      <p>
+        As opções respeitam seu escopo no SGPD. Esta tela não altera o Senior nem cria
+        snapshot.
+      </p>
+    </div>
+    @if (consultando()) {
+      <span class="consultando" role="status">
+        <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+        Consultando o Senior HCM…
+      </span>
+    }
+  </div>
+
+  <form class="cascata" autocomplete="off">
+    <div class="campo">
+      <label for="empresa">Empresa</label>
+      <p-select
+        inputId="empresa"
+        [formControl]="empresa"
+        [options]="empresas()"
+        optionLabel="label"
+        optionValue="company"
+        placeholder="Selecione a empresa"
+        emptyMessage="Nenhuma empresa disponível"
+        [loading]="carregandoEmpresas()"
+        [disabled]="carregandoEmpresas() || empresas().length === 0"
+        [showClear]="true"
+        ariaLabel="Empresa"
+      ></p-select>
+      @if (!carregandoEmpresas() && !erroEmpresas() && empresas().length === 0) {
+        <small>Nenhuma empresa disponível no seu escopo.</small>
+      }
+      @if (erroEmpresas()) {
+        <div class="erro-nivel">
+          <p-message severity="error" [text]="erroEmpresas()"></p-message>
+          <p-button
+            type="button"
+            size="small"
+            [outlined]="true"
+            label="Tentar novamente"
+            (onClick)="tentarEmpresas()"
+          ></p-button>
+        </div>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="filial">Filial</label>
+      <p-select
+        inputId="filial"
+        [formControl]="filial"
+        [options]="filiais()"
+        optionLabel="label"
+        optionValue="branch"
+        [placeholder]="empresa.value === null ? 'Selecione primeiro a empresa' : 'Selecione a filial'"
+        emptyMessage="Nenhuma filial elegível"
+        [loading]="carregandoFiliais()"
+        [disabled]="empresa.value === null || carregandoFiliais() || filiais().length === 0"
+        [showClear]="true"
+        ariaLabel="Filial"
+      ></p-select>
+      @if (
+        empresa.value !== null &&
+        !carregandoFiliais() &&
+        !erroFiliais() &&
+        filiais().length === 0
+      ) {
+        <small>Nenhuma filial elegível foi encontrada.</small>
+      }
+      @if (erroFiliais()) {
+        <div class="erro-nivel">
+          <p-message severity="error" [text]="erroFiliais()"></p-message>
+          <p-button
+            type="button"
+            size="small"
+            [outlined]="true"
+            label="Tentar novamente"
+            (onClick)="tentarFiliais()"
+          ></p-button>
+        </div>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="tipo-colaborador">Tipo de colaborador</label>
+      <p-select
+        inputId="tipo-colaborador"
+        [formControl]="tipoColaborador"
+        [options]="tiposColaborador()"
+        optionLabel="label"
+        optionValue="employee_type"
+        [placeholder]="filial.value === null ? 'Selecione primeiro a filial' : 'Selecione o tipo'"
+        emptyMessage="Nenhum tipo elegível"
+        [loading]="carregandoTipos()"
+        [disabled]="filial.value === null || carregandoTipos() || tiposColaborador().length === 0"
+        [showClear]="true"
+        ariaLabel="Tipo de colaborador"
+      ></p-select>
+      @if (
+        filial.value !== null &&
+        !carregandoTipos() &&
+        !erroTipos() &&
+        tiposColaborador().length === 0
+      ) {
+        <small>Nenhum tipo de colaborador elegível foi encontrado.</small>
+      }
+      @if (erroTipos()) {
+        <div class="erro-nivel">
+          <p-message severity="error" [text]="erroTipos()"></p-message>
+          <p-button
+            type="button"
+            size="small"
+            [outlined]="true"
+            label="Tentar novamente"
+            (onClick)="tentarTipos()"
+          ></p-button>
+        </div>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="colaborador">Colaborador</label>
+      <p-select
+        inputId="colaborador"
+        [formControl]="colaborador"
+        [options]="colaboradores()"
+        optionLabel="label"
+        optionValue="registration"
+        dataKey="registration"
+        [placeholder]="
+          tipoColaborador.value === null
+            ? 'Selecione primeiro o tipo'
+            : 'Selecione o colaborador'
+        "
+        emptyMessage="Nenhum colaborador elegível"
+        emptyFilterMessage="Nenhum colaborador encontrado"
+        [loading]="carregandoColaboradores()"
+        [disabled]="tipoColaborador.value === null"
+        [showClear]="true"
+        [filter]="true"
+        filterBy="name,registration"
+        [filterValue]="buscaColaborador()"
+        [resetFilterOnHide]="false"
+        ariaLabel="Colaborador"
+        ariaFilterLabel="Buscar colaborador por nome ou matrícula"
+      >
+        <ng-template #filter let-options="options">
+          <div class="filtro-colaborador">
+            <i class="pi pi-search" aria-hidden="true"></i>
+            <input
+              pInputText
+              type="search"
+              role="searchbox"
+              autocomplete="off"
+              maxlength="100"
+              [value]="buscaColaborador()"
+              placeholder="Nome ou matrícula"
+              aria-label="Buscar colaborador por nome ou matrícula"
+              (input)="filtrarColaboradores($event, options)"
+            />
+          </div>
+        </ng-template>
+        <ng-template #item let-item>
+          <span class="opcao-colaborador">
+            <strong>{{ item.registration }} — {{ item.name }}</strong>
+            <small>{{ item.job_description }}</small>
+          </span>
+        </ng-template>
+        <ng-template #selectedItem let-item>
+          <span>{{ item.registration }} — {{ item.name }}</span>
+        </ng-template>
+      </p-select>
+      <small>A consulta retorna no máximo 20 resultados por busca.</small>
+      @if (
+        tipoColaborador.value !== null &&
+        !carregandoColaboradores() &&
+        !erroColaboradores() &&
+        colaboradores().length === 0
+      ) {
+        <small>Nenhum colaborador elegível foi encontrado para a busca.</small>
+      }
+      @if (erroColaboradores()) {
+        <div class="erro-nivel">
+          <p-message severity="error" [text]="erroColaboradores()"></p-message>
+          <p-button
+            type="button"
+            size="small"
+            [outlined]="true"
+            label="Tentar novamente"
+            (onClick)="tentarColaboradores()"
+          ></p-button>
+        </div>
+      }
+    </div>
+  </form>
+</section>
+
+@if (colaboradorSelecionado(); as selecionado) {
+  <section class="resumo" aria-labelledby="titulo-colaborador">
+    <div>
+      <span class="resumo__rotulo">Colaborador selecionado</span>
+      <h2 id="titulo-colaborador">{{ selecionado.name }}</h2>
+      <p>Matrícula {{ selecionado.registration }}</p>
+    </div>
+    <dl class="resumo__dados">
+      <div>
+        <dt>Empresa e filial</dt>
+        <dd>{{ selecionado.company }} / {{ selecionado.branch }} — {{ selecionado.legal_name }}</dd>
+      </div>
+      <div>
+        <dt>Tipo</dt>
+        <dd>{{ selecionado.employee_type }} — {{ selecionado.employee_type_description }}</dd>
+      </div>
+      <div>
+        <dt>Cargo</dt>
+        <dd>{{ selecionado.job_description }}</dd>
+      </div>
+      <div>
+        <dt>Centro de custo</dt>
+        <dd>
+          {{ selecionado.cost_center }} —
+          {{ selecionado.cost_center_description || 'Descrição não cadastrada' }}
+        </dd>
+      </div>
+      <div>
+        <dt>Situação</dt>
+        <dd>{{ selecionado.leave_code }} — {{ selecionado.leave_description }}</dd>
+      </div>
+      <div>
+        <dt>Admissão</dt>
+        <dd>{{ selecionado.admission_date | date: 'dd/MM/yyyy' }}</dd>
+      </div>
+    </dl>
+  </section>
+}

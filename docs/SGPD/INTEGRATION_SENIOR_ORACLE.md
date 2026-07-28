@@ -190,11 +190,10 @@ CPF, nem mesmo mascarado.
 
 ### Interface da cascata
 
-A seleção server-side está disponível em `/references/senior/` e usa
-fragmentos HTML próprios para filial, tipo e colaborador. Ela será substituída
-pela tela equivalente da SPA na Fase F da migração descrita em
-`MIGRATION_FRONTEND_SPA.md`; o contrato de comportamento abaixo é requisito da
-tela nova e não muda com a troca de tecnologia. A interface:
+A seleção equivalente da SPA está disponível em `/fe/colaboradores` desde a
+Fase F e consome os quatro endpoints JSON já homologados. A interface
+server-side continua disponível temporariamente em `/references/senior/` até a
+limpeza da Fase G. O contrato de comportamento é comum às duas interfaces:
 
 - exige autenticação e reutiliza `query_senior_references` com o mesmo escopo
   de empresa/filial dos endpoints JSON;
@@ -206,6 +205,11 @@ tela nova e não muda com a troca de tecnologia. A interface:
 - não projeta nem renderiza CPF;
 - preserva erros `400`, `403`, `502` e `503` sem expor detalhes do driver;
 - não persiste referências e não cria snapshot.
+
+Na SPA, as respostas assíncronas obsoletas são canceladas quando o usuário
+troca um nível da cascata. A busca remota usa o filtro do `p-select`, aplica
+debounce de 400 ms e mantém o limite de 20 resultados. A seleção final exibe
+somente os campos já autorizados pelo endpoint.
 
 O HTMX 2.0.10 e sua licença permanecem versionados em `static/vendor/htmx/` até
 a Fase G, quando são removidos. A restrição de não carregar código de CDN nem

@@ -3,8 +3,8 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fase 2.5 em execução na etapa A; Fase 3 ainda não iniciada
-- Estado: Decisões da migração de frontend registradas; nenhum código alterado por elas
+- Fase atual: Fases 1 e 2 estabilizadas; Fase 2.5 concluída até F, com G pendente; Fase 3 ainda não iniciada
+- Estado: SPA cobre autenticação, contas e cascata Senior; interface server-side aguarda remoção na Fase G
 - Banco: Oracle
 - Backend: Django, evoluindo para API-only
 - UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028; interface Django Templates + HTMX + Alpine ainda em operação até a Fase G
@@ -256,9 +256,15 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 
 ### Fase F — Cascata Senior
 
-- [ ] Seleção Empresa → Filial → Tipo → Colaborador na SPA.
-- [ ] Smoke somente leitura contra o Oracle DEV.
-- [ ] Conferência visual nos cinco pontos de quebra.
+- [x] Seleção Empresa → Filial → Tipo → Colaborador na SPA.
+  - Busca remota por nome ou matrícula com debounce de 400 ms, limite de 100
+    caracteres e 20 resultados.
+  - Consultas obsoletas canceladas e níveis descendentes limpos a cada troca.
+- [x] Smoke somente leitura contra o Oracle DEV.
+  - Quatro endpoints responderam `200` dentro de transação `READ ONLY`, sem CPF.
+- [x] Conferência visual nos cinco pontos de quebra.
+  - Executada em Chromium 150 contra SQLite efêmero e repository controlado.
+  - Cinco breakpoints sem rolagem horizontal; tema escuro e resumo validados.
 
 ### Fase G — Remoção e limpeza
 
@@ -745,4 +751,20 @@ Comandos executados: npx ng build; npx ng test; uv run pytest; uv run ruff; uv r
 Arquivos alterados: frontend/src/app/core/api, frontend/src/app/features/usuarios, frontend/src/app/features/papeis, frontend/src/app/features/auditoria, frontend/src/app/fe.routes.ts, frontend/src/styles.scss, frontend/src/styles/_listagem.scss e documentação em docs/SGPD.
 Testes: 181 verificações visuais nos cinco pontos de quebra sem falha, incluindo cartões no estado base e tabela a partir de md em cada listagem, presença de dados, diálogo cabendo no viewport e ausência de rolagem horizontal; 23 testes de frontend em cinco arquivos, cobrindo o utilitário de erro, a dupla representação da listagem, o estado vazio, os selos de senha temporária e conta inativa e a exibição da mensagem do envelope em falha de permissão; 151 testes de backend inalterados.
 Defeitos corrigidos: a entrada label do componente de checkbox não renderiza texto nesta versão, deixando três campos sem rótulo visível; o alvo clicável do checkbox media 20 px, abaixo do mínimo de toque; o diálogo de formulário longo estourava a altura da tela e deixava as ações fora de alcance, agora com rolagem interna; o host do campo de senha não ocupava a largura, correção promovida ao escopo global; a margem padrão do elemento de lista de definição afastava os campos do cartão.
+```
+
+### 2026-07-28 — Cascata Senior na SPA
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Fase 2.5 — Migração da interface / Fase F
+O que foi concluído: feature Colaboradores na rota /fe/colaboradores, com seleção Empresa → Filial → Tipo → Colaborador sobre os quatro endpoints existentes; busca remota pelo filtro do p-select; resumo somente leitura; estados de carregamento, vazio, erro e nova tentativa; testes de frontend; smoke Oracle e conferência visual responsiva.
+Decisões: manter backend, repository, SQL, grants e migrations inalterados; usar limites 100/100/100/20 já homologados; cancelar requisições obsoletas com switchMap; limpar seleções descendentes imediatamente; aplicar debounce de 400 ms e máximo de 100 caracteres; preservar a interface server-side até a Fase G; não projetar CPF, persistir referência ou criar snapshot.
+Riscos: respostas fora de ordem foram mitigadas por cancelamento testado; indisponibilidade do Senior permanece explícita e recuperável; a conferência em Chromium não substitui teste futuro em aparelho físico.
+Pendências: Fase G, com remoção dos templates, views HTML, forms, context processors, ui_urls, HTMX, staticfiles e testes antigos.
+Próximo passo: executar a Fase G em alteração separada, preservando Django Admin e toda a API.
+Comandos executados: npm test -- --watch=false; npm run build; uv run pytest; uv run ruff check .; uv run ruff format --check .; uv run mypy apps config tests manage.py; uv run manage.py check; uv run manage.py makemigrations --check --dry-run --settings=config.settings.test; smoke dos quatro endpoints em transação Oracle READ ONLY; conferência em Chromium 150 nos breakpoints 360, 390, 768, 1024 e 1440 px; busca por max-width e CPF.
+Arquivos alterados: frontend/src/app/features/colaboradores, frontend/src/app/fe.routes.ts, README.md e documentação em docs/SGPD.
+Testes: 32 testes frontend passaram, nove novos da cascata; 151 testes backend passaram; build inicial de 495,26 kB dentro do orçamento; Ruff, format, mypy, Django check e migrations sem divergência; smoke Oracle retornou 200/200/200/200 com 7/1/1/5 resultados, transação READ ONLY e nenhum CPF; conferência visual passou nos cinco pontos de quebra, com uma coluna em 360/390, grade 2×2 em 768, quatro colunas em 1024/1440, filtro a 16 px e controles de 46 px no móvel, sem rolagem horizontal.
 ```

@@ -112,8 +112,10 @@ Administração funcional de contas:
 
 Consulta cadastral Senior:
 
-- `/references/senior/`: seleção Empresa → Filial → Tipo de colaborador
-  → Colaborador, server-side até a Fase F da migração;
+- `/fe/colaboradores`: seleção Empresa → Filial → Tipo de colaborador
+  → Colaborador na SPA;
+- `/references/senior/`: interface server-side legada, mantida somente até a
+  limpeza da Fase G;
 - exige autenticação, permissão `query_senior_references` e escopo compatível;
 - consulta o Senior somente por `SELECT` e não cria snapshot nesta etapa.
 
@@ -189,11 +191,11 @@ auditoria rejeita mutação e exclusão em lote, e a desativação concorrente
 preserva ao menos um superusuário ativo. A configuração funcional da Fase 3
 ainda não foi iniciada.
 
-A migração da interface para SPA Angular avançou até a Fase D em 2026-07-28. As
+A migração da interface para SPA Angular avançou até a Fase F em 2026-07-28. As
 decisões estão nas ADRs 025 a 028, a API de autenticação, contexto e
 administração de contas está publicada em `/api/v1/`, e a SPA já autentica,
-aplica o tema, filtra o menu pelo contexto do servidor e é servida pelo próprio
-Django. As telas de contas, a cascata Senior e a remoção da interface
-server-side permanecem nas Fases E, F e G.
+aplica o tema, filtra o menu pelo contexto do servidor, administra contas e
+consulta a cascata Senior. Somente a remoção da interface server-side, do HTMX
+e dos testes antigos permanece para a Fase G.
 
 Consulte `PROMPT.md` para o procedimento completo.
