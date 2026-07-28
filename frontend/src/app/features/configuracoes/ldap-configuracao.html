@@ -125,8 +125,8 @@
         </div>
       </div>
 
-      <div class="campos-grid">
-        <div class="campo campo--largo">
+      <div class="servidor-grid">
+        <div class="campo">
           <label for="server_address">Servidor LDAP</label>
           <input
             pInputText
@@ -142,7 +142,7 @@
           }
         </div>
 
-        <div class="campo campo--largo">
+        <div class="campo">
           <label for="bind_dn">Conta técnica — UPN ou DN</label>
           <input
             pInputText
@@ -157,7 +157,7 @@
           }
         </div>
 
-        <div class="campo campo--largo">
+        <div class="campo">
           <label for="bind_password">
             Senha de bind
             @if (senhaConfigurada()) {
@@ -177,7 +177,6 @@
             <small class="campo__erro">{{ erro }}</small>
           }
         </div>
-
       </div>
     </section>
 
@@ -201,51 +200,23 @@
         </div>
         <div class="campo campo--largo">
           <label for="required_group_dn">DN do grupo obrigatório</label>
-          <input pInputText id="required_group_dn" formControlName="required_group_dn" spellcheck="false" />
-          <small>Quando preenchido, descoberta, importação, vínculo e login usam exatamente este grupo.</small>
-        </div>
-        <div class="campo campo--largo grupo-pesquisa">
-          <label for="group_search">Buscar grupo na configuração salva</label>
-          <div class="grupo-pesquisa__acao">
+          <div class="grupo-dn__acao">
             <input
               pInputText
-              id="group_search"
-              type="search"
-              [formControl]="buscaGrupo"
-              maxlength="100"
-              placeholder="Nome do grupo (mínimo 2 caracteres)"
-              (keydown.enter)="$event.preventDefault(); buscarGrupos()"
+              id="required_group_dn"
+              formControlName="required_group_dn"
+              spellcheck="false"
             />
             <p-button
               type="button"
               severity="secondary"
               [outlined]="true"
               icon="pi pi-search"
-              label="Buscar"
-              [loading]="buscandoGrupos()"
-              (onClick)="buscarGrupos()"
+              label="Buscar grupo"
+              (onClick)="abrirBuscaGrupos()"
             ></p-button>
           </div>
-          <small>Salve servidor, bind e base de grupos antes da busca.</small>
-          @if (gruposEncontrados().length) {
-            <ul class="grupo-resultados">
-              @for (grupo of gruposEncontrados(); track grupo.distinguished_name) {
-                <li>
-                  <div>
-                    <strong>{{ grupo.name }}</strong>
-                    <small>{{ grupo.description || grupo.distinguished_name }}</small>
-                  </div>
-                  <p-button
-                    type="button"
-                    size="small"
-                    [outlined]="true"
-                    label="Usar grupo"
-                    (onClick)="selecionarGrupo(grupo)"
-                  ></p-button>
-                </li>
-              }
-            </ul>
-          }
+          <small>Quando preenchido, descoberta, importação, vínculo e login usam exatamente este grupo.</small>
         </div>
         <div class="campo campo--largo">
           <label for="user_extra_filter">Filtro adicional revisado</label>
@@ -419,4 +390,71 @@
       </div>
     </section>
   </form>
+
+  <p-dialog
+    header="Buscar grupo no LDAP"
+    [modal]="true"
+    [draggable]="false"
+    [dismissableMask]="true"
+    [visible]="dialogoBuscaGrupoAberto()"
+    (visibleChange)="dialogoBuscaGrupoAberto.set($event)"
+    [style]="{ width: '96vw', maxWidth: '44rem' }"
+  >
+    <div class="grupo-modal">
+      <p>
+        A pesquisa usa o servidor, o bind e a base de grupos da configuração salva.
+      </p>
+
+      <div class="campo">
+        <label for="group_search">Nome do grupo</label>
+        <div class="grupo-modal__acao">
+          <input
+            pInputText
+            id="group_search"
+            type="search"
+            [formControl]="buscaGrupo"
+            maxlength="100"
+            placeholder="Digite ao menos 2 caracteres"
+            autocomplete="off"
+            (keydown.enter)="$event.preventDefault(); buscarGrupos()"
+          />
+          <p-button
+            type="button"
+            icon="pi pi-search"
+            label="Buscar"
+            [loading]="buscandoGrupos()"
+            [disabled]="buscaGrupo.value.trim().length < 2"
+            (onClick)="buscarGrupos()"
+          ></p-button>
+        </div>
+        <small>Salve servidor, bind e base de grupos antes da busca.</small>
+      </div>
+
+      @if (erroBuscaGrupo()) {
+        <p-message severity="error" [text]="erroBuscaGrupo()"></p-message>
+      }
+
+      @if (gruposEncontrados().length) {
+        <ul class="grupo-resultados">
+          @for (grupo of gruposEncontrados(); track grupo.distinguished_name) {
+            <li>
+              <div>
+                <strong>{{ grupo.name }}</strong>
+                <small>{{ grupo.description || grupo.distinguished_name }}</small>
+              </div>
+              <p-button
+                type="button"
+                size="small"
+                [outlined]="true"
+                label="Usar grupo"
+                (onClick)="selecionarGrupo(grupo)"
+              ></p-button>
+            </li>
+          }
+        </ul>
+      } @else if (buscaGruposExecutada()) {
+        <p class="estado">Nenhum grupo encontrado.</p>
+      }
+    </div>
+  </p-dialog>
 }

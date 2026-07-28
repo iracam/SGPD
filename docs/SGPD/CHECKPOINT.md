@@ -337,8 +337,11 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   AD.
 - [x] Remover o campo de exceção DEV e a seleção de grupo adicional na
   importação.
-- [x] Permitir buscar o grupo obrigatório na central de Configurações.
+- [x] Permitir buscar o grupo obrigatório em modal na central de Configurações,
+  aberto pelo botão ao lado do campo de DN e com mínimo de dois caracteres.
 - [x] Manter campos com alvo de 44 px no móvel e densidade compacta no desktop.
+  - Servidor LDAP, conta técnica e senha dividem a mesma linha a partir de
+    `lg`, permanecendo empilhados no móvel.
 - [x] Auditar atualização, upload e teste com correlation ID.
 - [x] Cobrir autorização, versão concorrente, segredo, certificado, probe,
   API, guarda, menu e tela com testes automatizados.
@@ -1002,4 +1005,20 @@ Próximo passo: aplicar a migration revisada e homologar o fluxo completo no AD 
 Comandos executados: pytest; Ruff check e format; Mypy; Django check; makemigrations --check; sqlmigrate somente leitura contra Oracle; Vitest; build Angular; busca por media query max-width; diff check; conferência em Chromium 150 com SQLite efêmero; regeneração e validação do manifesto e dos links locais.
 Arquivos alterados: configuração, cliente, backend e checks do Active Directory; central system_settings e migration 0002; APIs de diretório; configuração e telas Angular de LDAP e usuários; tokens globais de formulário; .env.example; testes; README.md e documentação em docs/SGPD.
 Testes: 204 testes backend e 46 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 496,08 kB; nenhuma media query max-width foi introduzida; diff sem erros de whitespace; manifesto de 19 arquivos e links locais de 16 documentos íntegros. O sqlmigrate confirmou somente ALTER TABLE SGPD_LDAP_CONFIG DROP COLUMN ALLOW_INSECURE_DISCOVERY, sem executar DDL. No Chromium, o campo de servidor mediu 31,5 px em 1440 px e 44 px em 390 px, sem overflow horizontal; o aviso forte apareceu somente com TLS desmarcado e os rótulos legados permaneceram ausentes.
+```
+
+### 2026-07-28 — Busca de grupo LDAP em modal
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Refinamento da configuração LDAP/Autenticação
+O que foi concluído: botão Buscar grupo posicionado imediatamente ao lado do DN obrigatório; campo de pesquisa e resultados movidos para modal; pesquisa bloqueada até dois caracteres; seleção preenche o DN, marca o formulário como alterado e fecha o modal; servidor LDAP, conta técnica e senha alinhados na mesma linha no desktop.
+Decisões: a busca continua usando exclusivamente a configuração LDAP já salva; o modal informa essa origem e mantém erros e estado vazio locais; a grade dos três campos passa a ter três colunas somente a partir de lg e permanece empilhada no móvel.
+Riscos: nenhuma regra de autenticação, filtro, autorização, API, schema Oracle ou integração Senior foi alterada. A pesquisa real continua dependente de descoberta LDAP salva e operacional.
+Pendências: permanecem a aplicação da migration system_settings 0002 no Oracle DEV e a homologação controlada do fluxo no AD real.
+Próximo passo: aplicar a migration revisada e homologar busca, descoberta e login com o transporte escolhido.
+Comandos executados: npm test -- --watch=false; npm run build; git diff --check; busca por media query max-width; conferência em Chromium 150 a 390 e 1440 px com SQLite efêmero.
+Arquivos alterados: componente, template, SCSS e teste da configuração LDAP; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
+Testes: 46 testes frontend passaram; build de produção concluído com bundle inicial de 496,08 kB; modal abriu com busca desabilitada antes de dois caracteres e habilitada a partir de dois; em 1440 px os três campos mediram 347,41 px e tiveram o mesmo alinhamento vertical; em 390 px permaneceram empilhados; não houve overflow horizontal nem media query max-width.
 ```

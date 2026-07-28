@@ -157,6 +157,22 @@
   }
 }
 
+.servidor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
+
+  > .campo > label {
+    display: flex;
+    min-height: 1.5rem;
+    align-items: center;
+  }
+
+  @include bp.from(bp.$lg) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .numeros-grid {
   @include bp.from(bp.$sm) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -237,7 +253,8 @@
   text-transform: uppercase;
 }
 
-.grupo-pesquisa__acao {
+.grupo-dn__acao,
+.grupo-modal__acao {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
@@ -257,6 +274,21 @@
     ::ng-deep .p-button {
       width: auto;
     }
+  }
+}
+
+.grupo-dn__acao ::ng-deep .p-button-label {
+  white-space: nowrap;
+}
+
+.grupo-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  > p {
+    margin: 0;
+    color: var(--p-text-muted-color);
   }
 }
 

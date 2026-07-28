@@ -88,6 +88,11 @@ describe('LdapConfiguracaoPage', () => {
     expect(text).toContain('configurada');
     expect(password.value).toBe('');
     expect(text).not.toContain('segredo');
+    expect(
+      fixture.nativeElement.querySelectorAll(
+        '.servidor-grid > .campo',
+      ).length,
+    ).toBe(3);
   });
 
   it('envia a versão no salvamento auditado sem justificativa manual', async () => {
@@ -130,18 +135,33 @@ describe('LdapConfiguracaoPage', () => {
     expect(text).not.toContain('Negociar StartTLS');
   });
 
-  it('busca grupos com a configuração salva e preenche o grupo obrigatório', async () => {
+  it('abre a busca em modal, exige dois caracteres e preenche o DN obrigatório', async () => {
     fixture.detectChanges();
     httpMock.expectOne(apiConfig.routes.settingsLdap).flush(CONFIGURATION);
     await fixture.whenStable();
+    fixture.detectChanges();
 
-    fixture.componentInstance.buscaGrupo.setValue('sgpd');
+    const campoDn = fixture.nativeElement.querySelector(
+      '#required_group_dn',
+    ) as HTMLInputElement;
+    const acaoDn = campoDn.closest('.grupo-dn__acao') as HTMLElement;
+    expect(acaoDn.textContent).toContain('Buscar grupo');
+
+    fixture.componentInstance.abrirBuscaGrupos();
+    expect(fixture.componentInstance.dialogoBuscaGrupoAberto()).toBe(true);
+
+    fixture.componentInstance.buscaGrupo.setValue('s');
+    fixture.componentInstance.buscarGrupos();
+    httpMock.expectNone(apiConfig.routes.accountsDirectoryGroups);
+    expect(fixture.componentInstance.erroBuscaGrupo()).toContain('dois caracteres');
+
+    fixture.componentInstance.buscaGrupo.setValue('sg');
     fixture.componentInstance.buscarGrupos();
     httpMock
       .expectOne(
         (request) =>
           request.url === apiConfig.routes.accountsDirectoryGroups &&
-          request.params.get('q') === 'sgpd',
+          request.params.get('q') === 'sg',
       )
       .flush({
         limit: 50,
@@ -159,6 +179,7 @@ describe('LdapConfiguracaoPage', () => {
     expect(fixture.componentInstance.formulario.controls.required_group_dn.value).toBe(
       'CN=SGPD,OU=Grupos,DC=example,DC=internal',
     );
+    expect(fixture.componentInstance.dialogoBuscaGrupoAberto()).toBe(false);
   });
 
   it('envia e valida a CA sem justificativa manual', async () => {

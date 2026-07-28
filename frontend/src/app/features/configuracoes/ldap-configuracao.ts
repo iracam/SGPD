@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
+import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
@@ -25,6 +26,7 @@ import {
     RouterLink,
     ButtonModule,
     CheckboxModule,
+    DialogModule,
     InputTextModule,
     MessageModule,
     PasswordModule,
@@ -45,8 +47,11 @@ export class LdapConfiguracaoPage {
   readonly enviandoCertificado = signal(false);
   readonly validandoCertificado = signal(false);
   readonly buscandoGrupos = signal(false);
+  readonly dialogoBuscaGrupoAberto = signal(false);
+  readonly buscaGruposExecutada = signal(false);
   readonly erroPagina = signal('');
   readonly erroFormulario = signal('');
+  readonly erroBuscaGrupo = signal('');
   readonly sucesso = signal('');
   readonly erroCertificado = signal('');
   readonly sucessoCertificado = signal('');
@@ -204,13 +209,26 @@ export class LdapConfiguracaoPage {
       });
   }
 
+  abrirBuscaGrupos(): void {
+    this.buscaGrupo.reset();
+    this.gruposEncontrados.set([]);
+    this.buscaGruposExecutada.set(false);
+    this.erroBuscaGrupo.set('');
+    this.dialogoBuscaGrupoAberto.set(true);
+  }
+
   buscarGrupos(): void {
     const busca = this.buscaGrupo.value.trim();
-    if (busca.length < 2 || this.buscandoGrupos()) {
+    if (busca.length < 2) {
+      this.erroBuscaGrupo.set('Digite ao menos dois caracteres para buscar.');
+      return;
+    }
+    if (this.buscandoGrupos()) {
       return;
     }
     this.buscandoGrupos.set(true);
-    this.erroFormulario.set('');
+    this.buscaGruposExecutada.set(false);
+    this.erroBuscaGrupo.set('');
     this.service
       .buscarGruposLdap(busca)
       .pipe(
@@ -218,8 +236,11 @@ export class LdapConfiguracaoPage {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (pagina) => this.gruposEncontrados.set(pagina.results),
-        error: (error) => this.erroFormulario.set(errorMessage(error)),
+        next: (pagina) => {
+          this.gruposEncontrados.set(pagina.results);
+          this.buscaGruposExecutada.set(true);
+        },
+        error: (error) => this.erroBuscaGrupo.set(errorMessage(error)),
       });
   }
 
@@ -227,6 +248,7 @@ export class LdapConfiguracaoPage {
     this.formulario.controls.required_group_dn.setValue(grupo.distinguished_name);
     this.formulario.controls.required_group_dn.markAsDirty();
     this.gruposEncontrados.set([]);
+    this.dialogoBuscaGrupoAberto.set(false);
   }
 
   testarConexao(): void {
@@ -311,6 +333,9 @@ export class LdapConfiguracaoPage {
     this.formulario.markAsPristine();
     this.buscaGrupo.reset();
     this.gruposEncontrados.set([]);
+    this.buscaGruposExecutada.set(false);
+    this.erroBuscaGrupo.set('');
+    this.dialogoBuscaGrupoAberto.set(false);
     this.resultadoValidacao.set(null);
   }
 
