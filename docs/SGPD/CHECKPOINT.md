@@ -3,11 +3,11 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fase 2.5 concluída até F, com G pendente; Fase 3 ainda não iniciada
-- Estado: SPA cobre autenticação, contas e cascata Senior; interface server-side aguarda remoção na Fase G
+- Fase atual: Fases 1 e 2 estabilizadas; Fase 2.5 concluída até G; Fase 3 ainda não iniciada
+- Estado: SPA cobre autenticação, contas e cascata Senior; interface server-side da aplicação removida
 - Banco: Oracle
-- Backend: Django, evoluindo para API-only
-- UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028; interface Django Templates + HTMX + Alpine ainda em operação até a Fase G
+- Backend: Django API-only, com Django Admin somente leitura preservado
+- UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028
 - Integração principal: Senior HCM
 - Autenticação: local no MVP, por sessão Django com CSRF em origem única, com vinculação futura das contas SGPD ao Active Directory
 
@@ -64,7 +64,8 @@
 - [x] Confirmar regras de colaborador ativo.
   - Regra homologada: `SITAFA <> 7`, isto é, qualquer situação diferente de “Demitido”.
   - `R010SIT` confirmou 1 = Trabalhando, 2 = Férias e 7 = Demitido.
-- [ ] Definir estratégia de homologação.
+- [ ] Definir homologação operacional e monitoramento do contrato fora do
+  probe controlado do DEV.
 - [x] Definir usuário Oracle do runtime.
   - Por decisão explícita no DEV, usar o owner `SGPD`; não criar `SGPD_APP`.
 
@@ -116,7 +117,9 @@
 - [x] Validar módulos Django.
 - [x] Definir estrutura de settings.
 - [ ] Definir filas.
-- [ ] Definir storage.
+- [x] Definir storage do DEV.
+  - Filesystem local privado para evidências; storage corporativo de ambientes
+    futuros exigirá nova decisão.
 - [x] Definir logging.
 - [x] Definir health checks.
 - [ ] Definir backups.
@@ -143,8 +146,8 @@
   - Criada pelo bootstrap interativo, com papel global
     `ADMIN_IDENTIDADE` e dois eventos de auditoria.
 - [x] SMTP AUTH e `Send As`.
-  - Após atualização das credenciais em 2026-07-28, o Microsoft 365 aceitou
-    uma mensagem de prova enviada ao próprio remetente configurado.
+  - O Microsoft 365 aceitou uma mensagem de prova enviada ao próprio remetente
+    configurado em 2026-07-28.
 - [ ] Redis conectado, quando requerido.
 - [ ] Worker conectado, quando requerido.
 - [x] Health check.
@@ -163,18 +166,16 @@
 - [x] Tratamento de indisponibilidade.
 - [x] Logs de consulta e telemetria básica de duração/linhas.
 - [x] Script SQLcl de teste de contrato.
-- [x] Cascata funcionando no repository, endpoints autenticados e interface
-  HTMX.
-  - Runtime HTMX 2.0.10 servido localmente, sem CDN.
+- [x] Cascata funcionando no repository, endpoints autenticados e SPA Angular.
 - [x] Autorização da cascata por permissão, empresa e filial.
 - [x] `LEFT JOIN` de centro de custo homologado.
-  - Em 2026-07-28, preservou 1.891 elegíveis; `INNER JOIN` excluiria os 49
+  - Na validação mais recente de 2026-07-28, preservou 1.902 elegíveis;
+    `INNER JOIN` excluiria os 49
     colaboradores sem referência em `R018CCU`; nenhuma chave de centro de
     custo duplicada foi encontrada.
 - [x] Concorrência inicial medida no DEV.
   - 80 consultas de colaboradores com 1, 5 e 10 conexões, sem erros ou
     timeouts; p95 máximo de 60,64 ms.
-- [ ] Snapshot validado.
 
 ## Checkpoint 2.5 — Migração da interface para SPA Angular
 
@@ -268,12 +269,12 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 
 ### Fase G — Remoção e limpeza
 
-- [ ] Templates, views HTML, forms e context processors removidos.
-- [ ] `ui_urls` e runtime HTMX removidos.
-- [ ] `staticfiles/` regenerado.
-- [ ] Testes acoplados à UI antiga removidos.
-- [ ] Suíte completa, lint, format, mypy e migrations sem divergência.
-- [ ] Checkpoint atualizado.
+- [x] Templates, views HTML, forms e context processors removidos.
+- [x] `ui_urls` e runtime HTMX removidos.
+- [x] `staticfiles/` regenerado.
+- [x] Testes acoplados à UI antiga removidos.
+- [x] Suíte completa, lint, format, mypy e migrations sem divergência.
+- [x] Checkpoint atualizado.
 
 ## Checkpoint 3 — Configuração funcional
 
@@ -290,6 +291,7 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 ## Checkpoint 4 — Workflow
 
 - [ ] Abertura.
+- [ ] Snapshot histórico.
 - [ ] Início.
 - [ ] Tarefas.
 - [ ] Estados.
@@ -317,7 +319,11 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [ ] Cancelamento.
 - [ ] Reabertura.
 
-## Registro de decisões
+## Registro histórico de execuções
+
+Os registros abaixo preservam o contexto conhecido em cada execução e não são
+normativos. Pendências e próximos passos antigos podem ter sido resolvidos
+depois; o estado vigente é definido pelo status geral e pelos checklists acima.
 
 Use esta seção em cada execução:
 
@@ -767,4 +773,36 @@ Próximo passo: executar a Fase G em alteração separada, preservando Django Ad
 Comandos executados: npm test -- --watch=false; npm run build; uv run pytest; uv run ruff check .; uv run ruff format --check .; uv run mypy apps config tests manage.py; uv run manage.py check; uv run manage.py makemigrations --check --dry-run --settings=config.settings.test; smoke dos quatro endpoints em transação Oracle READ ONLY; conferência em Chromium 150 nos breakpoints 360, 390, 768, 1024 e 1440 px; busca por max-width e CPF.
 Arquivos alterados: frontend/src/app/features/colaboradores, frontend/src/app/fe.routes.ts, README.md e documentação em docs/SGPD.
 Testes: 32 testes frontend passaram, nove novos da cascata; 151 testes backend passaram; build inicial de 495,26 kB dentro do orçamento; Ruff, format, mypy, Django check e migrations sem divergência; smoke Oracle retornou 200/200/200/200 com 7/1/1/5 resultados, transação READ ONLY e nenhum CPF; conferência visual passou nos cinco pontos de quebra, com uma coluna em 360/390, grade 2×2 em 768, quatro colunas em 1024/1440, filtro a 16 px e controles de 46 px no móvel, sem rolagem horizontal.
+```
+
+### 2026-07-28 — Remoção da interface server-side
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Fase 2.5 — Migração da interface / Fase G
+O que foi concluído: remoção integral dos 14 templates de aplicação, views HTML e URLconfs de contas e da cascata Senior, forms, context processor, decorador de autorização exclusivo da UI, runtime e licença HTMX e testes acoplados à interface antiga; configuração de templates limitada ao Django Admin; staticfiles regenerado sem HTMX; documentação e manifesto atualizados.
+Decisões: preservar Django Admin somente leitura, toda a API, services, autorização, auditoria, repository e SQL Senior; fazer /accounts/* e /references/* caírem no shell da SPA em vez de manter superfícies funcionais paralelas; redirecionar navegação com senha temporária para /fe/senha e manter o 403 tipado sob /api/; não alterar dependências, migrations, schema, grants ou dados.
+Riscos: R45 registrado. O npm reporta três vulnerabilidades moderadas apenas na cadeia de desenvolvimento do Angular CLI, originadas no servidor estático Hono e aplicáveis a path traversal no Windows; o runtime possui zero vulnerabilidades segundo npm audit --omit=dev, o DEV homologado usa Debian e a correção automática exigiria alteração incompatível do Angular CLI. A conferência visual da Fase F permanece válida porque nenhum código da SPA ou SCSS foi alterado.
+Pendências: iniciar a Fase 3 pela configuração funcional; snapshot continua reservado ao caso de uso transacional da Fase 4; dados sensíveis, retenção, política ampla de auditoria e autenticação AD real permanecem conforme checkpoints anteriores.
+Próximo passo: iniciar a Fase 3 por setores e seus escopos, em mudança pequena e revisável.
+Comandos executados: uv run pytest; uv run ruff check .; uv run ruff format --check .; uv run mypy apps config tests manage.py; uv run manage.py check; uv run manage.py makemigrations --check --dry-run --settings=config.settings.test; npm ci; npm test -- --watch=false; npm run build; uv run manage.py collectstatic --clear --noinput; npm audit e npm audit --omit=dev; smoke HTTP real do shell, rotas antigas, API anônima, Admin, estático do Admin e ausência do HTMX; scripts/oracle/run_senior_contract_validation.sh em acesso somente leitura.
+Arquivos alterados: config/urls.py, config/settings/base.py, apps/accounts/authorization.py, apps/accounts/middleware.py, tests/test_spa.py, README.md e documentação em docs/SGPD; removidos apps/accounts/views.py, forms.py, context_processors.py e urls.py, apps/integrations/senior/views.py e ui_urls.py, templates/, static/vendor/htmx/ e os dois testes server-side antigos.
+Testes: 139 testes backend e 32 testes frontend passaram; Ruff, format e mypy sem erros; Django check sem alertas; migrations sem divergência; build inicial de 495,26 kB dentro do orçamento; collectstatic removeu o HTMX antigo e regenerou 154 arquivos, com 444 pós-processados; smoke HTTP respondeu 200 para raiz, fallbacks /accounts/login/ e /references/senior/, Django Admin e CSS do Admin, 401 JSON tipado para API anônima e 404 para o runtime HTMX removido; contrato Oracle somente leitura retornou 7/1/1/5/1 nos probes, 1.902 elegíveis, 49 sem centro de custo e zero chaves duplicadas, sem DML ou DDL.
+```
+
+### 2026-07-28 — Revisão integral e consolidação documental
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Preparação da Fase 3
+O que foi concluído: leitura e revisão cruzada dos 17 documentos Markdown vigentes; alinhamento do prompt operacional, arquitetura, ambiente, integração, segurança, roadmap e checkpoint ao estado posterior à Fase G; distinção explícita entre visão/requisitos/modelo alvo, componentes implementados e registros históricos; correção de rotas, paginação, versões, storage, middleware de senha, observabilidade e contrato da SPA; riscos resolvidos retirados da matriz ativa; manifesto regenerado.
+Decisões: manter ADRs substituídas apenas como índice curto de rastreabilidade, sem conteúdo normativo; considerar o status geral e os checklists do checkpoint como fonte do estado atual, deixando o registro cronológico como histórico não normativo; manter a Fase 3 como próximo incremento e o snapshot exclusivamente na Fase 4; não alterar código, dependências, migrations, schema, grants ou dados nesta revisão.
+Riscos: a remoção integral do histórico apagaria a justificativa de decisões de segurança e Oracle; o risco foi evitado preservando identificadores de ADR e registros cronológicos, mas removendo deles qualquer efeito normativo. Nenhum novo risco técnico foi introduzido.
+Pendências: iniciar a Fase 3 por setores e seus escopos; homologação operacional do contrato Senior fora do probe DEV, dados sensíveis, retenção, política ampla de auditoria e autenticação AD real continuam pendentes nos checkpoints próprios.
+Próximo passo: modelar o menor incremento de setores da Fase 3, com autorização, auditoria, compatibilidade Oracle, API e SPA.
+Comandos executados: inventário de Markdown versionado; leitura integral e buscas cruzadas com rg; inspeção das rotas Django e Angular, settings e lockfiles; validação de links locais com Node; jq empty; git diff --check; regeneração e validação SHA-256 do manifesto.
+Arquivos alterados: AGENTS.md, PROMPT.md, README.md, docs/SGPD/ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, ENVIRONMENT.md, INTEGRATION_SENIOR_ORACLE.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, VISION.md, WORKFLOWS.md e MANIFEST.json. GLOSSARY.md foi revisado e não exigiu alteração.
+Testes: 17 documentos Markdown vigentes com links locais válidos; arquivos JSON validados; manifesto íntegro por tamanho e SHA-256; busca de referências operacionais obsoletas sem divergência fora das seções históricas identificadas; diff sem erros de whitespace. A suíte de aplicação não foi repetida porque esta revisão alterou somente documentação; a validação completa registrada na Fase G permanece aplicável ao mesmo código.
 ```

@@ -359,7 +359,7 @@ Fluxos mínimos:
 - liberação;
 - cancelamento;
 - reabertura;
-- sincronização.
+- consulta cadastral somente leitura.
 
 ## 12. Processo de trabalho
 

@@ -1,5 +1,10 @@
 # Visão do Produto
 
+## Estado do documento
+
+Esta visão descreve o produto alvo. O que já está implementado e o próximo
+incremento autorizado são definidos em `CHECKPOINT.md`.
+
 ## 1. Problema
 
 O desligamento de um colaborador exige validações distribuídas entre diversas áreas da organização. Essas validações podem envolver:

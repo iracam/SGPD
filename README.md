@@ -43,10 +43,9 @@ registradas em `uv.lock`; as do frontend, em `frontend/package-lock.json`.
 A interface não depende de CDN: componentes, ícones e fontes são empacotados no
 build.
 
-Em 2026-07-28 o projeto decidiu substituir a interface Django Templates + HTMX
-+ Alpine por uma SPA Angular, conforme as ADRs 025 a 028. O plano de execução
-está em `docs/SGPD/MIGRATION_FRONTEND_SPA.md`. Enquanto a migração não conclui,
-a interface server-side permanece em operação e não recebe telas novas.
+A interface definitiva é uma SPA Angular, conforme as ADRs 025 a 028. O plano
+concluído está registrado em `docs/SGPD/MIGRATION_FRONTEND_SPA.md`. O Django
+Admin é a única interface server-side preservada.
 
 ## Execução local
 
@@ -102,10 +101,10 @@ revisado.
 
 Administração funcional de contas:
 
-- `/accounts/login/`: autenticação local;
-- `/accounts/users/`: criação e manutenção auditada de usuários;
-- `/accounts/roles/`: papéis, permissões e escopos;
-- `/accounts/audit/`: auditoria de contas;
+- `/fe/login`: autenticação local;
+- `/fe/usuarios`: criação e manutenção auditada de usuários;
+- `/fe/papeis`: papéis, permissões e escopos;
+- `/fe/auditoria`: auditoria de contas;
 - `uv run manage.py bootstrap_roles`: catálogo inicial idempotente de papéis;
 - `uv run manage.py bootstrap_identity_admin`: bootstrap interativo, único e
   auditado da primeira conta humana.
@@ -114,8 +113,6 @@ Consulta cadastral Senior:
 
 - `/fe/colaboradores`: seleção Empresa → Filial → Tipo de colaborador
   → Colaborador na SPA;
-- `/references/senior/`: interface server-side legada, mantida somente até a
-  limpeza da Fase G;
 - exige autenticação, permissão `query_senior_references` e escopo compatível;
 - consulta o Senior somente por `SELECT` e não cria snapshot nesta etapa.
 
@@ -137,20 +134,20 @@ A SPA vive em `frontend/`. As versões exatas estão em
 - `ENVIRONMENT.md`: inventário e matriz dos ambientes.
 - `REQUIREMENTS.md`: requisitos funcionais e não funcionais.
 - `WORKFLOWS.md`: fluxo e estados do processo.
-- `DATA_MODEL.md`: modelo conceitual inicial.
+- `DATA_MODEL.md`: modelo conceitual de referência e estado de implementação.
 - `ARCHITECTURE.md`: arquitetura da solução.
 - `INTEGRATION_SENIOR_ORACLE.md`: integração com Senior HCM e Oracle.
 - `SECURITY.md`: segurança, LGPD e auditoria.
 - `RISK_REGISTER.md`: registro e mitigação de riscos.
-- `DECISIONS.md`: decisões arquiteturais iniciais.
-- `MIGRATION_FRONTEND_SPA.md`: plano de migração da interface para a SPA.
+- `DECISIONS.md`: decisões arquiteturais vigentes e índice das substituídas.
+- `MIGRATION_FRONTEND_SPA.md`: registro do plano executado de migração para a SPA.
 - `ROADMAP.md`: fases de implementação.
 - `CHECKPOINT.md`: controle de progresso do projeto.
 
 ## Na raiz do projeto
+
 - `AGENTS.md`: instruções para agentes de IA.
 - `PROMPT.md`: prompt principal para o Codex.
-
 
 ## Princípios do projeto
 
@@ -191,11 +188,10 @@ auditoria rejeita mutação e exclusão em lote, e a desativação concorrente
 preserva ao menos um superusuário ativo. A configuração funcional da Fase 3
 ainda não foi iniciada.
 
-A migração da interface para SPA Angular avançou até a Fase F em 2026-07-28. As
-decisões estão nas ADRs 025 a 028, a API de autenticação, contexto e
-administração de contas está publicada em `/api/v1/`, e a SPA já autentica,
-aplica o tema, filtra o menu pelo contexto do servidor, administra contas e
-consulta a cascata Senior. Somente a remoção da interface server-side, do HTMX
-e dos testes antigos permanece para a Fase G.
+A migração da interface foi concluída. A API de autenticação, contexto e
+administração de contas está publicada em `/api/v1/`, e a SPA autentica, aplica
+o tema, filtra o menu pelo contexto do servidor, administra contas e consulta a
+cascata Senior. O Django Admin somente leitura permanece como ferramenta
+técnica de diagnóstico.
 
 Consulte `PROMPT.md` para o procedimento completo.

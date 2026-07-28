@@ -2,12 +2,14 @@
 
 ## 0. Estado deste documento
 
-Plano aprovado em 2026-07-28. Fases A a F concluídas; G pendente.
+Plano aprovado em 2026-07-28. Fases A a G concluídas.
 O andamento detalhado está no checkpoint 2.5 de `CHECKPOINT.md`.
 
-Este documento substitui a interface server-side homologada nas Fases 1 e 2 por
-uma SPA Angular. Ele não altera Oracle, migrations, quota, contrato SQL do
-Senior, services de domínio nem autorização.
+Este documento é o registro do plano executado que substituiu a interface
+server-side por uma SPA Angular. As seções de diagnóstico descrevem o estado
+encontrado no início da migração e não representam componentes atuais. A
+migração não alterou Oracle, migrations, quota, contrato SQL do Senior,
+services de domínio ou autorização.
 
 ## 1. Decisões aprovadas
 
@@ -35,9 +37,9 @@ Duas características daquele projeto **não** são reaproveitadas:
   `@media (max-width: ...)`; o SGPD escreve para o menor viewport e o promove
   com `@media (min-width: ...)`.
 
-## 2. Diagnóstico do que existe
+## 2. Diagnóstico inicial
 
-### 2.1 Componentes a substituir
+### 2.1 Componentes substituídos
 
 | Item | Arquivos | Linhas |
 | --- | --- | --- |
@@ -47,7 +49,7 @@ Duas características daquele projeto **não** são reaproveitadas:
 | Runtime do navegador | `static/vendor/htmx/` e o `staticfiles/` gerado | — |
 | Testes acoplados à UI | `tests/test_senior_ui.py`, `tests/test_accounts_views.py` | 410 |
 
-### 2.2 Componentes preservados sem alteração
+### 2.2 Componentes preservados
 
 `apps/accounts/services.py`, `apps/accounts/authorization.py`,
 `apps/accounts/models.py`, `apps/accounts/admin.py`, as migrations,
@@ -57,20 +59,19 @@ Duas características daquele projeto **não** são reaproveitadas:
 `tests/test_user_model.py`.
 
 A ADR-024 determina que cada service administrativo valide a permissão do ator
-no próprio limite do caso de uso, sem depender da view chamadora. Essa decisão é
-o que torna a migração barata e segura: a camada de API é uma casca fina sobre
-services já protegidos, e não uma segunda implementação das regras.
+no próprio limite do caso de uso, sem depender da camada chamadora. Essa
+decisão é o que tornou a migração segura: a API é uma casca fina sobre services
+já protegidos, e não uma segunda implementação das regras.
 
-### 2.3 Lacuna que dimensiona o esforço
+### 2.3 Lacuna identificada
 
-A cascata Senior já possui quatro endpoints JSON autenticados e autorizados por
-escopo em `/api/v1/references/`, diretamente reaproveitáveis.
+A cascata Senior já possuía quatro endpoints JSON autenticados e autorizados por
+escopo em `/api/v1/references/`, que foram diretamente reaproveitados.
 
-A administração de contas **não possui API alguma**: são catorze views de
-formulário server-side. O esforço da migração está no backend de contas, não no
-Angular.
+A administração de contas não possuía API: eram catorze views de formulário
+server-side. A Fase C resolveu essa lacuna antes da remoção da Fase G.
 
-## 3. Arquitetura alvo
+## 3. Arquitetura implementada
 
 ```text
 Navegador
@@ -83,11 +84,11 @@ Navegador
             |
             +-- view catch-all  --> frontend/dist/frontend/browser/index.html
             +-- WhiteNoise      --> assets Angular com hash próprio
-            +-- /api/v1/auth/          (novo)
-            +-- /api/v1/accounts/      (novo)
-            +-- /api/v1/references/    (existente)
-            +-- /health/               (existente)
-            +-- /admin/                (existente, somente leitura)
+            +-- /api/v1/auth/
+            +-- /api/v1/accounts/
+            +-- /api/v1/references/
+            +-- /health/
+            +-- /admin/                (somente leitura)
                     |
                     v
             services + authorization  (inalterados)
@@ -99,7 +100,7 @@ Navegador
 Não há CORS, token no navegador, proxy reverso nem Nginx. A ADR-014 permanece
 válida.
 
-## 4. Superfície de API a criar
+## 4. Superfície de API implementada
 
 ### 4.1 Autenticação e contexto — `/api/v1/auth/`
 
@@ -113,10 +114,8 @@ válida.
 | `POST` | `change-password/` | `ChangeOwnPasswordService` |
 
 `GET context/` devolve papéis, permissões efetivas, escopos de empresa e filial
-e as chaves de funcionalidade que governam a visibilidade do menu. Ele substitui
-o context processor `account_permissions`, com a diferença de que a permissão
-passa a ser resolvida pelo servidor a cada sessão, e não durante a renderização
-de cada página.
+e as chaves de funcionalidade que governam a visibilidade do menu. A permissão
+é resolvida pelo servidor a cada sessão.
 
 ### 4.2 Contas — `/api/v1/accounts/`
 
@@ -142,25 +141,20 @@ service correspondente e traduz o resultado.
 **Envelope de erro.** Todas as respostas de erro seguem
 `{"code": ..., "message": ..., "details": ...}`. Um `exception_handler` do DRF
 traduz o `ValidationError` do Django — que os services levantam com
-`message_dict` — em `400` com erros por campo. Essa tradução existe hoje em
-`_add_service_error()` dentro de `apps/accounts/views.py` e migra para o
-handler.
+`message_dict` — em `400` com erros por campo.
 
-**Senha temporária.** `PasswordChangeRequiredMiddleware` redireciona hoje para
-uma rota HTML. Sob `/api/`, ele passa a devolver
-`403 {"code": "password_change_required"}` e a SPA roteia para a tela de troca.
-Sem essa adaptação, a obrigatoriedade de rotação da senha temporária deixaria de
-ser imposta: é o risco de regressão mais relevante desta migração.
+**Senha temporária.** Sob `/api/`, `PasswordChangeRequiredMiddleware` devolve
+`403 {"code": "password_change_required"}`; navegação direta é redirecionada
+para `/fe/senha`.
 
-**Limitação de tentativas.** A auditoria já registra `LOGIN_FAILED`, mas nada
-limita tentativas. Com o login exposto como endpoint, aplicar throttling do DRF.
+**Limitação de tentativas.** O login usa throttling do DRF e continua
+registrando `LOGIN_FAILED`.
 
 **Concorrência.** `expected_version` é exposto como campo do payload,
 preservando a rejeição de escrita concorrente definida na ADR-024.
 
-**Paginação.** As listas de contas usam paginação padrão do DRF. A cascata
-Senior mantém sua paginação por `offset`/`limit` sem `COUNT(*)`, conforme
-`ARCHITECTURE.md` §6.
+**Paginação.** As listas de contas e a cascata Senior usam paginação explícita
+por `offset`/`limit`, sem `COUNT(*)`, conforme `ARCHITECTURE.md` §6.
 
 ## 5. Frontend
 
@@ -178,15 +172,15 @@ frontend/src/app/
 ├── fe.routes.ts
 ├── app.ts
 ├── core/
+│   ├── api/      api-error
 │   ├── auth/     auth.service, auth.guard, auth.interceptor,
-│   │             auth.initializer, auth.context, auth.constants, models/
+│   │             auth.initializer, auth.context, auth.constants
 │   ├── config/   api.config.ts
 │   ├── layout/   authenticated-layout, layout.service, layout.types
 │   └── theme/    theme.service.ts
 └── features/
     ├── login/
     ├── painel/
-    ├── perfil/
     ├── senha/
     ├── colaboradores/
     ├── usuarios/
@@ -194,14 +188,14 @@ frontend/src/app/
     └── auditoria/
 ```
 
-Cada feature segue o padrão `<feature>.ts`, `<feature>.html`, `<feature>.scss`,
-`<feature>.service.ts` e `models/<feature>.models.ts`.
+Cada feature possui componente, template e SCSS; service e models próprios são
+adicionados quando há acesso a API ou contrato de dados específico.
 
 ### 5.2 Roteamento
 
-Dois níveis, idêntico à referência: `app.routes.ts` redireciona para `fe` e
-carrega `fe.routes.ts` de forma lazy; `fe.routes.ts` declara o login como rota
-pública e, em seguida, uma rota protegida por `authGuard` que usa
+O roteamento usa dois níveis: `app.routes.ts` redireciona para `fe` e carrega
+`fe.routes.ts` de forma lazy; `fe.routes.ts` declara o login como rota pública
+e, em seguida, uma rota protegida por `authGuard` que usa
 `AuthenticatedLayout` como componente pai dos filhos autenticados. Todas as
 páginas usam `loadComponent` e declaram `title`.
 
@@ -211,16 +205,15 @@ páginas usam `loadComponent` e declaram `title`.
 | `/fe/painel` | painel inicial |
 | `/fe/colaboradores` | cascata Empresa → Filial → Tipo → Colaborador |
 | `/fe/usuarios`, `/fe/usuarios/:id` | administração de usuários |
-| `/fe/papeis`, `/fe/papeis/:id` | papéis e permissões |
+| `/fe/papeis` | papéis e permissões |
 | `/fe/auditoria` | auditoria de contas |
-| `/fe/perfil`, `/fe/senha` | perfil e troca da própria senha |
+| `/fe/senha` | troca da própria senha |
 
 ### 5.3 Autenticação
 
-A arquitetura da referência é preservada: `AuthService` com signals,
-`authGuard`, `authInterceptor`, `authInitializer`, `HttpContextToken`
-(`SKIP_AUTH`, `AUTH_RETRY`) e `api.config.ts` com todas as rotas em uma `const`
-tipada. Apenas a mecânica de transporte muda.
+A arquitetura usa `AuthService` com signals, `authGuard`, `authInterceptor`,
+`authInitializer`, `SKIP_AUTH_REDIRECT` como `HttpContextToken` e
+`api.config.ts` com as rotas tipadas.
 
 | Referência (JWT) | SGPD (sessão) |
 | --- | --- |
@@ -234,10 +227,9 @@ estado colapsado da navegação e tema.
 
 ### 5.4 Menu
 
-Mesmo contrato `NavItem[]` da referência — `label`, `route`, `icon`,
-`description` e `feature` — com `visibleNavItems` filtrando pelo contexto
-devolvido por `GET /auth/context/`. Substitui os blocos `{% if can_* %}` de
-`templates/base.html`.
+O contrato `NavItem[]` usa `label`, `route`, `icon`, `description` e `feature`,
+com `visibleNavItems` filtrando pelo contexto devolvido por
+`GET /auth/context/`.
 
 | Item | Rota | Ícone | Permissão |
 | --- | --- | --- | --- |
@@ -251,8 +243,8 @@ Os módulos das Fases 3 a 6 — setores, processos, pendências, valores e
 liberação — entram nessa mesma lista conforme cada checkpoint avançar.
 
 A sidebar é colapsável com estado persistido, e o rodapé mantém o painel de
-sessão com link para o perfil, o alternador de tema claro/escuro e a saída,
-exatamente como na referência.
+sessão, o acesso à troca da própria senha, o alternador de tema claro/escuro e
+a saída.
 
 ### 5.5 Mobile first
 
@@ -346,9 +338,10 @@ distintos fiquem indistinguíveis para quem usa ambos.
 
 ### 5.7 Entrega
 
-`ng build` gera `frontend/dist/frontend/browser/`. Os assets entram em
-`STATICFILES_DIRS` e são servidos pelo WhiteNoise; o Angular já aplica hash
-próprio aos arquivos.
+`ng build` gera `frontend/dist/frontend/browser/`. Os assets são servidos pelo
+WhiteNoise a partir de `WHITENOISE_ROOT`; o Angular já aplica hash próprio aos
+arquivos. O pipeline `collectstatic` permanece dedicado aos assets do Django
+Admin.
 
 O `index.html` é servido por uma view Django dedicada, decorada com
 `ensure_csrf_cookie`, registrada como catch-all **depois** de `/api/`,
@@ -363,9 +356,10 @@ Durante o desenvolvimento, `ng serve --proxy-config proxy.conf.json` encaminha
 
 ## 6. Sequência de execução
 
-A ordem é inegociável: **API primeiro, remoção por último**. A interface
-server-side só é removida depois que a SPA cobrir a funcionalidade equivalente,
-de modo que cada commit deixe o sistema utilizável, conforme AGENTS.md §12.
+A ordem executada foi **API primeiro, remoção por último**. A interface
+server-side foi removida somente depois que a SPA cobriu a funcionalidade
+equivalente, de modo que cada etapa deixou o sistema utilizável, conforme
+AGENTS.md §12.
 
 | Fase | Entrega | Validação |
 | --- | --- | --- |
@@ -373,7 +367,7 @@ de modo que cada commit deixe o sistema utilizável, conforme AGENTS.md §12.
 | B | API de autenticação e contexto, exception handler, middleware adaptado, throttling do login | pytest, ruff, mypy |
 | C | API de contas: usuários, papéis, atribuições, vínculo AD, permissões e auditoria | pytest com caso feliz, `401`, `403`, `400`, versão otimista e auditoria por endpoint |
 | D | Scaffold Angular, PrimeNG e Aura, tokens do SGPD e pontos de quebra, `core/auth`, shell com gaveta móvel, login e integração do build com o Django | vitest e conferência visual em 360, 390, 768, 1024 e 1440 px |
-| E | Features de contas: usuários, papéis, auditoria, perfil e senha, cada listagem com cartões no estado base e tabela a partir de `md` | vitest e conferência visual nos cinco pontos de quebra |
+| E | Features de contas: usuários, papéis, auditoria e senha, com cartões no estado base e tabela a partir de `md` nas listagens | vitest e conferência visual nos cinco pontos de quebra |
 | F | Feature da cascata Senior sobre os quatro endpoints existentes | smoke somente leitura contra o Oracle DEV e conferência visual nos cinco pontos de quebra |
 | G | Remoção de templates, views HTML, forms, context processors, `ui_urls`, HTMX e testes antigos; regeneração de `staticfiles/`; validação completa; checkpoint | suíte completa, lint, format, mypy, `makemigrations --check` |
 
@@ -381,22 +375,17 @@ As Fases D, E e F só são consideradas concluídas após a conferência visual 
 todos os pontos de quebra da tabela de §5.5. Em nenhuma delas a conferência
 começa pelo desktop.
 
-A Fase A é pré-requisito processual e não formalidade: `AGENTS.md` §3 proíbe
-"criar SPA sem decisão explícita", e a ADR-002 decidiu Templates + HTMX
-justificando que a escolha "reduz necessidade de SPA". Escrever código Angular
-antes de superseder essas decisões violaria o contrato do próprio repositório.
-
 ## 7. Riscos
 
 | Risco | Mitigação |
 | --- | --- |
 | Autorização regride ao expor cerca de vinte endpoints novos | Services já revalidam permissão (ADR-024); teste de `403` por endpoint |
-| `must_change_password` deixa de ser imposto sem o redirecionamento | Middleware devolve `403` tipado sob `/api/`, com teste dedicado |
+| `must_change_password` deixa de ser imposto na SPA/API | Middleware devolve `403` tipado sob `/api/`, redireciona navegação direta para `/fe/senha` e possui teste dedicado |
 | Sessão com CSRF exige origem única | Registrado na ADR-026; a criação futura de HML ou PRD reabre a ADR-014 |
 | Contrato de erro divergente entre API e SPA | Envelope `{code, message, details}` fixado na Fase B, antes do Angular |
 | `npm` como novo vetor de dependências | `package-lock.json` versionado, instalação por `npm ci`, Node 24.18.0 homologado |
-| Perda da renderização sem JavaScript | `REQUIREMENTS.md` §373 exige apenas os navegadores corporativos homologados |
-| Atualização futura do Angular ou do PrimeNG | Versões fixadas no lockfile; atualização exige revisão explícita, como já ocorre com o HTMX |
+| Perda da renderização sem JavaScript | O RNF-008 de `REQUIREMENTS.md` exige apenas os navegadores corporativos homologados |
+| Atualização futura do Angular ou do PrimeNG | Versões fixadas no lockfile; atualização exige revisão técnica e de licenciamento explícita |
 | Portar SCSS da referência reintroduz desktop first | Nenhuma consulta `max-width` é aceita em código novo; o SCSS da referência serve de fonte de tokens e não de layout |
 | Telas administrativas densas são inviáveis em telefone | Cada listagem tem representação em cartões no estado base, definida em §5.5 e verificada nas Fases E e F |
 | Regressão de responsividade a cada nova feature das Fases 3 a 6 | Pontos de quebra centralizados em `styles.scss` e conferência visual obrigatória no encerramento de cada fase |
@@ -404,9 +393,9 @@ antes de superseder essas decisões violaria o contrato do próprio repositório
 Permanecem fora do escopo desta migração: Oracle, migrations, quota de 500 MB em
 `PIMS_DATA`, contrato SQL do Senior, grants e políticas de auditoria de domínio.
 
-## 8. Definition of Done
+## 8. Critérios de conclusão validados
 
-A migração estará concluída quando:
+A migração foi concluída com os seguintes critérios:
 
 1. nenhum template server-side de aplicação existir, exceto os do Django Admin;
 2. toda funcionalidade das catorze views removidas estiver acessível pela SPA;
@@ -417,8 +406,8 @@ A migração estará concluída quando:
 6. `pytest`, `ruff check`, `ruff format --check`, `mypy`,
    `manage.py check` e `makemigrations --check` passarem;
 7. `npm ci`, `ng build` e `ng test` passarem;
-8. o smoke somente leitura contra o Oracle DEV responder `200` no login, no
-   painel, na cascata e nas telas de contas;
+8. o smoke HTTP validar login, painel e telas funcionais, e o smoke somente
+   leitura contra o Oracle DEV responder `200` nos quatro endpoints da cascata;
 9. toda tela for utilizável a partir de 360 px de largura, sem rolagem
    horizontal no `body`, com alvos de toque de no mínimo 44 px e sem zoom
    automático ao focar campos no iOS;

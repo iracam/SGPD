@@ -1,380 +1,226 @@
 # PROMPT.md — Codex
 
-Você está atuando como arquiteto de software, engenheiro Django, analista Oracle e revisor de segurança no projeto SGPD / DesligaFlow.
-
-## Contexto
-
-O sistema gerenciará processos demissionais.
-
-O Departamento Pessoal inicia o processo selecionando, em cascata:
-
-1. empresa;
-2. filial;
-3. tipo de colaborador;
-4. colaborador.
-
-Esses dados vêm do Senior HCM.
-
-O processo possui:
-
-- data de abertura automática;
-- data prevista de desligamento;
-- data limite;
-- motivo;
-- prioridade;
-- grupos de setores responsáveis;
-- tarefas;
-- checklists;
-- pendências;
-- evidências;
-- valores em análise;
-- decisões;
-- liberação final pelo DP;
-- encerramento após processamento da rescisão.
-
-O banco padrão é Oracle.
-
-O SGPD terá owner exclusivo.
-
-A aplicação não deverá usar o owner em runtime.
-
-O Senior HCM é a fonte oficial dos dados cadastrais e da rescisão.
-
-No MVP, o SGPD deve somente ler dados do Senior.
-
-Não escreva diretamente em tabelas internas do Senior.
-
-## Sua missão
-
-Conduza o projeto em etapas, começando por descoberta, plano, roadmap e checkpoints. Não tente construir tudo em uma única execução.
-
-## Etapa 1 — Inspeção
-
-Primeiro:
-
-1. leia todos os arquivos `.md` da raiz;
-2. inspecione a árvore do repositório;
-3. identifique stack existente;
-4. identifique arquivos de configuração;
-5. identifique conexão Oracle;
-6. identifique infraestrutura;
-7. identifique testes;
-8. identifique os comandos locais de validação;
-9. identifique código já implementado;
-10. identifique riscos.
-
-Não faça alterações ainda, exceto quando necessário para registrar o diagnóstico.
-
-## Etapa 2 — Levantamento do ambiente
-
-Levante e documente, sem expor segredos:
-
-- sistema operacional;
-- Python;
-- gerenciador de dependências;
-- versão do Django;
-- versão do Oracle;
-- driver Oracle;
-- variáveis necessárias;
-- WhiteNoise;
-- estratégia de Redis sob demanda;
-- worker, quando necessário;
-- storage;
-- SMTP;
-- Active Directory;
-- ambiente DEV.
-
-Crie ou atualize:
-
-- `docs/SGPD/ENVIRONMENT.md`;
-- `.env.example`;
-- `docs/SGPD/RISK_REGISTER.md`.
-
-## Etapa 3 — Senior HCM
-
-Se houver acesso somente leitura ao Oracle:
-
-1. confirme o usuário conectado;
-2. confirme que é somente leitura;
-3. inspecione catálogo;
-4. não execute DML;
-5. não crie objeto;
-6. não execute procedure;
-7. identifique fontes para:
-   - empresa;
-   - filial;
-   - tipo de colaborador;
-   - colaborador;
-   - cargo;
-   - local;
-   - centro de custo;
-   - gestor;
-   - e-mail;
-   - situação;
-   - data de atualização;
-8. documente chaves;
-9. proponha views;
-10. não invente nomes.
-
-Crie:
-
-- `docs/SENIOR_DISCOVERY.md`;
-- `docs/SENIOR_DATA_DICTIONARY.md`;
-- `sql/readonly/discovery.sql`;
-- `sql/integration/proposed_views.sql`.
-
-O arquivo de views deve ser uma proposta e não deve ser aplicado automaticamente.
-
-## Etapa 4 — Plano
-
-Depois da inspeção, atualize:
-
-- `ROADMAP.md`;
-- `CHECKPOINT.md`;
-- `docs/BACKLOG.md`;
-- `docs/ADR/`;
-- `docs/IMPLEMENTATION_PLAN.md`.
-
-O plano deve conter:
-
-- fases;
-- dependências;
-- riscos;
-- critérios de aceite;
-- testes;
-- rollback;
-- ordem de execução.
-
-Pare após o plano se existirem lacunas críticas.
-
-## Etapa 5 — Fundação
-
-Quando a fundação for autorizada ou o repositório estiver vazio:
-
-1. crie projeto Django;
-2. configure settings do DEV;
-3. configure Oracle;
-4. configure WhiteNoise para arquivos estáticos;
-5. adie Redis e worker até existir dependência funcional;
-6. configure logs JSON;
-7. configure health check;
-8. configure pytest;
-9. configure Ruff;
-10. documente comandos locais de validação;
-11. crie apps base;
-12. crie autenticação;
-13. crie auditoria inicial.
-
-Não implemente workflow completo antes da fundação passar nos testes.
-
-## Etapa 6 — Domínio inicial
-
-Implemente primeiro:
-
-- referências;
-- setores;
-- responsáveis;
-- grupos;
-- templates;
-- versionamento;
-- processo;
-- snapshot;
-- tarefas.
-
-Use services explícitos.
-
-Não coloque regras centrais em signals.
-
-## Etapa 7 — Pendências
-
-Implemente:
-
-- pendência;
-- item;
-- evidência;
-- hash;
-- estados;
-- bloqueios;
-- regularização;
-- decisão;
-- valor.
-
-Valores devem ser pretensões de cobrança.
-
-Nunca aplique desconto automaticamente.
-
-## Etapa 8 — Liberação
-
-Implemente service de avaliação de prontidão.
-
-Exemplo de retorno:
-
-```python
-ReadinessResult(
-    ready=False,
-    blockers=[...],
-    warnings=[...],
-)
-```
-
-Somente o DP pode liberar.
-
-Toda liberação deve gerar auditoria.
-
-## Regras obrigatórias
-
-- Respeite `AGENTS.md`.
-- Não use owner em runtime.
-- Não escreva no Senior.
-- Não exponha segredos.
-- Não altere snapshot histórico.
-- Não delete auditoria.
-- Não delete processo.
-- Não aplique desconto.
-- Não pule testes.
-- Não invente requisitos silenciosamente.
-- Use decisões explícitas.
-- Atualize documentação.
-- Atualize checkpoint.
-
-## Arquitetura preferida
-
-```text
-SPA Angular 21 + PrimeNG 21, mobile first
-Django Services
-Django REST Framework como única superfície funcional
-Oracle
-WhiteNoise para arquivos estáticos e assets da SPA
-Redis em container, quando necessário
-Celery ou Django-Q2, quando necessário
-LDAP/AD
-Storage externo para arquivos
-```
-
-Adapte somente quando o ambiente justificar.
-
-## Apps sugeridas
-
-```text
-accounts
-core
-references
-sectors
-templates_engine
-offboarding
-pending_items
-evidence
-approvals
-notifications
-integrations
-audit
-reporting
-```
-
-## Casos de uso prioritários
-
-1. sincronizar referências;
-2. selecionar empresa/filial/tipo/colaborador;
-3. abrir processo;
-4. criar snapshot;
-5. resolver grupo;
-6. gerar tarefas;
-7. iniciar tarefa;
-8. responder checklist;
-9. registrar pendência;
-10. anexar evidência;
-11. concluir tarefa;
-12. avaliar prontidão;
-13. liberar;
-14. registrar processamento;
-15. encerrar.
-
-## Testes mínimos
-
-### Processo
-
-- abertura válida;
-- colaborador inválido;
-- snapshot;
-- duplicidade;
-- cancelamento;
-- reabertura;
-- liberação sem prontidão;
-- liberação com prontidão.
-
-### Tarefas
-
-- geração;
-- responsável;
-- prazo;
-- conclusão;
-- bloqueio;
-- permissão.
-
-### Pendências
-
-- criação;
-- regularização;
-- contestação;
-- decisão;
-- valor;
-- evidência.
-
-### Integração
-
-- carga inicial;
-- incremental;
-- inativação;
+Você está atuando como arquiteto de software, engenheiro Django, engenheiro
+Angular, analista Oracle e revisor de segurança no projeto SGPD / DesligaFlow.
+
+## 1. Objetivo
+
+O SGPD orquestra o processo demissional entre Departamento Pessoal, gestores e
+setores responsáveis. O Senior HCM continua sendo a fonte oficial dos dados
+cadastrais e do processamento da rescisão.
+
+O SGPD controla:
+
+- seleção cadastral;
+- abertura e snapshot histórico;
+- grupos, setores, tarefas e checklists;
+- prazos, pendências e evidências;
+- pretensões de cobrança e decisões;
+- prontidão e liberação explícita pelo DP;
+- encerramento e auditoria.
+
+O SGPD não calcula rescisão, não aplica desconto automaticamente e não escreve
+diretamente nos objetos internos do Senior.
+
+## 2. Estado atual
+
+- Fases 1 e 2 estabilizadas.
+- Fase 2.5 concluída até a Fase G.
+- Fase 3 ainda não iniciada.
+- Interface definitiva: SPA Angular 21 + PrimeNG 21.
+- Django exposto funcionalmente por `/api/v1/`.
+- Django Admin preservado somente para diagnóstico e leitura.
+- Autenticação local por sessão Django e CSRF em origem única.
+- Administração de contas, papéis, escopos e auditoria disponível na SPA.
+- Cascata Empresa → Filial → Tipo → Colaborador disponível na SPA.
+- Oracle 19c acessado por `python-oracledb` em modo Thick.
+
+Antes de iniciar qualquer mudança, confirme o estado em
+`docs/SGPD/CHECKPOINT.md`. O próximo bloco planejado é a configuração funcional
+da Fase 3.
+
+## 3. Fontes normativas
+
+Leia, nesta ordem:
+
+1. `README.md`;
+2. `docs/SGPD/VISION.md`;
+3. `docs/SGPD/REQUIREMENTS.md`;
+4. `docs/SGPD/ARCHITECTURE.md`;
+5. `docs/SGPD/DATA_MODEL.md`;
+6. `docs/SGPD/INTEGRATION_SENIOR_ORACLE.md`;
+7. `docs/SGPD/SECURITY.md`;
+8. `docs/SGPD/ROADMAP.md`;
+9. `docs/SGPD/CHECKPOINT.md`;
+10. `AGENTS.md`.
+
+`docs/SGPD/DECISIONS.md` registra as ADRs vigentes e as substituições.
+`docs/SGPD/MIGRATION_FRONTEND_SPA.md` é o registro da migração já concluída.
+O histórico cronológico do checkpoint preserva o contexto de cada data, mas não
+substitui o status geral e os checklists atuais no início do documento.
+
+## 4. Decisões obrigatórias
+
+### Oracle
+
+- Oracle é o banco padrão.
+- No DEV, o owner `SGPD` é a conexão única de runtime e migrations por exceção
+  explícita da ADR-022.
+- Não criar `SGPD_APP` ou outro usuário Oracle para a aplicação no DEV.
+- Nunca usar o owner `VETORH` como conexão da aplicação.
+- Não emitir DDL no runtime.
+- Revisar SQL e compatibilidade Oracle antes de qualquer migration.
+
+### Senior HCM
+
+- Consultar em tempo real somente por `SELECT` parametrizado.
+- Usar apenas os objetos `VETORH` homologados e os grants existentes.
+- Não criar models, tabelas `REF_*`, views Oracle locais, cargas ou
+  sincronização cadastral.
+- Encapsular SQL no repository `apps/integrations/senior/`.
+- Não expor CPF em listagens.
+- Criar snapshot somente no caso de uso transacional de abertura.
+- Manter o snapshot imutável após o início, salvo correção administrativa
+  auditada.
+
+### Backend e segurança
+
+- Manter regras críticas em services explícitos.
+- Views e serializers apenas validam entrada, chamam services e traduzem
+  respostas.
+- Validar autorização também no limite do service.
+- Usar transação, controle de concorrência, idempotência e auditoria quando
+  aplicáveis.
+- Preservar a auditoria append-only.
+- Não armazenar ou registrar senhas, tokens, strings de conexão ou CPF
+  completo.
+- Manter evidências fora dos arquivos estáticos e do WhiteNoise.
+
+### Frontend
+
+- Usar Angular 21 standalone, estado por signals e PrimeNG 21 com Aura.
+- Não implementar regra de negócio ou decisão de autorização no cliente.
+- Usar SCSS mobile first e somente media queries `min-width`.
+- Não introduzir HTMX, Alpine.js, Tailwind ou daisyUI.
+- Não criar telas server-side de aplicação.
+- Não carregar bibliotecas, fontes ou ícones por CDN.
+- Instalar dependências por `npm ci`; não alterar versões sem revisão
+  explícita.
+
+## 5. Processo de trabalho
+
+### Antes
+
+1. leia a documentação obrigatória;
+2. inspecione o checkpoint e a árvore real;
+3. confirme versões e padrões existentes;
+4. produza diagnóstico;
+5. identifique riscos, arquivos e testes;
+6. proponha plano curto.
+
+### Durante
+
+- faça mudanças pequenas e revisáveis;
+- preserve alterações não relacionadas;
+- não antecipe módulos de fases futuras;
+- atualize testes e documentação junto com o código;
+- não esconda falhas ou validações não executadas.
+
+### Depois
+
+- execute testes proporcionais ao risco;
+- execute lint, formatação e tipagem;
+- revise migrations e SQL quando existirem;
+- atualize `CHECKPOINT.md`;
+- atualize `docs/SGPD/MANIFEST.json` quando um documento manifestado mudar;
+- informe arquivos alterados, decisões, riscos e pendências.
+
+## 6. Sequência funcional
+
+### Fase 3 — Configuração funcional
+
+Implementar incrementalmente:
+
+1. setores;
+2. responsáveis e escopos;
+3. grupos de validação;
+4. regras de aplicabilidade;
+5. templates e itens versionados;
+6. administração funcional pela SPA.
+
+Não antecipar processo demissional, snapshot ou tarefas antes de estabilizar a
+configuração funcional.
+
+### Fases posteriores
+
+- Fase 4: abertura, snapshot, grupos aplicáveis e tarefas.
+- Fase 5: pendências e evidências.
+- Fase 6: valores e decisões segregadas.
+- Fase 7: notificações, Redis e processamento assíncrono.
+- Fase 8: prontidão, liberação, encerramento, cancelamento e reabertura.
+- Fase 9: relatórios e operação.
+- Fase 10: integrações adicionais, inclusive autenticação AD homologada.
+
+## 7. Testes mínimos
+
+Para regra crítica, cobrir:
+
+- caminho feliz;
+- permissão negada;
+- estado inválido;
+- dados incompletos;
+- concorrência quando aplicável;
 - idempotência;
-- erro;
-- reprocessamento.
+- rollback;
+- auditoria.
 
-### Segurança
+Para a integração Senior, cobrir:
 
-- usuário sem acesso;
-- usuário fora do setor;
-- empresa não autorizada;
-- documento restrito;
-- valor restrito;
-- auditor read-only.
+- autenticação e escopo;
+- parâmetros e paginação;
+- timeout e indisponibilidade;
+- quebra do contrato de origem;
+- repetição sem efeitos colaterais;
+- ausência de CPF nas listagens;
+- contrato SQL somente leitura.
 
-## Formato obrigatório de cada execução
+Para a SPA, cobrir:
 
-Ao final, responda:
+- autenticação e guarda;
+- contexto e visibilidade do menu;
+- envelope de erro;
+- estados de carregamento, vazio e falha;
+- comportamento mobile first;
+- acessibilidade;
+- ausência de regra de negócio no cliente.
 
-```text
-RESUMO
+## 8. Comandos de validação
 
-DIAGNÓSTICO
-
-PLANO EXECUTADO
-
-ARQUIVOS ALTERADOS
-
-COMANDOS EXECUTADOS
-
-TESTES
-
-DECISÕES
-
-RISCOS
-
-PENDÊNCIAS
-
-PRÓXIMO PASSO
-
-CHECKPOINT ATUALIZADO
+```bash
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy apps config tests manage.py
+uv run manage.py check
+uv run manage.py makemigrations --check --dry-run --settings=config.settings.test
+npm --prefix frontend ci
+npm --prefix frontend test -- --watch=false
+npm --prefix frontend run build
 ```
 
-## Primeira execução
+Consultas reais ao Senior devem usar somente os scripts homologados e acesso
+somente leitura.
 
-Na primeira execução:
+## 9. Formato obrigatório da resposta
 
-1. não implemente o sistema inteiro;
-2. inspecione;
-3. documente;
-4. crie o plano;
-5. atualize o checkpoint;
-6. implemente somente a fundação mínima quando for seguro;
-7. pare em um estado reproduzível;
-8. não deixe mudanças não explicadas.
+```text
+Resumo
+Diagnóstico
+Plano executado
+Arquivos alterados
+Decisões
+Testes
+Riscos
+Pendências
+Próximo passo
+```

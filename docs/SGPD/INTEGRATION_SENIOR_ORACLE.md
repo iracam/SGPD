@@ -9,13 +9,12 @@ Consultar dados cadastrais do Senior HCM diretamente no Oracle, em tempo real e 
 - o Senior HCM permanece como fonte oficial;
 - a conexão Oracle do SGPD acessa objetos `VETORH` no mesmo serviço;
 - os nomes dos objetos são qualificados pelo schema;
-- o acesso ocorre por SQL parametrizado em um repository/service chamado pelas views Django;
+- o acesso ocorre por SQL parametrizado em um repository chamado pelos
+  endpoints da API;
 - não serão criados models Django, inclusive `managed = False`, para objetos do Senior;
 - não serão criadas views Oracle locais nesta etapa;
 - nenhum dado consultado é persistido até a abertura do processo;
 - na abertura, o SGPD cria seu próprio snapshot histórico e auditável.
-
-O termo “view local” neste projeto identifica a view da aplicação que consome a camada de consulta. O SQL e as credenciais não devem ficar na view de apresentação.
 
 ## 3. Ambiente validado em 2026-07-27
 
@@ -25,7 +24,6 @@ O termo “view local” neste projeto identifica a view da aplicação que cons
 - serviço configurado no `.env` acessível;
 - sessão do owner do SGPD confirmada como `SGPD`;
 - schema de origem confirmado como `VETORH`;
-- conexão salva `DEV@VETORH` no MCP aponta para um serviço não registrado e não foi usada na validação final;
 - a conexão separada configurada com o owner `VETORH` funciona, mas é administrativa e não deve ser usada pela aplicação.
 
 O `.env` real usa o owner `SGPD`. Por decisão explícita para o DEV, essa será a conexão única de runtime e migrations; não será criado `SGPD_APP`. O risco e os controles compensatórios estão registrados na ADR-022.
@@ -44,7 +42,7 @@ Foram confirmados grants diretos `SELECT`, concedidos por `VETORH` a `SGPD`, nos
 
 A consulta de colaboradores foi compilada e executada pela sessão `SGPD`, retornando uma linha no probe limitado. Nenhum DML ou DDL foi executado.
 
-## 5. Contrato preliminar da consulta
+## 5. Contrato homologado da consulta
 
 ### Chave do colaborador
 
@@ -137,10 +135,9 @@ O acesso está implementado em `apps/integrations/senior/`, encapsulado em um
 repository sem models:
 
 ```text
-Django view / endpoint
-    -> service de consulta
-        -> repository Oracle read-only
-            -> SELECT parametrizado em VETORH.*
+Endpoint da API
+    -> repository Oracle read-only
+        -> SELECT parametrizado em VETORH.*
 ```
 
 Regras:
@@ -190,19 +187,17 @@ CPF, nem mesmo mascarado.
 
 ### Interface da cascata
 
-A seleção equivalente da SPA está disponível em `/fe/colaboradores` desde a
-Fase F e consome os quatro endpoints JSON já homologados. A interface
-server-side continua disponível temporariamente em `/references/senior/` até a
-limpeza da Fase G. O contrato de comportamento é comum às duas interfaces:
+A seleção da SPA está disponível em `/fe/colaboradores` e consome os quatro
+endpoints JSON homologados. O contrato de comportamento é:
 
 - exige autenticação e reutiliza `query_senior_references` com o mesmo escopo
   de empresa/filial dos endpoints JSON;
-- filtra empresas antes de renderizar opções;
+- filtra empresas antes de exibir opções;
 - limpa todos os níveis descendentes quando uma seleção anterior muda ou é
   removida;
 - permite buscar colaborador por nome ou matrícula, com no máximo 100
   caracteres e 20 resultados por chamada;
-- não projeta nem renderiza CPF;
+- não projeta nem exibe CPF;
 - preserva erros `400`, `403`, `502` e `503` sem expor detalhes do driver;
 - não persiste referências e não cria snapshot.
 
@@ -211,9 +206,7 @@ troca um nível da cascata. A busca remota usa o filtro do `p-select`, aplica
 debounce de 400 ms e mantém o limite de 20 resultados. A seleção final exibe
 somente os campos já autorizados pelo endpoint.
 
-O HTMX 2.0.10 e sua licença permanecem versionados em `static/vendor/htmx/` até
-a Fase G, quando são removidos. A restrição de não carregar código de CDN nem
-acessar rede externa em runtime continua valendo para a SPA.
+A SPA não carrega código de CDN nem acessa rede externa para obter seus assets.
 
 ### Contrato SQL versionado
 
@@ -242,9 +235,9 @@ scripts/oracle/run_senior_contract_validation.sh
 
 O wrapper lê a conexão `SGPD` do `.env` sem exibir credenciais.
 
-No DEV, a cascata real executada pelo repository e pelas quatro views
-autenticadas retornou uma linha em cada etapa e status `200`. Na execução das
-views, as consultas levaram entre 0,70 ms e 39,46 ms com conexão persistente.
+No DEV, a cascata real executada pelo repository e pelos quatro endpoints
+autenticados retornou uma linha em cada etapa e status `200`. As consultas
+levaram entre 0,70 ms e 39,46 ms com conexão persistente.
 O payload da listagem foi inspecionado por nomes de campos e não expôs CPF. O
 detalhe interno confirmou `USU_DATALT` como `datetime` e CPF mascarado.
 
@@ -305,6 +298,6 @@ Nessa situação:
 - a consulta pode ser repetida com backoff limitado;
 - não se usa dado cadastral antigo para abrir processo silenciosamente.
 
-## 10. Pendências de descoberta
+## 10. Pendência operacional
 
 - definir estratégia de homologação e monitoramento.

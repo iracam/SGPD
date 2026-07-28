@@ -1,5 +1,11 @@
 # Requisitos
 
+## Estado do documento
+
+Estes requisitos definem o comportamento alvo do produto. O uso do futuro
+indica requisito ainda não implementado, não decisão pendente. A cobertura
+atual e a fase autorizada estão em `CHECKPOINT.md`.
+
 ## 1. Requisitos funcionais
 
 ### RF-001 — Autenticação

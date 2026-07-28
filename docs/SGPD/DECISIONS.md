@@ -1,10 +1,16 @@
-# Decisões Arquiteturais Iniciais
+# Decisões Arquiteturais
+
+## Como ler este documento
+
+Uma ADR sem estado explícito está vigente. ADRs substituídas permanecem apenas
+como índice de rastreabilidade e não têm efeito normativo. O estado atual do
+projeto está em `CHECKPOINT.md`.
 
 ## ADR-001 — Django como framework principal
 
 ### Decisão
 
-Usar Django como backend e camada web principal.
+Usar Django como backend, API, administração técnica e entrega da SPA.
 
 ### Motivos
 
@@ -24,33 +30,14 @@ Usar Django como backend e camada web principal.
 
 Substituída pela ADR-025 em 2026-07-28.
 
-Enquanto a migração descrita em `MIGRATION_FRONTEND_SPA.md` não concluir a Fase
-G, a interface server-side aqui decidida permanece em operação. Ela não deve
-receber novas telas.
-
-### Decisão
-
-Usar Django Templates + HTMX + Alpine.js.
-
-O runtime HTMX será versionado localmente junto ao projeto e servido pelo
-pipeline de arquivos estáticos. A primeira versão homologada é a 2.0.10; não
-será carregado código de CDN no navegador.
-
-### Motivos
-
-- menor complexidade;
-- manutenção mais simples;
-- boa produtividade;
-- adequado a workflow e formulários;
-- reduz necessidade de SPA.
-- mantém a interface operacional sem dependência de internet;
-- permite controlar versão, integridade e licença do código entregue.
+A implementação correspondente foi removida na Fase G. A decisão vigente sobre
+interface é exclusivamente a ADR-025.
 
 ## ADR-003 — Oracle como banco principal
 
 ### Estado
 
-Alterada pela ADR-022 para o ambiente DEV.
+Vigente, com exceção da segregação de usuário no DEV definida pela ADR-022.
 
 ### Decisão
 
@@ -59,7 +46,7 @@ Usar Oracle Database 19c, conforme padrão definido.
 ### Restrições
 
 - owner exclusivo;
-- segregação de usuários originalmente prevista;
+- owner `SGPD` como conexão única de runtime e migrations somente no DEV;
 - Oracle Instant Client 19.28 disponível em `/opt/oracle/instantclient_19_28`;
 - migrations revisadas;
 - nada de acesso direto de escrita ao Senior.
@@ -70,18 +57,8 @@ Usar Oracle Database 19c, conforme padrão definido.
 
 Substituída pela ADR-020 em 2026-07-27.
 
-### Decisão
-
-Não se aplica mais. A decisão inicial previa tabelas `REF_*` no SGPD.
-
-### Motivos
-
-- desempenho;
-- independência temporária;
-- isolamento;
-- rastreabilidade;
-- facilidade de snapshot;
-- menor acoplamento.
+A decisão vigente é a consulta direta e online da ADR-020. Não existe
+sincronização cadastral nem tabela `REF_*`.
 
 ## ADR-005 — Snapshot imutável
 
@@ -253,10 +230,8 @@ Usar Microsoft 365 SMTP com remetente `noreply@bsabioenergia.com.br`.
 
 ### Validação em 2026-07-28
 
-O primeiro teste alcançou o host via TLS/STARTTLS, mas recebeu
-`535 5.7.139`. Após a atualização das credenciais, o Microsoft 365 aceitou uma
-mensagem de prova enviada ao próprio remetente configurado. SMTP AUTH e
-`Send As` estão homologados no DEV.
+O Microsoft 365 aceitou uma mensagem de prova enviada ao próprio remetente
+configurado. SMTP AUTH e `Send As` estão homologados no DEV.
 
 ## ADR-019 — Evidências no filesystem local
 
@@ -284,7 +259,8 @@ Não criar:
 - carga inicial, incremental ou reconciliação cadastral;
 - views Oracle locais nesta etapa.
 
-A view Django deverá delegar a consulta a um service/repository. Somente o snapshot criado na abertura do processo será persistido no SGPD.
+O endpoint da API deverá delegar a consulta ao repository. Somente o snapshot
+criado na abertura do processo será persistido no SGPD.
 
 ### Motivos
 
@@ -403,7 +379,7 @@ justificativa e auditoria. Esse vínculo não ativa autenticação LDAP/AD.
 - endpoints do Senior exigem permissão e respeitam empresa/filial;
 - criação e manutenção passam por services transacionais;
 - cada service administrativo valida a permissão do ator, sem depender
-  exclusivamente da view chamadora;
+  exclusivamente do endpoint chamador;
 - alterações concorrentes de usuário e papel são rejeitadas por versão;
 - desativações bloqueiam os superusuários ativos em ordem determinística para
   preservar ao menos uma conta de contingência sob concorrência;
@@ -435,15 +411,12 @@ Aceita em 2026-07-28. Substitui a ADR-002.
 
 ### Decisão
 
-Substituir a interface Django Templates + HTMX + Alpine.js por uma SPA em
-Angular 21, consumindo o Django exclusivamente como API.
+Usar uma SPA Angular 21 como interface da aplicação, consumindo todos os
+recursos funcionais do Django exclusivamente por API.
 
 A substituição é total: administração de contas e cascata cadastral do Senior.
 O Django Admin permanece, somente leitura, como ferramenta de diagnóstico,
 conforme `SECURITY.md` §9.
-
-Esta decisão atende ao requisito de decisão explícita exigido por `AGENTS.md`
-§3 e libera a criação da SPA, que até aqui era proibida.
 
 ### Motivos
 
@@ -463,18 +436,17 @@ Esta decisão atende ao requisito de decisão explícita exigido por `AGENTS.md`
 
 ### Consequências
 
-- o Django deixa de renderizar telas de aplicação e passa a expor `/api/v1/`
-  como única superfície funcional;
-- toda a administração de contas, hoje sem API, precisa ser exposta antes da
-  remoção das views HTML;
+- o Django não renderiza telas de aplicação e expõe `/api/v1/` como única
+  superfície funcional;
+- toda a administração de contas foi exposta em API antes da remoção das views
+  HTML;
 - `npm` e o ecossistema Node passam a fazer parte do ciclo de build, com
   `package-lock.json` versionado e instalação por `npm ci`;
-- a interface deixa de funcionar sem JavaScript, o que não conflita com o
+- a interface depende de JavaScript, o que não conflita com o
   RNF-008, que exige apenas os navegadores corporativos homologados;
-- HTMX, Alpine.js, Tailwind e daisyUI saem da stack;
-- a autorização deixa de ter a renderização como barreira auxiliar: a API passa
-  a ser a única superfície e cada endpoint precisa de teste de permissão
-  negada;
+- HTMX, Alpine.js, Tailwind e daisyUI não fazem parte da stack;
+- a autorização não usa a renderização como barreira auxiliar: a API é a única
+  superfície e cada endpoint possui teste de permissão negada;
 - o plano de execução, com sete fases e critérios de conclusão, está em
   `MIGRATION_FRONTEND_SPA.md`.
 
@@ -502,9 +474,10 @@ mesma origem. Não usar JWT.
   estado da navegação;
 - `login`, `logout` e falha de autenticação continuam gerando os mesmos eventos
   de auditoria já implementados;
-- o endpoint de login passa a ter limitação de tentativas;
+- o endpoint de login possui limitação de tentativas;
 - a obrigatoriedade de troca da senha temporária é preservada: sob `/api/`, o
-  middleware devolve `403` com código próprio em vez de redirecionar.
+  middleware devolve `403` com código próprio; navegação direta é redirecionada
+  para `/fe/senha`.
 
 ### Motivos
 
@@ -551,9 +524,8 @@ dedicada, registrada como catch-all depois de `/api/`, `/admin/`, `/health/` e
   `CompressedManifestStaticFilesStorage` renomeia o arquivo incluindo hash e
   quebra a rota `/`;
 - as versões de Angular e PrimeNG ficam fixadas no `package-lock.json`;
-  atualização exige revisão explícita, como já valia para o HTMX;
-- nenhum código é carregado de CDN, mantendo a restrição já estabelecida pela
-  ADR-002;
+  atualização exige revisão técnica e de licenciamento explícita;
+- nenhum código é carregado de CDN;
 - fontes e ícones são empacotados localmente.
 
 ### Versão fixada em 21 por licenciamento

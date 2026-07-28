@@ -46,8 +46,8 @@ ADR-026:
 - a resposta de login não distingue usuário inexistente, senha incorreta e conta
   inativa: todas retornam `invalid_credentials`;
 - a obrigatoriedade de troca da senha temporária é preservada na API: o
-  middleware devolve `403` com código próprio em vez de redirecionar, e a SPA
-  conduz o usuário à tela de troca.
+  middleware devolve `403` com código próprio, a SPA conduz o usuário à tela de
+  troca e a navegação direta é redirecionada para `/fe/senha`.
 
 ## 3. Autorização
 
@@ -66,9 +66,9 @@ Os endpoints cadastrais do Senior exigem autenticação e a permissão
 com escopo global, de empresa ou de filial. Empresas fora do escopo não são
 retornadas e filtros fora do escopo recebem `403`.
 
-Com a adoção da SPA pela ADR-025, a API passa a ser a única superfície
-funcional da aplicação. A renderização deixa de funcionar como barreira
-auxiliar de autorização, e disso decorrem duas obrigações:
+Com a adoção da SPA pela ADR-025, a API é a única superfície funcional da
+aplicação. A renderização não funciona como barreira auxiliar de autorização,
+e disso decorrem duas obrigações:
 
 - cada endpoint valida permissão e escopo por conta própria, sem depender do
   que o cliente exibe ou deixa de exibir;
@@ -80,12 +80,10 @@ adulterado que exiba um item de menu indevido continua recebendo `403` do
 endpoint correspondente.
 
 Nenhum código é carregado de CDN. Componentes, ícones e fontes são empacotados
-no build, mantendo a restrição estabelecida originalmente para o HTMX.
+no build.
 
-A interface HTMX, enquanto permanecer em operação, aplica a mesma autorização
-em toda requisição parcial, não confia nos valores já renderizados no navegador
-e remove seleções descendentes quando o escopo anterior muda. Nenhuma listagem,
-HTML ou JSON, contém CPF.
+A SPA não é uma barreira de autorização: toda requisição continua sendo
+validada pela API, e nenhuma listagem cadastral projeta CPF.
 
 As permissões delegáveis atuais são:
 
@@ -99,9 +97,9 @@ Permissões diretas são globais. Permissões provenientes de papéis respeitam 
 escopo e a validade da atribuição. Superusuário é reservado ao bootstrap e à
 contingência administrativa.
 
-As views e os services administrativos validam autorização. A checagem no
+Os endpoints e os services administrativos validam autorização. A checagem no
 service preserva o limite de segurança quando o caso de uso for chamado por
-outra interface, comando ou API. A desativação de contas bloqueia os
+outro endpoint ou comando. A desativação de contas bloqueia os
 superusuários ativos em ordem determinística e impede transacionalmente a
 remoção do último superusuário ativo.
 
@@ -239,14 +237,19 @@ Alternativas futuras:
 
 ## 10. Sessão
 
+Controles implementados:
+
 - cookies `HttpOnly`;
-- cookies `Secure`;
+- flags `Secure` configuráveis por ambiente e desabilitadas no DEV HTTP local;
 - proteção CSRF, também nas requisições da SPA;
 - `SameSite` compatível com a origem única exigida pela ADR-026;
-- timeout;
-- bloqueio por inatividade;
-- revogação em desligamento;
-- controle de dispositivos conforme política.
+- revogação explícita no logout.
+
+Controles que dependem de política corporativa ou do workflow:
+
+- timeout e bloqueio por inatividade;
+- revogação automática em desligamento;
+- controle de dispositivos.
 
 A aplicação e a API precisam permanecer na mesma origem. A introdução futura de
 proxy reverso, de outro domínio para o frontend ou de um ambiente HML/PRD
@@ -295,7 +298,7 @@ Não registrar em log:
 - usar bind variables e nunca interpolar filtros;
 - usar somente `SGPD` no runtime DEV e nunca usar `VETORH`;
 - não criar models para objetos do Senior;
-- mascarar CPF nas listagens;
+- excluir CPF das listagens;
 - limitar projeção, volume, paginação e tempo de consulta;
 - registrar falhas e latência sem incluir SQL com dados pessoais;
 - revisar grants e contrato após atualização do Senior.

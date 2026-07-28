@@ -30,9 +30,8 @@ Django 5.2
         Worker assíncrono
 ```
 
-A interface server-side anterior permanece em operação até a conclusão da Fase
-G da migração descrita em `MIGRATION_FRONTEND_SPA.md`. Ela não recebe telas
-novas.
+O Django Admin, somente leitura, é a única interface Django que renderiza
+templates.
 
 ## 2. Componentes
 
@@ -57,8 +56,7 @@ WhiteNoise não será usado para servir evidências ou outros uploads de usuári
 - Vitest para testes.
 
 Nenhum código é carregado de CDN: componentes, ícones e fontes são empacotados
-no build. A restrição de não depender de rede externa no navegador, estabelecida
-originalmente para o HTMX, permanece válida.
+no build. O navegador não depende de rede externa para carregar a interface.
 
 A SPA não implementa regra de negócio. Ela consome a API, exibe estado e aplica
 a autorização recebida do servidor apenas para orientar a navegação; a decisão
@@ -107,7 +105,7 @@ O cadastro funcional de usuários pertence ao SGPD:
 - a administração de contas usa services transacionais, expostos por
   `/api/v1/accounts/` e consumidos pela SPA;
 - os services administrativos repetem a autorização no limite do caso de uso,
-  independentemente da proteção aplicada pelas views;
+  independentemente da proteção aplicada pelos endpoints;
 - papéis possuem permissões delegáveis e atribuições com escopo global, por
   empresa ou por filial, validade e revogação lógica;
 - senha temporária pode exigir troca no primeiro acesso;
@@ -117,7 +115,9 @@ O cadastro funcional de usuários pertence ao SGPD:
   por operações em lote do ORM;
 - o vínculo administrativo com o Active Directory adiciona identificador
   externo opaco e único à conta existente, após confirmação humana;
-- após a vinculação, o AD será o provedor de autenticação e o SGPD continuará como fonte de perfis e autorizações.
+- após a homologação e ativação futura da autenticação AD, o diretório será o
+  provedor de autenticação e o SGPD continuará como fonte de perfis e
+  autorizações.
 
 O vínculo com AD não usa e-mail como chave, impede associação duplicada e não
 ativa autenticação LDAP. Endpoint, TLS, base de busca, atributo identificador e
@@ -130,7 +130,7 @@ No DEV, evidências serão armazenadas no filesystem local privado:
 - caminho configurável por `EVIDENCE_STORAGE_PATH`;
 - padrão inicial `media/evidence`;
 - metadados e hash SHA-256 mantidos no Oracle;
-- acesso somente por views autorizadas da aplicação;
+- acesso somente por endpoints autorizados da aplicação;
 - diretório fora dos arquivos estáticos e não servido pelo WhiteNoise.
 
 ## 3. Aplicações Django
@@ -163,7 +163,7 @@ A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
 
 Regras críticas devem ficar fora de views e signals genéricos.
 
-Serviços sugeridos:
+Serviços administrativos implementados:
 
 - `CreateUserService`
 - `UpdateUserService`
@@ -174,6 +174,9 @@ Serviços sugeridos:
 - `RevokeRoleService`
 - `LinkAdIdentityService`
 - `UnlinkAdIdentityService`
+
+Serviços de workflow planejados para as fases 3 a 9:
+
 - `OpenOffboardingProcessService`
 - `ResolveValidationGroupsService`
 - `GenerateSectorTasksService`
@@ -182,21 +185,20 @@ Serviços sugeridos:
 - `EvaluateProcessReadinessService`
 - `ReleaseForTerminationService`
 - `CloseOffboardingProcessService`
-- `QuerySeniorEmployeesService`
 - `EscalateOverdueTasksService`
 
 ### Consulta ao Senior
 
-- views Django e endpoints chamam um service/repository de consulta;
+- endpoints chamam o repository de consulta;
 - o repository usa cursor Oracle e SQL `SELECT` parametrizado;
 - não existem models Django, models não gerenciados ou tabelas `REF_*` para objetos do Senior;
 - a conexão de runtime do SGPD recebe grants explícitos apenas nos objetos `VETORH` homologados;
-- SQL não fica espalhado em templates, serializers ou views de apresentação;
+- SQL não fica espalhado em serializers ou endpoints;
 - a abertura do processo copia o resultado autorizado para o snapshot histórico do SGPD.
 
 ## 5. Eventos de domínio
 
-Eventos sugeridos:
+Eventos planejados com o workflow:
 
 - `ProcessOpened`
 - `ProcessStarted`
@@ -229,23 +231,7 @@ compatível com empresa/filial. A listagem de colaboradores não retorna CPF,
 usa limite padrão de 20 e máximo absoluto de 100. A paginação por offset não
 executa `COUNT(*)`.
 
-Interface cadastral server-side substituída na SPA pela Fase F e mantida
-temporariamente até a remoção da Fase G:
-
-```text
-GET /references/senior/
-GET /references/senior/branches/?company=
-GET /references/senior/employee-types/?company=&branch=
-GET /references/senior/employees/?company=&branch=&employee_type=&q=
-```
-
-A página e os fragmentos HTMX reutilizam o repository somente leitura e a
-autorização por escopo. Cada troca de nível remove as escolhas descendentes; a
-busca de colaboradores retorna no máximo 20 opções e não exibe CPF. Respostas
-de erro preservam os estados HTTP `400`, `403`, `502` e `503` e são exibidas no
-alvo parcial sem detalhes do Oracle.
-
-A SPA consome os mesmos quatro endpoints na rota `/fe/colaboradores`, cancela
+A SPA consome os quatro endpoints na rota `/fe/colaboradores`, cancela
 consultas obsoletas ao trocar um nível, limita a busca remota a 100 caracteres
 e 20 colaboradores e não projeta CPF ou cria snapshot.
 
@@ -261,9 +247,9 @@ POST /api/v1/auth/change-password/
 ```
 
 `GET /api/v1/auth/context/` devolve papéis, permissões efetivas e escopos de
-empresa e filial do usuário autenticado. Ele orienta a navegação da SPA e
-substitui o context processor da interface server-side; a decisão de
-autorização continua sendo aplicada em cada endpoint e em cada service.
+empresa e filial do usuário autenticado. Ele orienta a navegação da SPA; a
+decisão de autorização continua sendo aplicada em cada endpoint e em cada
+service.
 
 Endpoints de contas implementados:
 
@@ -341,19 +327,24 @@ POST /api/v1/pending-items/{uuid}/decision/
 POST /api/v1/evidence/
 ```
 
-Com a ADR-025, a API passa a ser a única superfície funcional da aplicação. A
-afirmação anterior de que a UI server-side poderia usar services diretamente
-vale apenas para as telas ainda não migradas e para os comandos de gestão.
+Com a ADR-025 e a conclusão da Fase G, a API é a única superfície funcional da
+aplicação. Comandos de gestão também podem chamar services diretamente,
+preservando a autorização no limite do caso de uso.
 
 ## 7. Observabilidade
+
+Implementado:
 
 - logs JSON configurados na saída padrão;
 - correlation ID aceito em `X-Correlation-ID` ou gerado pela aplicação e
   devolvido na resposta;
+- health checks separados em liveness e readiness;
+- registro de duração, quantidade de linhas e falhas das consultas ao Senior.
+
+Planejado com os módulos de workflow e processamento assíncrono:
+
 - métricas de tarefas;
 - monitoramento de filas;
-- health checks separados em liveness e readiness;
-- registro de falhas de integração;
 - alertas para e-mails falhos;
 - métricas de latência, timeout e indisponibilidade das consultas ao Senior.
 

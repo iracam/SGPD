@@ -1,5 +1,12 @@
 # Roadmap
 
+## Como ler este documento
+
+As entregas de fases concluídas preservam o plano e podem mencionar
+componentes intermediários que já foram substituídos. Os blocos `Estado`
+registram o resultado de cada fase; o status geral e o próximo incremento
+autorizado estão em `CHECKPOINT.md`.
+
 ## Fase 0 — Descoberta e fundação
 
 ### Objetivos
@@ -82,14 +89,13 @@ checkpoint.
 
 Empresa → Filial → Tipo → Colaborador funcionando.
 
-### Estado em 2026-07-27
+### Estado em 2026-07-28
 
-Concluída. Repository, contrato SQL, endpoints JSON, autorização por escopo e
-seleção HTMX server-side estão implementados. O runtime HTMX 2.0.10 é servido
-localmente, sem CDN. O snapshot permanece na Fase 4, dentro do caso de uso
-transacional de abertura. Em 2026-07-28, o `LEFT JOIN` de centro de custo foi
-homologado por contagem global e a consulta de colaboradores foi medida com até
-dez conexões concorrentes, sem erros ou timeouts.
+Concluída. Repository, contrato SQL, endpoints JSON e autorização por escopo
+estão implementados, e a seleção definitiva está na SPA. O snapshot permanece
+na Fase 4, dentro do caso de uso transacional de abertura. O `LEFT JOIN` de
+centro de custo foi homologado por contagem global e a consulta de colaboradores
+foi medida com até dez conexões concorrentes, sem erros ou timeouts.
 
 ### Fechamento em 2026-07-28
 
@@ -115,14 +121,15 @@ definitiva e não precisem ser escritos duas vezes.
 
 ### Saída esperada
 
-Interface definitiva em operação, com o Django exposto apenas como API.
+Interface definitiva em operação, com API como única superfície funcional e
+Django Admin somente leitura preservado.
 
 ### Estado em 2026-07-28
 
-Fases A a F concluídas. A SPA autentica, administra contas e papéis, consulta a
+Fases A a G concluídas. A SPA autentica, administra contas e papéis, consulta a
 auditoria e executa a cascata Empresa → Filial → Tipo → Colaborador sobre os
-quatro endpoints Senior homologados. A Fase G permanece pendente para remover
-a interface server-side, o HTMX e os testes antigos.
+quatro endpoints Senior homologados. O Django Admin somente leitura foi
+preservado.
 
 O plano completo, com as sete fases e seus critérios de conclusão, está em
 `MIGRATION_FRONTEND_SPA.md`.

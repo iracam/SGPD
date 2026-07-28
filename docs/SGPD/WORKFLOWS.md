@@ -1,5 +1,12 @@
 # Fluxos e Estados
 
+## Estado do documento
+
+Este documento define o fluxo funcional alvo. O workflow demissional ainda não
+está implementado; estados e transições deverão ser confirmados e testados nos
+checkpoints das Fases 4 a 8. A consulta cadastral e a base de autorização já
+implementadas não antecipam a criação de processo ou snapshot.
+
 ## 1. Fluxo principal
 
 ```text

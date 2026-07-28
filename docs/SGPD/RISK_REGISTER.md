@@ -1,4 +1,7 @@
-# Registro Inicial de Riscos
+# Registro de Riscos
+
+Riscos mitigados permanecem na matriz enquanto o controle precisar continuar
+ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 
 | ID | Risco | Probabilidade | Impacto | Mitigação |
 |---|---|---:|---:|---|
@@ -24,23 +27,29 @@
 | R21 | Vinculação ao AD associar a identidade errada ou duplicada | Média | Muito alto | Identificador opaco normalizado e único, confirmação administrativa, justificativa, auditoria e teste de duplicidade |
 | R22 | Uso indevido do WhiteNoise para evidências ou uploads | Média | Muito alto | Restringir WhiteNoise a estáticos e usar storage privado para evidências |
 | R23 | Ausência de CI/CD permitir validações locais inconsistentes | Média | Médio | Padronizar comandos locais e registrar evidências de testes |
-| R25 | SMTP AUTH ou permissão de remetente bloquearem notificações | Mitigado em 2026-07-28 | Alto | Credenciais atualizadas; SMTP AUTH e `Send As` validados com mensagem de prova aceita pelo Microsoft 365 |
+| R25 | SMTP AUTH ou permissão de remetente bloquearem notificações | Mitigado em 2026-07-28 | Alto | SMTP AUTH e `Send As` validados com mensagem de prova aceita pelo Microsoft 365 |
 | R26 | Owner `VETORH` ser usado indevidamente pela aplicação | Baixa | Muito alto | Configurar somente `SGPD` no runtime e manter `VETORH` restrito a consultas administrativas explícitas |
-| R27 | Consulta direta expor CPF completo ou dados excessivos | Média | Muito alto | Mascarar por padrão, autorização por finalidade e projeções mínimas |
-| R28 | `INNER JOIN` omitir colaborador com cadastro relacionado incompleto | Média | Alto | Validar regra funcional, reconciliar contagens e tratar inconsistências explicitamente |
+| R27 | Consulta direta expor CPF completo ou dados excessivos | Média | Muito alto | Excluir CPF das listagens, aplicar autorização por finalidade e manter projeções mínimas |
+| R28 | `INNER JOIN` omitir colaborador com cadastro relacionado incompleto | Mitigado em 2026-07-28 | Alto | `LEFT JOIN` de centro de custo homologado por reconciliação global; contrato e contagens permanecem testados |
 | R29 | Senha local continuar ativa indevidamente após ativação futura do login AD | Média | Alto | Vínculo administrativo não ativa AD; na homologação do backend, desabilitar a senha local comum e restringir contas de contingência |
 | R30 | Migrations não poderem criar objetos no schema `SGPD` | Mitigado em 2026-07-27 | Alto | `CREATE TABLE` e `CREATE SEQUENCE` sem `ADMIN OPTION`, quota de 500 MB e revisão do SQL; 23 migrations aplicadas e validadas |
 | R31 | Oracle Client ausente ou incompatível impedir conexão em modo Thick | Baixa | Alto | Fixar Instant Client 19.28 no DEV, validar no readiness e falhar na inicialização sem expor segredo |
 | R32 | Usuário autenticado consultar referências fora do escopo de empresa/filial | Mitigado em 2026-07-27 | Alto | Permissão `query_senior_references`, atribuição com validade e escopo, filtro de empresas e resposta `403`; CPF ausente das listagens |
 | R33 | Vínculo AD administrativo ser confundido com autenticação AD homologada | Média | Alto | Aviso explícito na UI e documentação; não instalar backend LDAP nem desabilitar senha local sem contrato de endpoint, TLS, atributo e contingência |
-| R34 | Runtime HTMX local ficar desatualizado ou divergir da origem oficial | Encerrado em 2026-07-28 | Médio | HTMX sai da stack pela ADR-025; o runtime é removido na Fase G da migração |
-| R35 | Chamada direta de service administrativo contornar a autorização da view | Mitigado em 2026-07-28 | Muito alto | Permissão validada no próprio service e testes de negação sem mutação ou auditoria espúria |
+| R35 | Chamada direta de service administrativo contornar a autorização do endpoint | Mitigado em 2026-07-28 | Muito alto | Permissão validada no próprio service e testes de negação sem mutação ou auditoria espúria |
 | R36 | Operação em lote do ORM alterar ou excluir auditoria append-only | Mitigado em 2026-07-28 | Muito alto | `QuerySet.update()` e `QuerySet.delete()` bloqueados, além das proteções por instância |
 | R37 | Desativações concorrentes removerem todos os superusuários ativos | Mitigado em 2026-07-28 | Alto | Lock pessimista dos superusuários ativos em ordem determinística e validação transacional do último ativo |
-| R38 | Ampliação da superfície de API na migração introduzir endpoint sem autorização | Alta | Muito alto | Endpoints são casca fina sobre services que já revalidam permissão; teste obrigatório de permissão negada por endpoint antes de remover a UI server-side |
-| R39 | Troca obrigatória de senha temporária deixar de ser imposta sem o redirecionamento server-side | Média | Alto | Middleware devolve `403` com código próprio sob `/api/`, com teste dedicado, e a SPA conduz à tela de troca |
-| R40 | Remover a interface server-side antes da SPA cobrir a função equivalente | Média | Alto | Sequência fixa das fases, com remoção somente na Fase G, após as telas correspondentes estarem em operação |
-| R41 | Portar SCSS desktop first do projeto de referência e inviabilizar o uso em telefone | Alta | Médio | Consultas `max-width` proibidas em código novo pela ADR-028; conferência visual obrigatória nos cinco pontos de quebra ao encerrar cada fase de interface |
+| R38 | Ampliação da superfície de API na migração introduzir endpoint sem autorização | Mitigado em 2026-07-28 | Muito alto | Endpoints são casca fina sobre services que revalidam permissão; cada endpoint possui teste de permissão negada |
+| R39 | Troca obrigatória de senha temporária deixar de ser imposta na SPA/API | Mitigado em 2026-07-28 | Alto | Middleware devolve `403` tipado sob `/api/`, redireciona navegação direta para `/fe/senha` e possui testes dedicados |
+| R41 | Portar SCSS desktop first do projeto de referência e inviabilizar o uso em telefone | Mitigado em 2026-07-28 | Médio | Consultas `max-width` proibidas em código novo pela ADR-028; conferência visual obrigatória nos cinco pontos de quebra ao encerrar cada fase de interface |
 | R42 | Dependências npm ampliarem a superfície de cadeia de suprimento | Média | Médio | `package-lock.json` versionado, instalação por `npm ci`, atualização somente após revisão explícita e nenhum carregamento de CDN em runtime |
 | R43 | Origem única exigida pela sessão com CSRF ser quebrada por proxy ou novo domínio | Baixa | Alto | Registrado na ADR-026; qualquer proxy reverso, domínio separado ou ambiente HML/PRD reabre a decisão junto com a ADR-014 |
 | R44 | Atualização do PrimeNG para 22 ou superior reintroduzir exigência de chave de licença e aviso permanente na interface | Média | Médio | Versão fixada em 21, última sob MIT; atualização passa a exigir decisão de licenciamento e nova ADR, conforme ADR-027 |
+| R45 | Dependências transitivas de desenvolvimento do Angular CLI incluírem vulnerabilidade moderada de path traversal no servidor estático Hono para Windows | Baixa no DEV atual | Médio | `npm audit --omit=dev` confirma zero vulnerabilidades de runtime; DEV homologado usa Debian; não executar `npm audit fix --force`, pois a correção proposta altera o Angular CLI de forma incompatível; revisar quando a cadeia Angular publicar atualização compatível |
+
+## Riscos encerrados
+
+| ID | Risco | Encerramento |
+|---|---|---|
+| R34 | Runtime HTMX local ficar desatualizado ou divergir da origem oficial | Encerrado em 2026-07-28 após remoção do runtime na Fase G |
+| R40 | Remover a interface server-side antes da SPA cobrir a função equivalente | Encerrado em 2026-07-28; a remoção ocorreu somente após a cobertura funcional da SPA |

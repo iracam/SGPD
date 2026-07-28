@@ -1,4 +1,11 @@
-# Modelo de Dados Inicial
+# Modelo de Dados de Referência
+
+## Estado do documento
+
+Este é o modelo conceitual do produto. Na implementação atual, apenas contas,
+papéis, escopos e auditoria de contas possuem models e migrations aplicados. Os
+demais domínios serão detalhados e implementados nos checkpoints das Fases 3 a
+9; seus nomes abaixo não autorizam criação antecipada de schema.
 
 ## 1. Princípios
 

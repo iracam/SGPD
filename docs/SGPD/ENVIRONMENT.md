@@ -13,29 +13,28 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | Componente | Estado observado | Situação para o projeto |
 |---|---|---|
 | Sistema operacional | Debian GNU/Linux 13.6 (trixie), kernel 6.12, x86_64 | Confirmado para DEV |
-| Timezone | UTC-03:00 | A aplicação deverá usar `America/Sao_Paulo` explicitamente |
+| Timezone | UTC-03:00 | Aplicação configurada com `America/Sao_Paulo` explicitamente |
 | Locale | `C.UTF-8` | Validar regras de apresentação em português |
 | Git | branch `main`, remoto `origin` configurado | Repositório confirmado |
 | Python | CPython 3.13.5 | Python 3.13 homologado; ambiente virtual isolado pelo `uv` |
 | `pip` | 25.1.1 | Disponível no Python do sistema |
-| `uv` | 0.11.29 | Disponível e candidato a gerenciador do projeto |
+| `uv` | 0.11.29 | Gerenciador adotado; dependências bloqueadas em `uv.lock` |
 | Poetry / Pipenv / pyenv | Não instalados | Não necessários se `uv` for adotado |
 | Django / DRF | Django 5.2.16 / DRF 3.17.1 | Instalados e bloqueados por `uv.lock` |
 | Node.js | 24.18.0 | Homologado para o build da SPA (ADR-025) |
 | npm | 11.16.0 | Homologado; instalação por `npm ci` com `package-lock.json` versionado |
-| Angular / PrimeNG | 21 / 21 | Decididos nas ADR-025 e ADR-027; instaladas na Fase D |
+| Angular / PrimeNG | 21.2.18 / 21.1.9 | Instalados e fixados pelo `package-lock.json` |
 | Docker Engine | 26.1.5, daemon ativo, driver `overlay2` | Disponível; nenhum container em execução |
 | Docker Compose | 2.26.1 | Disponível |
 | Oracle Database | 19c | Versão confirmada para o projeto |
 | Oracle Instant Client | 19.28 em `/opt/oracle/instantclient_19_28` | Cliente nativo confirmado |
 | Driver Python Oracle | `python-oracledb` 4.0.2 | Modo Thick validado com o Instant Client 19.28 |
 | SQLcl local | 26.1 em `/opt/sqlcl/bin/sql` | Conexões Oracle validadas |
-| MCP Oracle | Ativo, com conexão `DEV@VETORH` salva | Definição aponta para serviço não registrado; não usada na validação final |
 | Redis | Somente `redis-cli` 8.0.2; servidor local ausente/inativo | Será iniciado em container quando necessário |
 | Celery / Django-Q2 | Ausentes | Worker adiado até existir caso de uso |
 | Gunicorn | Ausente | Fora da execução DEV atual |
 | Nginx | Ausente/inativo | Não será utilizado; estáticos serão servidos por WhiteNoise |
-| WhiteNoise | 6.12.0 | Configurado somente para arquivos estáticos |
+| WhiteNoise | 6.12.0 | Serve assets da SPA e estáticos do Django Admin; nunca evidências |
 | LDAP tools | `ldapsearch` ausente | Não bloqueia o MVP local; necessário na integração futura com AD |
 | SMTP | Microsoft 365, `smtp.office365.com:587`, TLS/STARTTLS | SMTP AUTH e remetente configurado validados em 2026-07-28 |
 | Evidências | Filesystem local privado | Caminho inicial `media/evidence`, fora do WhiteNoise |
@@ -51,7 +50,7 @@ O repositório possui:
 - `pyproject.toml`, `uv.lock` e ambiente virtual reproduzível;
 - projeto Django e settings separados para base, DEV e testes;
 - conexão Oracle Thick com o mesmo owner `SGPD`;
-- WhiteNoise para estáticos;
+- WhiteNoise para assets da SPA e estáticos do Django Admin;
 - configuração de testes, lint, formatação e tipagem;
 - configuração de SMTP;
 - configuração futura de LDAP/Active Directory;
@@ -73,8 +72,8 @@ Redis e worker continuam adiados até surgir um caso de uso.
 | Worker | Adiado até necessidade |
 | SMTP | Microsoft 365; SMTP AUTH e `Send As` validados com uma mensagem de prova aceita |
 | Autenticação | Local; usuários, papéis e escopos aplicados; vínculo AD administrativo disponível; LDAP/AD real não configurado |
-| Estáticos | WhiteNoise instalado e configurado; servirá também os assets da SPA |
-| Frontend | Node 24.18.0 e npm 11.16.0 homologados; `frontend/` criado na Fase D |
+| Estáticos | WhiteNoise configurado para assets da SPA e Django Admin |
+| Frontend | SPA Angular 21 + PrimeNG 21 em operação; Node 24.18.0 e npm 11.16.0 homologados |
 | Evidências | Filesystem local privado em `media/evidence` |
 | Nginx / proxy | Não utilizado |
 | Secrets | `.env` local; usuários individuais no formato `nome.sobrenome` |
@@ -82,22 +81,22 @@ Redis e worker continuam adiados até surgir um caso de uso.
 
 HML e PRD estão explicitamente fora do escopo atual.
 
-## 5. Contrato preliminar de variáveis
+## 5. Contrato de variáveis
 
 O arquivo `.env.example` define, sem valores sensíveis:
 
-- aplicação e settings Django;
+- variáveis ativas de aplicação, settings, cookies e logging;
 - conexão Oracle única do runtime e migrations com `SGPD`;
 - leitura direta dos objetos `VETORH` autorizados pela mesma conexão;
-- Oracle Instant Client e wallet/TNS;
+- Oracle Instant Client e TNS;
 - WhiteNoise;
-- Redis e Celery opcionais;
 - SMTP;
-- LDAP/Active Directory;
-- storage local ou S3 compatível;
-- cookies seguros.
+- caminho do storage local de evidências;
+- limitação de tentativas de login.
 
-O nome `SGPD_DB_NAME` foi alinhado à configuração local validada. Os demais nomes devem ser confirmados durante a criação dos settings.
+As variáveis de Redis/Celery, LDAP/AD e S3 são reservas explícitas para fases
+futuras e ainda não são consumidas pelos settings atuais. Sua presença não
+significa que essas integrações estejam implantadas.
 
 O `.env` local contém o owner `SGPD`, que será reutilizado no runtime DEV por decisão explícita. A conexão separada com o owner `VETORH` não faz parte do contrato da aplicação.
 
@@ -115,7 +114,7 @@ O `.env` local contém o owner `SGPD`, que será reutilizado no runtime DEV por 
 
 Nenhum valor real de usuário, senha ou token deve ser incluído no repositório.
 
-## 7. Decisões pendentes
+## 7. Pendências operacionais
 
 1. Confirmar TLS/wallet da conexão única `SGPD`.
 2. Escolher Celery ou Django-Q2 quando houver processamento assíncrono.
