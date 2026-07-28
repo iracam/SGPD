@@ -11,6 +11,7 @@ urlpatterns = [
         include("apps.integrations.senior.ui_urls"),
     ),
     path("api/v1/auth/", include("apps.accounts.api_urls")),
+    path("api/v1/accounts/", include("apps.accounts.api_accounts_urls")),
     path(
         "api/v1/references/",
         include("apps.integrations.senior.urls"),

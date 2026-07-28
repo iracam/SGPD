@@ -212,14 +212,16 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 
 ### Fase C — API de contas
 
-- [ ] Usuários: listagem, criação, detalhe e atualização.
-- [ ] Redefinição de senha.
-- [ ] Papéis: listagem, criação, detalhe e atualização.
-- [ ] Atribuição e revogação de papéis.
-- [ ] Vínculo e desvínculo AD.
-- [ ] Catálogo de permissões delegáveis.
-- [ ] Auditoria de contas paginada.
-- [ ] Teste de permissão negada em cada endpoint.
+- [x] Usuários: listagem com busca, criação, detalhe e atualização.
+- [x] Redefinição de senha.
+- [x] Papéis: listagem, criação, detalhe e atualização.
+- [x] Atribuição e revogação de papéis.
+- [x] Vínculo e desvínculo AD.
+- [x] Catálogo de permissões delegáveis.
+- [x] Auditoria de contas paginada, com filtro por usuário e tipo de evento.
+- [x] Teste de permissão negada em cada endpoint.
+  - Anônimo e autenticado sem permissão, para os 15 pares de rota e método.
+  - R38 mitigado.
 
 ### Fase D — Scaffold Angular, shell e autenticação
 
@@ -648,4 +650,20 @@ Próximo passo: executar a Fase C, expondo os services administrativos como endp
 Comandos executados: uv run pytest; uv run ruff check --fix; uv run ruff format; uv run mypy apps config tests manage.py; uv run manage.py check; uv run manage.py makemigrations --check --dry-run; conferência das rotas registradas; smoke somente leitura contra o Oracle DEV com o ciclo csrf, me anônimo, me autenticado, contexto, empresas e erros 400 e 405.
 Arquivos alterados: config/api.py, config/urls.py, config/settings/base.py, apps/accounts/api.py, apps/accounts/api_urls.py, apps/accounts/serializers.py, apps/accounts/authorization.py, apps/accounts/middleware.py, apps/integrations/senior/api.py, tests/test_auth_api.py, tests/test_senior_api.py, .env.example e documentação em docs/SGPD.
 Testes: 85 testes passaram, sendo 21 novos da API de autenticação, cobrindo 401 anônimo, login auditado, credenciais inválidas auditadas, ausência de CSRF, conta inativa, throttling, campos obrigatórios, logout auditado com encerramento de sessão, troca de senha com preservação da sessão, senha atual incorreta, confirmação divergente, senha fraca sem alteração, bloqueio por senha temporária, contexto sem papéis, contexto com escopo de empresa, contexto de superusuário, desaparecimento de atribuição revogada e método não permitido; ruff, format, mypy estrito, Django check e migrations sem divergência; smoke Oracle DEV retornou 7 empresas e contexto com o papel real ADMIN_IDENTIDADE; nenhum DDL ou DML executado.
+```
+
+### 2026-07-28 — API de administração de contas
+
+```text
+Data: 2026-07-28
+Responsável: Claude
+Fase: Fase 2.5 — Migração da interface / Fase C
+O que foi concluído: onze rotas em /api/v1/accounts/ cobrindo usuários, redefinição de senha, papéis, atribuição e revogação, vínculo e desvínculo AD, catálogo de permissões delegáveis e auditoria; serializers de entrada; payloads explícitos de saída; autorização declarada por endpoint e reavaliada a cada requisição; paginação por offset e limit sem COUNT; tradução de recurso inexistente em 404 no handler de erro.
+Decisões: manter os endpoints como casca fina sobre os services existentes, sem duplicar regra de negócio; declarar a permissão exigida no atributo required_permission da view e verificá-la por uma permission class do DRF, mantendo a revalidação do service como limite real de segurança; repetir no serializer a validação cruzada de escopo do papel, para devolver erro por campo, sem remover a validação do service e da constraint SGPD_CK_ROLE_SCOPE; usar payloads explícitos em vez de ModelSerializer, garantindo que hash de senha e campos internos nunca sejam projetados; exigir confirmação de senha na criação e na redefinição, em paridade com os formulários server-side; converter ObjectDoesNotExist em 404 no handler, evitando que um .get() de service vire 500 na nova superfície; separar as rotas em api_accounts_urls.py para preservar os nomes auth-api já em uso.
+Riscos: R38 mitigado, com teste de negação anônima e de negação por falta de permissão para os quinze pares de rota e método, além de teste de ausência de efeito colateral e de não escalonamento entre permissões. As views HTML permanecem ativas e continuam sendo caminho alternativo até a Fase G. A paginação sem COUNT não informa o total, o que a SPA precisará tratar na navegação.
+Pendências: Fase D, com o scaffold Angular, o shell e a autenticação. As telas de contas dependem apenas desta API.
+Próximo passo: executar a Fase D, criando frontend/ com Angular 21 e PrimeNG, os tokens do SGPD, o shell mobile first e a tela de login, e integrando o build ao Django.
+Comandos executados: uv run pytest; uv run ruff check --fix; uv run ruff format; uv run mypy apps config tests manage.py; uv run manage.py check; uv run manage.py makemigrations --check --dry-run; smoke somente leitura contra o Oracle DEV nas cinco listagens, no 404 e no acesso anônimo.
+Arquivos alterados: apps/accounts/api_accounts.py, apps/accounts/api_accounts_urls.py, apps/accounts/serializers.py, config/api.py, config/urls.py, tests/test_accounts_api.py e documentação em docs/SGPD.
+Testes: 143 testes passaram, sendo 58 novos da administração de contas; trinta deles são casos de negação parametrizados por rota e método; os demais cobrem criação auditada sem projeção de senha, confirmação divergente, justificativa obrigatória, e-mail duplicado, busca, teto de página, detalhe com atribuições, 404, versão desatualizada, incremento de versão, proteção do último superusuário ativo, redefinição de senha, criação de papel, rejeição de permissão não delegável, catálogo de permissões, atribuição com escopo de empresa, três escopos inconsistentes, revogação com trilha, atribuição a usuário inativo, vínculo e desvínculo AD auditados, identificador AD duplicado, leitura filtrada da auditoria e auditoria somente leitura; ruff, format, mypy estrito, Django check e migrations sem divergência; smoke Oracle DEV retornou 9 papéis, 5 permissões delegáveis e 11 eventos de auditoria; nenhum DDL ou DML executado além dos casos de teste em SQLite.
 ```

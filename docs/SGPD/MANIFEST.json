@@ -9,13 +9,13 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "21ea94914e35f507830af205c783f1d64b3edc6d4c681bf7520b6d8259a2b330",
-      "bytes": 13135
+      "sha256": "6848e93fd109b5073be8c02d8e45a87082c3dcfb3fc87dacc0cf6db47ba2382b",
+      "bytes": 13740
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "8797039d05c130e2af9d437b922fb952d62b8e2aa1501644001571c14164a946",
-      "bytes": 46435
+      "sha256": "f30342988eac3f587c2f9db72528407b724b40635ebfb047b849a059024a16db",
+      "bytes": 50268
     },
     {
       "file": "DATA_MODEL.md",

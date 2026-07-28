@@ -279,6 +279,17 @@ GET         /api/v1/accounts/audit/
 Cada endpoint valida entrada, invoca o service correspondente e traduz o
 resultado. Nenhum implementa regra de negócio.
 
+A autorização é declarada por endpoint e reavaliada a cada requisição:
+`manage_users` para usuários e senha, `manage_roles` para papéis, atribuições e
+o catálogo de permissões, `link_ad_identity` para o vínculo com o AD e
+`view_account_audit` para a auditoria. O service revalida a mesma permissão no
+próprio limite, conforme a ADR-024, de modo que a checagem do endpoint é
+redundante por decisão e não é o único guarda.
+
+As listagens usam paginação por `offset` e `limit`, com padrão de 50 e teto de
+200, sem `COUNT(*)`. A auditoria aceita filtro por `target_user` e
+`event_type`.
+
 Toda resposta de erro da API usa o envelope `{code, message, details}`. O
 `ValidationError` levantado pelos services é traduzido em `400` com erros por
 campo, por um handler único do DRF. Os endpoints cadastrais do Senior, criados

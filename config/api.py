@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404
@@ -65,6 +66,13 @@ def exception_handler(exc: Exception, context: dict[str, Any]) -> Response | Non
             code="permission_denied",
             message="Usuário sem permissão para esta operação.",
             status_code=403,
+        )
+    # Services fetch with .get(); a missing row must not surface as a 500.
+    if isinstance(exc, ObjectDoesNotExist):
+        return api_error(
+            code="not_found",
+            message="Recurso não encontrado.",
+            status_code=404,
         )
 
     response = drf_exception_handler(exc, context)
