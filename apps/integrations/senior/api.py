@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.authorization import allowed_company_codes, has_permission
 from apps.accounts.models import User
+from config.api import api_error
 
 from .dto import Branch, Company, Employee, EmployeeType
 from .exceptions import (
@@ -118,9 +119,10 @@ class SeniorAPIView(APIView):
         )
 
     def _forbidden(self) -> Response:
-        return Response(
-            {"detail": "Usuário sem permissão para este escopo cadastral."},
-            status=HTTP_403_FORBIDDEN,
+        return api_error(
+            code="permission_denied",
+            message="Usuário sem permissão para este escopo cadastral.",
+            status_code=HTTP_403_FORBIDDEN,
         )
 
     def _respond(
@@ -135,17 +137,23 @@ class SeniorAPIView(APIView):
         try:
             results = operation()
         except SeniorQueryValidationError as exc:
-            return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
+            return api_error(
+                code="validation_error",
+                message=str(exc),
+                status_code=HTTP_400_BAD_REQUEST,
+            )
         except SeniorUnavailableError:
-            return Response(
-                {"detail": "Senior HCM indisponível para consulta."},
-                status=HTTP_503_SERVICE_UNAVAILABLE,
+            return api_error(
+                code="senior_unavailable",
+                message="Senior HCM indisponível para consulta.",
+                status_code=HTTP_503_SERVICE_UNAVAILABLE,
             )
         except SeniorContractError:
             logger.exception("senior_api_contract_error")
-            return Response(
-                {"detail": "Resposta inválida da fonte cadastral."},
-                status=HTTP_502_BAD_GATEWAY,
+            return api_error(
+                code="senior_contract_error",
+                message="Resposta inválida da fonte cadastral.",
+                status_code=HTTP_502_BAD_GATEWAY,
             )
 
         if result_filter is not None:
@@ -167,7 +175,11 @@ class CompanyListAPIView(SeniorAPIView):
             offset = _integer_parameter(request, "offset", default=0)
             limit = _integer_parameter(request, "limit", default=50)
         except SeniorQueryValidationError as exc:
-            return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
+            return api_error(
+                code="validation_error",
+                message=str(exc),
+                status_code=HTTP_400_BAD_REQUEST,
+            )
 
         user = request.user
         if not isinstance(user, User):
@@ -197,7 +209,11 @@ class BranchListAPIView(SeniorAPIView):
             offset = _integer_parameter(request, "offset", default=0)
             limit = _integer_parameter(request, "limit", default=50)
         except SeniorQueryValidationError as exc:
-            return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
+            return api_error(
+                code="validation_error",
+                message=str(exc),
+                status_code=HTTP_400_BAD_REQUEST,
+            )
 
         if not self._is_authorized(request, company=company):
             return self._forbidden()
@@ -222,7 +238,11 @@ class EmployeeTypeListAPIView(SeniorAPIView):
             offset = _integer_parameter(request, "offset", default=0)
             limit = _integer_parameter(request, "limit", default=50)
         except SeniorQueryValidationError as exc:
-            return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
+            return api_error(
+                code="validation_error",
+                message=str(exc),
+                status_code=HTTP_400_BAD_REQUEST,
+            )
 
         if not self._is_authorized(request, company=company, branch=branch):
             return self._forbidden()
@@ -249,7 +269,11 @@ class EmployeeListAPIView(SeniorAPIView):
             offset = _integer_parameter(request, "offset", default=0)
             limit = _integer_parameter(request, "limit", default=20)
         except SeniorQueryValidationError as exc:
-            return Response({"detail": str(exc)}, status=HTTP_400_BAD_REQUEST)
+            return api_error(
+                code="validation_error",
+                message=str(exc),
+                status_code=HTTP_400_BAD_REQUEST,
+            )
 
         if not self._is_authorized(request, company=company, branch=branch):
             return self._forbidden()

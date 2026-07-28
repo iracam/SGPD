@@ -24,18 +24,25 @@ def _permission_parts(permission: str) -> tuple[str, str]:
     return app_label, codename
 
 
-def effective_assignments(user: User, permission: str) -> QuerySet[RoleAssignment]:
+def active_assignments(user: User) -> QuerySet[RoleAssignment]:
+    """Single definition of "assigned, not revoked and valid right now"."""
+
     now = timezone.now()
-    app_label, codename = _permission_parts(permission)
     return RoleAssignment.objects.filter(
         user=user,
         user__is_active=True,
         role__is_active=True,
-        role__permissions__content_type__app_label=app_label,
-        role__permissions__codename=codename,
         is_active=True,
         valid_from__lte=now,
     ).filter(Q(valid_until__isnull=True) | Q(valid_until__gt=now))
+
+
+def effective_assignments(user: User, permission: str) -> QuerySet[RoleAssignment]:
+    app_label, codename = _permission_parts(permission)
+    return active_assignments(user).filter(
+        role__permissions__content_type__app_label=app_label,
+        role__permissions__codename=codename,
+    )
 
 
 def has_permission(

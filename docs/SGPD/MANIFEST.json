@@ -9,13 +9,13 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "7a78367be49cd4497236c1cf0b6c69b4e4467f8d149fa110f364f63210aced12",
-      "bytes": 12055
+      "sha256": "21ea94914e35f507830af205c783f1d64b3edc6d4c681bf7520b6d8259a2b330",
+      "bytes": 13135
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "26544339ea5f82071f51f20b3b6950f6545a3eff1bfec2f8f8402449460d0938",
-      "bytes": 42586
+      "sha256": "8797039d05c130e2af9d437b922fb952d62b8e2aa1501644001571c14164a946",
+      "bytes": 46435
     },
     {
       "file": "DATA_MODEL.md",
@@ -74,8 +74,8 @@
     },
     {
       "file": "SECURITY.md",
-      "sha256": "d97dc097f434d460bc8b21164c30193007092ddff7f25082bfc70fc1bb704f64",
-      "bytes": 10450
+      "sha256": "22568e21073b8d724ce49b5136df80d19273401bd89c3e4928edce74c65105a3",
+      "bytes": 10803
     },
     {
       "file": "VISION.md",

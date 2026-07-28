@@ -51,9 +51,12 @@ def install_repository(
 
 
 def test_reference_endpoints_require_authentication() -> None:
+    # 401 separates "log in" from the 403 of "authenticated but out of scope",
+    # which the SPA needs in order to route instead of showing an error.
     response = APIClient().get(reverse("senior:companies"))
 
-    assert response.status_code == 403
+    assert response.status_code == 401
+    assert response.json()["code"] == "not_authenticated"
 
 
 @pytest.mark.django_db
@@ -69,7 +72,10 @@ def test_reference_endpoints_reject_authenticated_user_without_role() -> None:
     response = client.get(reverse("senior:companies"))
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Usuário sem permissão para este escopo cadastral."}
+    assert response.json() == {
+        "code": "permission_denied",
+        "message": "Usuário sem permissão para este escopo cadastral.",
+    }
 
 
 @pytest.mark.django_db
@@ -173,7 +179,10 @@ def test_branch_endpoint_requires_company_before_repository(
     response = authenticated_client.get(reverse("senior:branches"))
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "O parâmetro company é obrigatório."}
+    assert response.json() == {
+        "code": "validation_error",
+        "message": "O parâmetro company é obrigatório.",
+    }
     repository.list_branches.assert_not_called()
 
 
@@ -216,7 +225,10 @@ def test_employee_type_endpoint_rejects_non_integer_parameter(
     )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "O parâmetro company deve ser um inteiro."}
+    assert response.json() == {
+        "code": "validation_error",
+        "message": "O parâmetro company deve ser um inteiro.",
+    }
     repository.list_employee_types.assert_not_called()
 
 
@@ -294,21 +306,24 @@ def test_employee_endpoint_omits_cpf_and_uses_all_filters(
 
 
 @pytest.mark.parametrize(
-    ("error", "status", "detail"),
+    ("error", "status", "code", "message"),
     [
         (
             SeniorQueryValidationError("limit inválido"),
             400,
+            "validation_error",
             "limit inválido",
         ),
         (
             SeniorUnavailableError("database detail"),
             503,
+            "senior_unavailable",
             "Senior HCM indisponível para consulta.",
         ),
         (
             SeniorContractError("column detail"),
             502,
+            "senior_contract_error",
             "Resposta inválida da fonte cadastral.",
         ),
     ],
@@ -318,7 +333,8 @@ def test_endpoint_translates_repository_errors(
     monkeypatch: pytest.MonkeyPatch,
     error: Exception,
     status: int,
-    detail: str,
+    code: str,
+    message: str,
 ) -> None:
     repository = Mock(spec=SeniorRepository)
     repository.list_companies.side_effect = error
@@ -327,4 +343,4 @@ def test_endpoint_translates_repository_errors(
     response = authenticated_client.get(reverse("senior:companies"))
 
     assert response.status_code == status
-    assert response.json() == {"detail": detail}
+    assert response.json() == {"code": code, "message": message}

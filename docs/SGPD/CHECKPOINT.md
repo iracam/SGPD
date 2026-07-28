@@ -198,14 +198,17 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 
 ### Fase B — API de autenticação e contexto
 
-- [ ] Envelope de erro `{code, message, details}` e handler único do DRF.
-- [ ] `GET /api/v1/auth/csrf/`.
-- [ ] `POST /api/v1/auth/login/` com auditoria e limitação de tentativas.
-- [ ] `POST /api/v1/auth/logout/` com auditoria.
-- [ ] `GET /api/v1/auth/me/` com `must_change_password`.
-- [ ] `GET /api/v1/auth/context/` com papéis, permissões e escopos.
-- [ ] `POST /api/v1/auth/change-password/`.
-- [ ] Middleware devolvendo `403` tipado sob `/api/`.
+- [x] Envelope de erro `{code, message, details}` e handler único do DRF.
+  - Endpoints cadastrais do Senior alinhados ao mesmo envelope.
+  - Ausência de sessão passa a responder `401`, e não o `403` do DRF.
+- [x] `GET /api/v1/auth/csrf/`.
+- [x] `POST /api/v1/auth/login/` com auditoria e limitação de tentativas.
+  - CSRF validado explicitamente, pois o DRF não o exige em `POST` anônimo.
+- [x] `POST /api/v1/auth/logout/` com auditoria.
+- [x] `GET /api/v1/auth/me/` com `must_change_password`.
+- [x] `GET /api/v1/auth/context/` com papéis, permissões e escopos.
+- [x] `POST /api/v1/auth/change-password/`.
+- [x] Middleware devolvendo `403` tipado sob `/api/`.
 
 ### Fase C — API de contas
 
@@ -629,4 +632,20 @@ Próximo passo: executar a Fase B, criando o envelope de erro, a API de autentic
 Comandos executados: inspeção da árvore e do histórico Git; leitura integral da documentação em docs/SGPD, AGENTS.md, README.md e PROMPT.md; leitura de apps/accounts, apps/integrations/senior, config e templates; inspeção do projeto de referência prdcana/frontend; verificação de Node, npm e Docker; validação SHA-256 do manifesto.
 Arquivos alterados: AGENTS.md, PROMPT.md, README.md, docs/SGPD/MIGRATION_FRONTEND_SPA.md, docs/SGPD/DECISIONS.md, docs/SGPD/ARCHITECTURE.md, docs/SGPD/SECURITY.md, docs/SGPD/ENVIRONMENT.md, docs/SGPD/ROADMAP.md, docs/SGPD/RISK_REGISTER.md, docs/SGPD/INTEGRATION_SENIOR_ORACLE.md, docs/SGPD/CHECKPOINT.md e docs/SGPD/MANIFEST.json.
 Testes: nenhum código foi alterado, portanto a suíte não foi reexecutada nesta fase; manifesto revalidado por SHA-256 com todos os arquivos íntegros; consistência cruzada da documentação verificada, sem referência remanescente a HTMX, Alpine, Tailwind ou daisyUI como stack vigente.
+```
+
+### 2026-07-28 — API de autenticação e contexto de autorização
+
+```text
+Data: 2026-07-28
+Responsável: Claude
+Fase: Fase 2.5 — Migração da interface / Fase B
+O que foi concluído: envelope de erro único da API com handler do DRF; seis endpoints em /api/v1/auth/ para cookie CSRF, login, logout, usuário atual, contexto de autorização e troca da própria senha; limitação de tentativas de login; adaptação do PasswordChangeRequiredMiddleware para respostas de API; alinhamento dos endpoints cadastrais do Senior ao mesmo envelope; extração de active_assignments como definição única de atribuição válida.
+Decisões: responder 401 quando não há sessão, em vez do 403 que o DRF produz por SessionAuthentication não publicar WWW-Authenticate, para que a SPA possa rotear ao login em vez de exibir erro; validar CSRF explicitamente no login, pois o DRF só o exige quando já existe sessão e o POST anônimo ficaria exposto a login CSRF; migrar os endpoints do Senior de {detail} para {code, message, details}, evitando dois formatos de erro na mesma API; não distinguir usuário inexistente, senha incorreta e conta inativa, retornando invalid_credentials em todos os casos; bloquear sob /api/ tudo exceto csrf, me, logout e change-password enquanto houver senha temporária pendente; manter as views HTML e seus testes intactos, pois a remoção pertence à Fase G.
+Riscos: R39 mitigado com teste dedicado, mas o conjunto de rotas liberadas durante a senha temporária precisa ser revisto sempre que a API crescer. A limitação de tentativas usa o cache local do processo, adequado ao DEV e insuficiente caso surjam múltiplos processos. R38 permanece aberto até a Fase C, que expõe a administração de contas.
+Pendências: Fase C, com usuários, papéis, atribuições, vínculo AD, permissões e auditoria. As mensagens dos validadores de senha chegam como erro não vinculado a campo, e não em new_password, porque o service invoca validate_password diretamente; aceitável para o formulário, revisar se a UX exigir.
+Próximo passo: executar a Fase C, expondo os services administrativos como endpoints com teste de permissão negada em cada um.
+Comandos executados: uv run pytest; uv run ruff check --fix; uv run ruff format; uv run mypy apps config tests manage.py; uv run manage.py check; uv run manage.py makemigrations --check --dry-run; conferência das rotas registradas; smoke somente leitura contra o Oracle DEV com o ciclo csrf, me anônimo, me autenticado, contexto, empresas e erros 400 e 405.
+Arquivos alterados: config/api.py, config/urls.py, config/settings/base.py, apps/accounts/api.py, apps/accounts/api_urls.py, apps/accounts/serializers.py, apps/accounts/authorization.py, apps/accounts/middleware.py, apps/integrations/senior/api.py, tests/test_auth_api.py, tests/test_senior_api.py, .env.example e documentação em docs/SGPD.
+Testes: 85 testes passaram, sendo 21 novos da API de autenticação, cobrindo 401 anônimo, login auditado, credenciais inválidas auditadas, ausência de CSRF, conta inativa, throttling, campos obrigatórios, logout auditado com encerramento de sessão, troca de senha com preservação da sessão, senha atual incorreta, confirmação divergente, senha fraca sem alteração, bloqueio por senha temporária, contexto sem papéis, contexto com escopo de empresa, contexto de superusuário, desaparecimento de atribuição revogada e método não permitido; ruff, format, mypy estrito, Django check e migrations sem divergência; smoke Oracle DEV retornou 7 empresas e contexto com o papel real ADMIN_IDENTIDADE; nenhum DDL ou DML executado.
 ```

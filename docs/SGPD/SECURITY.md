@@ -37,9 +37,14 @@ ADR-026:
 - `localStorage` guarda apenas preferências de interface, como tema e estado da
   navegação, e nunca dados de sessão ou identidade;
 - requisições com efeito colateral enviam `X-CSRFToken`;
+- o endpoint de login valida CSRF explicitamente: o DRF só o exige quando já
+  existe sessão, de modo que um `POST` anônimo ficaria exposto a login CSRF;
 - a revogação de sessão permanece sob controle do servidor;
-- o endpoint de login tem limitação de tentativas, complementando o registro de
-  falha já auditado;
+- o endpoint de login tem limitação de tentativas por origem anônima,
+  configurável por `LOGIN_THROTTLE_RATE`, complementando o registro de falha já
+  auditado;
+- a resposta de login não distingue usuário inexistente, senha incorreta e conta
+  inativa: todas retornam `invalid_credentials`;
 - a obrigatoriedade de troca da senha temporária é preservada na API: o
   middleware devolve `403` com código próprio em vez de redirecionar, e a SPA
   conduz o usuário à tela de troca.

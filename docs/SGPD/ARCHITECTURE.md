@@ -281,7 +281,28 @@ resultado. Nenhum implementa regra de negócio.
 
 Toda resposta de erro da API usa o envelope `{code, message, details}`. O
 `ValidationError` levantado pelos services é traduzido em `400` com erros por
-campo, por um handler único do DRF.
+campo, por um handler único do DRF. Os endpoints cadastrais do Senior, criados
+na Fase 2 com `{detail}`, foram alinhados ao mesmo envelope.
+
+Códigos em uso:
+
+| Código | HTTP | Situação |
+| --- | --- | --- |
+| `validation_error` | 400 | entrada inválida, com `details` por campo |
+| `not_authenticated` | 401 | sem sessão |
+| `invalid_credentials` | 401 | usuário ou senha incorretos, ou conta inativa |
+| `permission_denied` | 403 | autenticado, fora do escopo ou sem permissão |
+| `password_change_required` | 403 | senha temporária pendente de troca |
+| `not_found` | 404 | recurso inexistente |
+| `method_not_allowed` | 405 | verbo não suportado |
+| `throttled` | 429 | excesso de tentativas de login |
+| `senior_unavailable` | 503 | Senior HCM indisponível |
+| `senior_contract_error` | 502 | resposta inválida da fonte cadastral |
+
+Requisição sem sessão recebe `401`, e não o `403` que o DRF produziria por
+`SessionAuthentication` não publicar cabeçalho `WWW-Authenticate`. A distinção
+permite à SPA rotear para o login em vez de exibir erro, e separa "autentique-se"
+de "você não pode".
 
 Endpoints de domínio planejados:
 
