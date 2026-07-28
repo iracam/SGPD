@@ -1,0 +1,14 @@
+// Pontos de quebra do SGPD, declarados uma única vez (ADR-028).
+// A regra base é sempre a do menor viewport; use `from()` para ampliá-la.
+// Nenhum `max-width` é aceito no SCSS da aplicação.
+
+$sm: 480px; // telefone em paisagem
+$md: 768px; // tablet
+$lg: 1024px; // desktop; promove a navegação a barra lateral fixa
+$xl: 1440px; // desktop amplo
+
+@mixin from($breakpoint) {
+  @media (min-width: $breakpoint) {
+    @content;
+  }
+}

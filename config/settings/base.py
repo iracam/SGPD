@@ -117,6 +117,15 @@ STORAGES = {
 WHITENOISE_AUTOREFRESH = env_bool("WHITENOISE_AUTOREFRESH", DEBUG)
 WHITENOISE_USE_FINDERS = env_bool("WHITENOISE_USE_FINDERS", DEBUG)
 
+# Artefatos do `ng build`. Os assets já carregam hash próprio do Angular e são
+# servidos na raiz pelo WhiteNoise; o index.html é servido por uma view Django,
+# porque o storage com manifesto renomearia o arquivo e quebraria a rota "/".
+FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist" / "frontend" / "browser"
+FRONTEND_INDEX = FRONTEND_DIST_DIR / "index.html"
+if FRONTEND_DIST_DIR.is_dir():
+    WHITENOISE_ROOT = FRONTEND_DIST_DIR
+WHITENOISE_INDEX_FILE = False
+
 EVIDENCE_STORAGE_PATH = Path(
     os.getenv("EVIDENCE_STORAGE_PATH", str(BASE_DIR / "media" / "evidence"))
 )

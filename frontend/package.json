@@ -1,0 +1,50 @@
+{
+  "name": "sgpd-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve --proxy-config proxy.conf.json --poll 1000",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
+    ]
+  },
+  "dependencies": {
+    "@angular/animations": "^22.0.8",
+    "@angular/cdk": "^22.0.6",
+    "@angular/common": "^22.0.8",
+    "@angular/compiler": "^22.0.8",
+    "@angular/core": "^22.0.8",
+    "@angular/forms": "^22.0.8",
+    "@angular/platform-browser": "^22.0.8",
+    "@angular/router": "^22.0.8",
+    "@fontsource-variable/dm-sans": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource/kanit": "^5.2.8",
+    "@primeuix/themes": "^3.0.0",
+    "primeicons": "^8.0.0",
+    "primeng": "^22.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.0.8",
+    "@angular/cli": "^22.0.8",
+    "@angular/compiler-cli": "^22.0.8",
+    "jsdom": "^27.1.0",
+    "typescript": ">=6.0.0 <6.1.0",
+    "vitest": "^4.0.8"
+  }
+}

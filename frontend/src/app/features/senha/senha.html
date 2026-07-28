@@ -1,0 +1,66 @@
+<h1 class="page-title">Minha senha</h1>
+
+@if (mustChange()) {
+  <p-message severity="warn" styleClass="senha__aviso">
+    Sua senha é temporária. Troque-a para liberar o restante do sistema.
+  </p-message>
+} @else {
+  <p class="page-lead">Altere a senha da sua conta local do SGPD.</p>
+}
+
+<form class="senha__form" [formGroup]="form" (ngSubmit)="submit()">
+  @if (errorMessage()) {
+    <p-message severity="error">{{ errorMessage() }}</p-message>
+  }
+
+  <div class="field">
+    <label for="old_password">Senha atual</label>
+    <p-password
+      inputId="old_password"
+      formControlName="old_password"
+      [feedback]="false"
+      [toggleMask]="true"
+      autocomplete="current-password"
+      styleClass="field__password"
+    ></p-password>
+    @for (message of errorsFor('old_password'); track message) {
+      <small class="field__error">{{ message }}</small>
+    }
+  </div>
+
+  <div class="field">
+    <label for="new_password">Nova senha</label>
+    <p-password
+      inputId="new_password"
+      formControlName="new_password"
+      [toggleMask]="true"
+      autocomplete="new-password"
+      styleClass="field__password"
+    ></p-password>
+    @for (message of errorsFor('new_password'); track message) {
+      <small class="field__error">{{ message }}</small>
+    }
+  </div>
+
+  <div class="field">
+    <label for="new_password_confirm">Confirme a nova senha</label>
+    <p-password
+      inputId="new_password_confirm"
+      formControlName="new_password_confirm"
+      [feedback]="false"
+      [toggleMask]="true"
+      autocomplete="new-password"
+      styleClass="field__password"
+    ></p-password>
+    @for (message of errorsFor('new_password_confirm'); track message) {
+      <small class="field__error">{{ message }}</small>
+    }
+  </div>
+
+  <p-button
+    type="submit"
+    label="Alterar senha"
+    icon="pi pi-check"
+    [loading]="isSubmitting()"
+  ></p-button>
+</form>

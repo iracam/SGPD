@@ -436,7 +436,7 @@ Aceita em 2026-07-28. Substitui a ADR-002.
 ### Decisão
 
 Substituir a interface Django Templates + HTMX + Alpine.js por uma SPA em
-Angular 21, consumindo o Django exclusivamente como API.
+Angular 22, consumindo o Django exclusivamente como API.
 
 A substituição é total: administração de contas e cascata cadastral do Senior.
 O Django Admin permanece, somente leitura, como ferramenta de diagnóstico,
@@ -529,7 +529,7 @@ mesma origem. Não usar JWT.
 
 ### Decisão
 
-Usar PrimeNG 21 com o preset Aura e primeicons como biblioteca de componentes.
+Usar PrimeNG 22 com o preset Aura e primeicons como biblioteca de componentes.
 
 Entregar a SPA pelo próprio Django: `ng build` gera os artefatos, os assets são
 servidos pelo WhiteNoise e o `index.html` é servido por uma view Django
@@ -555,6 +555,15 @@ dedicada, registrada como catch-all depois de `/api/`, `/admin/`, `/health/` e
 - nenhum código é carregado de CDN, mantendo a restrição já estabelecida pela
   ADR-002;
 - fontes e ícones são empacotados localmente.
+
+### Nota de compatibilidade
+
+O PrimeNG altera contratos de componente entre versões maiores. Na adoção da
+versão 22, observou-se que `p-message` deixou de aceitar a entrada `text`, agora
+por projeção de conteúdo, e que a diretiva `pButton` deixou de aceitar `label` e
+`icon`, que permanecem apenas no componente `p-button`. Uma atualização de
+versão maior exige, portanto, revisão de template além de revisão de
+dependência.
 
 ## ADR-028 — Mobile first como requisito de interface
 

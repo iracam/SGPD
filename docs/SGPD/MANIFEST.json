@@ -4,18 +4,18 @@
   "files": [
     {
       "file": "AGENTS.md",
-      "sha256": "015bf6161b81c70a1d9a3847046b372b22f590522649dbe762c967df7771a94b",
+      "sha256": "cb457b77ab5156268e73581d1f0e0e972e6ce02790db3ac6591a093032447eb3",
       "bytes": 8114
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "6848e93fd109b5073be8c02d8e45a87082c3dcfb3fc87dacc0cf6db47ba2382b",
+      "sha256": "808c7fa5ab680403af33eb21918b16cf9e39524ef553ec11ca28bdbb2f4f6123",
       "bytes": 13740
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "f30342988eac3f587c2f9db72528407b724b40635ebfb047b849a059024a16db",
-      "bytes": 50268
+      "sha256": "a5c5b8bced15c32b1cf05997dec6071889a36028f72018a92363e175185ab0c0",
+      "bytes": 54575
     },
     {
       "file": "DATA_MODEL.md",
@@ -24,13 +24,13 @@
     },
     {
       "file": "DECISIONS.md",
-      "sha256": "387a299be324790a2cd49b4e43414ca59de78de1400912f0d6500b85a50315df",
-      "bytes": 20109
+      "sha256": "e39c3415d1cf4c61b97cd6a7dbf8ea2b56adb75eac4e3a1e1b9490351ea29987",
+      "bytes": 20549
     },
     {
       "file": "ENVIRONMENT.md",
-      "sha256": "91553ac33c7ad5da58ff2365ec9dc7ef8f179daef5bb3f516801804f346fffc6",
-      "bytes": 7269
+      "sha256": "362c6fb056f4d966dd6b5330270cca973ff46b2c1f1b2c13e6f35f4ab372dc05",
+      "bytes": 7260
     },
     {
       "file": "GLOSSARY.md",
@@ -44,18 +44,18 @@
     },
     {
       "file": "MIGRATION_FRONTEND_SPA.md",
-      "sha256": "f814eba6243d336ab07ff91a4297f82d858f483d988996625f528f2032d0549e",
-      "bytes": 20691
+      "sha256": "78fd7c0611e7fbf95012ce3fa62124f37fb85e60cd3731f7676aa6723f0c868f",
+      "bytes": 20738
     },
     {
       "file": "PROMPT.md",
-      "sha256": "0219765d3034126a07ff460fec2b3fe1b58fd7d41da2852a0a6dcff784352c08",
+      "sha256": "d766505b716142e0ec0b50abd93a261c53b67232bd1fe9b0ddad5df6df3f8905",
       "bytes": 6998
     },
     {
       "file": "README.md",
-      "sha256": "13785155bbac725bdf78dd259b9a7692542e2b6afb9fd06afb552d3ccd64371e",
-      "bytes": 7844
+      "sha256": "3fb06961e46def7d6a1ddbf4eb6ce8bed972bb71657c82f346572748fe74a445",
+      "bytes": 8484
     },
     {
       "file": "REQUIREMENTS.md",

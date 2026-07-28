@@ -1,0 +1,52 @@
+@let user = authService.currentUser();
+@let context = authService.currentContext();
+
+<h1 class="page-title">Painel</h1>
+<p class="page-lead">
+  Bem-vindo, {{ user?.display_name }}. Os módulos do processo demissional entram
+  aqui conforme cada fase avança.
+</p>
+
+<section class="cards">
+  <article class="card">
+    <span class="card__eyebrow">Sessão</span>
+    <strong>{{ user?.username }}</strong>
+    <small>{{ user?.email }}</small>
+  </article>
+
+  <article class="card">
+    <span class="card__eyebrow">Papéis</span>
+    @if (context && context.roles.length) {
+      <ul class="card__list">
+        @for (role of context.roles; track role) {
+          <li>{{ role }}</li>
+        }
+      </ul>
+    } @else {
+      <small>Nenhum papel atribuído.</small>
+    }
+  </article>
+
+  <article class="card">
+    <span class="card__eyebrow">Escopos</span>
+    @if (context?.scopes?.is_superuser) {
+      <small>Acesso global de contingência.</small>
+    } @else if (context && context.scopes.assignments.length) {
+      <ul class="card__list">
+        @for (scope of context.scopes.assignments; track scope.role + scope.scope_type) {
+          <li>
+            {{ scope.role }} — {{ scope.scope_type }}
+            @if (scope.company_code) {
+              · empresa {{ scope.company_code }}
+            }
+            @if (scope.branch_code) {
+              · filial {{ scope.branch_code }}
+            }
+          </li>
+        }
+      </ul>
+    } @else {
+      <small>Nenhum escopo ativo.</small>
+    }
+  </article>
+</section>

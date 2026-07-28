@@ -1,0 +1,105 @@
+<div
+  class="workspace"
+  [ngClass]="{ 'workspace--collapsed': layoutService.navCollapsed() }"
+>
+  <header class="topbar">
+    <p-button
+      type="button"
+      styleClass="topbar__menu"
+      severity="secondary"
+      [text]="true"
+      [rounded]="true"
+      [icon]="mobileNavOpen() ? 'pi pi-times' : 'pi pi-bars'"
+      [ariaLabel]="mobileNavOpen() ? 'Fechar navegação' : 'Abrir navegação'"
+      (onClick)="toggleMobileNav()"
+    ></p-button>
+
+    <a class="brand" routerLink="/fe/painel" (click)="closeMobileNav()">
+      <span class="brand__mark" aria-hidden="true">DF</span>
+      <span class="brand__name">SGPD <span class="brand__alias">DesligaFlow</span></span>
+    </a>
+
+    <p-button
+      type="button"
+      styleClass="topbar__collapse"
+      severity="secondary"
+      [text]="true"
+      [rounded]="true"
+      [icon]="layoutService.navCollapsed() ? 'pi pi-angle-right' : 'pi pi-angle-left'"
+      [ariaLabel]="layoutService.navCollapsed() ? 'Expandir navegação' : 'Recolher navegação'"
+      (onClick)="toggleNav()"
+    ></p-button>
+  </header>
+
+  @if (mobileNavOpen()) {
+    <button
+      type="button"
+      class="scrim"
+      aria-label="Fechar navegação"
+      (click)="closeMobileNav()"
+    ></button>
+  }
+
+  <nav
+    id="navegacao-principal"
+    class="sidebar"
+    [ngClass]="{ 'sidebar--open': mobileNavOpen() }"
+  >
+    <ul class="nav">
+      @for (item of visibleNavItems(); track item.route) {
+        <li>
+          <a
+            class="nav__link"
+            [routerLink]="item.route"
+            routerLinkActive="nav__link--active"
+            [attr.title]="item.description"
+            (click)="closeMobileNav()"
+          >
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <span class="nav__label">{{ item.label }}</span>
+          </a>
+        </li>
+      }
+    </ul>
+
+    <div class="session">
+      <div class="session__user">
+        <span class="session__eyebrow">Sessão ativa</span>
+        <strong>{{ authService.currentUser()?.display_name }}</strong>
+        <small>{{ authService.currentUser()?.email }}</small>
+      </div>
+
+      <div class="session__actions">
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-key"
+          label="Minha senha"
+          (onClick)="openPasswordPage()"
+        ></p-button>
+
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [icon]="themeService.theme() === 'dark' ? 'pi pi-sun' : 'pi pi-moon'"
+          [label]="themeService.theme() === 'dark' ? 'Tema claro' : 'Tema escuro'"
+          (onClick)="toggleTheme()"
+        ></p-button>
+
+        <p-button
+          type="button"
+          severity="secondary"
+          icon="pi pi-sign-out"
+          label="Sair"
+          (onClick)="logout()"
+        ></p-button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <router-outlet></router-outlet>
+  </main>
+</div>

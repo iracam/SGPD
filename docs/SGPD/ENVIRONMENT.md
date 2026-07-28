@@ -23,7 +23,7 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | Django / DRF | Django 5.2.16 / DRF 3.17.1 | Instalados e bloqueados por `uv.lock` |
 | Node.js | 24.18.0 | Homologado para o build da SPA (ADR-025) |
 | npm | 11.16.0 | Homologado; instalação por `npm ci` com `package-lock.json` versionado |
-| Angular / PrimeNG | 21 / 21 | Decididos nas ADR-025 e ADR-027; instalação ocorre na Fase D |
+| Angular / PrimeNG | 22 / 22 | Decididos nas ADR-025 e ADR-027; instaladas na Fase D |
 | Docker Engine | 26.1.5, daemon ativo, driver `overlay2` | Disponível; nenhum container em execução |
 | Docker Compose | 2.26.1 | Disponível |
 | Oracle Database | 19c | Versão confirmada para o projeto |

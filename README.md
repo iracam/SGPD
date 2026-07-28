@@ -28,7 +28,7 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Python 3.13
 - Django 5.2 LTS
 - Django REST Framework 3.17
-- Angular 21 com PrimeNG 21, interface mobile first
+- Angular 22 com PrimeNG 22, interface mobile first
 - WhiteNoise para arquivos estáticos e para os assets da SPA
 - Oracle Database 19c
 - Celery ou Django-Q2 para tarefas assíncronas
@@ -55,9 +55,23 @@ de `.env.example`.
 
 ```bash
 uv sync --dev
+npm --prefix frontend ci
+npm --prefix frontend run build
 uv run manage.py check
 uv run manage.py runserver
 ```
+
+O Django serve a SPA construída: os assets saem pelo WhiteNoise na raiz e o
+`index.html` por uma view dedicada, em origem única com a API.
+
+Durante o desenvolvimento do frontend, com o Django rodando em `:8000`:
+
+```bash
+npm --prefix frontend start
+```
+
+`ng serve` sobe em `:4200` e encaminha `/api` e `/admin` ao Django pelo
+`proxy.conf.json`, preservando a origem única exigida pela ADR-026.
 
 Endpoints operacionais:
 
@@ -72,6 +86,8 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy apps config tests manage.py
 uv run manage.py makemigrations --check --dry-run --settings=config.settings.test
+npm --prefix frontend test
+npm --prefix frontend run build
 ```
 
 As migrations Oracle somente podem ser aplicadas após revisão do SQL. O
@@ -110,9 +126,8 @@ Consulta cadastral Senior:
 - Redis e worker serão introduzidos sob demanda;
 - aplicação e API permanecem na mesma origem, exigência da ADR-026.
 
-O diretório `frontend/` passa a existir na Fase D da migração. A partir dela, o
-ciclo local inclui `npm ci`, `ng build` para gerar os artefatos servidos pelo
-Django e `ng serve --proxy-config proxy.conf.json` durante o desenvolvimento.
+A SPA vive em `frontend/`. As versões exatas estão em
+`frontend/package-lock.json`; a instalação é sempre por `npm ci`.
 
 ## Estrutura da documentação (`./docs/SGPD/`)
 
@@ -174,8 +189,11 @@ auditoria rejeita mutação e exclusão em lote, e a desativação concorrente
 preserva ao menos um superusuário ativo. A configuração funcional da Fase 3
 ainda não foi iniciada.
 
-Na mesma data, a Fase A da migração de frontend foi concluída: as decisões
-foram registradas nas ADRs 025 a 028 e a documentação foi atualizada. Nenhum
-código foi alterado por essa fase.
+A migração da interface para SPA Angular avançou até a Fase D em 2026-07-28. As
+decisões estão nas ADRs 025 a 028, a API de autenticação, contexto e
+administração de contas está publicada em `/api/v1/`, e a SPA já autentica,
+aplica o tema, filtra o menu pelo contexto do servidor e é servida pelo próprio
+Django. As telas de contas, a cascata Senior e a remoção da interface
+server-side permanecem nas Fases E, F e G.
 
 Consulte `PROMPT.md` para o procedimento completo.

@@ -2,8 +2,8 @@
 
 ## 0. Estado deste documento
 
-Plano aprovado em 2026-07-28, antes de qualquer alteração de código. Nenhuma
-fase foi executada.
+Plano aprovado em 2026-07-28. Fases A, B, C e D concluídas; E, F e G pendentes.
+O andamento detalhado está no checkpoint 2.5 de `CHECKPOINT.md`.
 
 Este documento substitui a interface server-side homologada nas Fases 1 e 2 por
 uma SPA Angular. Ele não altera Oracle, migrations, quota, contrato SQL do
@@ -13,9 +13,9 @@ Senior, services de domínio nem autorização.
 
 | Tema | Decisão | ADR |
 | --- | --- | --- |
-| Interface | SPA Angular 21 substitui Django Templates + HTMX + Alpine | ADR-025 |
+| Interface | SPA Angular 22 substitui Django Templates + HTMX + Alpine | ADR-025 |
 | Autenticação | Sessão Django + CSRF em origem única; sem JWT e sem token no navegador | ADR-026 |
-| Biblioteca de UI | PrimeNG 21 com preset Aura e primeicons | ADR-027 |
+| Biblioteca de UI | PrimeNG 22 com preset Aura e primeicons | ADR-027 |
 | Entrega | `ng build` servido pelo Django/WhiteNoise; `ng serve` com proxy no desenvolvimento | ADR-027 |
 | Escopo | Substituição total: administração de contas e cascata Senior | ADR-025 |
 | Responsividade | Mobile first como requisito, não como adaptação | ADR-028 |
@@ -75,7 +75,7 @@ Angular.
 ```text
 Navegador
     |
-    +-- SPA Angular 21 (PrimeNG 21 + Aura)
+    +-- SPA Angular 22 (PrimeNG 22 + Aura)
             |
             |  mesma origem; cookie de sessão HttpOnly + cabeçalho X-CSRFToken
             v
@@ -168,7 +168,7 @@ Senior mantém sua paginação por `offset`/`limit` sem `COUNT(*)`, conforme
 
 `frontend/` na raiz do repositório, com `angular.json`, `tsconfig*.json`,
 `.editorconfig`, `proxy.conf.json` e `package.json` espelhados do projeto de
-referência. Angular 21 standalone, estado por signals, sem NgModules e sem
+referência. Angular 22 standalone, estado por signals, sem NgModules e sem
 biblioteca de gerência de estado.
 
 ```text

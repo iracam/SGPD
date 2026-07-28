@@ -1,0 +1,53 @@
+<main class="login">
+  <section class="login__card">
+    <header class="login__header">
+      <span class="login__mark" aria-hidden="true">DF</span>
+      <h1>SGPD</h1>
+      <p>Sistema de Gestão do Processo Demissional</p>
+    </header>
+
+    <form class="login__form" [formGroup]="form" (ngSubmit)="submit()">
+      @if (errorMessage()) {
+        <p-message severity="error">{{ errorMessage() }}</p-message>
+      }
+
+      <div class="field">
+        <label for="username">Usuário</label>
+        <input
+          pInputText
+          id="username"
+          formControlName="username"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+          [attr.aria-invalid]="form.controls.username.touched && form.controls.username.invalid"
+        />
+        @if (form.controls.username.touched && form.controls.username.invalid) {
+          <small class="field__error">Informe o usuário.</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="password">Senha</label>
+        <p-password
+          inputId="password"
+          formControlName="password"
+          [feedback]="false"
+          [toggleMask]="true"
+          autocomplete="current-password"
+          styleClass="field__password"
+        ></p-password>
+        @if (form.controls.password.touched && form.controls.password.invalid) {
+          <small class="field__error">Informe a senha.</small>
+        }
+      </div>
+
+      <p-button
+        type="submit"
+        label="Entrar"
+        icon="pi pi-sign-in"
+        [loading]="isSubmitting()"
+      ></p-button>
+    </form>
+  </section>
+</main>

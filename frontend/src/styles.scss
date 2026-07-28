@@ -1,0 +1,191 @@
+@use 'breakpoints' as bp;
+
+/*
+ * Identidade do SGPD sobre a arquitetura de tokens do PrimeNG.
+ *
+ * Grafite e verdigris porque o domínio é verificação e liberação: o acento é a
+ * cor do item conferido, reaproveitada nos estados do processo demissional.
+ */
+
+:root {
+  color-scheme: light;
+
+  --font-display: 'Kanit', sans-serif;
+  --font-body: 'DM Sans Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', monospace;
+
+  /* Marca */
+  --sgpd-shell-bg: #232733;
+  --sgpd-shell-border: rgba(223, 232, 236, 0.14);
+  --sgpd-shell-panel: rgba(255, 255, 255, 0.05);
+  --sgpd-shell-panel-strong: rgba(255, 255, 255, 0.09);
+  --sgpd-shell-text: #f2f6f7;
+  --sgpd-accent: #4fb3a5;
+  --sgpd-accent-contrast: #10231f;
+  --sgpd-title-color: #1e3b3d;
+  --sgpd-page-bg: #eef1f4;
+
+  /* Estados do processo demissional, usados a partir da Fase 4 */
+  --status-pending-bg: rgba(207, 152, 78, 0.14);
+  --status-pending-color: #8a5312;
+  --status-review-bg: rgba(94, 143, 207, 0.14);
+  --status-review-color: #2f5c93;
+  --status-blocked-bg: rgba(199, 87, 87, 0.14);
+  --status-blocked-color: #8f2f2f;
+  --status-released-bg: rgba(79, 179, 165, 0.16);
+  --status-released-color: #21706a;
+  --status-canceled-bg: rgba(120, 134, 140, 0.14);
+  --status-canceled-color: #4d5a60;
+
+  /* PrimeNG */
+  --p-primary-color: var(--sgpd-accent);
+  --p-primary-contrast-color: var(--sgpd-accent-contrast);
+  --p-primary-hover-color: #63c4b6;
+  --p-primary-active-color: #3d968a;
+  --p-highlight-background: #e6f2f0;
+  --p-highlight-color: #17403c;
+  --p-content-background: #ffffff;
+  --p-content-border-color: #d9e0e5;
+  --p-text-color: #1d2b30;
+  --p-text-muted-color: #6d7c83;
+  --p-surface-ground: var(--sgpd-page-bg);
+  --p-focus-ring-color: rgba(79, 179, 165, 0.5);
+  --p-focus-ring-shadow: 0 0 0 0.2rem rgba(79, 179, 165, 0.18);
+
+  --p-form-field-background: #ffffff;
+  --p-form-field-disabled-background: #eef1f4;
+  --p-form-field-filled-background: #ffffff;
+  --p-form-field-filled-hover-background: #ffffff;
+  --p-form-field-filled-focus-background: #ffffff;
+  --p-form-field-border-color: #bcc7cd;
+  --p-form-field-hover-border-color: #7d919a;
+  --p-form-field-focus-border-color: var(--sgpd-accent);
+  --p-form-field-color: #1d2b30;
+  --p-form-field-placeholder-color: #7f9098;
+  --p-form-field-shadow: none;
+
+  /* Alvo mínimo de toque no estado base (ADR-028). */
+  --touch-target: 2.75rem;
+}
+
+.app-dark {
+  color-scheme: dark;
+
+  --sgpd-title-color: #9edcd3;
+  --sgpd-page-bg: #12161c;
+
+  --status-pending-color: #e0a869;
+  --status-review-color: #8db6e4;
+  --status-blocked-color: #e08d8d;
+  --status-released-color: #74cfc3;
+  --status-canceled-color: #9aa8ae;
+
+  --p-highlight-background: #26403e;
+  --p-highlight-color: #eaf6f4;
+  --p-content-background: #1a1f27;
+  --p-content-border-color: #2f3844;
+  --p-text-color: #e7eef1;
+  --p-text-muted-color: #9aa8b0;
+  --p-surface-ground: var(--sgpd-page-bg);
+
+  --p-form-field-background: #171c23;
+  --p-form-field-disabled-background: #1f252e;
+  --p-form-field-filled-background: #171c23;
+  --p-form-field-filled-hover-background: #171c23;
+  --p-form-field-filled-focus-background: #171c23;
+  --p-form-field-border-color: #3d4855;
+  --p-form-field-hover-border-color: #677a86;
+  --p-form-field-focus-border-color: var(--sgpd-accent);
+  --p-form-field-color: #e7eef1;
+  --p-form-field-placeholder-color: #93a3ab;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  // 16px no estado base: abaixo disso o Safari no iOS aplica zoom ao focar um
+  // campo e desloca o layout. A densidade do desktop volta a partir de `lg`.
+  font-size: 16px;
+
+  @include bp.from(bp.$lg) {
+    font-size: 14px;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--sgpd-page-bg);
+  color: var(--p-text-color);
+  font-family: var(--font-body);
+  // Nenhuma tela pode gerar rolagem horizontal no body (ADR-028).
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  color: var(--sgpd-title-color);
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sgpd-accent);
+  outline-offset: 2px;
+}
+
+button,
+a,
+[role='button'] {
+  min-height: var(--touch-target);
+}
+
+.p-button {
+  min-height: var(--touch-target);
+}
+
+.p-inputtext,
+.p-select,
+.p-password input {
+  min-height: var(--touch-target);
+  // Campos abaixo de 16px disparam o zoom automático do iOS.
+  font-size: 1rem;
+
+  @include bp.from(bp.$lg) {
+    font-size: 0.9rem;
+  }
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.35rem;
+
+  @include bp.from(bp.$md) {
+    font-size: 1.6rem;
+  }
+}
+
+.page-lead {
+  margin: 0.35rem 0 0;
+  color: var(--p-text-muted-color);
+  max-width: 60ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
