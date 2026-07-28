@@ -74,13 +74,23 @@
     font-size: 0.9rem;
   }
 
-  input,
-  :host ::ng-deep .field__password,
-  :host ::ng-deep .field__password input {
+  input {
     width: 100%;
   }
 }
 
-.field__error {
-  color: var(--status-blocked-color);
+// O host <p-password> já é flex por conta do PrimeNG, mas não ocupa a largura
+// do campo e o input não estica, deixando a senha visivelmente mais estreita
+// que os demais campos. `styleClass` não chega ao host, então miramos a tag.
+:host ::ng-deep p-password {
+  width: 100%;
+
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+:host ::ng-deep .login__form .p-button {
+  width: 100%;
 }

@@ -28,7 +28,7 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Python 3.13
 - Django 5.2 LTS
 - Django REST Framework 3.17
-- Angular 22 com PrimeNG 22, interface mobile first
+- Angular 21 com PrimeNG 21, interface mobile first
 - WhiteNoise para arquivos estáticos e para os assets da SPA
 - Oracle Database 19c
 - Celery ou Django-Q2 para tarefas assíncronas

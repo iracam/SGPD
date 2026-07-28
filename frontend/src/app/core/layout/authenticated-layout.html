@@ -5,7 +5,7 @@
   <header class="topbar">
     <p-button
       type="button"
-      styleClass="topbar__menu"
+      class="topbar__menu"
       severity="secondary"
       [text]="true"
       [rounded]="true"
@@ -21,7 +21,7 @@
 
     <p-button
       type="button"
-      styleClass="topbar__collapse"
+      class="topbar__collapse"
       severity="secondary"
       [text]="true"
       [rounded]="true"
@@ -91,6 +91,7 @@
         <p-button
           type="button"
           severity="secondary"
+          [outlined]="true"
           icon="pi pi-sign-out"
           label="Sair"
           (onClick)="logout()"

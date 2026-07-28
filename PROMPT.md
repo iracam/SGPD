@@ -240,7 +240,7 @@ Toda liberação deve gerar auditoria.
 ## Arquitetura preferida
 
 ```text
-SPA Angular 22 + PrimeNG 22, mobile first
+SPA Angular 21 + PrimeNG 21, mobile first
 Django Services
 Django REST Framework como única superfície funcional
 Oracle

@@ -6,7 +6,7 @@
 Usuário DEV
     |
     v
-SPA Angular 22 + PrimeNG (mobile first)
+SPA Angular 21 + PrimeNG (mobile first)
     |
     |  mesma origem; sessão Django com CSRF
     v
@@ -49,9 +49,9 @@ WhiteNoise não será usado para servir evidências ou outros uploads de usuári
 
 ### Frontend
 
-- Angular 22, standalone, sem NgModules;
+- Angular 21, standalone, sem NgModules;
 - estado por signals, sem biblioteca de gerência de estado;
-- PrimeNG 22 com preset Aura e primeicons;
+- PrimeNG 21 com preset Aura e primeicons;
 - SCSS mobile first, com pontos de quebra centralizados em tokens;
 - roteamento em dois níveis, com carregamento sob demanda por rota;
 - Vitest para testes.

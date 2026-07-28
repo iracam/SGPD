@@ -152,6 +152,10 @@ a,
   min-height: var(--touch-target);
 }
 
+// `input.p-inputtext` em vez de `.p-inputtext`: os estilos do Aura são
+// injetados em runtime, depois desta folha, e venceriam no empate de
+// especificidade — deixando o campo em 14px e disparando o zoom do iOS.
+input.p-inputtext,
 .p-inputtext,
 .p-select,
 .p-password input {

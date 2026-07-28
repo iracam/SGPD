@@ -436,7 +436,7 @@ Aceita em 2026-07-28. Substitui a ADR-002.
 ### Decisão
 
 Substituir a interface Django Templates + HTMX + Alpine.js por uma SPA em
-Angular 22, consumindo o Django exclusivamente como API.
+Angular 21, consumindo o Django exclusivamente como API.
 
 A substituição é total: administração de contas e cascata cadastral do Senior.
 O Django Admin permanece, somente leitura, como ferramenta de diagnóstico,
@@ -529,7 +529,7 @@ mesma origem. Não usar JWT.
 
 ### Decisão
 
-Usar PrimeNG 22 com o preset Aura e primeicons como biblioteca de componentes.
+Usar PrimeNG 21 com o preset Aura e primeicons como biblioteca de componentes.
 
 Entregar a SPA pelo próprio Django: `ng build` gera os artefatos, os assets são
 servidos pelo WhiteNoise e o `index.html` é servido por uma view Django
@@ -556,14 +556,37 @@ dedicada, registrada como catch-all depois de `/api/`, `/admin/`, `/health/` e
   ADR-002;
 - fontes e ícones são empacotados localmente.
 
-### Nota de compatibilidade
+### Versão fixada em 21 por licenciamento
 
-O PrimeNG altera contratos de componente entre versões maiores. Na adoção da
-versão 22, observou-se que `p-message` deixou de aceitar a entrada `text`, agora
-por projeção de conteúdo, e que a diretiva `pButton` deixou de aceitar `label` e
-`icon`, que permanecem apenas no componente `p-button`. Uma atualização de
-versão maior exige, portanto, revisão de template além de revisão de
-dependência.
+A versão 21 é a última publicada sob a licença MIT. A partir da 22, a PrimeTek
+reclassificou o pacote como parte do PrimeUI, uma família comercial, e passou a
+exigir chave de licença mesmo no nível Community, que continua gratuito para
+organizações elegíveis. Sem chave válida, a biblioteca injeta um aviso
+permanente em todas as telas.
+
+A verificação foi feita empiricamente em 2026-07-28: a 22.0.0 traz
+`primeng-license.mjs` no pacote, expõe `license?: string` na configuração e
+exibiu o aviso em todas as capturas; a 21.1.9 não possui módulo de licença, não
+expõe a opção e declara `The MIT License (MIT)` no `LICENSE.md`.
+
+Decisão: permanecer na 21 sob MIT. O SGPD não fica dependente de cadastro,
+emissão e renovação anual de chave para que a interface opere sem aviso.
+
+### Consequências da fixação
+
+- o Angular também fica fixado na 21, porque a `primeng@21` exige
+  `@angular/core ^21.0.7`;
+- atualizar o PrimeNG para 22 ou superior deixa de ser decisão técnica e passa a
+  exigir decisão de licenciamento, com nova ADR;
+- o par 21/21 é o mesmo em operação no projeto corporativo de referência.
+
+### Nota de compatibilidade entre versões maiores
+
+O PrimeNG altera contratos de componente entre versões maiores. Na passagem pela
+22 observou-se que `p-message` deixou de aceitar a entrada `text`, passando a
+projeção de conteúdo, e que a diretiva `pButton` deixou de aceitar `label` e
+`icon`, que permaneceram apenas no componente `p-button`. Qualquer atualização
+de versão maior exige revisão de template além de revisão de dependência.
 
 ## ADR-028 — Mobile first como requisito de interface
 

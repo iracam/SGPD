@@ -7,13 +7,15 @@
  */
 
 .workspace {
+  // Usado pela gaveta e pelo scrim para começarem abaixo da topbar.
+  --topbar-height: calc(3.75rem + env(safe-area-inset-top));
+
   display: grid;
   grid-template-rows: auto 1fr;
   min-height: 100dvh;
 
   @include bp.from(bp.$lg) {
-    grid-template-rows: 1fr;
-    grid-template-columns: 16rem 1fr;
+    grid-template-columns: 17rem 1fr;
   }
 }
 
@@ -102,7 +104,7 @@
 
 .scrim {
   position: fixed;
-  inset: 0;
+  inset: var(--topbar-height) 0 0 0;
   z-index: 20;
   border: 0;
   padding: 0;
@@ -117,7 +119,8 @@
   // Fora da tela por padrão; a gaveta entra quando `--open` é aplicado.
   position: fixed;
   z-index: 25;
-  top: 0;
+  // Abaixo da topbar: em `top: 0` o primeiro item do menu ficava encoberto.
+  top: var(--topbar-height);
   bottom: 0;
   left: 0;
   width: min(17rem, 85vw);
@@ -125,7 +128,6 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1rem 0.85rem;
-  padding-top: max(1rem, env(safe-area-inset-top));
   background: var(--sgpd-shell-bg);
   color: var(--sgpd-shell-text);
   border-right: 1px solid var(--sgpd-shell-border);
@@ -233,6 +235,26 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+
+  // O `secondary` do PrimeNG é calibrado para fundo claro e fica ilegível
+  // sobre o shell escuro; os botões da sessão herdam as cores da marca.
+  ::ng-deep .p-button {
+    width: 100%;
+    justify-content: flex-start;
+    background: transparent;
+    color: var(--sgpd-shell-text);
+    border-color: var(--sgpd-shell-border);
+
+    &:hover {
+      background: var(--sgpd-shell-panel);
+      color: var(--sgpd-shell-text);
+      border-color: var(--sgpd-accent);
+    }
+
+    .p-button-icon {
+      color: var(--sgpd-accent);
+    }
+  }
 }
 
 .workspace--collapsed .session__user {

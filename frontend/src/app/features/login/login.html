@@ -8,7 +8,7 @@
 
     <form class="login__form" [formGroup]="form" (ngSubmit)="submit()">
       @if (errorMessage()) {
-        <p-message severity="error">{{ errorMessage() }}</p-message>
+        <p-message severity="error" [text]="errorMessage()"></p-message>
       }
 
       <div class="field">
@@ -35,8 +35,7 @@
           [feedback]="false"
           [toggleMask]="true"
           autocomplete="current-password"
-          styleClass="field__password"
-        ></p-password>
+            ></p-password>
         @if (form.controls.password.touched && form.controls.password.invalid) {
           <small class="field__error">Informe a senha.</small>
         }

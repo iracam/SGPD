@@ -7,7 +7,7 @@
 - Estado: Decisões da migração de frontend registradas; nenhum código alterado por elas
 - Banco: Oracle
 - Backend: Django, evoluindo para API-only
-- UI: SPA Angular 22 + PrimeNG 22, mobile first, decidida nas ADR-025 a ADR-028; interface Django Templates + HTMX + Alpine ainda em operação até a Fase G
+- UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028; interface Django Templates + HTMX + Alpine ainda em operação até a Fase G
 - Integração principal: Senior HCM
 - Autenticação: local no MVP, por sessão Django com CSRF em origem única, com vinculação futura das contas SGPD ao Active Directory
 
@@ -225,7 +225,7 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 
 ### Fase D — Scaffold Angular, shell e autenticação
 
-- [x] `frontend/` com Angular 22, PrimeNG 22 e Aura.
+- [x] `frontend/` com Angular 21, PrimeNG 21 e Aura.
 - [x] Tokens do SGPD e pontos de quebra em `styles.scss`.
   - Grafite `#232733` e verdigris `#4fb3a5`; raiz 16 px no base e 14 px a
     partir de `lg`.
@@ -236,8 +236,10 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [x] Painel inicial com sessão, papéis e escopos.
 - [x] Integração do build com Django e WhiteNoise.
 - [x] Testes de frontend com Vitest.
-- [ ] Conferência visual em 360, 390, 768, 1024 e 1440 px.
-  - Pendente: exige navegador e não pôde ser executada nesta sessão.
+- [x] Conferência visual em 360, 390, 768, 1024 e 1440 px.
+  - Executada em Chromium 150 com sessão real, contra SQLite efêmero.
+  - 67 verificações automatizadas sem falha; seis defeitos corrigidos.
+- [x] PrimeNG fixado na 21, última versão MIT.
 
 ### Fase E — Telas de contas
 
@@ -633,7 +635,7 @@ Data: 2026-07-28
 Responsável: Claude
 Fase: Fase 2.5 — Migração da interface / Fase A
 O que foi concluído: revisão completa da documentação e do código existentes; decisão explícita de substituir a interface Django Templates + HTMX + Alpine por SPA Angular; ADR-025, ADR-026, ADR-027 e ADR-028 registradas; ADR-002 marcada como substituída; plano de sete fases versionado em MIGRATION_FRONTEND_SPA.md; AGENTS.md, README.md, ARCHITECTURE.md, SECURITY.md, ENVIRONMENT.md, ROADMAP.md, RISK_REGISTER.md, INTEGRATION_SENIOR_ORACLE.md, PROMPT.md, CHECKPOINT.md e MANIFEST.json atualizados.
-Decisões: adotar Angular 22 com PrimeNG 22 e preset Aura, espelhando a arquitetura do projeto corporativo de referência em /home/macari/dev/prdcana/frontend; autenticar por sessão Django com CSRF em origem única e não usar JWT, preservando a auditoria e a revogação de sessão já homologadas; servir a SPA pelo próprio Django com WhiteNoise, sem Nginx, mantendo a ADR-014; adotar mobile first como requisito, com uso exclusivo de min-width e proibição de max-width em código novo; substituir escopo total, contas e cascata Senior, preservando o Django Admin somente leitura; executar API primeiro e remoção por último, para que cada commit deixe o sistema utilizável.
+Decisões: adotar Angular 21 com PrimeNG 21 e preset Aura, espelhando a arquitetura do projeto corporativo de referência em /home/macari/dev/prdcana/frontend; autenticar por sessão Django com CSRF em origem única e não usar JWT, preservando a auditoria e a revogação de sessão já homologadas; servir a SPA pelo próprio Django com WhiteNoise, sem Nginx, mantendo a ADR-014; adotar mobile first como requisito, com uso exclusivo de min-width e proibição de max-width em código novo; substituir escopo total, contas e cascata Senior, preservando o Django Admin somente leitura; executar API primeiro e remoção por último, para que cada commit deixe o sistema utilizável.
 Riscos: R38 a R43 registrados, com destaque para a ampliação da superfície de API sem autorização, a perda da imposição de troca de senha temporária ao substituir o redirecionamento e o risco de reintroduzir CSS desktop first ao portar SCSS da referência. R34, sobre a manutenção do runtime HTMX, foi encerrado porque o HTMX sai da stack.
 Pendências: Fases B a G não iniciadas. A administração de contas continua sem API, o que a torna o item de maior esforço da migração. A interface server-side permanece em operação e não deve receber telas novas.
 Próximo passo: executar a Fase B, criando o envelope de erro, a API de autenticação e contexto e a adaptação do middleware de senha temporária para respostas de API.
@@ -668,7 +670,7 @@ O que foi concluído: onze rotas em /api/v1/accounts/ cobrindo usuários, redefi
 Decisões: manter os endpoints como casca fina sobre os services existentes, sem duplicar regra de negócio; declarar a permissão exigida no atributo required_permission da view e verificá-la por uma permission class do DRF, mantendo a revalidação do service como limite real de segurança; repetir no serializer a validação cruzada de escopo do papel, para devolver erro por campo, sem remover a validação do service e da constraint SGPD_CK_ROLE_SCOPE; usar payloads explícitos em vez de ModelSerializer, garantindo que hash de senha e campos internos nunca sejam projetados; exigir confirmação de senha na criação e na redefinição, em paridade com os formulários server-side; converter ObjectDoesNotExist em 404 no handler, evitando que um .get() de service vire 500 na nova superfície; separar as rotas em api_accounts_urls.py para preservar os nomes auth-api já em uso.
 Riscos: R38 mitigado, com teste de negação anônima e de negação por falta de permissão para os quinze pares de rota e método, além de teste de ausência de efeito colateral e de não escalonamento entre permissões. As views HTML permanecem ativas e continuam sendo caminho alternativo até a Fase G. A paginação sem COUNT não informa o total, o que a SPA precisará tratar na navegação.
 Pendências: Fase D, com o scaffold Angular, o shell e a autenticação. As telas de contas dependem apenas desta API.
-Próximo passo: executar a Fase D, criando frontend/ com Angular 22 e PrimeNG, os tokens do SGPD, o shell mobile first e a tela de login, e integrando o build ao Django.
+Próximo passo: executar a Fase D, criando frontend/ com Angular 21 e PrimeNG, os tokens do SGPD, o shell mobile first e a tela de login, e integrando o build ao Django.
 Comandos executados: uv run pytest; uv run ruff check --fix; uv run ruff format; uv run mypy apps config tests manage.py; uv run manage.py check; uv run manage.py makemigrations --check --dry-run; smoke somente leitura contra o Oracle DEV nas cinco listagens, no 404 e no acesso anônimo.
 Arquivos alterados: apps/accounts/api_accounts.py, apps/accounts/api_accounts_urls.py, apps/accounts/serializers.py, config/api.py, config/urls.py, tests/test_accounts_api.py e documentação em docs/SGPD.
 Testes: 143 testes passaram, sendo 58 novos da administração de contas; trinta deles são casos de negação parametrizados por rota e método; os demais cobrem criação auditada sem projeção de senha, confirmação divergente, justificativa obrigatória, e-mail duplicado, busca, teto de página, detalhe com atribuições, 404, versão desatualizada, incremento de versão, proteção do último superusuário ativo, redefinição de senha, criação de papel, rejeição de permissão não delegável, catálogo de permissões, atribuição com escopo de empresa, três escopos inconsistentes, revogação com trilha, atribuição a usuário inativo, vínculo e desvínculo AD auditados, identificador AD duplicado, leitura filtrada da auditoria e auditoria somente leitura; ruff, format, mypy estrito, Django check e migrations sem divergência; smoke Oracle DEV retornou 9 papéis, 5 permissões delegáveis e 11 eventos de auditoria; nenhum DDL ou DML executado além dos casos de teste em SQLite.
@@ -680,7 +682,7 @@ Testes: 143 testes passaram, sendo 58 novos da administração de contas; trinta
 Data: 2026-07-28
 Responsável: Claude
 Fase: Fase 2.5 — Migração da interface / Fase D
-O que foi concluído: diretório frontend/ com Angular 22, PrimeNG 22 e preset Aura; sistema de tokens do SGPD e pontos de quebra centralizados; core/auth com serviço por signals, guarda, interceptador e inicializador de sessão; core/config com todas as rotas da API tipadas; core/layout com shell mobile first; core/theme com alternância clara e escura persistida; telas de login, troca da própria senha e painel; integração do build com o Django, servindo os assets pelo WhiteNoise na raiz e o index.html por view dedicada com cookie CSRF; catch-all com exclusão dos prefixos do backend; testes de frontend com Vitest.
+O que foi concluído: diretório frontend/ com Angular 21, PrimeNG 21 e preset Aura; sistema de tokens do SGPD e pontos de quebra centralizados; core/auth com serviço por signals, guarda, interceptador e inicializador de sessão; core/config com todas as rotas da API tipadas; core/layout com shell mobile first; core/theme com alternância clara e escura persistida; telas de login, troca da própria senha e painel; integração do build com o Django, servindo os assets pelo WhiteNoise na raiz e o index.html por view dedicada com cookie CSRF; catch-all com exclusão dos prefixos do backend; testes de frontend com Vitest.
 Decisões: atualizar de Angular 21 e PrimeNG 21 para 22 por decisão explícita durante a execução; usar o suporte nativo de XSRF do HttpClient em vez de interceptador próprio, já que a origem é única e o cookie e o cabeçalho são os do Django; reduzir o interceptador ao que a sessão realmente exige, isto é, reagir a 401 e a password_change_required, sem refresh de token; resolver a senha temporária na própria guarda, que devolve UrlTree para a tela de troca conforme a URL de destino, evitando uma segunda guarda; servir o index.html por view Django e não pelo WhiteNoise, porque o storage com manifesto renomeia o arquivo e quebraria a rota raiz; usar WHITENOISE_ROOT para os assets, preservando a ADR-014; excluir api/, admin/, health/, static/, accounts/ e references/ do catch-all, para que rota inexistente de API devolva 404 em vez do HTML da SPA; reduzir os pesos de Kanit de seis para três, por peso de rede móvel.
 Riscos: a atualização para a versão maior 22 do PrimeNG exigiu alterar templates, pois p-message deixou de aceitar a entrada text e a diretiva pButton deixou de aceitar label e icon; a nota de compatibilidade foi registrada na ADR-027. A conferência visual nos cinco pontos de quebra não foi executada por exigir navegador, e permanece como pendência declarada da fase. A limitação de tentativas de login continua usando o cache local do processo.
 Pendências: conferência visual nos pontos de quebra; Fases E, F e G. As telas de contas e a cascata Senior dependem apenas de API já publicada.
@@ -688,4 +690,21 @@ Próximo passo: executar a Fase E, com as telas de usuários, papéis e auditori
 Comandos executados: npm install; npx ng build; npx ng test; uv run pytest; uv run ruff check --fix; uv run ruff format; uv run mypy apps config tests manage.py; smoke HTTP real com o servidor Django em 127.0.0.1:8123, cobrindo raiz, assets, rotas do cliente, prefixos de API, ciclo CSRF e login.
 Arquivos alterados: frontend/ completo, apps/core/views.py, config/settings/base.py, config/urls.py, tests/test_spa.py e documentação em docs/SGPD.
 Testes: 151 testes de backend passaram, sendo 8 novos do serviço da SPA, cobrindo shell na raiz com cookie CSRF, ausência de cache, três rotas do cliente, três rotas de API inexistentes devolvendo 404 em vez de HTML, health check não sombreado e ausência do bundle respondendo 503; 12 testes de frontend passaram em três arquivos, cobrindo estado anônimo inicial, persistência do usuário após login, ausência de qualquer dado de sessão no armazenamento local, limpeza no logout, exigência de troca de senha, derivação da visibilidade do menu, quatro casos da guarda e dois casos de filtragem do menu; bundle inicial de 504,89 kB brutos e 117,06 kB estimados de transferência, dentro do orçamento de 600 kB; build sem avisos; smoke HTTP confirmou index com app-root e csrftoken, assets e favicon servidos na raiz, /fe/* devolvendo o shell, /api/v1/auth/me/ anônimo em 401, rota de API inexistente em 404, login sem cabeçalho CSRF em 403 permission_denied e credencial inválida em 401 invalid_credentials.
+```
+
+### 2026-07-28 — Conferência visual e fixação do PrimeNG em MIT
+
+```text
+Data: 2026-07-28
+Responsável: Claude
+Fase: Fase 2.5 — Migração da interface / Fase D
+O que foi concluído: conferência visual nos cinco pontos de quebra, executada em Chromium 150 com sessão autenticada real; correção de seis defeitos encontrados; retorno do par Angular e PrimeNG para a versão 21, última publicada sob MIT.
+Decisões: fixar PrimeNG na 21 porque a 22 reclassificou o pacote como comercial e passou a exigir chave de licença mesmo no nível Community gratuito, injetando aviso permanente em todas as telas sem chave válida; fixar o Angular na 21 por consequência do peer dependency; conduzir a conferência contra SQLite efêmero, sem tocar o Oracle DEV; não tentar suprimir o aviso por CSS ou remoção de nó, por se tratar de controle de licença do fornecedor.
+Riscos: R44 registrado, pois atualizar o PrimeNG passa a ser decisão de licenciamento e não apenas técnica. A conferência cobre os cinco pontos de quebra definidos e não substitui teste em aparelho físico.
+Pendências: Fases E, F e G.
+Próximo passo: executar a Fase E, com as telas de usuários, papéis e auditoria.
+Comandos executados: npm install; npx ng build; npx ng test; uv run pytest; uv run ruff; uv run mypy; conferência em Chromium com puppeteer-core, cobrindo login, painel, gaveta, tema escuro, troca de senha e senha temporária.
+Arquivos alterados: frontend/package.json, frontend/package-lock.json, frontend/src/styles.scss, frontend/src/app/app.config.ts, frontend/src/app/core/layout, frontend/src/app/features/login, frontend/src/app/features/senha e documentação em docs/SGPD.
+Testes: 67 verificações automatizadas nos cinco pontos de quebra sem falha, cobrindo ausência de rolagem horizontal, alvos de toque de 44 px no estado base, campos com no mínimo 16 px no móvel, raiz de 16 px e 14 px conforme o ponto de quebra, menu filtrado pelo contexto do servidor, gaveta fora da tela por padrão e abrindo ao toque, barra lateral permanente a partir de 1024 px, alternância de tema e retenção do usuário com senha temporária na tela de troca; 151 testes de backend e 12 de frontend passaram; bundle inicial reduziu de 504,89 kB para 463,84 kB brutos.
+Defeitos corrigidos: campo de usuário renderizava a 14 px no móvel, pois o seletor empatava em especificidade com o tema injetado em runtime e perdia por ordem, o que dispara zoom automático no iOS; grade do desktop com linha única deslocava a barra superior e empurrava a navegação para o rodapé; classes passadas por styleClass do PrimeNG não recebiam o atributo de encapsulamento, deixando o botão de menu visível no desktop e os botões de sessão sem largura total; gaveta iniciava sob a barra superior e ocultava o primeiro item do menu; botões de sessão em severidade secundária ficavam ilegíveis sobre o fundo escuro; campo de senha ficava mais estreito que os demais porque a classe não alcançava o host do componente.
 ```

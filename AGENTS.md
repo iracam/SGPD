@@ -76,8 +76,8 @@ Backend:
 
 Frontend:
 
-- Angular 22, standalone, estado por signals.
-- PrimeNG 22 com preset Aura e primeicons.
+- Angular 21, standalone, estado por signals.
+- PrimeNG 21 com preset Aura e primeicons.
 - SCSS mobile first.
 - Vitest.
 - npm com `package-lock.json` versionado; instalar por `npm ci`.
