@@ -1,0 +1,98 @@
+@use 'breakpoints' as bp;
+
+.pagina-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+  color: var(--status-review-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.configuracoes-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.configuracao-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 7rem;
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.75rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  text-decoration: none;
+  min-width: 0;
+
+  strong,
+  small {
+    display: block;
+  }
+
+  strong {
+    color: var(--sgpd-title-color);
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+  }
+
+  small {
+    margin-top: 0.25rem;
+    color: var(--p-text-muted-color);
+    line-height: 1.4;
+  }
+}
+
+.configuracao-card--ativo {
+  border-color: color-mix(in srgb, var(--sgpd-accent) 55%, var(--p-content-border-color));
+
+  &:hover {
+    border-color: var(--sgpd-accent);
+    box-shadow: 0 0.45rem 1.2rem rgba(16, 35, 31, 0.08);
+  }
+}
+
+.configuracao-card--futuro {
+  grid-template-columns: auto minmax(0, 1fr);
+  opacity: 0.72;
+}
+
+.configuracao-card__icone {
+  display: grid;
+  place-items: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--sgpd-accent) 16%, transparent);
+  color: var(--status-released-color);
+  font-size: 1.2rem;
+}
+
+.configuracao-card__seta {
+  color: var(--sgpd-accent);
+}
+
+.em-breve {
+  display: inline-flex;
+  margin-top: 0.55rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: var(--status-canceled-bg);
+  color: var(--status-canceled-color);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

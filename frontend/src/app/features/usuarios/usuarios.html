@@ -4,6 +4,16 @@
     <p class="page-lead">Contas locais do SGPD, papéis e vínculo com o Active Directory.</p>
   </div>
   <div class="pagina-acoes">
+    @if (podeImportarAd()) {
+      <p-button
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        icon="pi pi-building"
+        label="Importar do AD"
+        (onClick)="abrirDialogoAd()"
+      ></p-button>
+    }
     <p-button
       type="button"
       icon="pi pi-plus"
@@ -189,4 +199,134 @@
       <p-button type="submit" icon="pi pi-check" label="Criar usuário" [loading]="salvando()"></p-button>
     </div>
   </form>
+</p-dialog>
+
+<p-dialog
+  header="Importar usuário do Active Directory"
+  [visible]="dialogoAdAberto()"
+  (visibleChange)="dialogoAdAberto.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '96vw', maxWidth: '48rem' }"
+>
+  <div class="diretorio">
+    @if (erroDiretorio()) {
+      <p-message severity="error" [text]="erroDiretorio()"></p-message>
+    }
+
+    @if (carregandoStatusAd()) {
+      <p class="vazio">Validando a configuração do diretório…</p>
+    } @else if (statusDiretorio(); as status) {
+      @if (!status.configured) {
+        <p-message
+          severity="warn"
+          text="A descoberta AD ainda não está pronta. Complete o contrato LDAP no ambiente."
+        ></p-message>
+        @if (status.errors.length) {
+          <ul class="diretorio__erros">
+            @for (erro of status.errors; track erro) {
+              <li>{{ erro }}</li>
+            }
+          </ul>
+        }
+      } @else {
+        <div class="diretorio__estado">
+          @if (status.secure_transport) {
+            <span class="selo selo--ativo">Conexão segura configurada</span>
+          } @else {
+            <span class="selo selo--pendente">LDAP sem TLS</span>
+          }
+          <span class="selo selo--info">
+            Login AD {{ status.authentication_enabled ? 'ativo' : 'ainda desativado' }}
+          </span>
+        </div>
+        @if (status.insecure_transport) {
+          <p-message
+            severity="warn"
+            text="A credencial técnica e as senhas dos usuários trafegam sem criptografia neste transporte."
+          ></p-message>
+        }
+
+        <section class="diretorio__secao">
+          <h3>Usuário</h3>
+          <p>A busca respeita a base, o grupo obrigatório e o filtro salvos nas configurações.</p>
+          <div class="diretorio__busca">
+            <input
+              pInputText
+              type="search"
+              [formControl]="buscaUsuarioAd"
+              maxlength="100"
+              placeholder="Nome, login ou e-mail (mínimo 2 caracteres)"
+              aria-label="Buscar usuário no Active Directory"
+              (keydown.enter)="$event.preventDefault(); buscarUsuariosAd()"
+            />
+            <p-button
+              type="button"
+              icon="pi pi-search"
+              label="Buscar usuário"
+              [loading]="buscandoUsuariosAd()"
+              (onClick)="buscarUsuariosAd()"
+            ></p-button>
+          </div>
+        </section>
+
+        @if (usuariosAd().length) {
+          <ul class="diretorio__usuarios">
+            @for (identity of usuariosAd(); track identity.identifier) {
+              <li>
+                <div class="diretorio__usuario-dados">
+                  <strong>{{ identity.display_name }}</strong>
+                  <span>{{ identity.username }} · {{ identity.email || 'sem e-mail' }}</span>
+                  <small>{{ identity.distinguished_name }}</small>
+                  @if (identity.missing_import_fields.length) {
+                    <small class="campo__erro">
+                      Não é possível criar: faltam no AD {{ requisitosAusentes(identity) }}.
+                    </small>
+                  }
+                  @if (identity.username_conflict || identity.email_conflict) {
+                    <small class="campo__erro">
+                      Já existe conta local compatível; confirme e vincule sem criar duplicidade.
+                    </small>
+                  }
+                </div>
+                <div class="diretorio__usuario-acao">
+                  @if (identity.local_user; as local) {
+                    <p-button
+                      type="button"
+                      size="small"
+                      [outlined]="true"
+                      label="Abrir vínculo"
+                      (onClick)="abrirUsuarioLocal(local.id)"
+                    ></p-button>
+                  } @else if (identity.username_conflict || identity.email_conflict) {
+                    @if (identity.username_conflict || identity.email_conflict; as conflito) {
+                      <p-button
+                        type="button"
+                        size="small"
+                        [outlined]="true"
+                        label="Abrir conta local"
+                        (onClick)="abrirUsuarioLocal(conflito.id)"
+                      ></p-button>
+                    }
+                  } @else {
+                    <p-button
+                      type="button"
+                      size="small"
+                      icon="pi pi-user-plus"
+                      label="Criar vinculada"
+                      [disabled]="!identity.can_import || !!criandoDoAd()"
+                      [attr.aria-disabled]="!identity.can_import || !!criandoDoAd()"
+                      [loading]="criandoDoAd() === identity.identifier"
+                      (onClick)="criarDoAd(identity)"
+                    ></p-button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      }
+    }
+  </div>
 </p-dialog>

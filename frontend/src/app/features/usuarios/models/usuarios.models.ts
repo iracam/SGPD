@@ -21,6 +21,8 @@ export interface Usuario {
   ad_username: string | null;
   ad_linked_at: string | null;
   ad_linked_by: string | null;
+  ad_authentication_enabled: boolean;
+  local_password_allowed: boolean;
 }
 
 export interface Atribuicao {
@@ -85,4 +87,37 @@ export interface VinculoAd {
   identifier: string;
   username: string;
   reason: string;
+}
+
+export interface DiretorioStatus {
+  enabled: boolean;
+  authentication_enabled: boolean;
+  configured: boolean;
+  secure_transport: boolean;
+  insecure_transport: boolean;
+  user_search_base_configured: boolean;
+  group_search_base_configured: boolean;
+  required_group_configured: boolean;
+  errors: string[];
+}
+
+export interface UsuarioDiretorio {
+  identifier: string;
+  username: string;
+  user_principal_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  display_name: string;
+  email: string | null;
+  distinguished_name: string;
+  can_import: boolean;
+  missing_import_fields: string[];
+  local_user: { id: number; username: string } | null;
+  username_conflict: { id: number; username: string } | null;
+  email_conflict: { id: number; username: string } | null;
+}
+
+export interface PaginaDiretorio<T> {
+  limit: number;
+  results: T[];
 }

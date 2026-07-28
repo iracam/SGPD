@@ -12,9 +12,25 @@
     </div>
     <div class="pagina-acoes">
       <p-button type="button" [outlined]="true" icon="pi pi-pencil" label="Editar" (onClick)="abrir('editar')"></p-button>
-      <p-button type="button" [outlined]="true" icon="pi pi-key" label="Redefinir senha" (onClick)="abrir('senha')"></p-button>
+      <p-button
+        type="button"
+        [outlined]="true"
+        icon="pi pi-key"
+        label="Redefinir senha"
+        [disabled]="!alvo.local_password_allowed"
+        [attr.aria-describedby]="alvo.ad_identifier ? 'politica-senha-local' : null"
+        (onClick)="abrir('senha')"
+      ></p-button>
     </div>
   </header>
+
+  @if (avisoSenhaLocal()) {
+    <p-message
+      id="politica-senha-local"
+      [severity]="alvo.local_password_allowed ? 'info' : 'warn'"
+      [text]="avisoSenhaLocal()"
+    ></p-message>
+  }
 
   <section class="secao">
     <h2 class="secao__titulo">Situação</h2>
@@ -102,10 +118,6 @@
       <dl class="cartao__campo"><dt>Usuário</dt><dd>{{ alvo.ad_username }}</dd></dl>
       <dl class="cartao__campo"><dt>Identificador</dt><dd>{{ alvo.ad_identifier }}</dd></dl>
       <dl class="cartao__campo"><dt>Vinculado por</dt><dd>{{ alvo.ad_linked_by || '—' }}</dd></dl>
-      <p class="aviso">
-        O vínculo é administrativo e não ativa autenticação LDAP. A autenticação
-        permanece local até a homologação com a Infraestrutura.
-      </p>
     } @else {
       <p class="vazio">Nenhuma identidade vinculada.</p>
     }
@@ -238,18 +250,68 @@
 
       @case ('vincular') {
         <div [formGroup]="formVincular" class="formulario">
-          <p-message severity="warn" text="Este vínculo não ativa autenticação LDAP."></p-message>
+          <p-message
+            severity="info"
+            text="Pesquise e selecione a identidade no diretório. O objectGUID será validado novamente pelo servidor."
+          ></p-message>
           <div class="campo">
-            <label for="v_id">Identificador imutável no AD</label>
-            <input pInputText id="v_id" formControlName="identifier" autocapitalize="none" spellcheck="false" />
-            <small class="campo__ajuda">Valor opaco homologado pela Infraestrutura; não use apenas o e-mail.</small>
-            @for (erro of erros('identifier'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+            <label for="v_search">Pesquisar no Active Directory</label>
+            <div class="vinculo-ad__busca">
+              <input
+                pInputText
+                id="v_search"
+                type="search"
+                [formControl]="buscaVinculoAd"
+                maxlength="100"
+                placeholder="Nome, login ou e-mail"
+                (keydown.enter)="$event.preventDefault(); buscarVinculoAd()"
+              />
+              <p-button
+                type="button"
+                icon="pi pi-search"
+                label="Pesquisar"
+                [loading]="buscandoVinculoAd()"
+                (onClick)="buscarVinculoAd()"
+              ></p-button>
+            </div>
           </div>
+          @if (resultadosVinculoAd().length) {
+            <ul class="vinculo-ad__resultados">
+              @for (identity of resultadosVinculoAd(); track identity.identifier) {
+                <li
+                  [class.vinculo-ad__resultado--selecionado]="
+                    formVincular.controls.identifier.value === identity.identifier
+                  "
+                >
+                  <div>
+                    <strong>{{ identity.display_name }}</strong>
+                    <span>{{ identity.username }} · {{ identity.email || 'sem e-mail' }}</span>
+                    <small>{{ identity.distinguished_name }}</small>
+                    @if (identity.local_user) {
+                      <small class="campo__erro">
+                        Esta identidade já está vinculada a {{ identity.local_user.username }}.
+                      </small>
+                    }
+                  </div>
+                  <p-button
+                    type="button"
+                    size="small"
+                    [outlined]="true"
+                    label="Selecionar"
+                    [disabled]="!!identity.local_user"
+                    (onClick)="selecionarVinculoAd(identity)"
+                  ></p-button>
+                </li>
+              }
+            </ul>
+          }
           <div class="campo">
-            <label for="v_user">Usuário no AD</label>
-            <input pInputText id="v_user" formControlName="username" autocapitalize="none" spellcheck="false" />
+            <label for="v_user">Identidade selecionada</label>
+            <input pInputText id="v_user" formControlName="username" readonly />
+            @for (erro of erros('identifier'); track erro) { <small class="campo__erro">{{ erro }}</small> }
             @for (erro of erros('username'); track erro) { <small class="campo__erro">{{ erro }}</small> }
           </div>
+          <input type="hidden" formControlName="identifier" />
           <div class="campo">
             <label for="v_reason">Justificativa</label>
             <textarea pTextarea id="v_reason" formControlName="reason" rows="3"></textarea>

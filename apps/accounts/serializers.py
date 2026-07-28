@@ -92,8 +92,20 @@ class ReasonVersionSerializer(serializers.Serializer[dict[str, Any]]):
 class AdLinkSerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField(min_value=1)
     identifier = serializers.CharField(max_length=255, trim_whitespace=True)
-    username = serializers.CharField(max_length=150, trim_whitespace=True)
+    # Required only while discovery is disabled and the legacy manual-link
+    # path remains available. With LDAP_ENABLED, the server resolves it from AD.
+    username = serializers.CharField(
+        max_length=150,
+        trim_whitespace=True,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
     reason = _reason_field()
+
+
+class DirectoryUserCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    identifier = serializers.CharField(max_length=255, trim_whitespace=True)
 
 
 class RoleAssignmentSerializer(serializers.Serializer[dict[str, Any]]):

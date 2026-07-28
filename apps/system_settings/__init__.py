@@ -1,0 +1,1 @@
+"""SuperAdmin-only system configuration."""

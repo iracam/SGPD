@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
+import { superadminGuard } from './core/auth/superadmin.guard';
 
 export const FE_ROUTES: Routes = [
   {
@@ -52,6 +53,24 @@ export const FE_ROUTES: Routes = [
             loadComponent: () =>
               import('./features/auditoria/auditoria').then((m) => m.AuditoriaPage),
             title: 'Auditoria | SGPD',
+          },
+          {
+            path: 'configuracoes',
+            canActivate: [superadminGuard],
+            loadComponent: () =>
+              import('./features/configuracoes/configuracoes').then(
+                (m) => m.ConfiguracoesPage,
+              ),
+            title: 'Configurações | SGPD',
+          },
+          {
+            path: 'configuracoes/autenticacao',
+            canActivate: [superadminGuard],
+            loadComponent: () =>
+              import('./features/configuracoes/ldap-configuracao').then(
+                (m) => m.LdapConfiguracaoPage,
+              ),
+            title: 'LDAP e autenticação | SGPD',
           },
           {
             path: 'senha',

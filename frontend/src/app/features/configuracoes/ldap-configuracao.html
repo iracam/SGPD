@@ -1,0 +1,422 @@
+<a class="voltar" routerLink="/fe/configuracoes">
+  <i class="pi pi-arrow-left" aria-hidden="true"></i>
+  Configurações
+</a>
+
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo"><i class="pi pi-lock" aria-hidden="true"></i> SuperAdmin</span>
+    <h1 class="page-title">LDAP e autenticação</h1>
+    <p class="page-lead">
+      Configure o Active Directory, escolha um único transporte para descoberta e login e
+      valide o bind antes de habilitar a autenticação.
+    </p>
+  </div>
+</header>
+
+@if (carregando()) {
+  <p class="estado">Carregando configuração…</p>
+} @else if (erroPagina()) {
+  <p-message severity="error" [text]="erroPagina()"></p-message>
+} @else if (configuracao(); as config) {
+  <section class="estado-grid" aria-label="Estado da integração">
+    <article class="estado-card">
+      <span>Origem efetiva</span>
+      <strong>{{ config.source === 'database' ? 'Schema SGPD' : 'Ambiente' }}</strong>
+      <small>Versão {{ config.version }}</small>
+    </article>
+    <article class="estado-card">
+      <span>Descoberta</span>
+      <strong [class.estado-ok]="config.enabled">
+        {{ config.enabled ? 'Habilitada' : 'Desabilitada' }}
+      </strong>
+      <small>{{ config.secure_transport ? 'Transporte seguro' : 'Sem transporte seguro' }}</small>
+    </article>
+    <article class="estado-card">
+      <span>Login AD</span>
+      <strong [class.estado-ok]="config.authentication_enabled">
+        {{ config.authentication_enabled ? 'Habilitado' : 'Desabilitado' }}
+      </strong>
+      <small>Contingência local {{ config.local_superuser_fallback ? 'preservada' : 'desligada' }}</small>
+    </article>
+    <article class="estado-card">
+      <span>Último teste</span>
+      <strong [class.estado-ok]="config.connection_test.success === true">
+        @if (config.connection_test.success === true) {
+          Aprovado
+        } @else if (config.connection_test.success === false) {
+          Falhou
+        } @else {
+          Não executado
+        }
+      </strong>
+      <small>{{ formatarData(config.connection_test.tested_at) }}</small>
+    </article>
+  </section>
+
+  @if (sucesso()) {
+    <p-message severity="success" [text]="sucesso()"></p-message>
+  }
+  @if (erroFormulario()) {
+    <p-message severity="error" [text]="erroFormulario()"></p-message>
+  }
+  @if (resultadoValidacao(); as resultado) {
+    @if (!resultado.valid) {
+      <div class="painel-erros" role="alert">
+        <strong>A configuração precisa de ajustes:</strong>
+        <ul>
+          @for (erro of resultado.errors; track erro) {
+            <li>{{ erro }}</li>
+          }
+        </ul>
+      </div>
+    }
+  }
+
+  <form class="config-form" [formGroup]="formulario" (ngSubmit)="salvar()">
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">1</span>
+        <div>
+          <h2>Ativação e segurança</h2>
+          <p>Descoberta e login têm chaves independentes. A contingência local é obrigatória.</p>
+        </div>
+      </div>
+
+      <div class="opcoes">
+        <div class="campo campo--checkbox">
+          <p-checkbox inputId="enabled" formControlName="enabled" [binary]="true"></p-checkbox>
+          <label for="enabled">
+            <strong>Habilitar descoberta LDAP</strong>
+            <small>Permite probe, busca administrativa, importação e vínculo.</small>
+          </label>
+        </div>
+        <div class="campo campo--checkbox">
+          <p-checkbox
+            inputId="authentication_enabled"
+            formControlName="authentication_enabled"
+            [binary]="true"
+          ></p-checkbox>
+          <label for="authentication_enabled">
+            <strong>Habilitar login pelo Active Directory</strong>
+            <small>Exige probe aprovado e SuperAdmin local; com TLS, exige também CA válida.</small>
+          </label>
+        </div>
+        <div class="campo campo--checkbox">
+          <p-checkbox
+            inputId="local_superuser_fallback"
+            formControlName="local_superuser_fallback"
+            [binary]="true"
+          ></p-checkbox>
+          <label for="local_superuser_fallback">
+            <strong>Preservar contingência local de SuperAdmin</strong>
+            <small>Evita bloqueio administrativo durante indisponibilidade do AD.</small>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">2</span>
+        <div>
+          <h2>Servidor e bind técnico</h2>
+          <p>A senha é recebida somente para atualização, cifrada e nunca devolvida pela API.</p>
+        </div>
+      </div>
+
+      <div class="campos-grid">
+        <div class="campo campo--largo">
+          <label for="server_address">Servidor LDAP</label>
+          <input
+            pInputText
+            id="server_address"
+            formControlName="server_address"
+            placeholder="ad.exemplo.interno"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <small>Informe host ou host:porta. O protocolo é definido automaticamente pelo TLS.</small>
+          @for (erro of erros('server_address'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo campo--largo">
+          <label for="bind_dn">Conta técnica — UPN ou DN</label>
+          <input
+            pInputText
+            id="bind_dn"
+            formControlName="bind_dn"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          @for (erro of erros('bind_dn'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo campo--largo">
+          <label for="bind_password">
+            Senha de bind
+            @if (senhaConfigurada()) {
+              <span class="campo__estado">configurada</span>
+            }
+          </label>
+          <p-password
+            inputId="bind_password"
+            formControlName="bind_password"
+            [feedback]="false"
+            [toggleMask]="true"
+            autocomplete="new-password"
+            placeholder="Deixe vazio para manter a atual"
+          ></p-password>
+          <small>A senha existente nunca é projetada no navegador.</small>
+          @for (erro of erros('bind_password'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">3</span>
+        <div>
+          <h2>Bases, grupos e filtro</h2>
+          <p>Restrinja o universo elegível sem transformar grupos AD em papéis do SGPD.</p>
+        </div>
+      </div>
+
+      <div class="campos-grid">
+        <div class="campo campo--largo">
+          <label for="user_search_base">Base de usuários</label>
+          <input pInputText id="user_search_base" formControlName="user_search_base" spellcheck="false" />
+        </div>
+        <div class="campo campo--largo">
+          <label for="group_search_base">Base de grupos</label>
+          <input pInputText id="group_search_base" formControlName="group_search_base" spellcheck="false" />
+        </div>
+        <div class="campo campo--largo">
+          <label for="required_group_dn">DN do grupo obrigatório</label>
+          <input pInputText id="required_group_dn" formControlName="required_group_dn" spellcheck="false" />
+          <small>Quando preenchido, descoberta, importação, vínculo e login usam exatamente este grupo.</small>
+        </div>
+        <div class="campo campo--largo grupo-pesquisa">
+          <label for="group_search">Buscar grupo na configuração salva</label>
+          <div class="grupo-pesquisa__acao">
+            <input
+              pInputText
+              id="group_search"
+              type="search"
+              [formControl]="buscaGrupo"
+              maxlength="100"
+              placeholder="Nome do grupo (mínimo 2 caracteres)"
+              (keydown.enter)="$event.preventDefault(); buscarGrupos()"
+            />
+            <p-button
+              type="button"
+              severity="secondary"
+              [outlined]="true"
+              icon="pi pi-search"
+              label="Buscar"
+              [loading]="buscandoGrupos()"
+              (onClick)="buscarGrupos()"
+            ></p-button>
+          </div>
+          <small>Salve servidor, bind e base de grupos antes da busca.</small>
+          @if (gruposEncontrados().length) {
+            <ul class="grupo-resultados">
+              @for (grupo of gruposEncontrados(); track grupo.distinguished_name) {
+                <li>
+                  <div>
+                    <strong>{{ grupo.name }}</strong>
+                    <small>{{ grupo.description || grupo.distinguished_name }}</small>
+                  </div>
+                  <p-button
+                    type="button"
+                    size="small"
+                    [outlined]="true"
+                    label="Usar grupo"
+                    (onClick)="selecionarGrupo(grupo)"
+                  ></p-button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <div class="campo campo--largo">
+          <label for="user_extra_filter">Filtro adicional revisado</label>
+          <input
+            pInputText
+            id="user_extra_filter"
+            formControlName="user_extra_filter"
+            placeholder="(department=RH)"
+            spellcheck="false"
+          />
+        </div>
+        <div class="campo campo--checkbox">
+          <p-checkbox
+            inputId="nested_group_search"
+            formControlName="nested_group_search"
+            [binary]="true"
+          ></p-checkbox>
+          <label for="nested_group_search">
+            <strong>Considerar grupos aninhados</strong>
+            <small>Usa a regra transitiva homologada do Active Directory.</small>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">4</span>
+        <div>
+          <h2>Limites e timeouts</h2>
+          <p>Controles de disponibilidade e exposição da descoberta administrativa.</p>
+        </div>
+      </div>
+
+      <div class="numeros-grid">
+        <div class="campo">
+          <label for="connect_timeout_seconds">Conexão (s)</label>
+          <input pInputText id="connect_timeout_seconds" type="number" formControlName="connect_timeout_seconds" />
+        </div>
+        <div class="campo">
+          <label for="receive_timeout_seconds">Resposta (s)</label>
+          <input pInputText id="receive_timeout_seconds" type="number" formControlName="receive_timeout_seconds" />
+        </div>
+        <div class="campo">
+          <label for="page_size">Tamanho da página</label>
+          <input pInputText id="page_size" type="number" formControlName="page_size" />
+        </div>
+        <div class="campo">
+          <label for="result_limit">Limite de resultados</label>
+          <input pInputText id="result_limit" type="number" formControlName="result_limit" />
+        </div>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">5</span>
+        <div>
+          <h2>TLS e certificado da CA</h2>
+          <p>Uma única escolha de transporte vale para descoberta, importação, vínculo e login.</p>
+        </div>
+      </div>
+
+      <div class="certificado">
+        <div class="campo campo--checkbox">
+          <p-checkbox inputId="use_tls" formControlName="use_tls" [binary]="true"></p-checkbox>
+          <label for="use_tls">
+            <strong>Negociar TLS</strong>
+            <small>Ativa LDAPS automaticamente. Desmarcado usa LDAP simples para tudo.</small>
+          </label>
+        </div>
+
+        @if (!tlsAtivo()) {
+          <p-message
+            severity="warn"
+            text="Sem TLS, a credencial técnica e as senhas dos usuários trafegam sem criptografia. Descoberta e autenticação usarão este mesmo transporte."
+          ></p-message>
+        }
+
+        @if (config.certificate.configured) {
+          <dl class="certificado__dados">
+            <div><dt>Situação</dt><dd>{{ config.certificate.valid ? 'Válido' : 'Inválido' }}</dd></div>
+            <div><dt>Arquivo</dt><dd>{{ config.certificate.original_name || 'Configurado no ambiente' }}</dd></div>
+            <div><dt>Subject</dt><dd>{{ config.certificate.subject || '—' }}</dd></div>
+            <div><dt>Issuer</dt><dd>{{ config.certificate.issuer || '—' }}</dd></div>
+            <div><dt>Validade final</dt><dd>{{ formatarData(config.certificate.not_after) }}</dd></div>
+            <div><dt>SHA-256</dt><dd class="mono">{{ config.certificate.sha256 || '—' }}</dd></div>
+          </dl>
+        } @else {
+          <p class="estado">Nenhum certificado de CA configurado.</p>
+        }
+
+        <div class="campo">
+          <label for="certificate">Novo certificado ou bundle</label>
+          <input
+            id="certificate"
+            class="arquivo"
+            type="file"
+            accept=".pem,.crt,.cer,application/x-pem-file,application/pkix-cert"
+            (change)="selecionarCertificado($event)"
+          />
+          <small>Máximo de 512 KiB. O caminho privado nunca é exposto pela API.</small>
+        </div>
+
+        <div class="acoes-linha">
+          <p-button
+            type="button"
+            severity="secondary"
+            [outlined]="true"
+            icon="pi pi-upload"
+            label="Validar e enviar CA"
+            [loading]="enviandoCertificado()"
+            [disabled]="!certificadoSelecionado()"
+            (onClick)="enviarCertificado()"
+          ></p-button>
+          <p-button
+            type="button"
+            severity="secondary"
+            [outlined]="true"
+            icon="pi pi-verified"
+            label="Revalidar certificado"
+            [loading]="validandoCertificado()"
+            [disabled]="!config.certificate.configured"
+            (onClick)="validarCertificado()"
+          ></p-button>
+        </div>
+
+        @if (sucessoCertificado()) {
+          <p-message severity="success" [text]="sucessoCertificado()"></p-message>
+        }
+        @if (erroCertificado()) {
+          <p-message severity="error" [text]="erroCertificado()"></p-message>
+        }
+      </div>
+    </section>
+
+    <section class="secao secao--final">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">6</span>
+        <div>
+          <h2>Validação, teste e salvamento</h2>
+          <p>Salve com o login desligado, teste o bind/RootDSE e só depois habilite a autenticação.</p>
+        </div>
+      </div>
+
+      <div class="acoes-finais">
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-check-circle"
+          label="Validar informações"
+          [loading]="validando()"
+          (onClick)="validarInformacoes()"
+        ></p-button>
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-server"
+          label="Testar conexão salva"
+          [loading]="testando()"
+          (onClick)="testarConexao()"
+        ></p-button>
+        <p-button
+          type="submit"
+          icon="pi pi-save"
+          label="Salvar configuração"
+          [loading]="salvando()"
+        ></p-button>
+      </div>
+    </section>
+  </form>
+}

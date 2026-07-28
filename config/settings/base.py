@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.core",
     "apps.integrations",
+    "apps.system_settings",
 ]
 
 MIDDLEWARE = [
@@ -102,12 +103,30 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+SYSTEM_CONFIGURATION_STORAGE_PATH = Path(
+    os.getenv(
+        "SYSTEM_CONFIGURATION_STORAGE_PATH",
+        str(BASE_DIR / "media" / "system-configuration"),
+    )
+)
+if not SYSTEM_CONFIGURATION_STORAGE_PATH.is_absolute():
+    SYSTEM_CONFIGURATION_STORAGE_PATH = BASE_DIR / SYSTEM_CONFIGURATION_STORAGE_PATH
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+    "system_configuration": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": str(SYSTEM_CONFIGURATION_STORAGE_PATH),
+            "base_url": None,
+            "file_permissions_mode": 0o600,
+            "directory_permissions_mode": 0o700,
+        },
     },
 }
 WHITENOISE_AUTOREFRESH = env_bool("WHITENOISE_AUTOREFRESH", DEBUG)
@@ -141,6 +160,36 @@ EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
 
 LOGIN_THROTTLE_RATE = os.getenv("LOGIN_THROTTLE_RATE", "10/min")
+
+# Active Directory. Discovery and authentication have separate switches so
+# Infrastructure can validate connectivity and filters before changing login.
+LDAP_ENABLED = env_bool("LDAP_ENABLED")
+LDAP_AUTHENTICATION_ENABLED = env_bool("LDAP_AUTHENTICATION_ENABLED")
+# Interface simples vigente: servidor sem protocolo e uma única escolha de TLS.
+LDAP_SERVER_ADDRESS = os.getenv("LDAP_SERVER_ADDRESS", "")
+LDAP_USE_TLS = env_bool("LDAP_USE_TLS", True)
+# Compatibilidade de baseline para instalações anteriores à central dinâmica.
+LDAP_SERVER_URI = os.getenv("LDAP_SERVER_URI", "")
+LDAP_BIND_DN = os.getenv("LDAP_BIND_DN", "")
+LDAP_BIND_PASSWORD = os.getenv("LDAP_BIND_PASSWORD", "")
+LDAP_USER_SEARCH_BASE = os.getenv("LDAP_USER_SEARCH_BASE", "")
+LDAP_GROUP_SEARCH_BASE = os.getenv("LDAP_GROUP_SEARCH_BASE", "")
+LDAP_REQUIRED_GROUP_DN = os.getenv("LDAP_REQUIRED_GROUP_DN", "")
+LDAP_START_TLS = env_bool("LDAP_START_TLS")
+LDAP_TLS_REQUIRE_CERTIFICATE = env_bool("LDAP_TLS_REQUIRE_CERTIFICATE", True)
+LDAP_TLS_CA_CERT_FILE = os.getenv("LDAP_TLS_CA_CERT_FILE", "")
+LDAP_CONNECT_TIMEOUT_SECONDS = env_int("LDAP_CONNECT_TIMEOUT_SECONDS", 5)
+LDAP_RECEIVE_TIMEOUT_SECONDS = env_int("LDAP_RECEIVE_TIMEOUT_SECONDS", 10)
+LDAP_PAGE_SIZE = env_int("LDAP_PAGE_SIZE", 100)
+LDAP_RESULT_LIMIT = env_int("LDAP_RESULT_LIMIT", 50)
+LDAP_NESTED_GROUP_SEARCH = env_bool("LDAP_NESTED_GROUP_SEARCH", True)
+LDAP_LOCAL_SUPERUSER_FALLBACK = env_bool("LDAP_LOCAL_SUPERUSER_FALLBACK", True)
+LDAP_USER_EXTRA_FILTER = os.getenv("LDAP_USER_EXTRA_FILTER", "")
+
+AUTHENTICATION_BACKENDS = [
+    "apps.integrations.active_directory.ldap_backend.ActiveDirectoryBackend",
+    "apps.integrations.active_directory.backends.LocalAccountBackend",
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -176,5 +225,14 @@ LOGGING = {
     "root": {
         "handlers": ["console"],
         "level": LOG_LEVEL,
+    },
+    # django-auth-ldap logs raw LDAP exception payloads at WARNING. The SGPD
+    # replaces them with a safe, correlated operational event in its backend.
+    "loggers": {
+        "django_auth_ldap": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
     },
 }

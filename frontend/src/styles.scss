@@ -66,6 +66,11 @@
 
   /* Alvo mínimo de toque no estado base (ADR-028). */
   --touch-target: 2.75rem;
+  --form-control-height: var(--touch-target);
+
+  @include bp.from(bp.$lg) {
+    --form-control-height: 2.25rem;
+  }
 }
 
 .app-dark {
@@ -156,16 +161,23 @@ a,
 // injetados em runtime, depois desta folha, e venceriam no empate de
 // especificidade — deixando o campo em 14px e disparando o zoom do iOS.
 input.p-inputtext,
-.p-inputtext,
 .p-select,
 .p-password input {
-  min-height: var(--touch-target);
+  min-height: var(--form-control-height);
+  height: var(--form-control-height);
   // Campos abaixo de 16px disparam o zoom automático do iOS.
   font-size: 1rem;
 
   @include bp.from(bp.$lg) {
     font-size: 0.9rem;
   }
+}
+
+.p-select-label {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  padding-block: 0;
 }
 
 // O host <p-password> não ocupa a largura do campo e o input interno não

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Protocol
 
 from django.contrib.auth.models import Permission
 from django.contrib.auth.password_validation import validate_password
@@ -13,6 +14,9 @@ from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.utils import timezone
 
+from apps.integrations.active_directory.client import ActiveDirectoryClient
+from apps.integrations.active_directory.config import ActiveDirectoryConfig
+from apps.integrations.active_directory.dto import DirectoryUser
 from config.middleware import correlation_id
 
 from .authorization import has_permission
@@ -29,6 +33,7 @@ from .models import (
 MANAGE_USERS_PERMISSION = "accounts.manage_users"
 MANAGE_ROLES_PERMISSION = "accounts.manage_roles"
 LINK_AD_IDENTITY_PERMISSION = "accounts.link_ad_identity"
+DIRECTORY_IMPORT_REASON = "Criação explícita de conta local a partir do Active Directory."
 
 ASSIGNABLE_PERMISSION_CODENAMES = frozenset(
     {
@@ -368,6 +373,14 @@ class ResetPasswordService:
         _require_permission(command.actor, MANAGE_USERS_PERMISSION)
         reason = _required_reason(command.reason)
         user = User.objects.select_for_update().get(pk=command.user_id)
+        config = ActiveDirectoryConfig.from_settings()
+        if not config.allows_local_password(
+            has_ad_link=user.has_ad_link,
+            is_superuser=user.is_superuser,
+        ):
+            raise ValidationError(
+                {"password": "A senha desta conta é gerenciada pelo Active Directory."}
+            )
         validate_password(command.password, user)
         user.set_password(command.password)
         user.must_change_password = command.must_change_password
@@ -397,6 +410,14 @@ class ChangeOwnPasswordService:
     @transaction.atomic
     def execute(self, command: ChangeOwnPasswordCommand) -> User:
         user = User.objects.select_for_update().get(pk=command.user_id)
+        config = ActiveDirectoryConfig.from_settings()
+        if not config.allows_local_password(
+            has_ad_link=user.has_ad_link,
+            is_superuser=user.is_superuser,
+        ):
+            raise ValidationError(
+                {"old_password": "A senha desta conta é gerenciada pelo Active Directory."}
+            )
         if not user.check_password(command.current_password):
             raise ValidationError({"old_password": "A senha atual está incorreta."})
         validate_password(command.new_password, user)
@@ -543,15 +564,14 @@ class AssignRoleService:
             command.company_code,
             command.branch_code,
         )
-        assignment = (
-            RoleAssignment.objects.select_for_update()
-            .filter(
+        try:
+            assignment = RoleAssignment.objects.select_for_update().get(
                 user=user,
                 role=role,
                 scope_key=scope_key,
             )
-            .first()
-        )
+        except RoleAssignment.DoesNotExist:
+            assignment = None
         if assignment is None:
             assignment = RoleAssignment(
                 user=user,
@@ -637,6 +657,124 @@ class RevokeRoleService:
         return assignment
 
 
+class DirectoryUserLookup(Protocol):
+    def get_user(self, identifier: str) -> DirectoryUser: ...
+
+
+@dataclass(frozen=True, slots=True)
+class CreateUserFromDirectoryCommand:
+    actor: User
+    identifier: str
+
+
+class CreateUserFromDirectoryService:
+    """Explicitly provision one local account from a verified AD identity."""
+
+    def __init__(self, directory: DirectoryUserLookup | None = None) -> None:
+        self.directory = directory or ActiveDirectoryClient()
+
+    def execute(self, command: CreateUserFromDirectoryCommand) -> User:
+        _require_permission(command.actor, MANAGE_USERS_PERMISSION)
+        _require_permission(command.actor, LINK_AD_IDENTITY_PERMISSION)
+        identity = self.directory.get_user(command.identifier)
+        if not identity.can_import:
+            missing = ", ".join(identity.missing_import_fields)
+            raise ValidationError(
+                {
+                    "identifier": (
+                        "A identidade não possui os atributos obrigatórios para importação: "
+                        f"{missing}."
+                    )
+                }
+            )
+        return self._persist(command.actor, identity)
+
+    @transaction.atomic
+    def _persist(self, actor: User, identity: DirectoryUser) -> User:
+        try:
+            return User.objects.select_for_update().get(ad_identifier=identity.identifier)
+        except User.DoesNotExist:
+            pass
+
+        # Oracle does not support FETCH FIRST/LIMIT in a SELECT ... FOR UPDATE.
+        # Materialize these small, unique-key candidate sets without slicing.
+        username_conflicts = list(
+            User.objects.select_for_update()
+            .filter(username__iexact=identity.username)
+            .values_list("pk", flat=True)
+        )
+        if username_conflicts:
+            raise ValidationError(
+                {
+                    "identifier": (
+                        "Já existe uma conta local com o mesmo login. "
+                        "Abra essa conta e vincule a identidade encontrada."
+                    )
+                }
+            )
+        email_conflicts = list(
+            User.objects.select_for_update()
+            .filter(email__iexact=identity.email)
+            .values_list("pk", flat=True)
+        )
+        if email_conflicts:
+            raise ValidationError(
+                {
+                    "identifier": (
+                        "Já existe uma conta local com o mesmo e-mail. "
+                        "Confirme a pessoa e vincule a identidade à conta existente."
+                    )
+                }
+            )
+
+        user = User(
+            username=identity.username,
+            email=identity.email or "",
+            first_name=identity.first_name or "",
+            last_name=identity.last_name or "",
+            is_active=True,
+            must_change_password=False,
+            ad_identifier=identity.identifier,
+            ad_username=identity.username,
+            ad_linked_at=timezone.now(),
+            ad_linked_by=actor,
+        )
+        user.set_unusable_password()
+        user.clean()
+        try:
+            user.full_clean()
+            user.save()
+        except IntegrityError as exc:
+            raise ValidationError(
+                "Já existe um usuário com o login, e-mail ou identidade informada."
+            ) from exc
+
+        _record_event(
+            event_type=AccountEventType.USER_CREATED,
+            actor=actor,
+            target_user=user,
+            entity_type="USER",
+            entity_id=user.pk,
+            reason=DIRECTORY_IMPORT_REASON,
+            changes={
+                "username": user.username,
+                "email": user.email,
+                "is_active": True,
+                "source": "ACTIVE_DIRECTORY",
+            },
+        )
+        _record_event(
+            event_type=AccountEventType.AD_LINKED,
+            actor=actor,
+            target_user=user,
+            entity_type="USER",
+            entity_id=user.pk,
+            reason=DIRECTORY_IMPORT_REASON,
+            changes={"ad_linked": True, "verified_by_directory": True},
+        )
+        return user
+
+
 @dataclass(frozen=True, slots=True)
 class LinkAdIdentityCommand:
     actor: User
@@ -697,6 +835,28 @@ class LinkAdIdentityService:
             changes={"ad_linked": True},
         )
         return user
+
+
+class LinkDirectoryIdentityService:
+    """Verify the stable AD identity immediately before linking it."""
+
+    def __init__(self, directory: DirectoryUserLookup | None = None) -> None:
+        self.directory = directory or ActiveDirectoryClient()
+
+    def execute(self, command: LinkAdIdentityCommand) -> User:
+        _require_permission(command.actor, LINK_AD_IDENTITY_PERMISSION)
+        reason = _required_reason(command.reason)
+        identity = self.directory.get_user(command.identifier)
+        return LinkAdIdentityService().execute(
+            LinkAdIdentityCommand(
+                actor=command.actor,
+                user_id=command.user_id,
+                expected_version=command.expected_version,
+                identifier=identity.identifier,
+                username=identity.username,
+                reason=reason,
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)

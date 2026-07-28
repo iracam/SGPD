@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 from django.contrib.auth.models import Permission
-from django.test import Client
+from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -405,6 +405,56 @@ def test_reset_password_sets_a_temporary_credential(
     assert plain_user.must_change_password
     assert plain_user.check_password("Redefinida-api!2026")
     assert AccountAuditEvent.objects.filter(
+        event_type=AccountEventType.PASSWORD_RESET,
+        target_user=plain_user,
+    ).exists()
+
+
+@override_settings(
+    LDAP_AUTHENTICATION_ENABLED=True,
+    LDAP_LOCAL_SUPERUSER_FALLBACK=True,
+)
+def test_linked_user_exposes_policy_and_rejects_local_password_reset(
+    admin_client: Client,
+    admin: User,
+    plain_user: User,
+) -> None:
+    plain_user.ad_identifier = "linked-user-guid"
+    plain_user.ad_username = "api.comum.ad"
+    plain_user.ad_linked_at = timezone.now()
+    plain_user.ad_linked_by = admin
+    plain_user.save(
+        update_fields=(
+            "ad_identifier",
+            "ad_username",
+            "ad_linked_at",
+            "ad_linked_by",
+        )
+    )
+
+    detail = admin_client.get(
+        reverse("accounts-api:user-detail", kwargs={"user_id": plain_user.pk})
+    )
+    response = _post(
+        admin_client,
+        "accounts-api:user-reset-password",
+        {
+            "password": "Must-not-be-saved!2026",
+            "password_confirm": "Must-not-be-saved!2026",
+            "must_change_password": False,
+            "reason": "Tentativa incompatível com a política AD.",
+        },
+        user_id=plain_user.pk,
+    )
+
+    plain_user.refresh_from_db()
+    assert detail.status_code == 200
+    assert detail.json()["ad_authentication_enabled"]
+    assert not detail.json()["local_password_allowed"]
+    assert response.status_code == 400
+    assert "Active Directory" in response.json()["details"]["password"][0]
+    assert plain_user.check_password(PASSWORD)
+    assert not AccountAuditEvent.objects.filter(
         event_type=AccountEventType.PASSWORD_RESET,
         target_user=plain_user,
     ).exists()

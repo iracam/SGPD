@@ -2,11 +2,31 @@
 
 from django.urls import path
 
-from . import api_accounts
+from . import api_accounts, api_directory
 
 app_name = "accounts-api"
 
 urlpatterns = [
+    path(
+        "directory/status/",
+        api_directory.DirectoryStatusView.as_view(),
+        name="directory-status",
+    ),
+    path(
+        "directory/users/",
+        api_directory.DirectoryUserSearchView.as_view(),
+        name="directory-user-search",
+    ),
+    path(
+        "directory/groups/",
+        api_directory.DirectoryGroupSearchView.as_view(),
+        name="directory-group-search",
+    ),
+    path(
+        "directory/users/create/",
+        api_directory.DirectoryUserCreateView.as_view(),
+        name="directory-user-create",
+    ),
     path("users/", api_accounts.UserListCreateView.as_view(), name="user-list"),
     path("users/<int:user_id>/", api_accounts.UserDetailView.as_view(), name="user-detail"),
     path(

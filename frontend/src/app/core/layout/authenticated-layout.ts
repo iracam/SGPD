@@ -62,8 +62,21 @@ export class AuthenticatedLayout {
     },
   ];
 
+  protected readonly configurationNavItem: NavItem = {
+    label: 'Configurações',
+    route: '/fe/configuracoes',
+    icon: 'pi pi-cog',
+    description: 'Configurações técnicas exclusivas de SuperAdmin',
+  };
+
   protected readonly visibleNavItems = computed(() =>
     this.navItems.filter((item) => !item.feature || this.authService.canView(item.feature)),
+  );
+  protected readonly showConfigurationSection = computed(
+    () =>
+      this.authService.currentUser()?.is_superuser ??
+      this.authService.currentContext()?.scopes.is_superuser ??
+      false,
   );
 
   constructor() {

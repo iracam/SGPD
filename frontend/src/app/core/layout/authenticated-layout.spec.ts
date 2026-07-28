@@ -8,7 +8,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { apiConfig } from '../config/api.config';
 import { AuthenticatedLayout } from './authenticated-layout';
 
-function contextWith(features: Record<string, { can_view: boolean }>) {
+function contextWith(
+  features: Record<string, { can_view: boolean }>,
+  isSuperuser = false,
+) {
   return {
     user: {
       id: 1,
@@ -18,11 +21,11 @@ function contextWith(features: Record<string, { can_view: boolean }>) {
       last_name: 'User',
       display_name: 'Api User',
       must_change_password: false,
-      is_superuser: false,
+      is_superuser: isSuperuser,
     },
     roles: [],
     permissions: {},
-    scopes: { is_superuser: false, assignments: [] },
+    scopes: { is_superuser: isSuperuser, assignments: [] },
     features,
     meta: { policy: 'session', server_time: '2026-07-28T00:00:00Z' },
   };
@@ -83,5 +86,27 @@ describe('AuthenticatedLayout', () => {
     fixture.detectChanges();
 
     expect(labels()).toEqual(['Painel', 'Colaboradores', 'Usuários', 'Auditoria']);
+  });
+
+  it('mostra a seção Configurações somente para SuperAdmin', async () => {
+    fixture.detectChanges();
+    httpMock.expectOne(apiConfig.routes.authContext).flush(
+      contextWith(
+        {
+          manage_users: { can_view: true },
+          manage_roles: { can_view: true },
+          view_account_audit: { can_view: true },
+          query_senior_references: { can_view: true },
+        },
+        true,
+      ),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(labels()).toContain('Configurações');
+    expect(fixture.nativeElement.querySelector('.nav-section__title')?.textContent.trim()).toBe(
+      'Configurações',
+    );
   });
 });

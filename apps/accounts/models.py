@@ -375,6 +375,9 @@ class AccountEventType(models.TextChoices):
     ROLE_REVOKED = "ROLE_REVOKED", "Papel revogado"
     AD_LINKED = "AD_LINKED", "Identidade AD vinculada"
     AD_UNLINKED = "AD_UNLINKED", "Identidade AD desvinculada"
+    LDAP_CONFIG_UPDATED = "LDAP_CONFIG_UPDATED", "Configuração LDAP atualizada"
+    LDAP_CERT_UPLOADED = "LDAP_CERT_UPLOADED", "Certificado LDAP enviado"
+    LDAP_CONNECTION_TESTED = "LDAP_CONNECTION_TESTED", "Conexão LDAP testada"
 
 
 class AccountAuditEventQuerySet(models.QuerySet["AccountAuditEvent"]):

@@ -17,6 +17,15 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.integrations.active_directory.config import ActiveDirectoryConfig
+from apps.integrations.active_directory.exceptions import (
+    DirectoryConfigurationError,
+    DirectoryContractError,
+    DirectoryIdentityNotFoundError,
+    DirectoryUnavailableError,
+)
+from config.api import api_error
+
 from .api import user_payload
 from .authorization import has_permission
 from .models import (
@@ -49,6 +58,7 @@ from .services import (
     CreateUserService,
     LinkAdIdentityCommand,
     LinkAdIdentityService,
+    LinkDirectoryIdentityService,
     ResetPasswordCommand,
     ResetPasswordService,
     RevokeRoleCommand,
@@ -81,6 +91,7 @@ def permission_payload(permission: Permission) -> dict[str, Any]:
 
 
 def user_detail_payload(user: User) -> dict[str, Any]:
+    directory_config = ActiveDirectoryConfig.from_settings()
     payload = user_payload(user)
     payload.update(
         {
@@ -92,6 +103,11 @@ def user_detail_payload(user: User) -> dict[str, Any]:
             "ad_username": user.ad_username or None,
             "ad_linked_at": _isoformat(user.ad_linked_at),
             "ad_linked_by": (user.ad_linked_by.username if user.ad_linked_by else None),
+            "ad_authentication_enabled": directory_config.authentication_enabled,
+            "local_password_allowed": directory_config.allows_local_password(
+                has_ad_link=user.has_ad_link,
+                is_superuser=user.is_superuser,
+            ),
         }
     )
     return payload
@@ -332,16 +348,43 @@ class UserAdLinkView(AccountsAPIView):
         serializer.is_valid(raise_exception=True)
         data = cast(dict[str, Any], serializer.validated_data)
 
-        user = LinkAdIdentityService().execute(
-            LinkAdIdentityCommand(
-                actor=self.actor(request),
-                user_id=user_id,
-                expected_version=data["version"],
-                identifier=data["identifier"],
-                username=data["username"],
-                reason=data["reason"],
-            )
+        command = LinkAdIdentityCommand(
+            actor=self.actor(request),
+            user_id=user_id,
+            expected_version=data["version"],
+            identifier=data["identifier"],
+            username=data["username"],
+            reason=data["reason"],
         )
+        try:
+            if ActiveDirectoryConfig.from_settings().enabled:
+                user = LinkDirectoryIdentityService().execute(command)
+            else:
+                user = LinkAdIdentityService().execute(command)
+        except DirectoryConfigurationError as exc:
+            return api_error(
+                code="directory_not_configured",
+                message=str(exc),
+                status_code=503,
+            )
+        except DirectoryUnavailableError:
+            return api_error(
+                code="directory_unavailable",
+                message="O Active Directory está indisponível. Tente novamente mais tarde.",
+                status_code=503,
+            )
+        except DirectoryIdentityNotFoundError as exc:
+            return api_error(
+                code="directory_identity_not_found",
+                message=str(exc),
+                status_code=404,
+            )
+        except DirectoryContractError as exc:
+            return api_error(
+                code="directory_contract_error",
+                message=str(exc),
+                status_code=502,
+            )
         return Response(user_detail_payload(user))
 
 

@@ -1,0 +1,47 @@
+<header>
+  <span class="pagina-selo"><i class="pi pi-lock" aria-hidden="true"></i> SuperAdmin</span>
+  <h1 class="page-title">Configurações</h1>
+  <p class="page-lead">
+    Parâmetros operacionais do SGPD. Cada módulo aplica validação e auditoria no servidor.
+  </p>
+</header>
+
+<section class="configuracoes-grid" aria-label="Módulos de configuração">
+  <a class="configuracao-card configuracao-card--ativo" routerLink="/fe/configuracoes/autenticacao">
+    <span class="configuracao-card__icone"><i class="pi pi-key" aria-hidden="true"></i></span>
+    <span>
+      <strong>LDAP e autenticação</strong>
+      <small>
+        Transporte, bind, bases de busca, grupo elegível, certificado da CA e testes de conexão.
+      </small>
+    </span>
+    <i class="pi pi-arrow-right configuracao-card__seta" aria-hidden="true"></i>
+  </a>
+
+  <article class="configuracao-card configuracao-card--futuro" aria-disabled="true">
+    <span class="configuracao-card__icone"><i class="pi pi-envelope" aria-hidden="true"></i></span>
+    <span>
+      <strong>E-mail e notificações</strong>
+      <small>SMTP, remetente, filas, lembretes e escaladas.</small>
+      <span class="em-breve">Em breve</span>
+    </span>
+  </article>
+
+  <article class="configuracao-card configuracao-card--futuro" aria-disabled="true">
+    <span class="configuracao-card__icone"><i class="pi pi-folder" aria-hidden="true"></i></span>
+    <span>
+      <strong>Arquivos e evidências</strong>
+      <small>Storage privado, limites, extensões e política de retenção.</small>
+      <span class="em-breve">Em breve</span>
+    </span>
+  </article>
+
+  <article class="configuracao-card configuracao-card--futuro" aria-disabled="true">
+    <span class="configuracao-card__icone"><i class="pi pi-sitemap" aria-hidden="true"></i></span>
+    <span>
+      <strong>Processo demissional</strong>
+      <small>Prazos globais, numeração e parâmetros transversais do workflow.</small>
+      <span class="em-breve">Em breve</span>
+    </span>
+  </article>
+</section>

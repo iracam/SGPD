@@ -22,6 +22,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from apps.integrations.active_directory.exceptions import DirectoryUnavailableError
 from apps.integrations.senior.permissions import SENIOR_REFERENCE_PERMISSION
 from config.api import api_error
 
@@ -134,11 +135,23 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
         credentials = cast(dict[str, str], serializer.validated_data)
 
-        user = authenticate(
-            request._request,
-            username=credentials["username"],
-            password=credentials["password"],
-        )
+        try:
+            user = authenticate(
+                request._request,
+                username=credentials["username"],
+                password=credentials["password"],
+            )
+        except DirectoryUnavailableError:
+            record_authentication_event(
+                event_type=AccountEventType.LOGIN_FAILED,
+                user=None,
+                reason="Tentativa de autenticação AD indisponível.",
+            )
+            return api_error(
+                code="directory_unavailable",
+                message="O Active Directory está indisponível. Tente novamente mais tarde.",
+                status_code=503,
+            )
         if not isinstance(user, User):
             record_authentication_event(
                 event_type=AccountEventType.LOGIN_FAILED,
@@ -152,10 +165,16 @@ class LoginView(APIView):
             )
 
         django_login(request._request, user)
+        authentication_backend = str(getattr(user, "backend", ""))
+        authentication_source = (
+            "ACTIVE_DIRECTORY"
+            if authentication_backend.endswith("ActiveDirectoryBackend")
+            else "LOCAL"
+        )
         record_authentication_event(
             event_type=AccountEventType.LOGIN,
             user=user,
-            reason="Autenticação local concluída pela API.",
+            reason=f"Autenticação {authentication_source} concluída pela API.",
         )
         return Response(user_payload(user))
 

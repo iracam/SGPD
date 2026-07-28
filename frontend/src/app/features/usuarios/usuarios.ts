@@ -12,7 +12,12 @@ import { TextareaModule } from 'primeng/textarea';
 import { debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs';
 
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
-import { Usuario } from './models/usuarios.models';
+import { AuthService } from '../../core/auth/auth.service';
+import {
+  DiretorioStatus,
+  Usuario,
+  UsuarioDiretorio,
+} from './models/usuarios.models';
 import { UsuariosService } from './usuarios.service';
 
 @Component({
@@ -35,11 +40,16 @@ export class UsuariosPage {
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly authService = inject(AuthService);
 
   readonly usuarios = signal<Usuario[]>([]);
   readonly carregando = signal(false);
   readonly erroLista = signal('');
   readonly vazio = computed(() => !this.carregando() && this.usuarios().length === 0);
+  readonly podeImportarAd = computed(
+    () =>
+      this.authService.canView('link_ad_identity') && this.authService.canView('manage_users'),
+  );
 
   readonly busca = this.formBuilder.nonNullable.control('');
 
@@ -58,6 +68,15 @@ export class UsuariosPage {
     must_change_password: [true],
     reason: ['', [Validators.required]],
   });
+
+  readonly dialogoAdAberto = signal(false);
+  readonly statusDiretorio = signal<DiretorioStatus | null>(null);
+  readonly carregandoStatusAd = signal(false);
+  readonly buscandoUsuariosAd = signal(false);
+  readonly criandoDoAd = signal<string | null>(null);
+  readonly erroDiretorio = signal('');
+  readonly usuariosAd = signal<UsuarioDiretorio[]>([]);
+  readonly buscaUsuarioAd = this.formBuilder.nonNullable.control('');
 
   constructor() {
     this.carregar('');
@@ -90,6 +109,83 @@ export class UsuariosPage {
 
   abrirDetalhe(usuario: Usuario): void {
     void this.router.navigate(['/fe/usuarios', usuario.id]);
+  }
+
+  abrirDialogoAd(): void {
+    this.dialogoAdAberto.set(true);
+    this.statusDiretorio.set(null);
+    this.erroDiretorio.set('');
+    this.usuariosAd.set([]);
+    this.buscaUsuarioAd.reset();
+    this.carregandoStatusAd.set(true);
+    this.service
+      .statusDiretorio()
+      .pipe(
+        finalize(() => this.carregandoStatusAd.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (status) => this.statusDiretorio.set(status),
+        error: (error) => this.erroDiretorio.set(errorMessage(error)),
+      });
+  }
+
+  buscarUsuariosAd(): void {
+    const busca = this.buscaUsuarioAd.value.trim();
+    if (busca.length < 2 || this.buscandoUsuariosAd()) {
+      return;
+    }
+    this.buscandoUsuariosAd.set(true);
+    this.erroDiretorio.set('');
+    this.service
+      .buscarUsuariosAd(busca)
+      .pipe(
+        finalize(() => this.buscandoUsuariosAd.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (pagina) => this.usuariosAd.set(pagina.results),
+        error: (error) => this.erroDiretorio.set(errorMessage(error)),
+      });
+  }
+
+  criarDoAd(identity: UsuarioDiretorio): void {
+    if (!identity.can_import || identity.local_user || this.criandoDoAd()) {
+      return;
+    }
+    this.criandoDoAd.set(identity.identifier);
+    this.erroDiretorio.set('');
+    this.service
+      .criarDoAd(identity.identifier)
+      .pipe(
+        finalize(() => this.criandoDoAd.set(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (usuario) => {
+          this.dialogoAdAberto.set(false);
+          this.carregar(this.busca.value);
+          this.abrirDetalhe(usuario);
+        },
+        error: (error) => this.erroDiretorio.set(errorMessage(error)),
+      });
+  }
+
+  requisitosAusentes(identity: UsuarioDiretorio): string {
+    const rotulos: Record<string, string> = {
+      sAMAccountName: 'login',
+      givenName: 'nome',
+      sn: 'sobrenome',
+      mail: 'e-mail',
+    };
+    return identity.missing_import_fields
+      .map((campo) => rotulos[campo] ?? campo)
+      .join(', ');
+  }
+
+  abrirUsuarioLocal(id: number): void {
+    this.dialogoAdAberto.set(false);
+    void this.router.navigate(['/fe/usuarios', id]);
   }
 
   salvar(): void {

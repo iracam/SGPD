@@ -4,13 +4,16 @@ import { Observable } from 'rxjs';
 
 import { apiConfig } from '../../core/config/api.config';
 import {
+  DiretorioStatus,
   EdicaoUsuario,
   NovaAtribuicao,
   NovoUsuario,
+  PaginaDiretorio,
   Paginado,
   RedefinicaoSenha,
   Usuario,
   UsuarioDetalhe,
+  UsuarioDiretorio,
   VinculoAd,
 } from './models/usuarios.models';
 
@@ -60,5 +63,26 @@ export class UsuariosService {
 
   desvincularAd(id: number, version: number, reason: string): Observable<UsuarioDetalhe> {
     return this.http.post<UsuarioDetalhe>(`${this.base}${id}/ad-unlink/`, { version, reason });
+  }
+
+  statusDiretorio(): Observable<DiretorioStatus> {
+    return this.http.get<DiretorioStatus>(apiConfig.routes.accountsDirectoryStatus);
+  }
+
+  buscarUsuariosAd(
+    busca: string,
+    limit = 50,
+  ): Observable<PaginaDiretorio<UsuarioDiretorio>> {
+    const params = new HttpParams().set('q', busca.trim()).set('limit', limit);
+    return this.http.get<PaginaDiretorio<UsuarioDiretorio>>(
+      apiConfig.routes.accountsDirectoryUsers,
+      { params },
+    );
+  }
+
+  criarDoAd(identifier: string): Observable<UsuarioDetalhe> {
+    return this.http.post<UsuarioDetalhe>(apiConfig.routes.accountsDirectoryUserCreate, {
+      identifier,
+    });
   }
 }

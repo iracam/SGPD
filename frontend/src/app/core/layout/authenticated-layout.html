@@ -45,22 +45,44 @@
     class="sidebar"
     [ngClass]="{ 'sidebar--open': mobileNavOpen() }"
   >
-    <ul class="nav">
-      @for (item of visibleNavItems(); track item.route) {
-        <li>
-          <a
-            class="nav__link"
-            [routerLink]="item.route"
-            routerLinkActive="nav__link--active"
-            [attr.title]="item.description"
-            (click)="closeMobileNav()"
-          >
-            <i [class]="item.icon" aria-hidden="true"></i>
-            <span class="nav__label">{{ item.label }}</span>
-          </a>
-        </li>
+    <div class="nav-groups">
+      <ul class="nav">
+        @for (item of visibleNavItems(); track item.route) {
+          <li>
+            <a
+              class="nav__link"
+              [routerLink]="item.route"
+              routerLinkActive="nav__link--active"
+              [attr.title]="item.description"
+              (click)="closeMobileNav()"
+            >
+              <i [class]="item.icon" aria-hidden="true"></i>
+              <span class="nav__label">{{ item.label }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+
+      @if (showConfigurationSection()) {
+        <section class="nav-section" aria-labelledby="nav-configuracoes">
+          <h2 id="nav-configuracoes" class="nav-section__title">Configurações</h2>
+          <ul class="nav">
+            <li>
+              <a
+                class="nav__link"
+                [routerLink]="configurationNavItem.route"
+                routerLinkActive="nav__link--active"
+                [attr.title]="configurationNavItem.description"
+                (click)="closeMobileNav()"
+              >
+                <i [class]="configurationNavItem.icon" aria-hidden="true"></i>
+                <span class="nav__label">{{ configurationNavItem.label }}</span>
+              </a>
+            </li>
+          </ul>
+        </section>
       }
-    </ul>
+    </div>
 
     <div class="session">
       <div class="session__user">

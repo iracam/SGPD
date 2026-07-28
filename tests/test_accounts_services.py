@@ -5,6 +5,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
+from django.db import connection
 from django.utils import timezone
 
 from apps.accounts.authorization import has_permission
@@ -397,6 +398,37 @@ def test_role_assignment_is_idempotent_and_revocable(actor: User) -> None:
     )
     assert not revoked.is_active
     assert revoked.revoked_by == actor
+
+
+def test_role_assignment_avoids_for_update_with_limit_on_oracle(
+    actor: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(connection.features, "has_select_for_update", True)
+    monkeypatch.setattr(
+        connection.features,
+        "supports_select_for_update_with_limit",
+        False,
+    )
+    monkeypatch.setattr(connection.ops, "for_update_sql", lambda **_kwargs: "")
+    role = Role.objects.create(code="ORACLE_LOCK", name="Regressão Oracle")
+    user = create_user("oracle.lock")
+
+    assignment = AssignRoleService().execute(
+        AssignRoleCommand(
+            actor=actor,
+            user_id=user.pk,
+            role_id=role.pk,
+            scope_type=ScopeType.GLOBAL,
+            company_code=None,
+            branch_code=None,
+            valid_from=None,
+            valid_until=None,
+            reason="Regressão Oracle sem limite em bloqueio.",
+        )
+    )
+
+    assert assignment.scope_key == "*"
 
 
 def test_own_password_change_clears_temporary_flag() -> None:

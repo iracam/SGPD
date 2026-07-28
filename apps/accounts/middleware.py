@@ -9,6 +9,8 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
+from apps.integrations.active_directory.config import ActiveDirectoryConfig
+
 from .models import User
 
 API_PREFIX = "/api/"
@@ -37,7 +39,13 @@ class PasswordChangeRequiredMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         user = cast(User, request.user)
-        if user.is_authenticated and user.must_change_password:
+        password_is_managed_by_ad = (
+            user.is_authenticated
+            and user.has_ad_link
+            and ActiveDirectoryConfig.from_settings().authentication_enabled
+            and not user.is_superuser
+        )
+        if user.is_authenticated and user.must_change_password and not password_is_managed_by_ad:
             path = request.path
             if path.startswith(API_PREFIX):
                 if path not in self._api_allowed_paths():

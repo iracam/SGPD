@@ -15,7 +15,7 @@ import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error
 import { AuthService } from '../../core/auth/auth.service';
 import { Papel } from '../papeis/models/papeis.models';
 import { PapeisService } from '../papeis/papeis.service';
-import { Atribuicao, UsuarioDetalhe } from './models/usuarios.models';
+import { Atribuicao, UsuarioDetalhe, UsuarioDiretorio } from './models/usuarios.models';
 import { UsuariosService } from './usuarios.service';
 
 /** Qual formulário o diálogo está exibindo. */
@@ -69,6 +69,9 @@ export class UsuarioDetalhePage {
   readonly erroFormulario = signal('');
   readonly errosCampo = signal<FieldErrors>({});
   readonly atribuicaoAlvo = signal<Atribuicao | null>(null);
+  readonly buscandoVinculoAd = signal(false);
+  readonly resultadosVinculoAd = signal<UsuarioDiretorio[]>([]);
+  readonly buscaVinculoAd = this.formBuilder.nonNullable.control('');
 
   readonly tituloDialogo = computed(() => {
     const acao = this.acao();
@@ -79,6 +82,19 @@ export class UsuarioDetalhePage {
   readonly revogadas = computed(
     () => this.usuario()?.role_assignments.filter((a) => !a.is_active) ?? [],
   );
+  readonly avisoSenhaLocal = computed(() => {
+    const usuario = this.usuario();
+    if (!usuario?.ad_identifier) {
+      return '';
+    }
+    if (!usuario.local_password_allowed) {
+      return 'Autenticação AD ativa: a senha local está bloqueada para esta conta.';
+    }
+    if (usuario.ad_authentication_enabled) {
+      return 'Senha local disponível somente pela contingência configurada para superusuário.';
+    }
+    return 'Autenticação AD desativada: a senha local permanece disponível para testes.';
+  });
 
   readonly escopos = [
     { label: 'Global', value: 'GLOBAL' },
@@ -133,6 +149,12 @@ export class UsuarioDetalhePage {
     if (!usuario) {
       return;
     }
+    if (acao === 'senha' && !usuario.local_password_allowed) {
+      this.erroPagina.set(
+        'A senha local desta conta não pode ser redefinida enquanto a autenticação AD estiver ativa.',
+      );
+      return;
+    }
     this.errosCampo.set({});
     this.erroFormulario.set('');
     this.atribuicaoAlvo.set(atribuicao ?? null);
@@ -160,12 +182,41 @@ export class UsuarioDetalhePage {
     }
     if (acao === 'vincular') {
       this.formVincular.reset({ username: usuario.username, identifier: '', reason: '' });
+      this.buscaVinculoAd.reset(usuario.username);
+      this.resultadosVinculoAd.set([]);
     }
     this.acao.set(acao);
   }
 
   fechar(): void {
     this.acao.set(null);
+  }
+
+  buscarVinculoAd(): void {
+    const busca = this.buscaVinculoAd.value.trim();
+    if (busca.length < 2 || this.buscandoVinculoAd()) {
+      return;
+    }
+    this.buscandoVinculoAd.set(true);
+    this.erroFormulario.set('');
+    this.service
+      .buscarUsuariosAd(busca)
+      .pipe(
+        finalize(() => this.buscandoVinculoAd.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (pagina) => this.resultadosVinculoAd.set(pagina.results),
+        error: (error) => this.erroFormulario.set(errorMessage(error)),
+      });
+  }
+
+  selecionarVinculoAd(identity: UsuarioDiretorio): void {
+    this.formVincular.patchValue({
+      identifier: identity.identifier,
+      username: identity.username,
+    });
+    this.resultadosVinculoAd.set([identity]);
   }
 
   confirmar(): void {
@@ -213,6 +264,12 @@ export class UsuarioDetalhePage {
         });
       }
       case 'senha': {
+        if (!usuario.local_password_allowed) {
+          this.erroFormulario.set(
+            'A senha local desta conta é gerenciada pelo Active Directory.',
+          );
+          return null;
+        }
         if (this.formSenha.invalid) {
           this.formSenha.markAllAsTouched();
           return null;
