@@ -30,6 +30,20 @@ Estratégia:
 - exigir TLS na integração futura com AD;
 - MFA quando a infraestrutura permitir.
 
+A SPA autentica por sessão Django com proteção CSRF em origem única, conforme a
+ADR-026:
+
+- não há JWT, token de acesso ou credencial de longa duração no navegador;
+- `localStorage` guarda apenas preferências de interface, como tema e estado da
+  navegação, e nunca dados de sessão ou identidade;
+- requisições com efeito colateral enviam `X-CSRFToken`;
+- a revogação de sessão permanece sob controle do servidor;
+- o endpoint de login tem limitação de tentativas, complementando o registro de
+  falha já auditado;
+- a obrigatoriedade de troca da senha temporária é preservada na API: o
+  middleware devolve `403` com código próprio em vez de redirecionar, e a SPA
+  conduz o usuário à tela de troca.
+
 ## 3. Autorização
 
 Autorização deve considerar:
@@ -47,11 +61,26 @@ Os endpoints cadastrais do Senior exigem autenticação e a permissão
 com escopo global, de empresa ou de filial. Empresas fora do escopo não são
 retornadas e filtros fora do escopo recebem `403`.
 
-A interface HTMX aplica a mesma autorização em toda requisição parcial, não
-confia nos valores já renderizados no navegador e remove seleções descendentes
-quando o escopo anterior muda. A listagem HTML de colaboradores não contém
-CPF. O runtime HTMX é local, fixado na versão 2.0.10 e acompanhado da licença,
-evitando execução de código obtido de CDN durante o uso.
+Com a adoção da SPA pela ADR-025, a API passa a ser a única superfície
+funcional da aplicação. A renderização deixa de funcionar como barreira
+auxiliar de autorização, e disso decorrem duas obrigações:
+
+- cada endpoint valida permissão e escopo por conta própria, sem depender do
+  que o cliente exibe ou deixa de exibir;
+- cada endpoint possui teste de permissão negada.
+
+O contexto de autorização devolvido por `GET /api/v1/auth/context/` serve
+apenas para orientar a navegação da SPA. Ele não concede acesso: um cliente
+adulterado que exiba um item de menu indevido continua recebendo `403` do
+endpoint correspondente.
+
+Nenhum código é carregado de CDN. Componentes, ícones e fontes são empacotados
+no build, mantendo a restrição estabelecida originalmente para o HTMX.
+
+A interface HTMX, enquanto permanecer em operação, aplica a mesma autorização
+em toda requisição parcial, não confia nos valores já renderizados no navegador
+e remove seleções descendentes quando o escopo anterior muda. Nenhuma listagem,
+HTML ou JSON, contém CPF.
 
 As permissões delegáveis atuais são:
 
@@ -207,11 +236,16 @@ Alternativas futuras:
 
 - cookies `HttpOnly`;
 - cookies `Secure`;
-- proteção CSRF;
+- proteção CSRF, também nas requisições da SPA;
+- `SameSite` compatível com a origem única exigida pela ADR-026;
 - timeout;
 - bloqueio por inatividade;
 - revogação em desligamento;
 - controle de dispositivos conforme política.
+
+A aplicação e a API precisam permanecer na mesma origem. A introdução futura de
+proxy reverso, de outro domínio para o frontend ou de um ambiente HML/PRD
+reabre a ADR-026 junto com a ADR-014.
 
 ## 11. Logs
 
@@ -271,7 +305,11 @@ Não registrar em log:
 - validação de autorização em services;
 - testes de permissão;
 - revisão de migrations;
-- revisão de SQL.
+- revisão de SQL;
+- dependências de frontend fixadas em `package-lock.json` e instaladas por
+  `npm ci`;
+- atualização de Angular ou PrimeNG somente após revisão explícita;
+- nenhum código de terceiros carregado de CDN em tempo de execução.
 
 ## 14. Retenção
 

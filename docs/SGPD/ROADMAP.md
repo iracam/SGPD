@@ -96,6 +96,35 @@ dez conexões concorrentes, sem erros ou timeouts.
 As Fases 1 e 2 estão estabilizadas e versionadas localmente. A Fase 3 ainda não
 foi iniciada.
 
+## Fase 2.5 — Migração da interface para SPA Angular
+
+Inserida em 2026-07-28 por decisão explícita, antes da configuração funcional,
+para que os módulos das Fases 3 a 6 já sejam construídos sobre a interface
+definitiva e não precisem ser escritos duas vezes.
+
+### Entregas
+
+- decisões registradas nas ADR-025 a ADR-028;
+- API de autenticação e contexto de autorização;
+- API de administração de contas, papéis, escopos, vínculo AD e auditoria;
+- envelope de erro padronizado e tradução única do `ValidationError`;
+- SPA Angular com PrimeNG, mobile first;
+- integração do build com o Django e o WhiteNoise;
+- telas de contas e cascata cadastral do Senior na SPA;
+- remoção da interface server-side, do HTMX e dos testes acoplados a ela.
+
+### Saída esperada
+
+Interface definitiva em operação, com o Django exposto apenas como API.
+
+### Estado em 2026-07-28
+
+Fase A concluída: decisões registradas e documentação atualizada, sem alteração
+de código. As demais fases não foram iniciadas.
+
+O plano completo, com as sete fases e seus critérios de conclusão, está em
+`MIGRATION_FRONTEND_SPA.md`.
+
 ## Fase 3 — Configuração funcional
 
 ### Entregas

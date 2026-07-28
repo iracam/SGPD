@@ -20,6 +20,14 @@ Usar Django como backend e camada web principal.
 
 ## ADR-002 — Interface server-side
 
+### Estado
+
+Substituída pela ADR-025 em 2026-07-28.
+
+Enquanto a migração descrita em `MIGRATION_FRONTEND_SPA.md` não concluir a Fase
+G, a interface server-side aqui decidida permanece em operação. Ela não deve
+receber novas telas.
+
 ### Decisão
 
 Usar Django Templates + HTMX + Alpine.js.
@@ -418,3 +426,173 @@ justificativa e auditoria. Esse vínculo não ativa autenticação LDAP/AD.
 - autenticação LDAP/AD ainda exige atributo estável homologado, endpoint, TLS,
   base de busca, credencial técnica e política de contingência;
 - a senha local não é desabilitada apenas pelo vínculo administrativo.
+
+## ADR-025 — SPA Angular como interface do SGPD
+
+### Estado
+
+Aceita em 2026-07-28. Substitui a ADR-002.
+
+### Decisão
+
+Substituir a interface Django Templates + HTMX + Alpine.js por uma SPA em
+Angular 21, consumindo o Django exclusivamente como API.
+
+A substituição é total: administração de contas e cascata cadastral do Senior.
+O Django Admin permanece, somente leitura, como ferramenta de diagnóstico,
+conforme `SECURITY.md` §9.
+
+Esta decisão atende ao requisito de decisão explícita exigido por `AGENTS.md`
+§3 e libera a criação da SPA, que até aqui era proibida.
+
+### Motivos
+
+- a administração funcional do processo demissional exige telas com estado
+  local rico — checklists por setor, pendências com evidências, análise de
+  valores — nas quais o custo de manter a coerência por fragmentos HTML cresce
+  mais rápido do que o de manter um cliente com estado explícito;
+- o requisito de mobile first, registrado na ADR-028, incide sobre interações
+  que a renderização por fragmentos atende mal;
+- os services de domínio já revalidam autorização no próprio limite, conforme
+  a ADR-024, de modo que expor uma API não move a regra de negócio para o
+  cliente;
+- a cascata cadastral do Senior já possui endpoints JSON autenticados e
+  autorizados por escopo, comprovando o padrão;
+- existe um projeto corporativo de referência com a mesma arquitetura em
+  operação, o que reduz o risco de decisões estruturais novas.
+
+### Consequências
+
+- o Django deixa de renderizar telas de aplicação e passa a expor `/api/v1/`
+  como única superfície funcional;
+- toda a administração de contas, hoje sem API, precisa ser exposta antes da
+  remoção das views HTML;
+- `npm` e o ecossistema Node passam a fazer parte do ciclo de build, com
+  `package-lock.json` versionado e instalação por `npm ci`;
+- a interface deixa de funcionar sem JavaScript, o que não conflita com o
+  RNF-008, que exige apenas os navegadores corporativos homologados;
+- HTMX, Alpine.js, Tailwind e daisyUI saem da stack;
+- a autorização deixa de ter a renderização como barreira auxiliar: a API passa
+  a ser a única superfície e cada endpoint precisa de teste de permissão
+  negada;
+- o plano de execução, com sete fases e critérios de conclusão, está em
+  `MIGRATION_FRONTEND_SPA.md`.
+
+### Risco aceito
+
+Uma SPA amplia a superfície de API e a quantidade de código de cliente frente à
+opção server-side. O risco é aceito por decisão explícita do projeto, com a
+mitigação de que nenhuma regra de negócio reside no cliente e de que os
+services permanecem como limite de segurança.
+
+## ADR-026 — Sessão Django com CSRF em origem única
+
+### Decisão
+
+Autenticar a SPA por sessão Django e proteção CSRF, servindo aplicação e API na
+mesma origem. Não usar JWT.
+
+### Regras
+
+- o cookie de sessão permanece `HttpOnly`, com `SameSite` e `Secure` conforme
+  a configuração do ambiente;
+- requisições com efeito colateral enviam `X-CSRFToken` e credenciais;
+- nenhum dado de sessão é gravado em `localStorage` ou `sessionStorage`; o
+  armazenamento local guarda apenas preferências de interface, como tema e
+  estado da navegação;
+- `login`, `logout` e falha de autenticação continuam gerando os mesmos eventos
+  de auditoria já implementados;
+- o endpoint de login passa a ter limitação de tentativas;
+- a obrigatoriedade de troca da senha temporária é preservada: sob `/api/`, o
+  middleware devolve `403` com código próprio em vez de redirecionar.
+
+### Motivos
+
+- preserva integralmente a auditoria de autenticação já homologada;
+- mantém a revogação de sessão sob controle do servidor, o que um token de
+  acesso autocontido não oferece;
+- evita guardar credencial de longa duração em armazenamento acessível por
+  JavaScript;
+- dispensa CORS, refresh, rotação e blacklist de tokens;
+- o projeto de referência usa JWT, mas naquele contexto a origem do cliente é
+  separada; aqui não é.
+
+### Consequências
+
+- aplicação e API precisam permanecer na mesma origem;
+- a criação futura de HML ou PRD, ou a introdução de proxy reverso, reabre esta
+  decisão junto com a ADR-014;
+- clientes não navegadores, se existirem no futuro, exigirão decisão própria de
+  autenticação.
+
+## ADR-027 — PrimeNG e build integrado ao WhiteNoise
+
+### Decisão
+
+Usar PrimeNG 21 com o preset Aura e primeicons como biblioteca de componentes.
+
+Entregar a SPA pelo próprio Django: `ng build` gera os artefatos, os assets são
+servidos pelo WhiteNoise e o `index.html` é servido por uma view Django
+dedicada, registrada como catch-all depois de `/api/`, `/admin/`, `/health/` e
+`/static/`.
+
+### Motivos
+
+- há um projeto corporativo de referência em PrimeNG, cuja estrutura, sistema
+  de tokens e decisões podem ser reaproveitados;
+- o conjunto de componentes cobre tabelas, filtros, diálogos e formulários
+  administrativos sem construção própria;
+- servir pelo Django preserva a ADR-014, que exclui Nginx, e sustenta a origem
+  única exigida pela ADR-026.
+
+### Restrições
+
+- o `index.html` não pode ser servido pelo WhiteNoise:
+  `CompressedManifestStaticFilesStorage` renomeia o arquivo incluindo hash e
+  quebra a rota `/`;
+- as versões de Angular e PrimeNG ficam fixadas no `package-lock.json`;
+  atualização exige revisão explícita, como já valia para o HTMX;
+- nenhum código é carregado de CDN, mantendo a restrição já estabelecida pela
+  ADR-002;
+- fontes e ícones são empacotados localmente.
+
+## ADR-028 — Mobile first como requisito de interface
+
+### Decisão
+
+Projetar e implementar a interface a partir do menor viewport, ampliando-a por
+pontos de quebra. Todo SCSS de layout usa exclusivamente
+`@media (min-width: ...)`.
+
+### Regras
+
+- consultas `max-width` não são aceitas em código novo; sua presença indica que
+  a regra base foi escrita para desktop;
+- os pontos de quebra são declarados uma única vez, como tokens, e reutilizados
+  por todas as features;
+- a navegação tem como estado base uma barra superior com gaveta sobreposta, e
+  só é promovida a barra lateral permanente a partir de 1024 px;
+- listagens administrativas possuem representação em cartões no estado base e
+  tabela a partir do ponto de quebra de tablet;
+- elementos interativos têm no mínimo 44 × 44 px no estado base;
+- campos de formulário nunca são renderizados abaixo de 16 px em telefone, para
+  evitar o zoom automático do Safari no iOS;
+- nenhuma tela produz rolagem horizontal no `body`.
+
+### Motivos
+
+- requisito explícito do projeto;
+- o processo demissional envolve setores que operam fora da mesa — patrimônio,
+  ferramentaria, medicina ocupacional e frota — para os quais a conferência de
+  itens e o registro de evidências ocorrem em campo;
+- responsividade tratada como adaptação posterior tende a produzir telas
+  tecnicamente responsivas e operacionalmente inviáveis em telefone.
+
+### Consequências
+
+- o SCSS do projeto de referência serve como fonte de tokens, não de layout,
+  pois ele é desktop first;
+- cada listagem administrativa passa a ter duas representações a partir dos
+  mesmos dados;
+- a conclusão de cada fase de interface exige conferência visual em todos os
+  pontos de quebra, começando pelo menor.

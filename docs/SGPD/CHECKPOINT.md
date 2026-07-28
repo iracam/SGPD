@@ -3,13 +3,13 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fase 3 ainda não iniciada
-- Estado: Checkpoint técnico estabilizado e versionado localmente
+- Fase atual: Fases 1 e 2 estabilizadas; Fase 2.5 em execução na etapa A; Fase 3 ainda não iniciada
+- Estado: Decisões da migração de frontend registradas; nenhum código alterado por elas
 - Banco: Oracle
-- Backend: Django
-- UI: Django Templates + HTMX + Alpine
+- Backend: Django, evoluindo para API-only
+- UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028; interface Django Templates + HTMX + Alpine ainda em operação até a Fase G
 - Integração principal: Senior HCM
-- Autenticação: local no MVP, com vinculação futura das contas SGPD ao Active Directory
+- Autenticação: local no MVP, por sessão Django com CSRF em origem única, com vinculação futura das contas SGPD ao Active Directory
 
 ## Checkpoint 0 — Descoberta
 
@@ -175,6 +175,81 @@
   - 80 consultas de colaboradores com 1, 5 e 10 conexões, sem erros ou
     timeouts; p95 máximo de 60,64 ms.
 - [ ] Snapshot validado.
+
+## Checkpoint 2.5 — Migração da interface para SPA Angular
+
+Plano completo em `MIGRATION_FRONTEND_SPA.md`.
+
+### Fase A — Decisão e documentação
+
+- [x] ADR-025: SPA Angular substitui a interface server-side.
+- [x] ADR-026: sessão Django com CSRF em origem única; sem JWT.
+- [x] ADR-027: PrimeNG e build integrado ao WhiteNoise.
+- [x] ADR-028: mobile first como requisito de interface.
+- [x] ADR-002 marcada como substituída.
+- [x] Proibição de SPA removida do `AGENTS.md` e substituída pela proibição de
+  novas telas server-side.
+- [x] Stack, estrutura e papéis de agente atualizados no `AGENTS.md`.
+- [x] `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `ENVIRONMENT.md`,
+  `ROADMAP.md`, `INTEGRATION_SENIOR_ORACLE.md` e `PROMPT.md` atualizados.
+- [x] Riscos R38 a R43 registrados; R34 encerrado.
+- [x] Node 24.18.0 e npm 11.16.0 homologados.
+- [x] `MANIFEST.json` atualizado.
+
+### Fase B — API de autenticação e contexto
+
+- [ ] Envelope de erro `{code, message, details}` e handler único do DRF.
+- [ ] `GET /api/v1/auth/csrf/`.
+- [ ] `POST /api/v1/auth/login/` com auditoria e limitação de tentativas.
+- [ ] `POST /api/v1/auth/logout/` com auditoria.
+- [ ] `GET /api/v1/auth/me/` com `must_change_password`.
+- [ ] `GET /api/v1/auth/context/` com papéis, permissões e escopos.
+- [ ] `POST /api/v1/auth/change-password/`.
+- [ ] Middleware devolvendo `403` tipado sob `/api/`.
+
+### Fase C — API de contas
+
+- [ ] Usuários: listagem, criação, detalhe e atualização.
+- [ ] Redefinição de senha.
+- [ ] Papéis: listagem, criação, detalhe e atualização.
+- [ ] Atribuição e revogação de papéis.
+- [ ] Vínculo e desvínculo AD.
+- [ ] Catálogo de permissões delegáveis.
+- [ ] Auditoria de contas paginada.
+- [ ] Teste de permissão negada em cada endpoint.
+
+### Fase D — Scaffold Angular, shell e autenticação
+
+- [ ] `frontend/` com Angular 21, PrimeNG 21 e Aura.
+- [ ] Tokens do SGPD e pontos de quebra em `styles.scss`.
+- [ ] `core/auth`, `core/config`, `core/layout` e `core/theme`.
+- [ ] Shell com gaveta móvel promovida a barra lateral a partir de 1024 px.
+- [ ] Tela de login.
+- [ ] Integração do build com Django e WhiteNoise.
+- [ ] Conferência visual em 360, 390, 768, 1024 e 1440 px.
+
+### Fase E — Telas de contas
+
+- [ ] Usuários, com cartões no estado base e tabela a partir de `md`.
+- [ ] Papéis.
+- [ ] Auditoria.
+- [ ] Perfil e troca da própria senha.
+- [ ] Conferência visual nos cinco pontos de quebra.
+
+### Fase F — Cascata Senior
+
+- [ ] Seleção Empresa → Filial → Tipo → Colaborador na SPA.
+- [ ] Smoke somente leitura contra o Oracle DEV.
+- [ ] Conferência visual nos cinco pontos de quebra.
+
+### Fase G — Remoção e limpeza
+
+- [ ] Templates, views HTML, forms e context processors removidos.
+- [ ] `ui_urls` e runtime HTMX removidos.
+- [ ] `staticfiles/` regenerado.
+- [ ] Testes acoplados à UI antiga removidos.
+- [ ] Suíte completa, lint, format, mypy e migrations sem divergência.
+- [ ] Checkpoint atualizado.
 
 ## Checkpoint 3 — Configuração funcional
 
@@ -538,4 +613,20 @@ Próximo passo: iniciar a configuração funcional por setores, responsáveis e 
 Comandos executados: pytest; ruff check; ruff format --check; mypy; Django check; makemigrations --check --dry-run; showmigrations accounts; consulta read-only a USER_TABLES; migrate --plan tentado novamente; git diff --check; git add; git commit.
 Arquivos alterados: apps/accounts, apps/integrations/senior, config, scripts/oracle, static/vendor/htmx, templates, tests, README.md e documentação em docs/SGPD.
 Testes: 64 testes passaram; lint, format, mypy, Django check, migrations e diff sem divergências; accounts.0001–0005 confirmadas como aplicadas e catálogo confirmou SGPD_USER sem ACCOUNTS_USER; a repetição posterior do plano Oracle falhou antes de consultar o schema com ORA-12560, sem executar DDL ou DML.
+```
+
+### 2026-07-28 — Decisão da migração para SPA Angular
+
+```text
+Data: 2026-07-28
+Responsável: Claude
+Fase: Fase 2.5 — Migração da interface / Fase A
+O que foi concluído: revisão completa da documentação e do código existentes; decisão explícita de substituir a interface Django Templates + HTMX + Alpine por SPA Angular; ADR-025, ADR-026, ADR-027 e ADR-028 registradas; ADR-002 marcada como substituída; plano de sete fases versionado em MIGRATION_FRONTEND_SPA.md; AGENTS.md, README.md, ARCHITECTURE.md, SECURITY.md, ENVIRONMENT.md, ROADMAP.md, RISK_REGISTER.md, INTEGRATION_SENIOR_ORACLE.md, PROMPT.md, CHECKPOINT.md e MANIFEST.json atualizados.
+Decisões: adotar Angular 21 com PrimeNG 21 e preset Aura, espelhando a arquitetura do projeto corporativo de referência em /home/macari/dev/prdcana/frontend; autenticar por sessão Django com CSRF em origem única e não usar JWT, preservando a auditoria e a revogação de sessão já homologadas; servir a SPA pelo próprio Django com WhiteNoise, sem Nginx, mantendo a ADR-014; adotar mobile first como requisito, com uso exclusivo de min-width e proibição de max-width em código novo; substituir escopo total, contas e cascata Senior, preservando o Django Admin somente leitura; executar API primeiro e remoção por último, para que cada commit deixe o sistema utilizável.
+Riscos: R38 a R43 registrados, com destaque para a ampliação da superfície de API sem autorização, a perda da imposição de troca de senha temporária ao substituir o redirecionamento e o risco de reintroduzir CSS desktop first ao portar SCSS da referência. R34, sobre a manutenção do runtime HTMX, foi encerrado porque o HTMX sai da stack.
+Pendências: Fases B a G não iniciadas. A administração de contas continua sem API, o que a torna o item de maior esforço da migração. A interface server-side permanece em operação e não deve receber telas novas.
+Próximo passo: executar a Fase B, criando o envelope de erro, a API de autenticação e contexto e a adaptação do middleware de senha temporária para respostas de API.
+Comandos executados: inspeção da árvore e do histórico Git; leitura integral da documentação em docs/SGPD, AGENTS.md, README.md e PROMPT.md; leitura de apps/accounts, apps/integrations/senior, config e templates; inspeção do projeto de referência prdcana/frontend; verificação de Node, npm e Docker; validação SHA-256 do manifesto.
+Arquivos alterados: AGENTS.md, PROMPT.md, README.md, docs/SGPD/MIGRATION_FRONTEND_SPA.md, docs/SGPD/DECISIONS.md, docs/SGPD/ARCHITECTURE.md, docs/SGPD/SECURITY.md, docs/SGPD/ENVIRONMENT.md, docs/SGPD/ROADMAP.md, docs/SGPD/RISK_REGISTER.md, docs/SGPD/INTEGRATION_SENIOR_ORACLE.md, docs/SGPD/CHECKPOINT.md e docs/SGPD/MANIFEST.json.
+Testes: nenhum código foi alterado, portanto a suíte não foi reexecutada nesta fase; manifesto revalidado por SHA-256 com todos os arquivos íntegros; consistência cruzada da documentação verificada, sem referência remanescente a HTMX, Alpine, Tailwind ou daisyUI como stack vigente.
 ```

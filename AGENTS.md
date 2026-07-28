@@ -26,9 +26,10 @@ Antes de implementar:
 5. leia `DATA_MODEL.md`;
 6. leia `INTEGRATION_SENIOR_ORACLE.md`;
 7. leia `SECURITY.md`;
-8. leia `ROADMAP.md`;
-9. leia `CHECKPOINT.md`;
-10. produza diagnóstico do estado atual.
+8. leia `MIGRATION_FRONTEND_SPA.md`;
+9. leia `ROADMAP.md`;
+10. leia `CHECKPOINT.md`;
+11. produza diagnóstico do estado atual.
 
 Não implemente grandes blocos sem verificar o checkpoint atual.
 
@@ -47,7 +48,10 @@ O agente não deve:
 - apagar processos encerrados;
 - alterar snapshots históricos;
 - usar signals para regras centrais sem justificativa;
-- criar SPA sem decisão explícita;
+- criar telas server-side novas: a SPA Angular é a interface do projeto por
+  decisão explícita na ADR-025;
+- implementar regra de negócio no cliente Angular;
+- escrever CSS desktop first ou usar consultas `max-width`, conforme a ADR-028;
 - introduzir dependência sem explicar;
 - executar migration destrutiva sem revisão;
 - fazer refatoração ampla fora do escopo;
@@ -56,20 +60,30 @@ O agente não deve:
 
 ## 4. Stack padrão
 
-- Python 3.12 ou versão homologada.
-- Django 5.x ou versão LTS/estável homologada.
+Backend:
+
+- Python 3.13 ou versão homologada.
+- Django 5.2 LTS ou versão homologada.
 - Django REST Framework.
 - Oracle.
-- HTMX.
-- Alpine.js.
-- Tailwind CSS/daisyUI.
-- WhiteNoise para arquivos estáticos.
+- WhiteNoise para arquivos estáticos e para os assets da SPA.
 - Redis em container, quando necessário.
 - Celery ou Django-Q2, quando necessário.
 - Pytest.
 - Ruff.
 - Mypy quando viável.
 - Docker Compose para serviços auxiliares do DEV.
+
+Frontend:
+
+- Angular 21, standalone, estado por signals.
+- PrimeNG 21 com preset Aura e primeicons.
+- SCSS mobile first.
+- Vitest.
+- npm com `package-lock.json` versionado; instalar por `npm ci`.
+
+HTMX, Alpine.js, Tailwind e daisyUI saíram da stack pela ADR-025 e não devem
+ser reintroduzidos.
 
 O agente deve confirmar versões existentes antes de alterar.
 
@@ -96,6 +110,13 @@ project/
 ├── tests/
 ├── scripts/
 ├── docker/
+├── frontend/
+│   ├── src/app/core/       # auth, config, layout, theme
+│   ├── src/app/features/   # uma pasta por tela
+│   ├── src/styles.scss     # tokens e pontos de quebra
+│   ├── angular.json
+│   ├── package.json
+│   └── proxy.conf.json
 ├── manage.py
 ├── pyproject.toml
 ├── AGENTS.md
@@ -103,6 +124,9 @@ project/
 ├── ROADMAP.md
 └── CHECKPOINT.md
 ```
+
+A estrutura interna de `frontend/` está detalhada em
+`docs/SGPD/MIGRATION_FRONTEND_SPA.md` §5.
 
 Não force essa estrutura se o repositório já possuir padrão consolidado. Nesse caso, documente a adaptação.
 
@@ -130,6 +154,20 @@ Responsável por:
 - APIs;
 - permissões;
 - testes.
+
+### `angular-frontend`
+
+Responsável por:
+
+- componentes e rotas;
+- serviços de acesso à API;
+- guardas e interceptadores;
+- estado por signals;
+- SCSS mobile first e tokens;
+- acessibilidade;
+- testes de frontend.
+
+Nunca implementar regra de negócio no cliente.
 
 ### `oracle-db-readonly`
 

@@ -240,11 +240,11 @@ Toda liberação deve gerar auditoria.
 ## Arquitetura preferida
 
 ```text
-Django Templates + HTMX + Alpine
+SPA Angular 21 + PrimeNG 21, mobile first
 Django Services
-Django REST Framework para APIs
+Django REST Framework como única superfície funcional
 Oracle
-WhiteNoise para arquivos estáticos
+WhiteNoise para arquivos estáticos e assets da SPA
 Redis em container, quando necessário
 Celery ou Django-Q2, quando necessário
 LDAP/AD

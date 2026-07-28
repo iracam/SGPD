@@ -28,11 +28,8 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Python 3.13
 - Django 5.2 LTS
 - Django REST Framework 3.17
-- Django Templates
-- HTMX
-- Alpine.js
-- Tailwind CSS ou daisyUI
-- WhiteNoise para arquivos estáticos
+- Angular 21 com PrimeNG 21, interface mobile first
+- WhiteNoise para arquivos estáticos e para os assets da SPA
 - Oracle Database 19c
 - Celery ou Django-Q2 para tarefas assíncronas
 - Redis em container quando filas, cache ou locks forem necessários
@@ -40,12 +37,16 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Microsoft 365 SMTP para notificações
 - filesystem local privado para evidências
 
-As versões exatas, inclusive dependências transitivas, estão registradas em
-`uv.lock`.
+As versões exatas do backend, inclusive dependências transitivas, estão
+registradas em `uv.lock`; as do frontend, em `frontend/package-lock.json`.
 
-O runtime HTMX 2.0.10 é mantido localmente em
-`static/vendor/htmx/`, com sua licença, e servido como arquivo estático. A
-interface não depende de CDN.
+A interface não depende de CDN: componentes, ícones e fontes são empacotados no
+build.
+
+Em 2026-07-28 o projeto decidiu substituir a interface Django Templates + HTMX
++ Alpine por uma SPA Angular, conforme as ADRs 025 a 028. O plano de execução
+está em `docs/SGPD/MIGRATION_FRONTEND_SPA.md`. Enquanto a migração não conclui,
+a interface server-side permanece em operação e não recebe telas novas.
 
 ## Execução local
 
@@ -95,8 +96,8 @@ Administração funcional de contas:
 
 Consulta cadastral Senior:
 
-- `/references/senior/`: seleção HTMX Empresa → Filial → Tipo de colaborador
-  → Colaborador;
+- `/references/senior/`: seleção Empresa → Filial → Tipo de colaborador
+  → Colaborador, server-side até a Fase F da migração;
 - exige autenticação, permissão `query_senior_references` e escopo compatível;
 - consulta o Senior somente por `SELECT` e não cria snapshot nesta etapa.
 
@@ -106,7 +107,12 @@ Consulta cadastral Senior:
 - sem Nginx;
 - sem CI/CD;
 - WhiteNoise não atende evidências ou uploads;
-- Redis e worker serão introduzidos sob demanda.
+- Redis e worker serão introduzidos sob demanda;
+- aplicação e API permanecem na mesma origem, exigência da ADR-026.
+
+O diretório `frontend/` passa a existir na Fase D da migração. A partir dela, o
+ciclo local inclui `npm ci`, `ng build` para gerar os artefatos servidos pelo
+Django e `ng serve --proxy-config proxy.conf.json` durante o desenvolvimento.
 
 ## Estrutura da documentação (`./docs/SGPD/`)
 
@@ -120,6 +126,7 @@ Consulta cadastral Senior:
 - `SECURITY.md`: segurança, LGPD e auditoria.
 - `RISK_REGISTER.md`: registro e mitigação de riscos.
 - `DECISIONS.md`: decisões arquiteturais iniciais.
+- `MIGRATION_FRONTEND_SPA.md`: plano de migração da interface para a SPA.
 - `ROADMAP.md`: fases de implementação.
 - `CHECKPOINT.md`: controle de progresso do projeto.
 
@@ -153,11 +160,10 @@ delegáveis; a autenticação LDAP/AD real continua dependente de contrato com a
 Infraestrutura. A primeira conta humana foi criada explicitamente pelo
 bootstrap auditado; nenhuma conta é criada automaticamente.
 
-A seleção cadastral HTMX da Fase 2 está concluída e usa o mesmo repository e a
-mesma autorização por escopo dos endpoints JSON. O runtime HTMX é servido
-localmente pelo pipeline de estáticos. O `LEFT JOIN` de centro de custo foi
-homologado no Oracle DEV e a consulta de colaboradores concluiu a medição
-controlada com até dez conexões concorrentes sem erros ou timeouts.
+A seleção cadastral da Fase 2 está concluída e usa o mesmo repository e a
+mesma autorização por escopo dos endpoints JSON. O `LEFT JOIN` de centro de
+custo foi homologado no Oracle DEV e a consulta de colaboradores concluiu a
+medição controlada com até dez conexões concorrentes sem erros ou timeouts.
 
 SMTP AUTH e o uso do remetente configurado foram validados no Microsoft 365
 via TLS/STARTTLS em 2026-07-28. Uma mensagem de prova foi aceita pelo serviço.
@@ -167,5 +173,9 @@ O checkpoint das Fases 1 e 2 foi estabilizado e versionado localmente em
 auditoria rejeita mutação e exclusão em lote, e a desativação concorrente
 preserva ao menos um superusuário ativo. A configuração funcional da Fase 3
 ainda não foi iniciada.
+
+Na mesma data, a Fase A da migração de frontend foi concluída: as decisões
+foram registradas nas ADRs 025 a 028 e a documentação foi atualizada. Nenhum
+código foi alterado por essa fase.
 
 Consulte `PROMPT.md` para o procedimento completo.

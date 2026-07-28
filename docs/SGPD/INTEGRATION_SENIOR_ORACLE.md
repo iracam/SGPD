@@ -188,10 +188,13 @@ retorna `403`. Parâmetros inválidos retornam `400`, indisponibilidade retorna
 Oracle não são devolvidos ao cliente. A listagem de colaboradores não contém
 CPF, nem mesmo mascarado.
 
-### Interface HTMX da cascata
+### Interface da cascata
 
 A seleção server-side está disponível em `/references/senior/` e usa
-fragmentos HTML próprios para filial, tipo e colaborador. A interface:
+fragmentos HTML próprios para filial, tipo e colaborador. Ela será substituída
+pela tela equivalente da SPA na Fase F da migração descrita em
+`MIGRATION_FRONTEND_SPA.md`; o contrato de comportamento abaixo é requisito da
+tela nova e não muda com a troca de tecnologia. A interface:
 
 - exige autenticação e reutiliza `query_senior_references` com o mesmo escopo
   de empresa/filial dos endpoints JSON;
@@ -204,9 +207,9 @@ fragmentos HTML próprios para filial, tipo e colaborador. A interface:
 - preserva erros `400`, `403`, `502` e `503` sem expor detalhes do driver;
 - não persiste referências e não cria snapshot.
 
-O HTMX 2.0.10 e sua licença estão versionados em
-`static/vendor/htmx/`. O navegador carrega o arquivo pelo WhiteNoise/Django,
-sem CDN ou acesso externo em runtime.
+O HTMX 2.0.10 e sua licença permanecem versionados em `static/vendor/htmx/` até
+a Fase G, quando são removidos. A restrição de não carregar código de CDN nem
+acessar rede externa em runtime continua valendo para a SPA.
 
 ### Contrato SQL versionado
 

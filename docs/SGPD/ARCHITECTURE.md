@@ -6,9 +6,17 @@
 Usuário DEV
     |
     v
-Django + HTMX + Alpine
+SPA Angular 21 + PrimeNG (mobile first)
     |
-    +--> WhiteNoise (arquivos estáticos)
+    |  mesma origem; sessão Django com CSRF
+    v
+Django 5.2
+    |
+    +--> view catch-all (index.html da SPA)
+    |
+    +--> WhiteNoise (arquivos estáticos e assets da SPA)
+    |
+    +--> API /api/v1/ (auth, accounts, references)
     |
     +--> Oracle 19c
            |
@@ -22,24 +30,39 @@ Django + HTMX + Alpine
         Worker assíncrono
 ```
 
+A interface server-side anterior permanece em operação até a conclusão da Fase
+G da migração descrita em `MIGRATION_FRONTEND_SPA.md`. Ela não recebe telas
+novas.
+
 ## 2. Componentes
 
-### Aplicação web
+### Backend
 
 - Python 3.13;
 - Django 5.2 LTS;
 - Django REST Framework 3.17;
-- templates server-side;
-- HTMX para interações parciais;
-- Alpine.js para comportamento local;
-- Tailwind/daisyUI para layout;
-- WhiteNoise para arquivos estáticos;
-- DRF para APIs internas e futuras integrações.
+- DRF como única superfície funcional da aplicação, em `/api/v1/`;
+- WhiteNoise para arquivos estáticos e para os assets da SPA;
+- view Django dedicada para servir o `index.html` da SPA.
 
 WhiteNoise não será usado para servir evidências ou outros uploads de usuários.
-O runtime HTMX 2.0.10 é versionado em `static/vendor/htmx/` e servido
-localmente pelo mesmo pipeline de arquivos estáticos, sem CDN ou dependência de
-rede no navegador.
+
+### Frontend
+
+- Angular 21, standalone, sem NgModules;
+- estado por signals, sem biblioteca de gerência de estado;
+- PrimeNG 21 com preset Aura e primeicons;
+- SCSS mobile first, com pontos de quebra centralizados em tokens;
+- roteamento em dois níveis, com carregamento sob demanda por rota;
+- Vitest para testes.
+
+Nenhum código é carregado de CDN: componentes, ícones e fontes são empacotados
+no build. A restrição de não depender de rede externa no navegador, estabelecida
+originalmente para o HTMX, permanece válida.
+
+A SPA não implementa regra de negócio. Ela consome a API, exibe estado e aplica
+a autorização recebida do servidor apenas para orientar a navegação; a decisão
+de autorização continua sendo do backend.
 
 ### Banco
 
@@ -79,8 +102,10 @@ O cadastro funcional de usuários pertence ao SGPD:
 - usuários, gestores, e-mails, papéis e escopos são mantidos no schema SGPD;
 - o Senior HCM não provisiona usuários;
 - o MVP usa autenticação local;
-- a administração de contas usa services transacionais e interface
-  server-side em `/accounts/`;
+- a SPA autentica por sessão Django com proteção CSRF em origem única,
+  conforme a ADR-026; não há JWT nem credencial em armazenamento local;
+- a administração de contas usa services transacionais, expostos por
+  `/api/v1/accounts/` e consumidos pela SPA;
 - os services administrativos repetem a autorização no limite do caso de uso,
   independentemente da proteção aplicada pelas views;
 - papéis possuem permissões delegáveis e atribuições com escopo global, por
@@ -118,14 +143,21 @@ apps/
 ├── core/
 └── integrations/
     └── senior/
+
+frontend/
+└── src/app/
+    ├── core/       auth, config, layout, theme
+    └── features/   uma pasta por tela
 ```
 
 Novos módulos serão criados somente quando o respectivo checkpoint exigir.
-`accounts` contém conta local, papéis, escopos, services, autorização,
-manutenção server-side, vínculo administrativo com o AD e auditoria de contas.
-`core` contém os endpoints operacionais. `integrations/senior` contém SQL,
-DTOs e o repository somente leitura. Não existem models para objetos do
+`accounts` contém conta local, papéis, escopos, services, autorização, API,
+vínculo administrativo com o AD e auditoria de contas. `core` contém os
+endpoints operacionais e a view que serve a SPA. `integrations/senior` contém
+SQL, DTOs e o repository somente leitura. Não existem models para objetos do
 Senior.
+
+A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
 
 ## 4. Serviços de domínio
 
@@ -197,7 +229,7 @@ compatível com empresa/filial. A listagem de colaboradores não retorna CPF,
 usa limite padrão de 20 e máximo absoluto de 100. A paginação por offset não
 executa `COUNT(*)`.
 
-Interface cadastral implementada:
+Interface cadastral server-side, em remoção pela Fase F da migração:
 
 ```text
 GET /references/senior/
@@ -211,6 +243,45 @@ autorização por escopo. Cada troca de nível remove as escolhas descendentes; 
 busca de colaboradores retorna no máximo 20 opções e não exibe CPF. Respostas
 de erro preservam os estados HTTP `400`, `403`, `502` e `503` e são exibidas no
 alvo parcial sem detalhes do Oracle.
+
+Endpoints de autenticação e contexto planejados para a SPA:
+
+```text
+GET  /api/v1/auth/csrf/
+POST /api/v1/auth/login/
+POST /api/v1/auth/logout/
+GET  /api/v1/auth/me/
+GET  /api/v1/auth/context/
+POST /api/v1/auth/change-password/
+```
+
+`GET /api/v1/auth/context/` devolve papéis, permissões efetivas e escopos de
+empresa e filial do usuário autenticado. Ele orienta a navegação da SPA e
+substitui o context processor da interface server-side; a decisão de
+autorização continua sendo aplicada em cada endpoint e em cada service.
+
+Endpoints de contas planejados:
+
+```text
+GET  POST   /api/v1/accounts/users/
+GET  PATCH  /api/v1/accounts/users/{id}/
+POST        /api/v1/accounts/users/{id}/reset-password/
+POST        /api/v1/accounts/users/{id}/roles/
+POST        /api/v1/accounts/users/{id}/ad-link/
+POST        /api/v1/accounts/users/{id}/ad-unlink/
+POST        /api/v1/accounts/role-assignments/{id}/revoke/
+GET  POST   /api/v1/accounts/roles/
+GET  PATCH  /api/v1/accounts/roles/{id}/
+GET         /api/v1/accounts/permissions/
+GET         /api/v1/accounts/audit/
+```
+
+Cada endpoint valida entrada, invoca o service correspondente e traduz o
+resultado. Nenhum implementa regra de negócio.
+
+Toda resposta de erro da API usa o envelope `{code, message, details}`. O
+`ValidationError` levantado pelos services é traduzido em `400` com erros por
+campo, por um handler único do DRF.
 
 Endpoints de domínio planejados:
 
@@ -233,7 +304,9 @@ POST /api/v1/pending-items/{uuid}/decision/
 POST /api/v1/evidence/
 ```
 
-A UI server-side pode usar services diretamente. API não precisa ser a única camada.
+Com a ADR-025, a API passa a ser a única superfície funcional da aplicação. A
+afirmação anterior de que a UI server-side poderia usar services diretamente
+vale apenas para as telas ainda não migradas e para os comandos de gestão.
 
 ## 7. Observabilidade
 
@@ -256,7 +329,9 @@ HML e PRD não fazem parte da estrutura atual. Caso sejam criados futuramente, d
 ## 9. Execução no DEV
 
 - servidor Django no ambiente DEV;
-- WhiteNoise para arquivos estáticos;
+- WhiteNoise para arquivos estáticos e para os assets da SPA;
+- SPA construída por `ng build` e servida pelo próprio Django, em origem única;
+- durante o desenvolvimento, `ng serve` com proxy para o Django;
 - sem Nginx ou reverse proxy no escopo atual;
 - sem pipeline de CI/CD;
 - Oracle externo;
@@ -273,4 +348,9 @@ HML e PRD não fazem parte da estrutura atual. Caso sejam criados futuramente, d
 - testes de autorização;
 - testes de workflow;
 - testes de contrato e integração das consultas somente leitura ao Senior;
+- teste de permissão negada para cada endpoint da API;
+- testes de frontend com Vitest, cobrindo guarda, interceptador, serviço de
+  autenticação e filtragem do menu por permissão;
+- conferência visual em todos os pontos de quebra ao encerrar cada fase de
+  interface, começando pelo menor;
 - testes end-to-end dos fluxos críticos.

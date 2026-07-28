@@ -21,8 +21,9 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | `uv` | 0.11.29 | Disponível e candidato a gerenciador do projeto |
 | Poetry / Pipenv / pyenv | Não instalados | Não necessários se `uv` for adotado |
 | Django / DRF | Django 5.2.16 / DRF 3.17.1 | Instalados e bloqueados por `uv.lock` |
-| Node.js | 24.18.0 | Disponível; versão do projeto ainda não definida |
-| npm | 11.16.0 | Disponível |
+| Node.js | 24.18.0 | Homologado para o build da SPA (ADR-025) |
+| npm | 11.16.0 | Homologado; instalação por `npm ci` com `package-lock.json` versionado |
+| Angular / PrimeNG | 21 / 21 | Decididos nas ADR-025 e ADR-027; instalação ocorre na Fase D |
 | Docker Engine | 26.1.5, daemon ativo, driver `overlay2` | Disponível; nenhum container em execução |
 | Docker Compose | 2.26.1 | Disponível |
 | Oracle Database | 19c | Versão confirmada para o projeto |
@@ -72,7 +73,8 @@ Redis e worker continuam adiados até surgir um caso de uso.
 | Worker | Adiado até necessidade |
 | SMTP | Microsoft 365; SMTP AUTH e `Send As` validados com uma mensagem de prova aceita |
 | Autenticação | Local; usuários, papéis e escopos aplicados; vínculo AD administrativo disponível; LDAP/AD real não configurado |
-| Estáticos | WhiteNoise instalado e configurado |
+| Estáticos | WhiteNoise instalado e configurado; servirá também os assets da SPA |
+| Frontend | Node 24.18.0 e npm 11.16.0 homologados; `frontend/` criado na Fase D |
 | Evidências | Filesystem local privado em `media/evidence` |
 | Nginx / proxy | Não utilizado |
 | Secrets | `.env` local; usuários individuais no formato `nome.sobrenome` |
