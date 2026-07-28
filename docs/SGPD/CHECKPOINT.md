@@ -244,11 +244,15 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 
 ### Fase E — Telas de contas
 
-- [ ] Usuários, com cartões no estado base e tabela a partir de `md`.
-- [ ] Papéis.
-- [ ] Auditoria.
-- [ ] Perfil e troca da própria senha.
-- [ ] Conferência visual nos cinco pontos de quebra.
+- [x] Usuários, com cartões no estado base e tabela a partir de `md`.
+  - Listagem com busca, criação em diálogo e detalhe.
+- [x] Detalhe do usuário: edição, redefinição de senha, atribuição e revogação
+  de papéis, vínculo e desvínculo AD.
+- [x] Papéis, com seleção das permissões delegáveis.
+- [x] Auditoria, com filtro por tipo de evento e paginação sem total.
+- [x] Troca da própria senha, entregue na Fase D.
+- [x] Conferência visual nos cinco pontos de quebra.
+  - 181 verificações sem falha; três defeitos corrigidos.
 
 ### Fase F — Cascata Senior
 
@@ -724,4 +728,21 @@ Próximo passo: executar a Fase E.
 Comandos executados: npx ng build; conferência em Chromium; uv run pytest; uv run ruff; uv run mypy; npx ng test.
 Arquivos alterados: frontend/src/app/core/layout/authenticated-layout.scss, frontend/src/app/core/layout/authenticated-layout.html e docs/SGPD/CHECKPOINT.md.
 Testes: 77 verificações nos cinco pontos de quebra sem falha, incluindo estreitamento efetivo da coluna de 17 rem para 4,5 rem, deslocamento do conteúdo, ocultação dos rótulos, preservação do nome acessível e ausência de rolagem horizontal ao recolher; 151 testes de backend e 12 de frontend passaram.
+```
+
+### 2026-07-28 — Telas de contas na SPA
+
+```text
+Data: 2026-07-28
+Responsável: Claude
+Fase: Fase 2.5 — Migração da interface / Fase E
+O que foi concluído: telas de usuários, detalhe do usuário, papéis e auditoria; utilitário compartilhado de tradução do envelope de erro em erros por campo; padrão único de listagem responsiva; testes de frontend das novas telas; conferência visual estendida às telas administrativas.
+Decisões: substituir o componente de tabela do PrimeNG por tabela semântica, porque a listagem não usa ordenação, filtro nem paginação do componente e ele custava 487 kB por tela, dos quais nada aparece no móvel; concentrar as ações auditadas do usuário em diálogos sobre a tela de detalhe, mantendo uma única rota por entidade; declarar o padrão de listagem em um parcial SCSS compartilhado, para que cartões no estado base e tabela a partir de md sejam a regra e não a exceção; usar controle de formulário com lista de identificadores para as permissões do papel, em vez de estado paralelo; assumir na auditoria que há próxima página quando a atual vem cheia, já que a API não faz COUNT por decisão de desempenho.
+Riscos: nenhum novo. A paginação sem total continua sendo aproximação, registrada desde a Fase C. As telas dependem apenas de API já coberta por teste de permissão negada.
+Pendências: Fase F, com a cascata cadastral do Senior, e Fase G, com a remoção da interface server-side.
+Próximo passo: executar a Fase F.
+Comandos executados: npx ng build; npx ng test; uv run pytest; uv run ruff; uv run mypy; conferência em Chromium com dois atores, um com escopo parcial e outro com todas as permissões.
+Arquivos alterados: frontend/src/app/core/api, frontend/src/app/features/usuarios, frontend/src/app/features/papeis, frontend/src/app/features/auditoria, frontend/src/app/fe.routes.ts, frontend/src/styles.scss, frontend/src/styles/_listagem.scss e documentação em docs/SGPD.
+Testes: 181 verificações visuais nos cinco pontos de quebra sem falha, incluindo cartões no estado base e tabela a partir de md em cada listagem, presença de dados, diálogo cabendo no viewport e ausência de rolagem horizontal; 23 testes de frontend em cinco arquivos, cobrindo o utilitário de erro, a dupla representação da listagem, o estado vazio, os selos de senha temporária e conta inativa e a exibição da mensagem do envelope em falha de permissão; 151 testes de backend inalterados.
+Defeitos corrigidos: a entrada label do componente de checkbox não renderiza texto nesta versão, deixando três campos sem rótulo visível; o alvo clicável do checkbox media 20 px, abaixo do mínimo de toque; o diálogo de formulário longo estourava a altura da tela e deixava as ações fora de alcance, agora com rolagem interna; o host do campo de senha não ocupava a largura, correção promovida ao escopo global; a margem padrão do elemento de lista de definição afastava os campos do cartão.
 ```

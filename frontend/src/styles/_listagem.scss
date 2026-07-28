@@ -1,0 +1,262 @@
+@use 'breakpoints' as bp;
+
+/*
+ * Padrão único de listagem administrativa (ADR-028).
+ *
+ * Os mesmos dados têm duas representações: cartões no estado base, onde uma
+ * tabela de muitas colunas é inutilizável, e tabela a partir de `md`. Nenhuma
+ * das duas produz rolagem horizontal no `body`.
+ */
+
+.pagina-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+
+  @include bp.from(bp.$md) {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+}
+
+.pagina-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+
+  @include bp.from(bp.$md) {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* Cartões: estado base */
+
+.lista-cartoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+
+  @include bp.from(bp.$md) {
+    display: none;
+  }
+}
+
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  border-radius: 0.7rem;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  min-width: 0;
+}
+
+.cartao__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cartao__titulo {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cartao__campo {
+  margin: 0;
+  display: flex;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--p-text-muted-color);
+  overflow-wrap: anywhere;
+
+  dt {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.cartao__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+/* Tabela: a partir de `md` */
+
+.lista-tabela {
+  display: none;
+
+  @include bp.from(bp.$md) {
+    display: block;
+    // Se a tabela precisar rolar, ela rola dentro do próprio contêiner.
+    overflow-x: auto;
+  }
+}
+
+/* Estados */
+
+.selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--ativo {
+    background: var(--status-released-bg);
+    color: var(--status-released-color);
+  }
+
+  &--inativo {
+    background: var(--status-canceled-bg);
+    color: var(--status-canceled-color);
+  }
+
+  &--atencao {
+    background: var(--status-pending-bg);
+    color: var(--status-pending-color);
+  }
+
+  &--info {
+    background: var(--status-review-bg);
+    color: var(--status-review-color);
+  }
+}
+
+.vazio {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--p-text-muted-color);
+}
+
+/* Formulários em diálogo */
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  label {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  input,
+  textarea {
+    width: 100%;
+  }
+}
+
+// A entrada `label` do p-checkbox não renderiza texto nesta versão; o rótulo é
+// declarado explicitamente para o campo não ficar sem descrição visível.
+.campo--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+
+  label {
+    font-weight: 500;
+    cursor: pointer;
+  }
+}
+
+.campo__erro {
+  color: var(--status-blocked-color);
+  font-size: 0.85rem;
+}
+
+.campo-duplo {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: 1fr;
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.dialogo-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  @include bp.from(bp.$sm) {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
+/* Tabela semântica. Um `p-table` completo pesaria centenas de kB para uma
+   listagem sem ordenação, filtro ou paginação — e que nem aparece no móvel. */
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  caption {
+    text-align: left;
+  }
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--p-content-border-color);
+    vertical-align: middle;
+  }
+
+  th {
+    font-weight: 600;
+    color: var(--p-text-muted-color);
+    white-space: nowrap;
+  }
+
+  tbody tr:hover {
+    background: var(--p-highlight-background);
+  }
+}
+
+.tabela__acoes {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

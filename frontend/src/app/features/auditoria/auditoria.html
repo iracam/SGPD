@@ -1,0 +1,94 @@
+<header class="pagina-cabecalho">
+  <div>
+    <h1 class="page-title">Auditoria</h1>
+    <p class="page-lead">
+      Trilha de eventos de contas. Os registros são imutáveis: não podem ser
+      alterados nem excluídos.
+    </p>
+  </div>
+</header>
+
+<div class="filtros">
+  <p-select
+    [formControl]="tipo"
+    [options]="tipos"
+    optionLabel="label"
+    optionValue="value"
+    placeholder="Todos os eventos"
+    ariaLabel="Filtrar por tipo de evento"
+    styleClass="filtro__select"
+  ></p-select>
+</div>
+
+@if (erroPagina()) {
+  <p-message severity="error" [text]="erroPagina()"></p-message>
+}
+
+@if (vazio()) {
+  <p class="vazio">Nenhum evento para este filtro.</p>
+}
+
+<div class="lista-cartoes">
+  @for (evento of eventos(); track evento.uuid) {
+    <article class="cartao">
+      <div class="cartao__topo">
+        <span class="cartao__titulo">{{ evento.event_type }}</span>
+        <small>{{ evento.occurred_at | date: 'dd/MM/yy HH:mm' }}</small>
+      </div>
+      <dl class="cartao__campo"><dt>Ator</dt><dd>{{ evento.actor || '—' }}</dd></dl>
+      <dl class="cartao__campo"><dt>Afetado</dt><dd>{{ evento.target_user || '—' }}</dd></dl>
+      <dl class="cartao__campo"><dt>Entidade</dt><dd>{{ evento.entity_type }}:{{ evento.entity_id }}</dd></dl>
+      <p class="motivo">{{ evento.reason }}</p>
+    </article>
+  }
+</div>
+
+<div class="lista-tabela">
+  <table class="tabela">
+    <caption class="sr-only">Eventos de auditoria de contas</caption>
+    <thead>
+      <tr>
+        <th scope="col">Quando</th>
+        <th scope="col">Evento</th>
+        <th scope="col">Ator</th>
+        <th scope="col">Afetado</th>
+        <th scope="col">Entidade</th>
+        <th scope="col">Justificativa</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (evento of eventos(); track evento.uuid) {
+        <tr>
+          <td class="coluna-data">{{ evento.occurred_at | date: 'dd/MM/yy HH:mm' }}</td>
+          <td>{{ evento.event_type }}</td>
+          <td>{{ evento.actor || '—' }}</td>
+          <td>{{ evento.target_user || '—' }}</td>
+          <td>{{ evento.entity_type }}:{{ evento.entity_id }}</td>
+          <td class="coluna-motivo">{{ evento.reason }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+@if (temAnterior() || temProxima()) {
+  <nav class="paginacao" aria-label="Paginação da auditoria">
+    <p-button
+      type="button"
+      [outlined]="true"
+      icon="pi pi-chevron-left"
+      label="Anteriores"
+      [disabled]="!temAnterior() || carregando()"
+      (onClick)="anterior()"
+    ></p-button>
+    <p-button
+      type="button"
+      [outlined]="true"
+      icon="pi pi-chevron-right"
+      iconPos="right"
+      label="Próximos"
+      [disabled]="!temProxima() || carregando()"
+      (onClick)="proxima()"
+    ></p-button>
+  </nav>
+}

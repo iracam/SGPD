@@ -1,0 +1,280 @@
+@let alvo = usuario();
+
+@if (erroPagina()) {
+  <p-message severity="error" [text]="erroPagina()"></p-message>
+}
+
+@if (alvo) {
+  <header class="pagina-cabecalho">
+    <div>
+      <h1 class="page-title">{{ alvo.display_name }}</h1>
+      <p class="page-lead">{{ alvo.username }} · {{ alvo.email }}</p>
+    </div>
+    <div class="pagina-acoes">
+      <p-button type="button" [outlined]="true" icon="pi pi-pencil" label="Editar" (onClick)="abrir('editar')"></p-button>
+      <p-button type="button" [outlined]="true" icon="pi pi-key" label="Redefinir senha" (onClick)="abrir('senha')"></p-button>
+    </div>
+  </header>
+
+  <section class="secao">
+    <h2 class="secao__titulo">Situação</h2>
+    <div class="selos">
+      <span class="selo" [class.selo--ativo]="alvo.is_active" [class.selo--inativo]="!alvo.is_active">
+        {{ alvo.is_active ? 'Ativo' : 'Inativo' }}
+      </span>
+      @if (alvo.must_change_password) {
+        <span class="selo selo--atencao">Senha temporária pendente</span>
+      }
+      @if (alvo.is_superuser) {
+        <span class="selo selo--info">Superusuário</span>
+      }
+    </div>
+  </section>
+
+  <section class="secao">
+    <div class="secao__cabecalho">
+      <h2 class="secao__titulo">Papéis</h2>
+      @if (podeGerenciarPapeis()) {
+        <p-button type="button" size="small" icon="pi pi-plus" label="Atribuir papel" (onClick)="abrir('papel')"></p-button>
+      }
+    </div>
+
+    @if (ativas().length) {
+      <ul class="atribuicoes">
+        @for (atribuicao of ativas(); track atribuicao.id) {
+          <li class="atribuicao">
+            <div class="atribuicao__dados">
+              <strong>{{ atribuicao.role.code }}</strong>
+              <small>
+                {{ atribuicao.scope_type }}
+                @if (atribuicao.company_code) { · empresa {{ atribuicao.company_code }} }
+                @if (atribuicao.branch_code) { · filial {{ atribuicao.branch_code }} }
+              </small>
+            </div>
+            @if (podeGerenciarPapeis()) {
+              <p-button
+                type="button"
+                size="small"
+                severity="danger"
+                [text]="true"
+                icon="pi pi-times"
+                label="Revogar"
+                (onClick)="abrir('revogar', atribuicao)"
+              ></p-button>
+            }
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="vazio">Nenhum papel ativo.</p>
+    }
+
+    @if (revogadas().length) {
+      <details class="historico">
+        <summary>Atribuições revogadas ({{ revogadas().length }})</summary>
+        <ul class="atribuicoes">
+          @for (atribuicao of revogadas(); track atribuicao.id) {
+            <li class="atribuicao atribuicao--revogada">
+              <div class="atribuicao__dados">
+                <strong>{{ atribuicao.role.code }}</strong>
+                <small>revogada por {{ atribuicao.revoked_by || '—' }}</small>
+              </div>
+            </li>
+          }
+        </ul>
+      </details>
+    }
+  </section>
+
+  <section class="secao">
+    <div class="secao__cabecalho">
+      <h2 class="secao__titulo">Active Directory</h2>
+      @if (podeVincularAd()) {
+        @if (alvo.ad_identifier) {
+          <p-button type="button" size="small" severity="danger" [outlined]="true" icon="pi pi-link" label="Desvincular" (onClick)="abrir('desvincular')"></p-button>
+        } @else {
+          <p-button type="button" size="small" [outlined]="true" icon="pi pi-link" label="Vincular" (onClick)="abrir('vincular')"></p-button>
+        }
+      }
+    </div>
+
+    @if (alvo.ad_identifier) {
+      <dl class="cartao__campo"><dt>Usuário</dt><dd>{{ alvo.ad_username }}</dd></dl>
+      <dl class="cartao__campo"><dt>Identificador</dt><dd>{{ alvo.ad_identifier }}</dd></dl>
+      <dl class="cartao__campo"><dt>Vinculado por</dt><dd>{{ alvo.ad_linked_by || '—' }}</dd></dl>
+      <p class="aviso">
+        O vínculo é administrativo e não ativa autenticação LDAP. A autenticação
+        permanece local até a homologação com a Infraestrutura.
+      </p>
+    } @else {
+      <p class="vazio">Nenhuma identidade vinculada.</p>
+    }
+  </section>
+}
+
+<p-dialog
+  [header]="tituloDialogo()"
+  [visible]="acao() !== null"
+  (visibleChange)="$event ? null : fechar()"
+  [modal]="true"
+  [draggable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '95vw', maxWidth: '34rem' }"
+>
+  <form class="formulario" (ngSubmit)="confirmar()">
+    @if (erroFormulario()) {
+      <p-message severity="error" [text]="erroFormulario()"></p-message>
+    }
+
+    @switch (acao()) {
+      @case ('editar') {
+        <div [formGroup]="formEditar" class="formulario">
+          <div class="campo-duplo">
+            <div class="campo">
+              <label for="e_first">Nome</label>
+              <input pInputText id="e_first" formControlName="first_name" />
+              @for (erro of erros('first_name'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+            </div>
+            <div class="campo">
+              <label for="e_last">Sobrenome</label>
+              <input pInputText id="e_last" formControlName="last_name" />
+              @for (erro of erros('last_name'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+            </div>
+          </div>
+          <div class="campo">
+            <label for="e_email">E-mail</label>
+            <input pInputText id="e_email" type="email" formControlName="email" autocapitalize="none" />
+            @for (erro of erros('email'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+          <div class="campo campo--checkbox">
+            <p-checkbox inputId="e_active" formControlName="is_active" [binary]="true"></p-checkbox>
+            <label for="e_active">Conta ativa</label>
+          </div>
+          @for (erro of erros('is_active'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          <div class="campo">
+            <label for="e_reason">Justificativa</label>
+            <textarea pTextarea id="e_reason" formControlName="reason" rows="3"></textarea>
+            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+        </div>
+      }
+
+      @case ('senha') {
+        <div [formGroup]="formSenha" class="formulario">
+          <div class="campo">
+            <label for="s_pass">Nova senha temporária</label>
+            <p-password inputId="s_pass" formControlName="password" [toggleMask]="true" autocomplete="new-password"></p-password>
+            @for (erro of erros('password'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+          <div class="campo">
+            <label for="s_confirm">Confirme a senha</label>
+            <p-password inputId="s_confirm" formControlName="password_confirm" [feedback]="false" [toggleMask]="true" autocomplete="new-password"></p-password>
+            @for (erro of erros('password_confirm'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+          <div class="campo campo--checkbox">
+            <p-checkbox inputId="s_must" formControlName="must_change_password" [binary]="true"></p-checkbox>
+            <label for="s_must">Exigir troca no próximo acesso</label>
+          </div>
+          <div class="campo">
+            <label for="s_reason">Justificativa</label>
+            <textarea pTextarea id="s_reason" formControlName="reason" rows="3"></textarea>
+            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+        </div>
+      }
+
+      @case ('papel') {
+        <div [formGroup]="formPapel" class="formulario">
+          <div class="campo">
+            <label for="p_role">Papel</label>
+            <p-select
+              inputId="p_role"
+              formControlName="role_id"
+              [options]="papeis()"
+              optionLabel="code"
+              optionValue="id"
+              placeholder="Selecione o papel"
+              appendTo="body"
+              styleClass="campo__select"
+            ></p-select>
+            @for (erro of erros('role_id'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+          <div class="campo">
+            <label for="p_scope">Escopo</label>
+            <p-select
+              inputId="p_scope"
+              formControlName="scope_type"
+              [options]="escopos"
+              optionLabel="label"
+              optionValue="value"
+              appendTo="body"
+              styleClass="campo__select"
+            ></p-select>
+            @for (erro of erros('scope_type'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+          @if (formPapel.controls.scope_type.value !== 'GLOBAL') {
+            <div class="campo-duplo">
+              <div class="campo">
+                <label for="p_company">Empresa</label>
+                <input pInputText id="p_company" type="number" inputmode="numeric" formControlName="company_code" />
+                @for (erro of erros('company_code'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+              </div>
+              @if (formPapel.controls.scope_type.value === 'BRANCH') {
+                <div class="campo">
+                  <label for="p_branch">Filial</label>
+                  <input pInputText id="p_branch" type="number" inputmode="numeric" formControlName="branch_code" />
+                  @for (erro of erros('branch_code'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+                </div>
+              }
+            </div>
+          }
+          <div class="campo">
+            <label for="p_reason">Justificativa</label>
+            <textarea pTextarea id="p_reason" formControlName="reason" rows="3"></textarea>
+            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+        </div>
+      }
+
+      @case ('vincular') {
+        <div [formGroup]="formVincular" class="formulario">
+          <p-message severity="warn" text="Este vínculo não ativa autenticação LDAP."></p-message>
+          <div class="campo">
+            <label for="v_id">Identificador imutável no AD</label>
+            <input pInputText id="v_id" formControlName="identifier" autocapitalize="none" spellcheck="false" />
+            <small class="campo__ajuda">Valor opaco homologado pela Infraestrutura; não use apenas o e-mail.</small>
+            @for (erro of erros('identifier'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+          <div class="campo">
+            <label for="v_user">Usuário no AD</label>
+            <input pInputText id="v_user" formControlName="username" autocapitalize="none" spellcheck="false" />
+            @for (erro of erros('username'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+          <div class="campo">
+            <label for="v_reason">Justificativa</label>
+            <textarea pTextarea id="v_reason" formControlName="reason" rows="3"></textarea>
+            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+        </div>
+      }
+
+      @default {
+        <div [formGroup]="formMotivo" class="formulario">
+          @if (acao() === 'revogar' && atribuicaoAlvo(); as atribuicao) {
+            <p>Revogar <strong>{{ atribuicao.role.code }}</strong> no escopo {{ atribuicao.scope_key }}.</p>
+          }
+          <div class="campo">
+            <label for="m_reason">Justificativa</label>
+            <textarea pTextarea id="m_reason" formControlName="reason" rows="3"></textarea>
+            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
+          </div>
+        </div>
+      }
+    }
+
+    <div class="dialogo-acoes">
+      <p-button type="button" severity="secondary" [text]="true" label="Cancelar" (onClick)="fechar()"></p-button>
+      <p-button type="submit" icon="pi pi-check" label="Confirmar" [loading]="salvando()"></p-button>
+    </div>
+  </form>
+</p-dialog>

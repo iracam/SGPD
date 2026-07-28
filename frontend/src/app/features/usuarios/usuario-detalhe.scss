@@ -1,0 +1,97 @@
+@use 'listagem';
+@use 'breakpoints' as bp;
+
+.secao {
+  padding: 1rem 0;
+  border-top: 1px solid var(--p-content-border-color);
+
+  &:first-of-type {
+    border-top: 0;
+  }
+}
+
+.secao__cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  @include bp.from(bp.$sm) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.secao__titulo {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.atribuicoes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.atribuicao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.6rem;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  min-width: 0;
+
+  &--revogada {
+    opacity: 0.65;
+  }
+}
+
+.atribuicao__dados {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  small {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.historico {
+  margin-top: 0.75rem;
+
+  summary {
+    cursor: pointer;
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.aviso {
+  margin: 0.5rem 0 0;
+  color: var(--status-pending-color);
+  font-size: 0.85rem;
+}
+
+.campo__ajuda {
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+}
+
+:host ::ng-deep .campo__select {
+  width: 100%;
+}

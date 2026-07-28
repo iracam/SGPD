@@ -1,0 +1,35 @@
+@use 'listagem';
+@use 'breakpoints' as bp;
+
+.motivo {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.coluna-data {
+  white-space: nowrap;
+}
+
+.coluna-motivo {
+  max-width: 24rem;
+  overflow-wrap: anywhere;
+}
+
+.paginacao {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+
+  @include bp.from(bp.$sm) {
+    justify-content: flex-end;
+  }
+}
+
+:host ::ng-deep .filtro__select {
+  width: 100%;
+
+  @include bp.from(bp.$md) {
+    width: 18rem;
+  }
+}

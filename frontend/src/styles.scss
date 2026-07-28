@@ -168,6 +168,37 @@ input.p-inputtext,
   }
 }
 
+// O host <p-password> não ocupa a largura do campo e o input interno não
+// estica, deixando a senha mais estreita que os demais campos.
+p-password {
+  width: 100%;
+
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+// Formulário longo em tela pequena: o diálogo precisa caber e rolar por dentro,
+// senão as ações ficam abaixo da dobra e inalcançáveis.
+.p-dialog {
+  max-height: 92dvh;
+
+  .p-dialog-content {
+    overflow-y: auto;
+  }
+}
+
+// O input do checkbox é a área clicável real e mede 20 px, abaixo do mínimo de
+// toque. Ele é ampliado sem alterar o desenho da caixa.
+.p-checkbox .p-checkbox-input {
+  width: var(--touch-target);
+  height: var(--touch-target);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .page-title {
   margin: 0;
   font-size: 1.35rem;

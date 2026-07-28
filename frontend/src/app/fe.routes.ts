@@ -24,6 +24,28 @@ export const FE_ROUTES: Routes = [
             title: 'Painel | SGPD',
           },
           {
+            path: 'usuarios',
+            loadComponent: () => import('./features/usuarios/usuarios').then((m) => m.UsuariosPage),
+            title: 'Usuários | SGPD',
+          },
+          {
+            path: 'usuarios/:id',
+            loadComponent: () =>
+              import('./features/usuarios/usuario-detalhe').then((m) => m.UsuarioDetalhePage),
+            title: 'Usuário | SGPD',
+          },
+          {
+            path: 'papeis',
+            loadComponent: () => import('./features/papeis/papeis').then((m) => m.PapeisPage),
+            title: 'Papéis | SGPD',
+          },
+          {
+            path: 'auditoria',
+            loadComponent: () =>
+              import('./features/auditoria/auditoria').then((m) => m.AuditoriaPage),
+            title: 'Auditoria | SGPD',
+          },
+          {
             path: 'senha',
             loadComponent: () => import('./features/senha/senha').then((m) => m.SenhaPage),
             title: 'Minha senha | SGPD',

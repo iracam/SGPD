@@ -1,0 +1,192 @@
+<header class="pagina-cabecalho">
+  <div>
+    <h1 class="page-title">Usuários</h1>
+    <p class="page-lead">Contas locais do SGPD, papéis e vínculo com o Active Directory.</p>
+  </div>
+  <div class="pagina-acoes">
+    <p-button
+      type="button"
+      icon="pi pi-plus"
+      label="Novo usuário"
+      (onClick)="abrirDialogo()"
+    ></p-button>
+  </div>
+</header>
+
+<div class="filtros">
+  <input
+    pInputText
+    type="search"
+    [formControl]="busca"
+    placeholder="Buscar por login, nome ou e-mail"
+    aria-label="Buscar usuários"
+  />
+</div>
+
+@if (erroLista()) {
+  <p-message severity="error" [text]="erroLista()"></p-message>
+}
+
+@if (vazio()) {
+  <p class="vazio">Nenhum usuário encontrado. Ajuste a busca ou crie o primeiro.</p>
+}
+
+<!-- Estado base: cartões -->
+<div class="lista-cartoes">
+  @for (usuario of usuarios(); track usuario.id) {
+    <article class="cartao">
+      <div class="cartao__topo">
+        <span class="cartao__titulo">{{ usuario.display_name }}</span>
+        <span class="selo" [class.selo--ativo]="usuario.is_active" [class.selo--inativo]="!usuario.is_active">
+          {{ usuario.is_active ? 'Ativo' : 'Inativo' }}
+        </span>
+      </div>
+      <dl class="cartao__campo"><dt>Login</dt><dd>{{ usuario.username }}</dd></dl>
+      <dl class="cartao__campo"><dt>E-mail</dt><dd>{{ usuario.email }}</dd></dl>
+      @if (usuario.must_change_password) {
+        <span class="selo selo--atencao">Senha temporária</span>
+      }
+      @if (usuario.ad_username) {
+        <span class="selo selo--info">AD: {{ usuario.ad_username }}</span>
+      }
+      <div class="cartao__acoes">
+        <p-button
+          type="button"
+          size="small"
+          [outlined]="true"
+          icon="pi pi-arrow-right"
+          label="Abrir"
+          (onClick)="abrirDetalhe(usuario)"
+        ></p-button>
+      </div>
+    </article>
+  }
+</div>
+
+<!-- A partir de md: tabela -->
+<div class="lista-tabela">
+  <table class="tabela">
+    <caption class="sr-only">Usuários cadastrados no SGPD</caption>
+    <thead>
+      <tr>
+        <th scope="col">Login</th>
+        <th scope="col">Nome</th>
+        <th scope="col">E-mail</th>
+        <th scope="col">Situação</th>
+        <th scope="col">AD</th>
+        <th scope="col"><span class="sr-only">Ações</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (usuario of usuarios(); track usuario.id) {
+        <tr>
+          <td>{{ usuario.username }}</td>
+          <td>{{ usuario.display_name }}</td>
+          <td>{{ usuario.email }}</td>
+          <td>
+            <span class="selo" [class.selo--ativo]="usuario.is_active" [class.selo--inativo]="!usuario.is_active">
+              {{ usuario.is_active ? 'Ativo' : 'Inativo' }}
+            </span>
+            @if (usuario.must_change_password) {
+              <span class="selo selo--atencao">Senha temporária</span>
+            }
+          </td>
+          <td>{{ usuario.ad_username || '—' }}</td>
+          <td class="tabela__acoes">
+            <p-button
+              type="button"
+              size="small"
+              [text]="true"
+              icon="pi pi-arrow-right"
+              [ariaLabel]="'Abrir ' + usuario.username"
+              (onClick)="abrirDetalhe(usuario)"
+            ></p-button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<p-dialog
+  header="Novo usuário"
+  [visible]="dialogoAberto()"
+  (visibleChange)="dialogoAberto.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '95vw', maxWidth: '34rem' }"
+>
+  <form class="formulario" [formGroup]="formulario" (ngSubmit)="salvar()">
+    @if (erroFormulario()) {
+      <p-message severity="error" [text]="erroFormulario()"></p-message>
+    }
+
+    <div class="campo">
+      <label for="username">Login</label>
+      <input pInputText id="username" formControlName="username" autocapitalize="none" spellcheck="false" />
+      @for (erro of erros('username'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </div>
+
+    <div class="campo-duplo">
+      <div class="campo">
+        <label for="first_name">Nome</label>
+        <input pInputText id="first_name" formControlName="first_name" />
+        @for (erro of erros('first_name'); track erro) {
+          <small class="campo__erro">{{ erro }}</small>
+        }
+      </div>
+      <div class="campo">
+        <label for="last_name">Sobrenome</label>
+        <input pInputText id="last_name" formControlName="last_name" />
+        @for (erro of erros('last_name'); track erro) {
+          <small class="campo__erro">{{ erro }}</small>
+        }
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="email">E-mail</label>
+      <input pInputText id="email" type="email" formControlName="email" autocapitalize="none" />
+      @for (erro of erros('email'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="password">Senha temporária</label>
+      <p-password inputId="password" formControlName="password" [toggleMask]="true" autocomplete="new-password"></p-password>
+      @for (erro of erros('password'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="password_confirm">Confirme a senha</label>
+      <p-password inputId="password_confirm" formControlName="password_confirm" [feedback]="false" [toggleMask]="true" autocomplete="new-password"></p-password>
+      @for (erro of erros('password_confirm'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </div>
+
+    <div class="campo campo--checkbox">
+      <p-checkbox inputId="must_change_password" formControlName="must_change_password" [binary]="true"></p-checkbox>
+      <label for="must_change_password">Exigir troca da senha no próximo acesso</label>
+    </div>
+
+    <div class="campo">
+      <label for="reason">Justificativa</label>
+      <textarea pTextarea id="reason" formControlName="reason" rows="3"></textarea>
+      @for (erro of erros('reason'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </div>
+
+    <div class="dialogo-acoes">
+      <p-button type="button" severity="secondary" [text]="true" label="Cancelar" (onClick)="dialogoAberto.set(false)"></p-button>
+      <p-button type="submit" icon="pi pi-check" label="Criar usuário" [loading]="salvando()"></p-button>
+    </div>
+  </form>
+</p-dialog>
