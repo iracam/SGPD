@@ -43,6 +43,10 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 As versões exatas, inclusive dependências transitivas, estão registradas em
 `uv.lock`.
 
+O runtime HTMX 2.0.10 é mantido localmente em
+`static/vendor/htmx/`, com sua licença, e servido como arquivo estático. A
+interface não depende de CDN.
+
 ## Execução local
 
 Pré-requisitos: `uv`, Oracle Instant Client 19.28 e um `.env` criado a partir
@@ -70,8 +74,31 @@ uv run manage.py makemigrations --check --dry-run --settings=config.settings.tes
 ```
 
 As migrations Oracle somente podem ser aplicadas após revisão do SQL. O
-próprio usuário `SGPD` possui `CREATE TABLE` sem `ADMIN OPTION` e quota finita
-de 500 MB em `PIMS_DATA`.
+próprio usuário `SGPD` possui `CREATE TABLE` e `CREATE SEQUENCE`, ambos sem
+`ADMIN OPTION`, e quota finita de 500 MB em `PIMS_DATA`. As 23 migrations
+iniciais foram aplicadas e validadas no DEV.
+
+Não executar rollback para `zero` após existirem usuários ou auditoria: isso
+removeria fisicamente o histórico. Correções de schema devem usar migration
+adiante; recuperação operacional deve usar backup restaurado e procedimento
+revisado.
+
+Administração funcional de contas:
+
+- `/accounts/login/`: autenticação local;
+- `/accounts/users/`: criação e manutenção auditada de usuários;
+- `/accounts/roles/`: papéis, permissões e escopos;
+- `/accounts/audit/`: auditoria de contas;
+- `uv run manage.py bootstrap_roles`: catálogo inicial idempotente de papéis;
+- `uv run manage.py bootstrap_identity_admin`: bootstrap interativo, único e
+  auditado da primeira conta humana.
+
+Consulta cadastral Senior:
+
+- `/references/senior/`: seleção HTMX Empresa → Filial → Tipo de colaborador
+  → Colaborador;
+- exige autenticação, permissão `query_senior_references` e escopo compatível;
+- consulta o Senior somente por `SELECT` e não cria snapshot nesta etapa.
 
 ## Escopo técnico atual
 
@@ -119,8 +146,26 @@ de 500 MB em `PIMS_DATA`.
 
 A descoberta do ambiente e o contrato SQL do Senior estão concluídos. A
 fundação Django está criada e validada localmente; a aplicação conecta ao
-Oracle com `python-oracledb` em modo Thick. Os privilégios mínimos de criação
-do schema foram concedidos ao `SGPD`; a aplicação das migrations permanece uma
-ação separada e revisável.
+Oracle com `python-oracledb` em modo Thick. A base de autenticação, usuários,
+papéis, escopos, vínculo administrativo com o AD e auditoria foi aplicada no
+Oracle DEV. O catálogo inicial contém nove papéis e cinco permissões
+delegáveis; a autenticação LDAP/AD real continua dependente de contrato com a
+Infraestrutura. A primeira conta humana foi criada explicitamente pelo
+bootstrap auditado; nenhuma conta é criada automaticamente.
+
+A seleção cadastral HTMX da Fase 2 está concluída e usa o mesmo repository e a
+mesma autorização por escopo dos endpoints JSON. O runtime HTMX é servido
+localmente pelo pipeline de estáticos. O `LEFT JOIN` de centro de custo foi
+homologado no Oracle DEV e a consulta de colaboradores concluiu a medição
+controlada com até dez conexões concorrentes sem erros ou timeouts.
+
+SMTP AUTH e o uso do remetente configurado foram validados no Microsoft 365
+via TLS/STARTTLS em 2026-07-28. Uma mensagem de prova foi aceita pelo serviço.
+
+O checkpoint das Fases 1 e 2 foi estabilizado e versionado localmente em
+2026-07-28. Os services administrativos validam a permissão do ator, a
+auditoria rejeita mutação e exclusão em lote, e a desativação concorrente
+preserva ao menos um superusuário ativo. A configuração funcional da Fase 3
+ainda não foi iniciada.
 
 Consulte `PROMPT.md` para o procedimento completo.

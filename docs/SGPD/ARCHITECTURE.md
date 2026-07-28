@@ -37,6 +37,9 @@ Django + HTMX + Alpine
 - DRF para APIs internas e futuras integrações.
 
 WhiteNoise não será usado para servir evidências ou outros uploads de usuários.
+O runtime HTMX 2.0.10 é versionado em `static/vendor/htmx/` e servido
+localmente pelo mesmo pipeline de arquivos estáticos, sem CDN ou dependência de
+rede no navegador.
 
 ### Banco
 
@@ -76,10 +79,24 @@ O cadastro funcional de usuários pertence ao SGPD:
 - usuários, gestores, e-mails, papéis e escopos são mantidos no schema SGPD;
 - o Senior HCM não provisiona usuários;
 - o MVP usa autenticação local;
-- a vinculação futura ao Active Directory adicionará um identificador externo à conta existente;
+- a administração de contas usa services transacionais e interface
+  server-side em `/accounts/`;
+- os services administrativos repetem a autorização no limite do caso de uso,
+  independentemente da proteção aplicada pelas views;
+- papéis possuem permissões delegáveis e atribuições com escopo global, por
+  empresa ou por filial, validade e revogação lógica;
+- senha temporária pode exigir troca no primeiro acesso;
+- login, logout, falha de autenticação e toda manutenção de conta são
+  auditados com correlation ID;
+- eventos de auditoria rejeitam alteração e exclusão tanto por instância quanto
+  por operações em lote do ORM;
+- o vínculo administrativo com o Active Directory adiciona identificador
+  externo opaco e único à conta existente, após confirmação humana;
 - após a vinculação, o AD será o provedor de autenticação e o SGPD continuará como fonte de perfis e autorizações.
 
-O vínculo com AD não deve usar apenas e-mail como chave. Deverá usar identificador corporativo estável e impedir associação duplicada.
+O vínculo com AD não usa e-mail como chave, impede associação duplicada e não
+ativa autenticação LDAP. Endpoint, TLS, base de busca, atributo identificador e
+backend de autenticação ainda dependem de homologação com a Infraestrutura.
 
 ### Arquivos
 
@@ -89,10 +106,7 @@ No DEV, evidências serão armazenadas no filesystem local privado:
 - padrão inicial `media/evidence`;
 - metadados e hash SHA-256 mantidos no Oracle;
 - acesso somente por views autorizadas da aplicação;
-- diretório fora dos arquivos estáticos e não servido pelo WhiteNoise;
-- permissões do sistema operacional restritas ao usuário da aplicação.
-
-Backup, retenção e antivírus ainda deverão ser definidos antes do uso com dados reais.
+- diretório fora dos arquivos estáticos e não servido pelo WhiteNoise.
 
 ## 3. Aplicações Django
 
@@ -107,9 +121,11 @@ apps/
 ```
 
 Novos módulos serão criados somente quando o respectivo checkpoint exigir.
-`accounts` contém a conta local extensível para vínculo futuro ao AD e `core`
-contém os endpoints operacionais. `integrations/senior` contém SQL, DTOs e o
-repository somente leitura. Não existem models para objetos do Senior.
+`accounts` contém conta local, papéis, escopos, services, autorização,
+manutenção server-side, vínculo administrativo com o AD e auditoria de contas.
+`core` contém os endpoints operacionais. `integrations/senior` contém SQL,
+DTOs e o repository somente leitura. Não existem models para objetos do
+Senior.
 
 ## 4. Serviços de domínio
 
@@ -117,6 +133,15 @@ Regras críticas devem ficar fora de views e signals genéricos.
 
 Serviços sugeridos:
 
+- `CreateUserService`
+- `UpdateUserService`
+- `ResetPasswordService`
+- `CreateRoleService`
+- `UpdateRoleService`
+- `AssignRoleService`
+- `RevokeRoleService`
+- `LinkAdIdentityService`
+- `UnlinkAdIdentityService`
 - `OpenOffboardingProcessService`
 - `ResolveValidationGroupsService`
 - `GenerateSectorTasksService`
@@ -167,9 +192,25 @@ GET  /api/v1/references/employee-types/?company=&branch=
 GET  /api/v1/references/employees/?company=&branch=&employee_type=&q=
 ```
 
-Todos exigem usuário autenticado. A listagem de colaboradores não retorna CPF,
+Todos exigem usuário autenticado, permissão `query_senior_references` e escopo
+compatível com empresa/filial. A listagem de colaboradores não retorna CPF,
 usa limite padrão de 20 e máximo absoluto de 100. A paginação por offset não
 executa `COUNT(*)`.
+
+Interface cadastral implementada:
+
+```text
+GET /references/senior/
+GET /references/senior/branches/?company=
+GET /references/senior/employee-types/?company=&branch=
+GET /references/senior/employees/?company=&branch=&employee_type=&q=
+```
+
+A página e os fragmentos HTMX reutilizam o repository somente leitura e a
+autorização por escopo. Cada troca de nível remove as escolhas descendentes; a
+busca de colaboradores retorna no máximo 20 opções e não exibe CPF. Respostas
+de erro preservam os estados HTTP `400`, `403`, `502` e `503` e são exibidas no
+alvo parcial sem detalhes do Oracle.
 
 Endpoints de domínio planejados:
 

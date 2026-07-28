@@ -76,7 +76,10 @@ NUMEMP + CODFIL + TIPCOL + NUMCAD
 
 `R034FUN.USU_DATALT` foi validada como coluna Oracle `DATE`, anulável, com registros preenchidos. Ela deve ser retornada como data e preservada no snapshot para rastreabilidade da versão cadastral consultada. Como o acesso é online, esse campo não será usado para carga incremental.
 
-`R034FUN.DATAFA` será retornada como `NULL` quando estiver nula ou contiver a sentinela `DATE '1900-12-31'`. Nos demais casos, continuará sendo retornada como `DATE`, sem formatação textual no SQL. Entre os 1.889 elegíveis validados, 1.815 usam a sentinela e 74 possuem outra data.
+`R034FUN.DATAFA` será retornada como `NULL` quando estiver nula ou contiver a
+sentinela `DATE '1900-12-31'`. Nos demais casos, continuará sendo retornada
+como `DATE`, sem formatação textual no SQL. Na validação de 2026-07-28, entre
+os 1.891 elegíveis, 1.818 usam a sentinela e 73 possuem outra data.
 
 ### Relações validadas
 
@@ -87,14 +90,20 @@ R034FUN.(ESTCAR, CODCAR) = R024CAR.(ESTCAR, CODCAR)
 R034FUN.(NUMEMP, CODCCU) = R018CCU.(NUMEMP, CODCCU)
 ```
 
-Na validação global dos 1.889 colaboradores com `SITAFA <> 7`:
+Na validação global repetida em 2026-07-28 para os 1.891 colaboradores com
+`SITAFA <> 7`:
 
 - situação sem referência: 0;
 - filial sem referência: 0;
 - cargo sem referência: 0;
 - centro de custo sem referência: 49.
 
-Por isso, o contrato usa `LEFT JOIN` em `R018CCU`, preservando o colaborador quando a descrição do centro de custo estiver ausente. Os demais relacionamentos permanecem `INNER JOIN` com base na integridade observada.
+O `LEFT JOIN` retornou os 1.891 colaboradores, enquanto o mesmo contrato com
+`INNER JOIN` em `R018CCU` retornaria 1.842 e excluiria exatamente os 49 sem
+referência. Não foram encontradas chaves duplicadas por `NUMEMP + CODCCU` em
+`R018CCU`. O uso do `LEFT JOIN` está homologado para preservar o colaborador
+quando a descrição do centro de custo estiver ausente. Os demais
+relacionamentos permanecem `INNER JOIN` com base na integridade observada.
 
 ### Regra homologada de elegibilidade
 
@@ -164,7 +173,8 @@ O repository:
 ### Endpoints da cascata
 
 Os quatro endpoints `GET /api/v1/references/` estão implementados com
-autenticação obrigatória:
+autenticação, permissão `query_senior_references` e escopo organizacional
+obrigatórios:
 
 - `companies/`;
 - `branches/?company=`;
@@ -172,10 +182,31 @@ autenticação obrigatória:
 - `employees/?company=&branch=&employee_type=&q=`.
 
 As respostas incluem `offset`, `limit` e `results`, sem executar contagem
-global. Parâmetros inválidos retornam `400`, indisponibilidade retorna `503` e
-quebra do contrato de origem retorna `502`. Detalhes do driver e do Oracle não
-são devolvidos ao cliente. A listagem de colaboradores não contém CPF, nem
-mesmo mascarado.
+global. Empresas são filtradas pelo escopo; empresa ou filial não autorizada
+retorna `403`. Parâmetros inválidos retornam `400`, indisponibilidade retorna
+`503` e quebra do contrato de origem retorna `502`. Detalhes do driver e do
+Oracle não são devolvidos ao cliente. A listagem de colaboradores não contém
+CPF, nem mesmo mascarado.
+
+### Interface HTMX da cascata
+
+A seleção server-side está disponível em `/references/senior/` e usa
+fragmentos HTML próprios para filial, tipo e colaborador. A interface:
+
+- exige autenticação e reutiliza `query_senior_references` com o mesmo escopo
+  de empresa/filial dos endpoints JSON;
+- filtra empresas antes de renderizar opções;
+- limpa todos os níveis descendentes quando uma seleção anterior muda ou é
+  removida;
+- permite buscar colaborador por nome ou matrícula, com no máximo 100
+  caracteres e 20 resultados por chamada;
+- não projeta nem renderiza CPF;
+- preserva erros `400`, `403`, `502` e `503` sem expor detalhes do driver;
+- não persiste referências e não cria snapshot.
+
+O HTMX 2.0.10 e sua licença estão versionados em
+`static/vendor/htmx/`. O navegador carrega o arquivo pelo WhiteNoise/Django,
+sem CDN ou acesso externo em runtime.
 
 ### Contrato SQL versionado
 
@@ -208,8 +239,28 @@ No DEV, a cascata real executada pelo repository e pelas quatro views
 autenticadas retornou uma linha em cada etapa e status `200`. Na execução das
 views, as consultas levaram entre 0,70 ms e 39,46 ms com conexão persistente.
 O payload da listagem foi inspecionado por nomes de campos e não expôs CPF. O
-detalhe interno confirmou `USU_DATALT` como `datetime` e CPF mascarado. O
-desempenho deverá ser acompanhado novamente com volume e concorrência reais.
+detalhe interno confirmou `USU_DATALT` como `datetime` e CPF mascarado.
+
+### Medição de concorrência em 2026-07-28
+
+O script `scripts/oracle/benchmark_senior_concurrency.py` executou 80 consultas
+somente leitura de listagem de colaboradores, usando uma conexão persistente
+por worker e limite de 20 linhas:
+
+| Conexões concorrentes | Consultas | Erros | p50 | p95 | Máximo |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 5 | 0 | 0,89 ms | 34,78 ms | 34,78 ms |
+| 5 | 25 | 0 | 1,63 ms | 37,78 ms | 44,42 ms |
+| 10 | 50 | 0 | 1,85 ms | 60,64 ms | 65,61 ms |
+
+A execução limitada não apresentou erro nem timeout. O resultado homologa o
+contrato para a carga DEV medida; não constitui dimensionamento de produção.
+
+Execução:
+
+```bash
+uv run python scripts/oracle/benchmark_senior_concurrency.py
+```
 
 ## 7. Snapshot
 
@@ -249,7 +300,4 @@ Nessa situação:
 
 ## 10. Pendências de descoberta
 
-- confirmar versão exata do Senior HCM, distinta da versão do Oracle;
-- homologar com o negócio o uso de `LEFT JOIN` para centro de custo ausente;
-- medir plano e tempo das consultas sob concorrência;
 - definir estratégia de homologação e monitoramento.

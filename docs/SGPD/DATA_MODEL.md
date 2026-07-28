@@ -19,20 +19,91 @@
 
 Usuários, gestores, e-mails, papéis e escopos pertencem ao SGPD e não são obtidos do Senior.
 
-#### USUARIO_PERFIL
+#### SGPD_USER
 
 - `ID`
-- `USUARIO_ID`
-- `NOME`
+- `USERNAME`
+- `FIRST_NAME`
+- `LAST_NAME`
 - `EMAIL`
-- `ATIVO`
-- `AD_IDENTIFICADOR`
-- `AD_USUARIO`
-- `AD_VINCULADO_EM`
-- `CRIADO_EM`
-- `ATUALIZADO_EM`
+- `PASSWORD`
+- `IS_ACTIVE`
+- `IS_STAFF`
+- `IS_SUPERUSER`
+- `MUST_CHANGE_PASSWORD`
+- `AD_IDENTIFIER`
+- `AD_USERNAME`
+- `AD_LINKED_AT`
+- `AD_LINKED_BY_ID`
+- `VERSION`
 
-Os campos de AD são opcionais até a integração futura. `AD_IDENTIFICADOR` deverá ser único quando preenchido. O cadastro SGPD permanece responsável por papéis, permissões e escopos após a vinculação.
+O vínculo AD exige simultaneamente identificador opaco, usuário, data e
+administrador responsável. `AD_IDENTIFIER` é único e normalizado. O vínculo
+administrativo não ativa autenticação LDAP/AD; a autenticação permanece local
+até a homologação do contrato do diretório.
+
+#### SGPD_ROLE
+
+- `ID`
+- `CODE`
+- `NAME`
+- `DESCRIPTION`
+- `IS_ACTIVE`
+- `VERSION`
+- `CREATED_AT`
+- `UPDATED_AT`
+- relação com permissões delegáveis do Django.
+
+Catálogo inicial:
+
+- `ADMIN_IDENTIDADE`;
+- `DP`;
+- `RESPONSAVEL_SETOR`;
+- `COORDENADOR_SETOR`;
+- `GESTOR_IMEDIATO`;
+- `FINANCEIRO`;
+- `JURIDICO`;
+- `AUDITOR`;
+- `ADMIN_FUNCIONAL`.
+
+#### SGPD_ROLE_ASSIGN
+
+- `ID`
+- `USER_ID`
+- `ROLE_ID`
+- `SCOPE_TYPE`: `GLOBAL`, `COMPANY` ou `BRANCH`;
+- `COMPANY_CODE`
+- `BRANCH_CODE`
+- `SCOPE_KEY`
+- `VALID_FROM`
+- `VALID_UNTIL`
+- `IS_ACTIVE`
+- `ASSIGNED_BY_ID`
+- `ASSIGNED_AT`
+- `REVOKED_BY_ID`
+- `REVOKED_AT`
+
+A atribuição é única por usuário, papel e chave de escopo. Empresa é
+obrigatória no escopo de empresa; empresa e filial são obrigatórias no escopo
+de filial. A revogação é lógica, com data, responsável e auditoria.
+
+#### SGPD_ACCOUNT_AUDIT
+
+- `ID`
+- `UUID`
+- `EVENT_TYPE`
+- `ACTOR_ID`
+- `TARGET_USER_ID`
+- `ENTITY_TYPE`
+- `ENTITY_ID`
+- `OCCURRED_AT`
+- `REASON`
+- `CHANGES`
+- `CORRELATION_ID`
+
+Registra login, logout, falha de autenticação, criação e alteração de usuário,
+senha, papel, atribuição, revogação e vínculo/desvínculo AD. O model não
+permite alteração ou exclusão por usuários funcionais.
 
 ### Referências do Senior não persistidas
 

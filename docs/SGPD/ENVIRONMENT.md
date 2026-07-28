@@ -15,7 +15,6 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | Sistema operacional | Debian GNU/Linux 13.6 (trixie), kernel 6.12, x86_64 | Confirmado para DEV |
 | Timezone | UTC-03:00 | A aplicação deverá usar `America/Sao_Paulo` explicitamente |
 | Locale | `C.UTF-8` | Validar regras de apresentação em português |
-| Filesystem | ext4, 96% utilizado, aproximadamente 1,9 GiB livres | Espaço insuficiente para crescimento seguro de imagens, caches e evidências |
 | Git | branch `main`, remoto `origin` configurado | Repositório confirmado |
 | Python | CPython 3.13.5 | Python 3.13 homologado; ambiente virtual isolado pelo `uv` |
 | `pip` | 25.1.1 | Disponível no Python do sistema |
@@ -37,7 +36,7 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | Nginx | Ausente/inativo | Não será utilizado; estáticos serão servidos por WhiteNoise |
 | WhiteNoise | 6.12.0 | Configurado somente para arquivos estáticos |
 | LDAP tools | `ldapsearch` ausente | Não bloqueia o MVP local; necessário na integração futura com AD |
-| SMTP | Microsoft 365, `smtp.office365.com:587`, TLS/STARTTLS | Remetente definido; credenciais ficarão no `.env` |
+| SMTP | Microsoft 365, `smtp.office365.com:587`, TLS/STARTTLS | SMTP AUTH e remetente configurado validados em 2026-07-28 |
 | Evidências | Filesystem local privado | Caminho inicial `media/evidence`, fora do WhiteNoise |
 | Pytest | 9.1.1 no ambiente do projeto | Configurado com pytest-django |
 | Ruff | 0.16.0 no ambiente do projeto | Lint e formatação configurados no `pyproject.toml` |
@@ -67,12 +66,12 @@ Redis e worker continuam adiados até surgir um caso de uso.
 | Host/SO | Debian 13.6 confirmado |
 | Python | 3.13 homologado; dependências gerenciadas por `uv` |
 | Oracle | Database 19c e Instant Client 19.28 confirmados |
-| Oracle SGPD | Owner `SGPD` configurado como conexão única; `CREATE TABLE` sem `ADMIN OPTION` e quota de 500 MB em `PIMS_DATA` |
+| Oracle SGPD | Owner `SGPD` como conexão única; `CREATE TABLE` e `CREATE SEQUENCE` sem `ADMIN OPTION`; quota de 500 MB em `PIMS_DATA`; migrations aplicadas |
 | Senior HCM | Schema `VETORH` no mesmo serviço; cinco grants `SELECT` confirmados para `SGPD` |
 | Redis | Container sob demanda |
 | Worker | Adiado até necessidade |
-| SMTP | Microsoft 365; remetente `noreply@bsabioenergia.com.br`; credenciais no `.env` |
-| Autenticação | Local no MVP; LDAP/AD não configurado e previsto para fase futura |
+| SMTP | Microsoft 365; SMTP AUTH e `Send As` validados com uma mensagem de prova aceita |
+| Autenticação | Local; usuários, papéis e escopos aplicados; vínculo AD administrativo disponível; LDAP/AD real não configurado |
 | Estáticos | WhiteNoise instalado e configurado |
 | Evidências | Filesystem local privado em `media/evidence` |
 | Nginx / proxy | Não utilizado |
@@ -118,22 +117,15 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 
 1. Confirmar TLS/wallet da conexão única `SGPD`.
 2. Escolher Celery ou Django-Q2 quando houver processamento assíncrono.
-3. Confirmar SMTP AUTH e a permissão `Send As` da conta de envio.
-4. Definir identificador, endpoints, TLS e processo de vinculação ao AD na fase futura.
-5. Definir backup, retenção e antivírus das evidências.
-6. Definir o Compose do Redis quando surgir a primeira dependência.
-7. Liberar espaço no filesystem local antes de armazenar evidências.
-8. Aplicar e validar as migrations revisadas no schema `SGPD`.
+3. Homologar atributo identificador, endpoints, TLS e backend de autenticação
+   LDAP/AD. O vínculo administrativo do lado SGPD já está implementado.
+4. Definir o Compose do Redis quando surgir a primeira dependência.
 
 ## 8. Estado do bloco de ambiente
 
 O inventário e as decisões do bloco Ambiente estão concluídos.
 
-As validações restantes da fundação técnica são:
-
-- aplicar e validar as migrations no schema `SGPD`;
-- testar SMTP AUTH;
-- configurar permissões e proteção do filesystem de evidências;
-- liberar espaço no filesystem antes de armazenar evidências.
+SMTP AUTH e `Send As` foram validados em 2026-07-28. O Microsoft 365 aceitou
+uma mensagem de prova enviada ao próprio remetente configurado.
 
 Referência do SMTP Microsoft 365: [Microsoft Learn — configurar envio por aplicativo](https://learn.microsoft.com/pt-br/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365).

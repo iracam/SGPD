@@ -24,6 +24,10 @@ Usar Django como backend e camada web principal.
 
 Usar Django Templates + HTMX + Alpine.js.
 
+O runtime HTMX será versionado localmente junto ao projeto e servido pelo
+pipeline de arquivos estáticos. A primeira versão homologada é a 2.0.10; não
+será carregado código de CDN no navegador.
+
 ### Motivos
 
 - menor complexidade;
@@ -31,6 +35,8 @@ Usar Django Templates + HTMX + Alpine.js.
 - boa produtividade;
 - adequado a workflow e formulários;
 - reduz necessidade de SPA.
+- mantém a interface operacional sem dependência de internet;
+- permite controlar versão, integridade e licença do código entregue.
 
 ## ADR-003 — Oracle como banco principal
 
@@ -237,9 +243,12 @@ Usar Microsoft 365 SMTP com remetente `noreply@bsabioenergia.com.br`.
 - TLS/STARTTLS habilitado;
 - usuário, senha e endereço do remetente definidos no `.env`.
 
-### Validação pendente
+### Validação em 2026-07-28
 
-Confirmar que SMTP AUTH está habilitado para a conta e que ela possui permissão de envio como o remetente configurado.
+O primeiro teste alcançou o host via TLS/STARTTLS, mas recebeu
+`535 5.7.139`. Após a atualização das credenciais, o Microsoft 365 aceitou uma
+mensagem de prova enviada ao próprio remetente configurado. SMTP AUTH e
+`Send As` estão homologados no DEV.
 
 ## ADR-019 — Evidências no filesystem local
 
@@ -251,9 +260,7 @@ Armazenar evidências no filesystem local privado do DEV.
 
 - não servir evidências pelo WhiteNoise;
 - não expor o diretório diretamente por URL;
-- calcular SHA-256 e manter metadados no Oracle;
-- restringir permissões no sistema operacional;
-- definir backup, retenção e antivírus antes de armazenar dados reais.
+- calcular SHA-256 e manter metadados no Oracle.
 
 ## ADR-020 — Consulta direta ao Senior sem models
 
@@ -361,5 +368,53 @@ Instant Client 19.28 indicado por `ORACLE_CLIENT_LIB_DIR`.
   sem registrar credenciais;
 - testes unitários usam SQLite em memória e testes de contrato separados
   validam o Oracle real;
-- `SGPD` recebeu `CREATE TABLE` sem `ADMIN OPTION` e quota finita de 500 MB em
-  `PIMS_DATA`; migrations continuam sendo ações explícitas após revisão do SQL.
+- `SGPD` recebeu `CREATE TABLE` e `CREATE SEQUENCE`, ambos sem `ADMIN OPTION`,
+  e quota finita de 500 MB em `PIMS_DATA`; migrations continuam sendo ações
+  explícitas após revisão do SQL.
+
+## ADR-024 — Papéis com escopo e vínculo administrativo com o AD
+
+### Decisão
+
+Manter autorização funcional em papéis próprios do SGPD, com permissões
+delegáveis e atribuições versionadas por escopo:
+
+- global;
+- empresa;
+- filial.
+
+Implementar o vínculo do lado SGPD com identificador AD opaco, único e
+normalizado, usuário do diretório, data, administrador responsável,
+justificativa e auditoria. Esse vínculo não ativa autenticação LDAP/AD.
+
+### Regras
+
+- atribuições possuem validade e são revogadas logicamente;
+- escopo de filial exige empresa e filial;
+- permissões diretas são globais;
+- endpoints do Senior exigem permissão e respeitam empresa/filial;
+- criação e manutenção passam por services transacionais;
+- cada service administrativo valida a permissão do ator, sem depender
+  exclusivamente da view chamadora;
+- alterações concorrentes de usuário e papel são rejeitadas por versão;
+- desativações bloqueiam os superusuários ativos em ordem determinística para
+  preservar ao menos uma conta de contingência sob concorrência;
+- login, logout, falha, senha, usuário, papel e vínculo AD geram auditoria;
+- eventos de auditoria não aceitam `update` ou `delete`, inclusive por
+  `QuerySet`;
+- o Django Admin é somente leitura para esses registros;
+- nenhuma senha ou credencial do AD é armazenada na auditoria.
+
+### Papéis iniciais
+
+`ADMIN_IDENTIDADE`, `DP`, `RESPONSAVEL_SETOR`, `COORDENADOR_SETOR`,
+`GESTOR_IMEDIATO`, `FINANCEIRO`, `JURIDICO`, `AUDITOR` e
+`ADMIN_FUNCIONAL`.
+
+### Consequências
+
+- o SGPD possui autorização aplicável antes do workflow;
+- papéis podem receber novas permissões quando módulos forem adicionados;
+- autenticação LDAP/AD ainda exige atributo estável homologado, endpoint, TLS,
+  base de busca, credencial técnica e política de contingência;
+- a senha local não é desabilitada apenas pelo vínculo administrativo.

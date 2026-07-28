@@ -10,9 +10,26 @@ No MVP, a autenticação será local. Em fase posterior, cada cadastro poderá s
 
 O Senior HCM não será fonte de usuários, gestores, e-mails, papéis ou permissões.
 
+A manutenção deverá:
+
+- exigir nome, sobrenome, login e e-mail únicos quando aplicável;
+- permitir ativação e desativação sem exclusão física;
+- exigir senha temporária forte e troca no próximo acesso quando configurado;
+- impedir que o administrador desative a própria conta;
+- preservar ao menos um superusuário ativo de contingência;
+- auditar login, logout, falha, criação, alteração e redefinição de senha.
+
+O vínculo administrativo com o AD deverá usar identificador opaco único,
+usuário do diretório, data, administrador responsável e justificativa. O
+vínculo não equivale à autenticação AD, que dependerá de contrato homologado.
+
 ### RF-002 — Perfis e permissões
 
 O sistema deverá controlar permissões por papel e escopo organizacional.
+
+Os escopos iniciais serão global, empresa e filial. Atribuições deverão possuir
+validade, revogação lógica, responsável e auditoria. Permissões provenientes de
+papéis deverão respeitar o escopo; permissões diretas serão globais.
 
 ### RF-003 — Cadastro de setores
 
@@ -365,7 +382,7 @@ Dados pessoais devem ser exibidos conforme necessidade e perfil.
 
 ### RNF-011 — Backup
 
-Banco e arquivos deverão fazer parte da política corporativa de backup.
+O banco deverá fazer parte da política corporativa de backup.
 
 ### RNF-012 — Consultas sem efeitos colaterais
 

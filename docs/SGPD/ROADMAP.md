@@ -54,6 +54,17 @@ Checkpoint 0 aprovado.
 
 Aplicação acessível e autenticada.
 
+### Estado em 2026-07-27
+
+A base de autenticação local, usuários, papéis, escopos, auditoria de contas,
+troca obrigatória de senha temporária e vínculo administrativo com o AD está
+implementada e aplicada no Oracle DEV. A primeira conta humana foi criada pelo
+bootstrap auditado. SMTP AUTH e `Send As` foram validados em 2026-07-28 com
+uma mensagem de prova aceita pelo Microsoft 365. Em 2026-07-28, a autorização
+dos services, a imutabilidade da auditoria contra operações em lote e a
+concorrência do último superusuário foram endurecidas antes do versionamento do
+checkpoint.
+
 ## Fase 2 — Referências Senior
 
 ### Entregas
@@ -70,6 +81,20 @@ Aplicação acessível e autenticada.
 ### Saída esperada
 
 Empresa → Filial → Tipo → Colaborador funcionando.
+
+### Estado em 2026-07-27
+
+Concluída. Repository, contrato SQL, endpoints JSON, autorização por escopo e
+seleção HTMX server-side estão implementados. O runtime HTMX 2.0.10 é servido
+localmente, sem CDN. O snapshot permanece na Fase 4, dentro do caso de uso
+transacional de abertura. Em 2026-07-28, o `LEFT JOIN` de centro de custo foi
+homologado por contagem global e a consulta de colaboradores foi medida com até
+dez conexões concorrentes, sem erros ou timeouts.
+
+### Fechamento em 2026-07-28
+
+As Fases 1 e 2 estão estabilizadas e versionadas localmente. A Fase 3 ainda não
+foi iniciada.
 
 ## Fase 3 — Configuração funcional
 
@@ -200,6 +225,10 @@ Possíveis integrações:
 - frota;
 - SAP;
 - Senior HCM para retorno da rescisão.
+
+O vínculo administrativo do lado SGPD não antecipa a autenticação AD desta
+fase: ele apenas preserva a identidade externa única e sua trilha de
+confirmação.
 
 ## Critério de MVP
 

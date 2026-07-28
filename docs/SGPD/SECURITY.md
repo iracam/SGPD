@@ -19,8 +19,11 @@ Estratégia:
 - usar autenticação local no MVP;
 - usar o model customizado `accounts.User` desde a primeira migration;
 - manter e-mail único e identificador AD único e anulável;
-- vincular futuramente a conta SGPD a uma identidade do Active Directory;
+- permitir vínculo administrativo auditado da conta SGPD a uma identidade do
+  Active Directory, sem ativar autenticação LDAP;
 - usar identificador corporativo estável e único para a vinculação;
+- exigir confirmação humana e justificativa para vínculo e desvínculo;
+- exigir troca da senha temporária no próximo acesso quando configurado;
 - não criar perfis ou permissões automaticamente a partir do Senior;
 - manter papéis e escopos no SGPD mesmo após a vinculação ao AD;
 - desabilitar a senha local comum após ativar a autenticação AD, preservando somente contingência administrativa controlada;
@@ -39,10 +42,34 @@ Autorização deve considerar:
 - sensibilidade do dado;
 - estado do processo.
 
-Os endpoints cadastrais do Senior exigem autenticação desde a primeira
-implementação. A restrição adicional por papel, empresa e filial deverá ser
-adicionada após a definição funcional desses escopos; até lá, eles não devem
-ser tratados como autorização final do MVP.
+Os endpoints cadastrais do Senior exigem autenticação e a permissão
+`query_senior_references`. A autorização considera atribuição ativa e válida
+com escopo global, de empresa ou de filial. Empresas fora do escopo não são
+retornadas e filtros fora do escopo recebem `403`.
+
+A interface HTMX aplica a mesma autorização em toda requisição parcial, não
+confia nos valores já renderizados no navegador e remove seleções descendentes
+quando o escopo anterior muda. A listagem HTML de colaboradores não contém
+CPF. O runtime HTMX é local, fixado na versão 2.0.10 e acompanhado da licença,
+evitando execução de código obtido de CDN durante o uso.
+
+As permissões delegáveis atuais são:
+
+- `manage_users`;
+- `manage_roles`;
+- `link_ad_identity`;
+- `view_account_audit`;
+- `query_senior_references`.
+
+Permissões diretas são globais. Permissões provenientes de papéis respeitam o
+escopo e a validade da atribuição. Superusuário é reservado ao bootstrap e à
+contingência administrativa.
+
+As views e os services administrativos validam autorização. A checagem no
+service preserva o limite de segurança quando o caso de uso for chamado por
+outra interface, comando ou API. A desativação de contas bloqueia os
+superusuários ativos em ordem determinística e impede transacionalmente a
+remoção do último superusuário ativo.
 
 Exemplo:
 
@@ -62,7 +89,8 @@ Exemplo:
 
 ## 5. Dados pessoais
 
-Classificação sugerida:
+Classificação preliminar, ainda não homologada. A definição formal de dados
+sensíveis foi postergada por decisão do projeto em 2026-07-28.
 
 ### Dados cadastrais
 
@@ -115,7 +143,6 @@ Cada arquivo deverá possuir:
 
 Recomendações:
 
-- antivírus;
 - bloqueio de extensões perigosas;
 - limite de tamanho;
 - nome aleatório;
@@ -128,11 +155,13 @@ Recomendações:
 - filesystem local privado em caminho configurado por `EVIDENCE_STORAGE_PATH`;
 - diretório inicial `media/evidence`;
 - nunca servir pelo WhiteNoise;
-- acesso somente por endpoint autenticado e autorizado;
-- permissões restritas ao usuário da aplicação;
-- backup, retenção e antivírus obrigatórios antes de usar dados reais.
+- acesso somente por endpoint autenticado e autorizado.
 
 ## 8. Auditoria
+
+A política ampla de auditoria foi postergada por decisão do projeto em
+2026-07-28. A trilha técnica já implementada para autenticação e administração
+de contas permanece obrigatória.
 
 Eventos mínimos:
 
@@ -159,6 +188,12 @@ Eventos mínimos:
 ## 9. Imutabilidade
 
 A auditoria deve ser append-only para usuários comuns.
+
+A administração operacional de contas não usa o Django Admin para escrita. O
+admin expõe os registros apenas para diagnóstico; criação, alteração,
+revogação e vínculo AD passam por services transacionais que geram eventos.
+Os eventos rejeitam alteração e exclusão por instância e também
+`QuerySet.update()` e `QuerySet.delete()`.
 
 Alternativas futuras:
 
@@ -194,6 +229,8 @@ Não registrar em log:
 
 - conta única `SGPD` para runtime e migrations no DEV, conforme risco aceito na ADR-022;
 - `CREATE TABLE` concedido diretamente ao `SGPD`, sem `ADMIN OPTION`;
+- `CREATE SEQUENCE` concedido diretamente ao `SGPD`, sem `ADMIN OPTION`,
+  porque as chaves `IDENTITY` do Django usam geradores internos de sequência;
 - quota finita de 500 MB em `PIMS_DATA`, sem `UNLIMITED TABLESPACE`;
 - grants externos mínimos, especialmente nos objetos `VETORH`;
 - rotação de senha;
@@ -238,7 +275,9 @@ Não registrar em log:
 
 ## 14. Retenção
 
-A retenção deve ser definida com Jurídico, RH e Segurança da Informação.
+A definição formal de retenção foi postergada por decisão do projeto em
+2026-07-28. Quando retomada, deverá envolver Jurídico, RH e Segurança da
+Informação.
 
 O sistema deve suportar:
 

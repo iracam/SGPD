@@ -3,8 +3,8 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fase 0 — Descoberta e fundação
-- Estado: Em andamento
+- Fase atual: Fases 1 e 2 estabilizadas; Fase 3 ainda não iniciada
+- Estado: Checkpoint técnico estabilizado e versionado localmente
 - Banco: Oracle
 - Backend: Django
 - UI: Django Templates + HTMX + Alpine
@@ -40,7 +40,6 @@
 
 ### Senior HCM
 
-- [ ] Confirmar versão.
 - [x] Confirmar owner.
   - Schema de origem `VETORH`.
 - [x] Confirmar objetos e grants disponíveis.
@@ -89,17 +88,27 @@
 
 - [x] Retirar grupos AD como fonte de papéis.
   - Papéis e escopos serão mantidos exclusivamente no SGPD.
-- [ ] Definir identificador e fluxo de vinculação futura ao AD.
+- [x] Implementar fluxo administrativo de vínculo e desvínculo AD.
+  - Identificador opaco, único e normalizado; confirmação, justificativa,
+    responsável e auditoria.
+- [ ] Homologar atributo identificador, endpoint, TLS, base de busca e backend
+  de autenticação com a Infraestrutura.
 - [x] Definir origem dos usuários.
   - Todos os usuários, gestores e e-mails serão cadastrados no SGPD.
   - AD será vinculado futuramente apenas como provedor de autenticação.
-- [ ] Definir papéis.
-- [ ] Definir escopo por empresa/filial.
+- [x] Definir papéis.
+  - Catálogo inicial com nove papéis; permissões evoluem com os módulos.
+- [x] Definir escopo por empresa/filial.
+  - Global, empresa e filial, com validade e revogação lógica.
 - [ ] Definir dados sensíveis.
+  - Postergado por decisão do projeto em 2026-07-28.
 - [ ] Definir retenção.
+  - Postergado por decisão do projeto em 2026-07-28.
 - [ ] Definir acesso a documentos médicos.
 - [ ] Definir acesso a valores.
-- [ ] Definir política de auditoria.
+- [ ] Definir política ampla de auditoria.
+  - Postergada por decisão do projeto em 2026-07-28; a auditoria técnica de
+    contas já implementada permanece ativa.
 
 ### Arquitetura
 
@@ -122,9 +131,20 @@
 - [x] `.env.example`.
 - [x] Oracle conectado.
   - Modo Thick obrigatório para o verificador atual da conta `SGPD`.
-  - `CREATE TABLE` sem `ADMIN OPTION` e quota de 500 MB em `PIMS_DATA`
-    concedidos ao mesmo usuário `SGPD`.
-  - Aplicação das migrations permanece pendente de execução explícita.
+  - `CREATE TABLE` e `CREATE SEQUENCE`, ambos sem `ADMIN OPTION`, e quota de
+    500 MB em `PIMS_DATA` concedidos ao mesmo usuário `SGPD`.
+  - 23 migrations aplicadas; 12 constraints SGPD habilitados e validados.
+- [x] Cadastro e manutenção auditada de usuários.
+- [x] Autenticação local e troca obrigatória de senha temporária.
+- [x] Papéis, permissões e escopos.
+- [x] Vínculo administrativo com o AD.
+- [x] Auditoria de login, logout, falha e manutenção de contas.
+- [x] Primeira conta humana de administração.
+  - Criada pelo bootstrap interativo, com papel global
+    `ADMIN_IDENTIDADE` e dois eventos de auditoria.
+- [x] SMTP AUTH e `Send As`.
+  - Após atualização das credenciais em 2026-07-28, o Microsoft 365 aceitou
+    uma mensagem de prova enviada ao próprio remetente configurado.
 - [ ] Redis conectado, quando requerido.
 - [ ] Worker conectado, quando requerido.
 - [x] Health check.
@@ -143,8 +163,17 @@
 - [x] Tratamento de indisponibilidade.
 - [x] Logs de consulta e telemetria básica de duração/linhas.
 - [x] Script SQLcl de teste de contrato.
-- [x] Cascata funcionando no repository e em endpoints autenticados.
-  - Seleção na interface ainda pendente.
+- [x] Cascata funcionando no repository, endpoints autenticados e interface
+  HTMX.
+  - Runtime HTMX 2.0.10 servido localmente, sem CDN.
+- [x] Autorização da cascata por permissão, empresa e filial.
+- [x] `LEFT JOIN` de centro de custo homologado.
+  - Em 2026-07-28, preservou 1.891 elegíveis; `INNER JOIN` excluiria os 49
+    colaboradores sem referência em `R018CCU`; nenhuma chave de centro de
+    custo duplicada foi encontrada.
+- [x] Concorrência inicial medida no DEV.
+  - 80 consultas de colaboradores com 1, 5 e 10 conexões, sem erros ou
+    timeouts; p95 máximo de 60,64 ms.
 - [ ] Snapshot validado.
 
 ## Checkpoint 3 — Configuração funcional
@@ -155,7 +184,9 @@
 - [ ] Regras.
 - [ ] Templates.
 - [ ] Versionamento.
-- [ ] Permissões.
+- [x] Permissões.
+  - Infraestrutura de papéis e escopos concluída; novas permissões serão
+    adicionadas conforme cada módulo funcional.
 
 ## Checkpoint 4 — Workflow
 
@@ -229,7 +260,7 @@ Responsável: Codex
 Fase: Fase 0 — Descoberta e fundação / Ambiente
 O que foi concluído: inventário local de SO, runtimes, ferramentas, Oracle Client, Docker, serviços, filesystem e configurações do repositório.
 Decisões: separar fatos do ambiente local das confirmações ainda necessárias para DEV/HML/PRD; manter variáveis preliminares e sem segredos.
-Riscos: filesystem com 96% de uso; Python ainda não homologado; serviços e ambientes corporativos indefinidos; toolchain global divergente.
+Riscos: Python ainda não homologado; serviços e ambientes corporativos indefinidos; toolchain global divergente.
 Pendências: Oracle Database e driver; DEV/HML/PRD; secrets; SMTP; Redis; storage; Nginx; CI/CD; LDAP/AD.
 Próximo passo: obter da Infraestrutura a matriz dos ambientes e homologar Python, Oracle e o padrão de secrets.
 Comandos executados: inventário de SO e runtimes; inspeção de pacotes; estado do Docker e serviços; teste local de Redis; inspeção de disco e configurações.
@@ -277,7 +308,7 @@ Responsável: Codex
 Fase: Fase 0 — Descoberta e fundação / Ambiente
 O que foi concluído: padrão de secrets, SMTP Microsoft 365 e storage local de evidências definidos.
 Decisões: credenciais no .env; usuários individuais no padrão nome.sobrenome; evidências em filesystem privado; WhiteNoise restrito a estáticos.
-Riscos: SMTP AUTH e Send As ainda precisam ser testados; backup, retenção e antivírus das evidências ainda precisam ser definidos.
+Riscos: SMTP AUTH e Send As ainda precisam ser testados.
 Pendências: nenhuma no inventário Ambiente; instalações e testes seguem para a fundação técnica.
 Próximo passo: iniciar o levantamento do Senior HCM ou homologar a fundação Django.
 Comandos executados: confirmação oficial dos parâmetros SMTP e revisão cruzada da documentação.
@@ -293,7 +324,7 @@ Responsável: Codex
 Fase: Fase 0 — Descoberta e fundação / Senior HCM
 O que foi concluído: owner SGPD do DEV conectado; Oracle 19.15 confirmado; schema VETORH identificado; grants SELECT e consulta de colaboradores validados sem expor dados pessoais.
 Decisões: consultar VETORH diretamente por SQL parametrizado na camada repository/service; não criar models Senior, views Oracle locais, tabelas REF_*, cargas ou sincronização; persistir somente o snapshot da abertura.
-Riscos: owner SGPD ainda está no .env e não pode ser usuário de runtime; acesso direto acopla o SGPD ao contrato físico do Senior; CPF, performance, disponibilidade e joins internos exigem controles; versão do produto Senior HCM ainda não confirmada. [Separação do owner superada posteriormente pela ADR-022.]
+Riscos: owner SGPD ainda está no .env e não pode ser usuário de runtime; acesso direto acopla o SGPD ao contrato físico do Senior; CPF, performance, disponibilidade e joins internos exigem controles. [Separação do owner superada posteriormente pela ADR-022.]
 Pendências: criar SGPD_APP com grants mínimos; decidir necessidade de local; mapear gestor e fonte do e-mail; homologar DATAFA sentinela e INNER JOIN; medir consultas e definir timeout/paginação. [SGPD_APP, local, gestor e e-mail resolvidos por decisões posteriores.]
 Próximo passo: criar o usuário operacional e fechar o contrato SQL do fluxo Empresa → Filial → Tipo → Colaborador. [Criação do usuário superada posteriormente pela ADR-022.]
 Comandos executados: inspeção segura do .env; conexão SQLcl; consultas a metadados de sessão, versão, grants e objetos; probe limitado da consulta fornecida; chmod 600 no .env.
@@ -427,4 +458,84 @@ Próximo passo: executar migrate no DEV e verificar plano, objetos, índices, co
 Comandos executados: inspeções read-only em DBA_USERS, SESSION_PRIVS, DBA_SYS_PRIVS, DBA_TS_QUOTAS e capacidade do PIMS_DATA; GRANT CREATE TABLE TO SGPD; ALTER USER SGPD QUOTA 500M ON PIMS_DATA; confirmação pela conexão Django SGPD.
 Arquivos alterados: README.md e documentação em docs/SGPD.
 Testes: SGPD confirmou USER_SYS_PRIVS = CREATE TABLE e USER_TS_QUOTAS = PIMS_DATA/500 MB; grant sem ADMIN OPTION; nenhum usuário criado; nenhum objeto Senior alterado.
+```
+
+### 2026-07-27 — Usuários, papéis, escopos e vínculo administrativo AD
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 1 — Base técnica / Identidade e autorização
+O que foi concluído: manutenção server-side de usuários; autenticação local; troca obrigatória de senha temporária; papéis e cinco permissões delegáveis; atribuições globais, por empresa e por filial; validade e revogação lógica; vínculo/desvínculo AD administrativo; auditoria append-only de contas; autorização dos endpoints Senior por escopo; migrations e catálogo inicial aplicados no Oracle; primeira conta humana criada pelo bootstrap auditado; interpretação de vínculo AD ausente corrigida para a semântica de strings vazias do Oracle.
+Decisões: usar services transacionais, lock pessimista e versão otimista; manter Django Admin somente leitura; tratar vínculo AD como registro administrativo sem ativar LDAP; manter nove papéis iniciais; usar permissões diretas como globais e permissões de papéis como escopadas; não criar conta humana nem senha automaticamente.
+Riscos: autenticação AD real continua sem atributo, endpoint, TLS, base de busca e contingência homologados; owner SGPD permanece no runtime; conexão administrativa PRD@PIMSCS foi usada exclusivamente mediante autorização explícita para o grant mínimo; rollback para zero é destrutivo e não deverá ser usado após existir auditoria.
+Pendências: homologar integração LDAP/AD futura; concluir SMTP e demais itens da fundação. Dados sensíveis, retenção e política ampla de auditoria foram postergados em 2026-07-28.
+Próximo passo: concluir a seleção HTMX da cascata cadastral já autorizada por escopo; depois iniciar a configuração funcional, conforme checkpoint.
+Comandos executados: pytest; ruff check/format; mypy; Django check; makemigrations --check; sqlmigrate 0001–0005; migrate --plan; migrate; bootstrap_roles duas vezes; bootstrap_identity_admin interativo; consultas read-only a USER_TABLES, USER_CONSTRAINTS, USER_INDEXES, USER_TS_QUOTAS e contagens de domínio; GRANT CREATE SEQUENCE TO SGPD sem ADMIN OPTION pela conexão administrativa autorizada.
+Arquivos alterados: apps/accounts, apps/integrations/senior/api.py, config, templates, tests, README.md e documentação em docs/SGPD.
+Testes: 53 testes passaram, incluindo bootstrap administrativo único e auditado, rejeição de permissão homônima de outro app e regressão da semântica Oracle para vínculo AD vazio; lint, format, mypy, Django check, manifesto e diff sem erros; 23 migrations aplicadas e plano final vazio; 12 constraints habilitados e validados; 4 índices SGPD explícitos; nove papéis, cinco permissões e uma conta humana presentes; bootstrap de papéis idempotente; conta ativa com senha utilizável, papel ADMIN_IDENTIDADE global e eventos de criação e atribuição auditados; 2 MB de 500 MB consumidos antes do bootstrap; smoke DEV com login 200, redirect anônimo 302, referência anônima 403 e readiness 200; nenhum objeto VETORH alterado.
+```
+
+### 2026-07-27 — Seleção HTMX da cascata Senior
+
+```text
+Data: 2026-07-27
+Responsável: Codex
+Fase: Fase 2 — Integração cadastral
+O que foi concluído: seleção server-side Empresa → Filial → Tipo de colaborador → Colaborador; busca por nome ou matrícula; navegação condicionada por permissão; fragmentos HTMX com limpeza dos níveis descendentes; tratamento seguro de 400, 403, 502 e 503; runtime HTMX 2.0.10 e licença servidos localmente.
+Decisões: reutilizar o repository e a autorização já homologados; manter endpoints HTML separados dos endpoints JSON; limitar colaboradores a 20 por busca; não criar snapshot nem persistir referências nesta etapa; não usar CDN.
+Riscos: atualização futura do HTMX exige revisão explícita de versão, licença, hash e regressão; indisponibilidade do Senior continua impedindo novas seleções; snapshot permanece pendente para o caso de uso de abertura.
+Pendências: validar o snapshot na Fase 4 e concluir itens operacionais restantes da Fase 1.
+Próximo passo: iniciar a Fase 3 pela modelagem pequena e revisável de setores e seus escopos, sem antecipar o workflow.
+Comandos executados: pytest; ruff check/format; mypy; Django check; makemigrations --check; findstatic; collectstatic; smoke somente leitura da página e dos três fragmentos contra o Oracle DEV.
+Arquivos alterados: apps/integrations/senior, apps/accounts/context_processors.py, config, templates, static/vendor/htmx, tests/test_senior_ui.py, README.md e documentação em docs/SGPD.
+Testes: 62 testes passaram; nove cobrem a UI HTMX; lint, format, mypy, Django check e migrations sem divergências; HTMX local encontrado e coletado pelo WhiteNoise; smoke Oracle real retornou 200 na página e nos três fragmentos, com sete empresas na página e cinco colaboradores no probe final, sem CPF no HTML; nenhum DML ou DDL executado.
+```
+
+### 2026-07-28 — Homologação do centro de custo, concorrência e SMTP
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Fase 1 — Base técnica / Fase 2 — Integração cadastral
+O que foi concluído: LEFT JOIN de R018CCU homologado por contagem global; benchmark read-only da consulta de colaboradores executado com 1, 5 e 10 conexões; conectividade SMTP Microsoft 365 testada.
+Decisões: preservar colaboradores sem referência de centro de custo; postergar dados sensíveis, retenção e política ampla de auditoria; retirar do escopo documental as definições operacionais do storage de evidências solicitadas nesta revisão.
+Riscos: SMTP AUTH foi recusado com 535 5.7.139; Send As não pôde ser exercitado. A medição de concorrência representa somente a carga controlada do DEV.
+Pendências: corrigir a credencial ou política de SMTP AUTH e validar Send As; definir estratégia de homologação e monitoramento do contrato Senior.
+Próximo passo: estabilizar e versionar o checkpoint atual antes de iniciar a configuração funcional.
+Comandos executados: envio SMTP único pelo backend Django; scripts/oracle/run_senior_contract_validation.sh; uv run python scripts/oracle/benchmark_senior_concurrency.py.
+Arquivos alterados: scripts/oracle/benchmark_senior_concurrency.py, scripts/oracle/validate_senior_reference_queries.sql e documentação em docs/SGPD.
+Testes: SMTP alcançou o Microsoft 365 via TLS/STARTTLS, mas nenhuma mensagem foi enviada após recusa de autenticação; Oracle confirmou 1.891 elegíveis, 49 sem R018CCU, LEFT JOIN=1.891, INNER JOIN=1.842 e zero chaves R018CCU duplicadas; 80 consultas concorrentes concluídas sem erro ou timeout, com p95 máximo de 60,64 ms.
+```
+
+### 2026-07-28 — SMTP AUTH e Send As homologados
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Fase 1 — Base técnica
+O que foi concluído: teste SMTP repetido após atualização das credenciais; Microsoft 365 aceitou uma mensagem de prova enviada ao próprio remetente configurado.
+Decisões: considerar SMTP AUTH e Send As homologados no DEV.
+Riscos: a entrega final na caixa postal ainda depende do processamento normal do Microsoft 365, mas o servidor aceitou o envio sem erro.
+Pendências: nenhuma para a configuração SMTP atual.
+Próximo passo: estabilizar e versionar o checkpoint atual antes de iniciar a configuração funcional.
+Comandos executados: uv run manage.py shell --settings=config.settings.development com send_mail e fail_silently=False.
+Arquivos alterados: README.md e documentação em docs/SGPD.
+Testes: messages_sent=1, TLS habilitado, porta 587; nenhuma credencial foi exibida ou registrada.
+```
+
+### 2026-07-28 — Estabilização e versionamento do checkpoint técnico
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Fechamento das Fases 1 e 2
+O que foi concluído: autorização administrativa reforçada no limite dos services; alteração e exclusão em lote da auditoria bloqueadas; desativação concorrente do último superusuário serializada; baseline das migrations de contas reconciliada com o Oracle DEV; código e testes versionados no commit local 4498ca8.
+Decisões: manter dupla validação de autorização em views e services; preservar auditoria append-only também contra QuerySet.update e QuerySet.delete; bloquear os superusuários ativos em ordem determinística antes de desativação; considerar accounts.0001 a baseline final, pois nenhuma base conhecida recebeu sua forma preliminar e o primeiro migrate conhecido já criou SGPD_USER com ad_username anulável; migrations futuras serão somente incrementais.
+Riscos: o uso do owner SGPD no runtime permanece aceito apenas no DEV; uma repetição do probe Oracle encontrou ORA-12560 após a confirmação bem-sucedida, mantendo o risco de indisponibilidade já registrado; a medição de concorrência do Senior representa somente a carga controlada do DEV.
+Pendências: iniciar a Fase 3 pela modelagem pequena e revisável de setores e escopos; snapshot permanece para a abertura transacional da Fase 4; dados sensíveis, retenção e política ampla de auditoria permanecem postergados.
+Próximo passo: iniciar a configuração funcional por setores, responsáveis e seus escopos, sem antecipar workflow ou snapshot.
+Comandos executados: pytest; ruff check; ruff format --check; mypy; Django check; makemigrations --check --dry-run; showmigrations accounts; consulta read-only a USER_TABLES; migrate --plan tentado novamente; git diff --check; git add; git commit.
+Arquivos alterados: apps/accounts, apps/integrations/senior, config, scripts/oracle, static/vendor/htmx, templates, tests, README.md e documentação em docs/SGPD.
+Testes: 64 testes passaram; lint, format, mypy, Django check, migrations e diff sem divergências; accounts.0001–0005 confirmadas como aplicadas e catálogo confirmou SGPD_USER sem ACCOUNTS_USER; a repetição posterior do plano Oracle falhou antes de consultar o schema com ORA-12560, sem executar DDL ou DML.
 ```
