@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.authorization import has_effective_role
@@ -18,17 +22,39 @@ from apps.accounts.models import (
 from apps.integrations.senior.dto import EmployeeDetail
 from apps.integrations.senior.exceptions import SeniorContractError
 from apps.integrations.senior.repository import SeniorRepository
+from apps.sectors.models import (
+    SectorResponsible,
+    SectorScope,
+    ValidationSector,
+)
+from apps.templates_engine.models import (
+    ChecklistTemplateItem,
+    ChecklistTemplateVersion,
+    ValidationGroupVersion,
+    VersionStatus,
+)
 from config.middleware import correlation_id
 
 from .models import (
+    DraftOverrideAction,
     EmployeeSnapshot,
     OffboardingProcess,
+    ProcessActionIdempotency,
     ProcessAuditEvent,
+    ProcessChecklistItem,
     ProcessEventType,
+    ProcessSectorOverride,
+    ProcessSectorTask,
     ProcessStatus,
+    ProcessTaskGroupSource,
+    ProcessValidationGroup,
+    SectorTaskStatus,
 )
 
 PROCESS_OPENED_DESCRIPTION = "Abertura explícita de processo demissional pelo DP."
+DRAFT_SELECTION_DESCRIPTION = "Seleção de grupos e ajustes do rascunho pelo DP."
+PROCESS_STARTED_DESCRIPTION = "Início explícito e idempotente do processo pelo DP."
+START_ACTION = "START"
 
 
 def _require_people_department_role(
@@ -299,3 +325,726 @@ class OpenOffboardingProcessService:
                 correlation_id=correlation_id.get(),
             )
             return process
+
+
+class IdempotencyConflict(Exception):
+    """The same idempotency key was reused for a different request."""
+
+
+@dataclass(frozen=True, slots=True)
+class DraftSectorOverrideValue:
+    sector_id: int
+    action: DraftOverrideAction
+    reason: str
+    template_version_id: int | None = None
+    is_required: bool = True
+    blocks_process: bool = True
+    due_hours_override: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateDraftSelectionCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    group_version_ids: tuple[int, ...]
+    overrides: tuple[DraftSectorOverrideValue, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedSectorPlan:
+    sector: ValidationSector
+    template_version: ChecklistTemplateVersion
+    is_required: bool
+    blocks_process: bool
+    sla_hours: int
+    group_selections: tuple[ProcessValidationGroup, ...]
+    override: ProcessSectorOverride | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class StartOffboardingProcessCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    idempotency_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class StartOffboardingProcessResult:
+    process: OffboardingProcess
+    tasks: tuple[ProcessSectorTask, ...]
+    replayed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class DraftProcessContext:
+    process: OffboardingProcess
+    plans: tuple[ResolvedSectorPlan, ...]
+    blockers: tuple[str, ...]
+
+
+def _lock_actor_and_dp_assignment(actor: User) -> User:
+    try:
+        locked_actor = User.objects.select_for_update().get(pk=actor.pk)
+    except User.DoesNotExist as exc:
+        raise PermissionDenied("O ator não está mais disponível.") from exc
+    _lock_people_department_assignments(locked_actor)
+    return locked_actor
+
+
+def _lock_process(process_uuid: str) -> OffboardingProcess:
+    try:
+        return (
+            OffboardingProcess.objects.select_for_update()
+            .select_related("employee_snapshot")
+            .get(uuid=process_uuid)
+        )
+    except (ValueError, ValidationError) as exc:
+        raise OffboardingProcess.DoesNotExist from exc
+
+
+def _require_process_dp(actor: User, process: OffboardingProcess) -> None:
+    _require_people_department_role(
+        actor,
+        company_code=process.company_code,
+        branch_code=process.branch_code,
+    )
+
+
+def _scope_filter(process: OffboardingProcess) -> Q:
+    return (
+        Q(scope_type="GLOBAL")
+        | Q(scope_type="COMPANY", company_code=process.company_code)
+        | Q(
+            scope_type="BRANCH",
+            company_code=process.company_code,
+            branch_code=process.branch_code,
+        )
+    )
+
+
+def _applicable_sector_ids(
+    process: OffboardingProcess,
+    sector_ids: set[int],
+    *,
+    lock: bool,
+) -> set[int]:
+    scopes = SectorScope.objects.filter(sector_id__in=sector_ids).filter(_scope_filter(process))
+    if lock:
+        scopes = scopes.select_for_update()
+    return set(scopes.values_list("sector_id", flat=True))
+
+
+def _validate_override_values(
+    overrides: tuple[DraftSectorOverrideValue, ...],
+) -> tuple[DraftSectorOverrideValue, ...]:
+    by_sector: dict[int, DraftSectorOverrideValue] = {}
+    for index, value in enumerate(overrides):
+        if value.sector_id <= 0:
+            raise ValidationError({f"overrides.{index}.sector_id": "Selecione um setor válido."})
+        if value.sector_id in by_sector:
+            raise ValidationError({"overrides": "O mesmo setor possui mais de um ajuste."})
+        reason = value.reason.strip()
+        if not reason:
+            raise ValidationError(
+                {f"overrides.{index}.reason": "A justificativa do ajuste é obrigatória."}
+            )
+        if value.due_hours_override is not None and value.due_hours_override <= 0:
+            raise ValidationError(
+                {f"overrides.{index}.due_hours_override": "O prazo deve ser maior que zero."}
+            )
+        if value.action == DraftOverrideAction.INCLUDE and value.template_version_id is None:
+            raise ValidationError(
+                {
+                    f"overrides.{index}.template_version_id": (
+                        "A inclusão exige uma versão de template."
+                    )
+                }
+            )
+        if value.action == DraftOverrideAction.EXCLUDE and value.template_version_id is not None:
+            raise ValidationError(
+                {
+                    f"overrides.{index}.template_version_id": (
+                        "A remoção não deve informar um template."
+                    )
+                }
+            )
+        by_sector[value.sector_id] = DraftSectorOverrideValue(
+            sector_id=value.sector_id,
+            action=value.action,
+            reason=reason,
+            template_version_id=value.template_version_id,
+            is_required=value.is_required,
+            blocks_process=value.blocks_process,
+            due_hours_override=value.due_hours_override,
+        )
+    return tuple(by_sector[sector_id] for sector_id in sorted(by_sector))
+
+
+def _group_versions_for_selection(
+    group_version_ids: tuple[int, ...],
+) -> tuple[ValidationGroupVersion, ...]:
+    unique_ids = set(group_version_ids)
+    if not unique_ids:
+        raise ValidationError({"group_version_ids": "Selecione ao menos um grupo de validação."})
+    versions = tuple(
+        ValidationGroupVersion.objects.select_for_update()
+        .filter(pk__in=unique_ids)
+        .select_related("group")
+        .prefetch_related("sector_rules")
+        .order_by("group_id", "version_number")
+    )
+    if len(versions) != len(unique_ids):
+        raise ValidationError({"group_version_ids": "Um dos grupos selecionados não existe."})
+    group_ids = {version.group_id for version in versions}
+    if len(group_ids) != len(versions):
+        raise ValidationError({"group_version_ids": "Selecione somente uma versão de cada grupo."})
+    for version in versions:
+        if (
+            version.status != VersionStatus.PUBLISHED
+            or not version.group.is_active
+            or version.group.current_version_id != version.pk
+        ):
+            raise ValidationError(
+                {
+                    "group_version_ids": (
+                        f"O grupo {version.group.code} não está em uma versão vigente publicada."
+                    )
+                }
+            )
+    return versions
+
+
+class UpdateDraftSelectionService:
+    @transaction.atomic
+    def execute(self, command: UpdateDraftSelectionCommand) -> OffboardingProcess:
+        process = _lock_process(command.process_uuid)
+        _require_process_dp(command.actor, process)
+        if process.status != ProcessStatus.DRAFT:
+            raise ValidationError("Somente um rascunho pode ter sua seleção alterada.")
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+
+        group_versions = _group_versions_for_selection(command.group_version_ids)
+        override_values = _validate_override_values(command.overrides)
+        group_sector_ids = {
+            rule.sector_id for version in group_versions for rule in version.sector_rules.all()
+        }
+        for value in override_values:
+            if (
+                value.action == DraftOverrideAction.EXCLUDE
+                and value.sector_id not in group_sector_ids
+            ):
+                raise ValidationError(
+                    {
+                        "overrides": (
+                            "Um setor só pode ser removido quando estiver presente "
+                            "nos grupos selecionados."
+                        )
+                    }
+                )
+            if value.action == DraftOverrideAction.INCLUDE and value.sector_id in group_sector_ids:
+                raise ValidationError(
+                    {
+                        "overrides": (
+                            "Um setor já fornecido pelo grupo não pode ser incluído "
+                            "novamente de forma manual."
+                        )
+                    }
+                )
+
+        sector_ids = group_sector_ids | {value.sector_id for value in override_values}
+        sectors = {
+            sector.pk: sector
+            for sector in ValidationSector.objects.select_for_update()
+            .filter(pk__in=sector_ids)
+            .order_by("pk")
+        }
+        if sectors.keys() != sector_ids:
+            raise ValidationError({"overrides": "Um dos setores informados não existe."})
+
+        included_template_ids = {
+            value.template_version_id
+            for value in override_values
+            if value.template_version_id is not None
+        }
+        templates = {
+            version.pk: version
+            for version in ChecklistTemplateVersion.objects.select_for_update()
+            .filter(pk__in=included_template_ids)
+            .select_related("template")
+            .order_by("pk")
+        }
+        if templates.keys() != included_template_ids:
+            raise ValidationError(
+                {"overrides": "Uma das versões de template informadas não existe."}
+            )
+
+        applicable = _applicable_sector_ids(process, sector_ids, lock=True)
+        for value in override_values:
+            if value.action != DraftOverrideAction.INCLUDE:
+                continue
+            sector = sectors[value.sector_id]
+            template = templates[value.template_version_id]
+            if not sector.is_active or sector.pk not in applicable:
+                raise ValidationError(
+                    {"overrides": (f"O setor {sector.code} não está ativo no escopo do processo.")}
+                )
+            if (
+                template.status != VersionStatus.PUBLISHED
+                or not template.template.is_active
+                or template.template.current_version_id != template.pk
+                or template.template.sector_id != sector.pk
+            ):
+                raise ValidationError(
+                    {
+                        "overrides": (
+                            f"A inclusão de {sector.code} exige o template vigente publicado "
+                            "do mesmo setor."
+                        )
+                    }
+                )
+
+        actor = _lock_actor_and_dp_assignment(command.actor)
+        _require_process_dp(actor, process)
+        process.selected_groups.all().delete()
+        process.sector_overrides.all().delete()
+        for group_version in group_versions:
+            ProcessValidationGroup.objects.create(
+                process=process,
+                group_version=group_version,
+                selected_by=actor,
+            )
+        for value in override_values:
+            override = ProcessSectorOverride(
+                process=process,
+                sector=sectors[value.sector_id],
+                action=value.action,
+                template_version=(
+                    templates[value.template_version_id]
+                    if value.template_version_id is not None
+                    else None
+                ),
+                is_required=value.is_required,
+                blocks_process=value.blocks_process,
+                due_hours_override=value.due_hours_override,
+                reason=value.reason,
+                changed_by=actor,
+            )
+            override.full_clean()
+            override.save()
+
+        process.version += 1
+        process.full_clean(exclude={"active_employee_key"})
+        process.save(update_fields=("version",))
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.DRAFT_SELECTION_UPDATED,
+            actor=actor,
+            description=DRAFT_SELECTION_DESCRIPTION,
+            data={
+                "group_version_ids": [version.pk for version in group_versions],
+                "overrides": [
+                    {
+                        "sector_id": value.sector_id,
+                        "action": value.action,
+                        "reason": value.reason,
+                    }
+                    for value in override_values
+                ],
+                "process_version": process.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        return process
+
+
+def _selected_configuration(
+    process: OffboardingProcess,
+    *,
+    lock: bool,
+) -> tuple[
+    tuple[ProcessValidationGroup, ...],
+    tuple[ProcessSectorOverride, ...],
+]:
+    selections = ProcessValidationGroup.objects.filter(process=process)
+    if lock:
+        selections = selections.select_for_update()
+    selected = tuple(
+        selections.select_related("group_version__group")
+        .prefetch_related(
+            "group_version__sector_rules__sector__scopes",
+            "group_version__sector_rules__template_version__template",
+        )
+        .order_by("group_version__group__code", "pk")
+    )
+    overrides = ProcessSectorOverride.objects.filter(process=process)
+    if lock:
+        overrides = overrides.select_for_update()
+    adjusted = tuple(
+        overrides.select_related(
+            "sector",
+            "template_version__template",
+        ).order_by("sector__code", "pk")
+    )
+    return selected, adjusted
+
+
+def resolve_draft_sector_plans(
+    process: OffboardingProcess,
+    *,
+    lock: bool = False,
+) -> tuple[ResolvedSectorPlan, ...]:
+    selected, overrides = _selected_configuration(process, lock=lock)
+    rules = [
+        (selection, rule)
+        for selection in selected
+        for rule in selection.group_version.sector_rules.all()
+    ]
+    sector_ids = {rule.sector_id for _, rule in rules} | {
+        override.sector_id for override in overrides
+    }
+    locked_sectors: dict[int, ValidationSector] = {}
+    locked_templates: dict[int, ChecklistTemplateVersion] = {}
+    if lock:
+        locked_sectors = {
+            sector.pk: sector
+            for sector in ValidationSector.objects.select_for_update()
+            .filter(pk__in=sector_ids)
+            .order_by("pk")
+        }
+        template_ids = {rule.template_version_id for _, rule in rules} | {
+            override.template_version_id
+            for override in overrides
+            if override.template_version_id is not None
+        }
+        locked_templates = {
+            version.pk: version
+            for version in ChecklistTemplateVersion.objects.select_for_update()
+            .filter(pk__in=template_ids)
+            .select_related("template")
+            .order_by("pk")
+        }
+    applicable = _applicable_sector_ids(process, sector_ids, lock=lock)
+    plans: dict[int, ResolvedSectorPlan] = {}
+    for selection, rule in rules:
+        if rule.sector_id not in applicable:
+            continue
+        sector = locked_sectors.get(rule.sector_id, rule.sector)
+        template_version = locked_templates.get(
+            rule.template_version_id,
+            rule.template_version,
+        )
+        sla_hours = (
+            rule.due_hours_override
+            or template_version.default_due_hours
+            or sector.default_due_hours
+        )
+        current = plans.get(rule.sector_id)
+        if current is not None and current.template_version.pk != template_version.pk:
+            raise ValidationError(
+                {
+                    "group_version_ids": (
+                        f"Os grupos selecionados usam templates diferentes para {sector.code}."
+                    )
+                }
+            )
+        plans[rule.sector_id] = ResolvedSectorPlan(
+            sector=sector,
+            template_version=template_version,
+            is_required=rule.is_required or (current.is_required if current else False),
+            blocks_process=rule.blocks_process or (current.blocks_process if current else False),
+            sla_hours=min(sla_hours, current.sla_hours) if current else sla_hours,
+            group_selections=((*current.group_selections, selection) if current else (selection,)),
+        )
+
+    for override in overrides:
+        if override.action == DraftOverrideAction.EXCLUDE:
+            plans.pop(override.sector_id, None)
+            continue
+        if override.sector_id not in applicable or override.template_version is None:
+            continue
+        assert override.template_version_id is not None
+        sector = locked_sectors.get(override.sector_id, override.sector)
+        template_version = locked_templates.get(
+            override.template_version_id,
+            override.template_version,
+        )
+        plans[override.sector_id] = ResolvedSectorPlan(
+            sector=sector,
+            template_version=template_version,
+            is_required=override.is_required,
+            blocks_process=override.blocks_process,
+            sla_hours=(
+                override.due_hours_override
+                or template_version.default_due_hours
+                or sector.default_due_hours
+            ),
+            group_selections=(),
+            override=override,
+        )
+    return tuple(sorted(plans.values(), key=lambda plan: plan.sector.code))
+
+
+def _effective_responsible_sector_ids(
+    process: OffboardingProcess,
+    sector_ids: set[int],
+    *,
+    at: datetime,
+    lock: bool,
+) -> set[int]:
+    responsibilities = (
+        SectorResponsible.objects.filter(
+            sector_id__in=sector_ids,
+            sector__is_active=True,
+            user__is_active=True,
+            is_active=True,
+            valid_from__lte=at,
+        )
+        .filter(Q(valid_until__isnull=True) | Q(valid_until__gt=at))
+        .order_by("sector_id", "user_id", "pk")
+    )
+    if lock:
+        responsibilities = responsibilities.select_for_update()
+    rows = list(responsibilities.values_list("sector_id", "user_id"))
+    if lock:
+        user_ids = sorted({user_id for _, user_id in rows})
+        list(User.objects.select_for_update().filter(pk__in=user_ids).order_by("pk"))
+    return {sector_id for sector_id, _ in rows}
+
+
+def draft_blockers(
+    process: OffboardingProcess,
+    plans: tuple[ResolvedSectorPlan, ...],
+    *,
+    at: datetime | None = None,
+    lock: bool = False,
+) -> tuple[str, ...]:
+    instant = at or timezone.now()
+    blockers: list[str] = []
+    if not process.selected_groups.exists():
+        blockers.append("Selecione ao menos um grupo de validação.")
+    if not plans or not any(plan.is_required for plan in plans):
+        blockers.append("O rascunho precisa possuir ao menos um setor obrigatório.")
+    required_sector_ids = {plan.sector.pk for plan in plans if plan.is_required}
+    effective = _effective_responsible_sector_ids(
+        process,
+        required_sector_ids,
+        at=instant,
+        lock=lock,
+    )
+    for plan in plans:
+        if not plan.sector.is_active:
+            blockers.append(f"O setor {plan.sector.code} está inativo.")
+        if not plan.template_version.template.is_active or plan.template_version.status not in {
+            VersionStatus.PUBLISHED,
+            VersionStatus.RETIRED,
+        }:
+            blockers.append(f"O setor {plan.sector.code} não possui template histórico válido.")
+        if plan.is_required and plan.sector.pk not in effective:
+            blockers.append(
+                f"O setor obrigatório {plan.sector.code} não possui responsável vigente."
+            )
+    return tuple(blockers)
+
+
+class GetDraftProcessContextService:
+    def execute(self, actor: User, process_uuid: str) -> DraftProcessContext:
+        try:
+            process = (
+                OffboardingProcess.objects.select_related(
+                    "manager",
+                    "opened_by",
+                    "employee_snapshot",
+                    "started_by",
+                )
+                .prefetch_related("sector_tasks__checklist_items")
+                .get(uuid=process_uuid)
+            )
+        except (ValueError, ValidationError) as exc:
+            raise OffboardingProcess.DoesNotExist from exc
+        _require_process_dp(actor, process)
+        plans = resolve_draft_sector_plans(process)
+        blockers = draft_blockers(process, plans) if process.status == ProcessStatus.DRAFT else ()
+        return DraftProcessContext(
+            process=process,
+            plans=plans,
+            blockers=blockers,
+        )
+
+
+def _start_request_hash(expected_version: int) -> str:
+    canonical = json.dumps(
+        {"expected_version": expected_version},
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _process_due_at(process: OffboardingProcess) -> datetime:
+    naive = datetime.combine(process.due_date, time.max)
+    return timezone.make_aware(naive, timezone.get_current_timezone())
+
+
+class StartOffboardingProcessService:
+    @transaction.atomic
+    def execute(
+        self,
+        command: StartOffboardingProcessCommand,
+    ) -> StartOffboardingProcessResult:
+        idempotency_key = command.idempotency_key.strip()
+        if not idempotency_key:
+            raise ValidationError({"idempotency_key": "Informe a chave de idempotência."})
+        if len(idempotency_key) > 100:
+            raise ValidationError(
+                {"idempotency_key": "A chave de idempotência aceita até 100 caracteres."}
+            )
+
+        process = _lock_process(command.process_uuid)
+        _require_process_dp(command.actor, process)
+        request_hash = _start_request_hash(command.expected_version)
+        previous_rows = list(
+            ProcessActionIdempotency.objects.select_for_update()
+            .filter(
+                process=process,
+                action=START_ACTION,
+                idempotency_key=idempotency_key,
+            )
+            .order_by("pk")
+        )
+        previous = previous_rows[0] if previous_rows else None
+        if previous is not None:
+            actor = _lock_actor_and_dp_assignment(command.actor)
+            _require_process_dp(actor, process)
+            if previous.request_hash != request_hash or previous.actor_id != actor.pk:
+                raise IdempotencyConflict(
+                    "A chave de idempotência já foi usada com outro conteúdo."
+                )
+            tasks = tuple(
+                ProcessSectorTask.objects.filter(process=process)
+                .select_related("sector", "template_version")
+                .order_by("sector_code_snapshot")
+            )
+            return StartOffboardingProcessResult(
+                process=process,
+                tasks=tasks,
+                replayed=True,
+            )
+
+        if process.status != ProcessStatus.DRAFT:
+            raise ValidationError("Somente um rascunho pode ser iniciado.")
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+
+        started_at = timezone.now()
+        plans = resolve_draft_sector_plans(process, lock=True)
+        blockers = draft_blockers(
+            process,
+            plans,
+            at=started_at,
+            lock=True,
+        )
+        if blockers:
+            raise ValidationError({"start": list(blockers)})
+
+        actor = _lock_actor_and_dp_assignment(command.actor)
+        _require_process_dp(actor, process)
+        task_rows: list[ProcessSectorTask] = []
+        process_limit = _process_due_at(process)
+        for plan in plans:
+            due_at = min(
+                process_limit,
+                started_at + timedelta(hours=plan.sla_hours),
+            )
+            task = ProcessSectorTask.objects.create(
+                process=process,
+                sector=plan.sector,
+                template_version=plan.template_version,
+                status=SectorTaskStatus.PENDING,
+                is_required=plan.is_required,
+                blocks_process=plan.blocks_process,
+                sector_code_snapshot=plan.sector.code,
+                sector_name_snapshot=plan.sector.name,
+                template_code_snapshot=plan.template_version.template.code,
+                template_version_snapshot=plan.template_version.version_number,
+                sla_hours_snapshot=plan.sla_hours,
+                due_at=due_at,
+                started_at=started_at,
+            )
+            task_rows.append(task)
+            for selection in plan.group_selections:
+                ProcessTaskGroupSource.objects.create(
+                    task=task,
+                    selected_group=selection,
+                )
+            template_items = (
+                ChecklistTemplateItem.objects.select_for_update()
+                .filter(template_version=plan.template_version)
+                .order_by("display_order", "pk")
+            )
+            for item in template_items:
+                ProcessChecklistItem.objects.create(
+                    task=task,
+                    source_item=item,
+                    code_snapshot=item.code,
+                    question_snapshot=item.question,
+                    response_type_snapshot=item.response_type,
+                    is_required=item.is_required,
+                    blocks_process=item.blocks_process,
+                    requires_evidence=item.requires_evidence,
+                    allows_pending=item.allows_pending,
+                    display_order=item.display_order,
+                    config_snapshot=copy.deepcopy(item.config),
+                )
+
+        process.status = ProcessStatus.STARTED
+        process.started_at = started_at
+        process.started_by = actor
+        process.version += 1
+        process.full_clean(exclude={"active_employee_key"})
+        process.save(
+            update_fields=(
+                "status",
+                "started_at",
+                "started_by",
+                "version",
+            )
+        )
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.STARTED,
+            actor=actor,
+            description=PROCESS_STARTED_DESCRIPTION,
+            data={
+                "status": ProcessStatus.STARTED,
+                "task_count": len(task_rows),
+                "required_task_count": sum(task.is_required for task in task_rows),
+                "group_version_ids": [
+                    selection.group_version_id
+                    for selection in process.selected_groups.all().order_by("group_version_id")
+                ],
+                "idempotency_key_hash": hashlib.sha256(idempotency_key.encode()).hexdigest(),
+                "process_version": process.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        ProcessActionIdempotency.objects.create(
+            process=process,
+            action=START_ACTION,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            response={
+                "process_uuid": str(process.uuid),
+                "status": process.status,
+                "version": process.version,
+                "task_count": len(task_rows),
+            },
+            actor=actor,
+        )
+        return StartOffboardingProcessResult(
+            process=process,
+            tasks=tuple(task_rows),
+            replayed=False,
+        )

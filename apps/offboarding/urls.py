@@ -11,4 +11,19 @@ urlpatterns = [
         api.ManagerCandidateListView.as_view(),
         name="manager-candidates",
     ),
+    path(
+        "<uuid:process_uuid>/draft/",
+        api.ProcessDraftDetailView.as_view(),
+        name="process-draft",
+    ),
+    path(
+        "<uuid:process_uuid>/draft/selection/",
+        api.ProcessDraftSelectionView.as_view(),
+        name="process-draft-selection",
+    ),
+    path(
+        "<uuid:process_uuid>/start/",
+        api.ProcessStartView.as_view(),
+        name="process-start",
+    ),
 ]

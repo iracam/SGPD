@@ -3,7 +3,17 @@
 from django.contrib import admin
 from django.http import HttpRequest
 
-from .models import EmployeeSnapshot, OffboardingProcess, ProcessAuditEvent
+from .models import (
+    EmployeeSnapshot,
+    OffboardingProcess,
+    ProcessActionIdempotency,
+    ProcessAuditEvent,
+    ProcessChecklistItem,
+    ProcessSectorOverride,
+    ProcessSectorTask,
+    ProcessTaskGroupSource,
+    ProcessValidationGroup,
+)
 
 
 class ReadOnlyAdminMixin:
@@ -60,3 +70,23 @@ class ProcessAuditEventAdmin(
     list_display = ("occurred_at", "event_type", "process", "actor", "correlation_id")
     list_filter = ("event_type",)
     search_fields = ("process__uuid", "correlation_id")
+
+
+class ProcessRelatedAdmin(
+    ReadOnlyAdminMixin,
+    admin.ModelAdmin,  # type: ignore[type-arg]
+):
+    pass
+
+
+admin.site.register(
+    (
+        ProcessValidationGroup,
+        ProcessSectorOverride,
+        ProcessSectorTask,
+        ProcessTaskGroupSource,
+        ProcessChecklistItem,
+        ProcessActionIdempotency,
+    ),
+    ProcessRelatedAdmin,
+)

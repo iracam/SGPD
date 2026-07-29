@@ -6,6 +6,8 @@ from typing import Any
 
 from rest_framework import serializers
 
+from .models import DraftOverrideAction
+
 
 class OpenOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
     company_code = serializers.IntegerField(min_value=1)
@@ -37,3 +39,35 @@ class ManagerCandidateQuerySerializer(serializers.Serializer[dict[str, Any]]):
         trim_whitespace=True,
     )
     limit = serializers.IntegerField(min_value=1, max_value=200, required=False, default=100)
+
+
+class DraftSectorOverrideSerializer(serializers.Serializer[dict[str, Any]]):
+    sector_id = serializers.IntegerField(min_value=1)
+    action = serializers.ChoiceField(choices=DraftOverrideAction.choices)
+    template_version_id = serializers.IntegerField(
+        min_value=1,
+        required=False,
+        allow_null=True,
+    )
+    is_required = serializers.BooleanField(default=True)
+    blocks_process = serializers.BooleanField(default=True)
+    due_hours_override = serializers.IntegerField(
+        min_value=1,
+        max_value=8760,
+        required=False,
+        allow_null=True,
+    )
+    reason = serializers.CharField(max_length=2000, trim_whitespace=True)
+
+
+class UpdateDraftSelectionSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
+    group_version_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
+    overrides = DraftSectorOverrideSerializer(many=True, required=False, default=list)
+
+
+class StartOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
