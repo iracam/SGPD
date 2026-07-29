@@ -50,10 +50,10 @@ export class UsuariosService {
     return this.http.post(`${this.base}${id}/roles/`, payload);
   }
 
-  revogarAtribuicao(atribuicaoId: number, reason: string): Observable<unknown> {
+  revogarAtribuicao(atribuicaoId: number): Observable<unknown> {
     return this.http.post(
       `${apiConfig.routes.accountsRoleAssignments}${atribuicaoId}/revoke/`,
-      { reason },
+      {},
     );
   }
 
@@ -61,8 +61,8 @@ export class UsuariosService {
     return this.http.post<UsuarioDetalhe>(`${this.base}${id}/ad-link/`, payload);
   }
 
-  desvincularAd(id: number, version: number, reason: string): Observable<UsuarioDetalhe> {
-    return this.http.post<UsuarioDetalhe>(`${this.base}${id}/ad-unlink/`, { version, reason });
+  desvincularAd(id: number, version: number): Observable<UsuarioDetalhe> {
+    return this.http.post<UsuarioDetalhe>(`${this.base}${id}/ad-unlink/`, { version });
   }
 
   statusDiretorio(): Observable<DiretorioStatus> {

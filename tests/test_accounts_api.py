@@ -22,7 +22,11 @@ from apps.accounts.models import (
     ScopeType,
     User,
 )
-from apps.accounts.services import LOCAL_USER_CREATION_REASON, ROLE_ASSIGNMENT_REASON
+from apps.accounts.services import (
+    LOCAL_USER_CREATION_REASON,
+    PASSWORD_RESET_REASON,
+    ROLE_ASSIGNMENT_REASON,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -145,7 +149,6 @@ def test_denied_request_produces_no_side_effect(plain_user: User) -> None:
             "email": "nao.criado@example.invalid",
             "password": TEMPORARY,
             "password_confirm": TEMPORARY,
-            "reason": "Tentativa sem permissão.",
         },
     )
 
@@ -170,7 +173,7 @@ def test_initial_role_requires_manage_roles_and_rolls_back_user(plain_user: User
     plain_user.user_permissions.add(
         Permission.objects.get(content_type__app_label="accounts", codename="manage_users")
     )
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     client = Client()
     client.force_login(plain_user)
 
@@ -211,7 +214,6 @@ def test_ad_link_requires_its_own_permission(plain_user: User, admin: User) -> N
             "version": admin.version,
             "identifier": "S-1-5-21-0001",
             "username": "api.admin",
-            "reason": "Sem permissão de vínculo.",
         },
         user_id=admin.pk,
     )
@@ -258,7 +260,7 @@ def test_create_user_with_initial_role_is_atomic_and_audited(
     admin_client: Client,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
 
     with caplog.at_level("INFO", logger="apps.accounts.api_accounts"):
         response = _post(
@@ -305,7 +307,7 @@ def test_create_user_with_initial_role_is_atomic_and_audited(
 
 
 def test_invalid_initial_role_scope_does_not_create_user(admin_client: Client) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
 
     response = _post(
         admin_client,
@@ -384,7 +386,7 @@ def test_user_list_caps_the_page_size(admin_client: Client) -> None:
 
 
 def test_user_detail_includes_role_assignments(admin_client: Client, plain_user: User) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     RoleAssignment.objects.create(
         user=plain_user,
         role=role,
@@ -398,7 +400,7 @@ def test_user_detail_includes_role_assignments(admin_client: Client, plain_user:
         reverse("accounts-api:user-detail", kwargs={"user_id": plain_user.pk})
     ).json()
 
-    assert body["role_assignments"][0]["role"]["code"] == "RESPONSAVEL_SETOR"
+    assert body["role_assignments"][0]["role"]["code"] == "DP"
 
 
 def test_unknown_user_returns_404(admin_client: Client) -> None:
@@ -418,7 +420,6 @@ def test_stale_version_rejects_concurrent_update(admin_client: Client, plain_use
             "last_name": "Comum",
             "email": plain_user.email,
             "is_active": True,
-            "reason": "Versão desatualizada.",
         },
         user_id=plain_user.pk,
     )
@@ -438,7 +439,6 @@ def test_update_user_bumps_the_version(admin_client: Client, plain_user: User) -
             "last_name": "Comum",
             "email": plain_user.email,
             "is_active": True,
-            "reason": "Correção de nome.",
         },
         user_id=plain_user.pk,
     )
@@ -462,7 +462,6 @@ def test_last_active_superuser_cannot_be_deactivated(admin_client: Client, admin
             "last_name": admin.last_name,
             "email": admin.email,
             "is_active": False,
-            "reason": "Tentativa de desativar o último superusuário.",
         },
         user_id=admin.pk,
     )
@@ -483,7 +482,6 @@ def test_reset_password_sets_a_temporary_credential(
             "password": "Redefinida-api!2026",
             "password_confirm": "Redefinida-api!2026",
             "must_change_password": True,
-            "reason": "Usuário perdeu a senha.",
         },
         user_id=plain_user.pk,
     )
@@ -530,7 +528,6 @@ def test_linked_user_exposes_policy_and_rejects_local_password_reset(
             "password": "Must-not-be-saved!2026",
             "password_confirm": "Must-not-be-saved!2026",
             "must_change_password": False,
-            "reason": "Tentativa incompatível com a política AD.",
         },
         user_id=plain_user.pk,
     )
@@ -557,16 +554,14 @@ def test_fixed_role_catalog_is_read_only(admin_client: Client) -> None:
     responsible = Role.objects.create(
         code="RESPONSAVEL_SETOR",
         name="Responsável de setor",
+        is_active=False,
     )
     dp = Role.objects.create(code="DP", name="Departamento Pessoal")
     legacy = Role.objects.create(code="FINANCEIRO", name="Financeiro", is_active=False)
 
     response = admin_client.get(reverse("accounts-api:role-list"))
     assert response.status_code == 200
-    assert [item["code"] for item in response.json()["results"]] == [
-        "DP",
-        "RESPONSAVEL_SETOR",
-    ]
+    assert [item["code"] for item in response.json()["results"]] == ["DP"]
     assert (
         admin_client.get(reverse("accounts-api:role-detail", kwargs={"role_id": dp.pk})).status_code
         == 200
@@ -579,7 +574,6 @@ def test_fixed_role_catalog_is_read_only(admin_client: Client) -> None:
             "code": "auditor_api",
             "name": "Auditor API",
             "permission_ids": [],
-            "reason": "Tentativa fora do catálogo fixo.",
         },
     )
     update_response = _patch(
@@ -591,7 +585,6 @@ def test_fixed_role_catalog_is_read_only(admin_client: Client) -> None:
             "description": "",
             "is_active": True,
             "permission_ids": [],
-            "reason": "Tentativa fora do catálogo fixo.",
         },
         role_id=responsible.pk,
     )
@@ -659,7 +652,7 @@ def test_inconsistent_scope_is_rejected_per_field(
     branch_code: int | None,
     field: str,
 ) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
 
     response = _post(
         admin_client,
@@ -679,7 +672,7 @@ def test_inconsistent_scope_is_rejected_per_field(
 
 
 def test_revoke_role_keeps_the_trail(admin_client: Client, plain_user: User, admin: User) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     assignment = RoleAssignment.objects.create(
         user=plain_user,
         role=role,
@@ -692,7 +685,7 @@ def test_revoke_role_keeps_the_trail(admin_client: Client, plain_user: User, adm
     response = _post(
         admin_client,
         "accounts-api:role-assignment-revoke",
-        {"reason": "Mudança de setor."},
+        {},
         assignment_id=assignment.pk,
     )
 
@@ -710,7 +703,7 @@ def test_role_cannot_be_assigned_to_an_inactive_user(
 ) -> None:
     plain_user.is_active = False
     plain_user.save(update_fields=("is_active",))
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
 
     response = _post(
         admin_client,
@@ -739,7 +732,6 @@ def test_ad_link_and_unlink_are_audited(admin_client: Client, plain_user: User) 
             "version": plain_user.version,
             "identifier": "S-1-5-21-1234",
             "username": "api.comum",
-            "reason": "Identidade confirmada pela Infraestrutura.",
         },
         user_id=plain_user.pk,
     )
@@ -748,7 +740,7 @@ def test_ad_link_and_unlink_are_audited(admin_client: Client, plain_user: User) 
     unlinked = _post(
         admin_client,
         "accounts-api:user-ad-unlink",
-        {"version": plain_user.version, "reason": "Conta corporativa encerrada."},
+        {"version": plain_user.version},
         user_id=plain_user.pk,
     )
     plain_user.refresh_from_db()
@@ -773,7 +765,6 @@ def test_ad_identifier_cannot_be_shared_by_two_accounts(
             "version": plain_user.version,
             "identifier": "S-1-5-21-9999",
             "username": "api.comum",
-            "reason": "Primeiro vínculo.",
         },
         user_id=plain_user.pk,
     )
@@ -785,7 +776,6 @@ def test_ad_identifier_cannot_be_shared_by_two_accounts(
             "version": admin.version,
             "identifier": "S-1-5-21-9999",
             "username": "api.admin",
-            "reason": "Vínculo duplicado.",
         },
         user_id=admin.pk,
     )
@@ -807,7 +797,6 @@ def test_audit_is_readable_and_filterable(admin_client: Client, plain_user: User
         {
             "password": "Auditada-api!2026",
             "password_confirm": "Auditada-api!2026",
-            "reason": "Gerar evento de auditoria.",
         },
         user_id=plain_user.pk,
     )
@@ -824,7 +813,7 @@ def test_audit_is_readable_and_filterable(admin_client: Client, plain_user: User
     event = body["results"][0]
     assert event["target_user"] == plain_user.username
     assert event["event_type"] == AccountEventType.PASSWORD_RESET.value
-    assert event["reason"] == "Gerar evento de auditoria."
+    assert event["reason"] == PASSWORD_RESET_REASON
 
 
 def test_audit_endpoint_is_read_only(admin_client: Client) -> None:

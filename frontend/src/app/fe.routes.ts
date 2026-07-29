@@ -30,21 +30,13 @@ export const FE_ROUTES: Routes = [
               import('./features/colaboradores/colaboradores').then(
                 (m) => m.ColaboradoresPage,
               ),
-            title: 'Colaboradores | SGPD',
+            title: 'Abrir processo | SGPD',
           },
           {
             path: 'setores',
             loadComponent: () =>
               import('./features/setores/setores').then((m) => m.SetoresPage),
             title: 'Setores | SGPD',
-          },
-          {
-            path: 'responsaveis',
-            loadComponent: () =>
-              import('./features/responsaveis/responsaveis').then(
-                (m) => m.ResponsaveisPage,
-              ),
-            title: 'Responsáveis por setor | SGPD',
           },
           {
             path: 'usuarios',

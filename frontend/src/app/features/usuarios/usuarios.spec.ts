@@ -29,6 +29,8 @@ const USUARIO: Usuario = {
   ad_linked_by: null,
   ad_authentication_enabled: false,
   local_password_allowed: true,
+  sector_link_count: 0,
+  effective_sector_count: 0,
 };
 
 const USUARIO_AD: UsuarioDiretorio = {

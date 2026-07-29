@@ -27,7 +27,7 @@ from apps.integrations.senior.permissions import SENIOR_REFERENCE_PERMISSION
 from config.api import api_error
 
 from .authorization import active_assignments, allowed_company_codes
-from .models import AccountEventType, User
+from .models import RESPONSIBLE_SECTOR_ROLE_CODE, AccountEventType, User
 from .serializers import ChangeOwnPasswordSerializer, LoginSerializer
 from .services import (
     ChangeOwnPasswordCommand,
@@ -87,6 +87,7 @@ def authorization_context(user: User) -> dict[str, Any]:
     scopes = [
         {
             "role": assignment.role.code,
+            "source": "ROLE_ASSIGNMENT",
             "scope_type": assignment.scope_type,
             "company_code": assignment.company_code,
             "branch_code": assignment.branch_code,
@@ -97,11 +98,31 @@ def authorization_context(user: User) -> dict[str, Any]:
         for assignment in assignments
     ]
 
+    # RESPONSAVEL_SETOR is not assignable. It exists in the client context only
+    # when an effective sector link derives it, inheriting that sector's scope.
+    from apps.sectors.authorization import active_sector_responsibilities
+
+    sector_links = list(active_sector_responsibilities(user))
+    derived_scopes = [
+        {
+            "role": RESPONSIBLE_SECTOR_ROLE_CODE,
+            "source": "SECTOR_RESPONSIBILITY",
+            "sector": link.sector.code,
+            "scope_type": scope.scope_type,
+            "company_code": scope.company_code,
+            "branch_code": scope.branch_code,
+            "valid_until": (link.valid_until.isoformat() if link.valid_until is not None else None),
+        }
+        for link in sector_links
+        for scope in link.sector.scopes.all()
+    ]
+    all_scopes = scopes + derived_scopes
+
     return {
         "user": user_payload(user),
-        "roles": sorted({scope["role"] for scope in scopes if isinstance(scope["role"], str)}),
+        "roles": sorted({scope["role"] for scope in all_scopes if isinstance(scope["role"], str)}),
         "permissions": permissions,
-        "scopes": {"is_superuser": user.is_superuser, "assignments": scopes},
+        "scopes": {"is_superuser": user.is_superuser, "assignments": all_scopes},
         "features": features,
         "meta": {"policy": "session", "server_time": timezone.now().isoformat()},
     }

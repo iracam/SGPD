@@ -79,10 +79,7 @@ def test_bootstrap_creates_single_audited_identity_admin() -> None:
     assert user.is_superuser
     assert user.is_staff
     assert not user.role_assignments.exists()
-    assert list(Role.objects.filter(is_active=True).values_list("code", flat=True)) == [
-        "DP",
-        "RESPONSAVEL_SETOR",
-    ]
+    assert list(Role.objects.filter(is_active=True).values_list("code", flat=True)) == ["DP"]
     assert AccountAuditEvent.objects.filter(
         event_type=AccountEventType.USER_CREATED,
         actor__isnull=True,
@@ -102,11 +99,8 @@ def test_bootstrap_creates_single_audited_identity_admin() -> None:
 
 def test_bootstrap_reconciles_the_fixed_role_catalog() -> None:
     call_command("bootstrap_roles")
-    role = Role.objects.get(code="RESPONSAVEL_SETOR")
-    dp_role = Role.objects.get(code="DP")
-    assert list(dp_role.permissions.values_list("codename", flat=True)) == [
-        "query_senior_references"
-    ]
+    role = Role.objects.get(code="DP")
+    assert list(role.permissions.values_list("codename", flat=True)) == ["query_senior_references"]
     extra = Permission.objects.get(
         content_type__app_label="accounts",
         codename="manage_users",
@@ -121,9 +115,9 @@ def test_bootstrap_reconciles_the_fixed_role_catalog() -> None:
     call_command("bootstrap_roles")
 
     role.refresh_from_db()
-    assert role.name == "Responsável de setor"
+    assert role.name == "Departamento Pessoal"
     assert role.is_active
-    assert not role.permissions.exists()
+    assert list(role.permissions.values_list("codename", flat=True)) == ["query_senior_references"]
     event = AccountAuditEvent.objects.filter(
         event_type=AccountEventType.ROLE_UPDATED,
         entity_type="ROLE",
@@ -131,7 +125,7 @@ def test_bootstrap_reconciles_the_fixed_role_catalog() -> None:
     ).latest("occurred_at")
     assert event.changes["before"]["is_active"] is False
     assert event.changes["after"]["is_active"] is True
-    assert event.changes["after"]["permissions"] == []
+    assert event.changes["after"]["permissions"] == ["accounts.query_senior_references"]
     assert AccountAuditEvent.objects.count() == before + 1
 
     call_command("bootstrap_roles")
@@ -141,7 +135,7 @@ def test_bootstrap_reconciles_the_fixed_role_catalog() -> None:
 def test_fixed_role_model_accepts_dp_and_rejects_role_outside_catalog() -> None:
     Role(code="DP", name="Departamento Pessoal").full_clean()
     legacy = Role(code="FINANCEIRO", name="Financeiro")
-    with pytest.raises(ValidationError, match="Somente os papéis DP e RESPONSAVEL_SETOR"):
+    with pytest.raises(ValidationError, match="Somente o papel DP"):
         legacy.full_clean()
 
     assert not Role.objects.exists()
@@ -190,7 +184,7 @@ def test_create_user_rolls_back_when_password_is_invalid(actor: User) -> None:
 
 
 def test_create_user_assigns_initial_role_in_the_same_transaction(actor: User) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
 
     user = CreateUserService().execute(
         CreateUserCommand(
@@ -269,7 +263,6 @@ def test_update_user_rejects_stale_version(actor: User) -> None:
                 first_name="Nome",
                 last_name="Atualizado",
                 is_active=True,
-                reason="Atualização concorrente.",
             )
         )
 
@@ -289,7 +282,6 @@ def test_actor_cannot_deactivate_own_account(actor: User) -> None:
                 first_name=actor.first_name,
                 last_name=actor.last_name,
                 is_active=False,
-                reason="Teste de bloqueio.",
             )
         )
 
@@ -313,7 +305,6 @@ def test_last_active_superuser_cannot_be_deactivated_by_another_manager() -> Non
                 first_name="Último",
                 last_name="Superusuário",
                 is_active=False,
-                reason="Teste da garantia de acesso administrativo.",
             )
         )
 
@@ -346,7 +337,6 @@ def test_account_services_reject_actor_without_required_permission() -> None:
                 expected_version=target.version,
                 identifier="guid-nao-vinculado",
                 username="nao.vinculado",
-                reason="Tentativa sem permissão.",
             )
         )
 
@@ -378,7 +368,6 @@ def test_ad_link_is_unique_normalized_and_audited(actor: User) -> None:
             expected_version=first.version,
             identifier=" Object-GUID-ABC ",
             username="DOMINIO\\Primeiro.Vinculo",
-            reason="Identidade conferida no diretório.",
         )
     )
 
@@ -393,7 +382,6 @@ def test_ad_link_is_unique_normalized_and_audited(actor: User) -> None:
                 expected_version=second.version,
                 identifier="OBJECT-GUID-ABC",
                 username="dominio\\outro",
-                reason="Tentativa duplicada.",
             )
         )
     second.refresh_from_db()
@@ -410,7 +398,6 @@ def test_ad_unlink_requires_current_version(actor: User) -> None:
             expected_version=user.version,
             identifier="guid-unlink",
             username="usuario.ad",
-            reason="Vínculo inicial.",
         )
     )
 
@@ -420,7 +407,6 @@ def test_ad_unlink_requires_current_version(actor: User) -> None:
                 actor=actor,
                 user_id=user.pk,
                 expected_version=user.version - 1,
-                reason="Versão obsoleta.",
             )
         )
     user = UnlinkAdIdentityService().execute(
@@ -428,7 +414,6 @@ def test_ad_unlink_requires_current_version(actor: User) -> None:
             actor=actor,
             user_id=user.pk,
             expected_version=user.version,
-            reason="Identidade substituída.",
         )
     )
     assert not user.has_ad_link
@@ -485,23 +470,20 @@ def test_role_assignment_enforces_organizational_scope(actor: User) -> None:
     assert not has_effective_role(actor, PEOPLE_DEPARTMENT_ROLE_CODE)
 
 
-def test_user_can_accumulate_dp_and_sector_responsible_roles(actor: User) -> None:
-    dp_role = Role.objects.create(
-        code=PEOPLE_DEPARTMENT_ROLE_CODE,
-        name="Departamento Pessoal",
-    )
+def test_sector_responsible_role_cannot_be_assigned(actor: User) -> None:
     responsible_role = Role.objects.create(
         code=RESPONSIBLE_SECTOR_ROLE_CODE,
         name="Responsável de setor",
+        is_active=False,
     )
     user = create_user("dp.responsavel")
 
-    for role in (dp_role, responsible_role):
+    with pytest.raises(ValidationError, match="papel inativo"):
         AssignRoleService().execute(
             AssignRoleCommand(
                 actor=actor,
                 user_id=user.pk,
-                role_id=role.pk,
+                role_id=responsible_role.pk,
                 scope_type=ScopeType.GLOBAL,
                 company_code=None,
                 branch_code=None,
@@ -510,24 +492,11 @@ def test_user_can_accumulate_dp_and_sector_responsible_roles(actor: User) -> Non
             )
         )
 
-    assert set(
-        user.role_assignments.filter(is_active=True).values_list("role__code", flat=True)
-    ) == {
-        PEOPLE_DEPARTMENT_ROLE_CODE,
-        RESPONSIBLE_SECTOR_ROLE_CODE,
-    }
-    assert has_effective_role(user, PEOPLE_DEPARTMENT_ROLE_CODE)
-    assert (
-        AccountAuditEvent.objects.filter(
-            event_type=AccountEventType.ROLE_ASSIGNED,
-            target_user=user,
-        ).count()
-        == 2
-    )
+    assert not user.role_assignments.exists()
 
 
 def test_role_assignment_is_idempotent_and_revocable(actor: User) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     user = create_user("auditor.teste")
     command = AssignRoleCommand(
         actor=actor,
@@ -549,7 +518,6 @@ def test_role_assignment_is_idempotent_and_revocable(actor: User) -> None:
         RevokeRoleCommand(
             actor=actor,
             assignment_id=first.pk,
-            reason="Fim da responsabilidade.",
         )
     )
     assert not revoked.is_active
@@ -576,7 +544,7 @@ def test_role_assignment_avoids_for_update_with_limit_on_oracle(
         False,
     )
     monkeypatch.setattr(connection.ops, "for_update_sql", lambda **_kwargs: "")
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     user = create_user("oracle.lock")
 
     assignment = AssignRoleService().execute(

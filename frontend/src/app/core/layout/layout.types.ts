@@ -7,4 +7,6 @@ export interface NavItem {
   description: string;
   /** Ausente significa visível para qualquer sessão autenticada. */
   feature?: PermissionKey;
+  /** Papel funcional explícito; não é satisfeito por SuperAdmin. */
+  role?: string;
 }

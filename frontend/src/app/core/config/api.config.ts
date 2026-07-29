@@ -17,9 +17,11 @@ export const apiConfig = {
     accountsDirectoryGroups: '/api/v1/accounts/directory/groups/',
     accountsDirectoryUserCreate: '/api/v1/accounts/directory/users/create/',
 
+    processes: '/api/v1/processes/',
+    processManagerCandidates: '/api/v1/processes/manager-candidates/',
+
     sectors: '/api/v1/sectors/',
-    sectorResponsibilities: '/api/v1/sector-responsibilities/',
-    sectorResponsibilityCandidates: '/api/v1/sector-responsibilities/candidates/',
+    sectorResponsibleCandidates: '/api/v1/sectors/responsible-candidates/',
 
     settingsLdap: '/api/v1/settings/ldap/',
     settingsLdapValidate: '/api/v1/settings/ldap/validate/',

@@ -2,7 +2,7 @@
   <div>
     <h1 class="page-title">Setores</h1>
     <p class="page-lead">
-      Áreas responsáveis pelas validações, seus prazos e escopos de atendimento.
+      Áreas de validação, responsáveis, prazos e escopos de atendimento.
     </p>
   </div>
   <div class="pagina-acoes">
@@ -56,6 +56,22 @@
           <span>{{ rotuloEscopo(scope) }}</span>
         }
       </div>
+      <div class="responsavel-indicador">
+        @if (setor.has_effective_responsible) {
+          <span class="selo selo--ativo">
+            {{ setor.effective_responsible_count }}
+            {{ setor.effective_responsible_count === 1 ? 'responsável vigente' : 'responsáveis vigentes' }}
+          </span>
+        } @else {
+          <span class="selo selo--atencao">Sem responsável vigente</span>
+        }
+        @if (setor.scheduled_responsible_count) {
+          <span class="selo selo--info">
+            {{ setor.scheduled_responsible_count }}
+            {{ setor.scheduled_responsible_count === 1 ? 'agendado' : 'agendados' }}
+          </span>
+        }
+      </div>
       <div class="cartao__acoes">
         <p-button
           type="button"
@@ -79,6 +95,7 @@
         <th scope="col">Nome</th>
         <th scope="col">Prazo</th>
         <th scope="col">Escopo</th>
+        <th scope="col">Responsável</th>
         <th scope="col">Regras</th>
         <th scope="col">Situação</th>
         <th scope="col"><span class="sr-only">Ações</span></th>
@@ -96,6 +113,20 @@
                 <span>{{ rotuloEscopo(scope) }}</span>
               }
             </div>
+          </td>
+          <td>
+            @if (setor.has_effective_responsible) {
+              <span class="selo selo--ativo">
+                {{ setor.effective_responsible_count }} vigente(s)
+              </span>
+            } @else {
+              <span class="selo selo--atencao">Não designado</span>
+            }
+            @if (setor.scheduled_responsible_count) {
+              <small class="responsavel-indicador__agenda">
+                {{ setor.scheduled_responsible_count }} agendado(s)
+              </small>
+            }
           </td>
           <td>
             <div class="selos">
@@ -344,18 +375,92 @@
       }
     </fieldset>
 
-    <div class="campo">
-      <label for="sector_reason">Justificativa</label>
-      <textarea
-        pTextarea
-        id="sector_reason"
-        formControlName="reason"
-        rows="3"
-      ></textarea>
-      @for (erro of erros('reason'); track erro) {
+    <fieldset class="responsaveis-form" formArrayName="responsibles">
+      <legend>Responsáveis pelo setor</legend>
+      <p>
+        Você pode designar mais de um usuário. O vínculo herda automaticamente
+        todos os escopos organizacionais cadastrados acima.
+      </p>
+      @for (
+        responsibleGroup of formulario.controls.responsibles.controls;
+        track responsibleGroup;
+        let index = $index
+      ) {
+        <div class="responsavel-form" [formGroupName]="index">
+          <div class="campo responsavel-form__usuario">
+            <label [for]="'responsible_user_' + index">Usuário</label>
+            <p-select
+              [inputId]="'responsible_user_' + index"
+              formControlName="user_id"
+              [options]="candidatos()"
+              optionLabel="display_name"
+              optionValue="id"
+              placeholder="Selecione"
+              [filter]="true"
+              filterBy="display_name,username,email"
+              appendTo="body"
+            >
+              <ng-template #item let-user>
+                <span>{{ user.display_name }} · {{ user.username }}</span>
+              </ng-template>
+              <ng-template #selectedItem let-user>
+                <span>{{ user.display_name }} · {{ user.username }}</span>
+              </ng-template>
+            </p-select>
+            @for (erro of errosResponsavel(index, 'user_id'); track erro) {
+              <small class="campo__erro">{{ erro }}</small>
+            }
+          </div>
+          <div class="campo">
+            <label [for]="'responsible_from_' + index">Início da validade</label>
+            <input
+              pInputText
+              type="datetime-local"
+              [id]="'responsible_from_' + index"
+              formControlName="valid_from"
+            />
+            <small class="campo__ajuda">Em branco: vigência imediata.</small>
+            @for (erro of errosResponsavel(index, 'valid_from'); track erro) {
+              <small class="campo__erro">{{ erro }}</small>
+            }
+          </div>
+          <div class="campo">
+            <label [for]="'responsible_until_' + index">Fim da validade</label>
+            <input
+              pInputText
+              type="datetime-local"
+              [id]="'responsible_until_' + index"
+              formControlName="valid_until"
+            />
+            <small class="campo__ajuda">Em branco: sem término previsto.</small>
+            @for (erro of errosResponsavel(index, 'valid_until'); track erro) {
+              <small class="campo__erro">{{ erro }}</small>
+            }
+          </div>
+          <p-button
+            type="button"
+            severity="danger"
+            [text]="true"
+            icon="pi pi-trash"
+            [ariaLabel]="'Remover responsável ' + (index + 1)"
+            (onClick)="removerResponsavel(index)"
+          ></p-button>
+        </div>
+      }
+      <div>
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-user-plus"
+          label="Adicionar responsável"
+          (onClick)="adicionarResponsavel()"
+        ></p-button>
+      </div>
+      @for (erro of erros('responsibles'); track erro) {
         <small class="campo__erro">{{ erro }}</small>
       }
-    </div>
+    </fieldset>
 
     <div class="dialogo-acoes">
       <p-button

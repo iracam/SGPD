@@ -11,6 +11,7 @@ import { AuthenticatedLayout } from './authenticated-layout';
 function contextWith(
   features: Record<string, { can_view: boolean }>,
   isSuperuser = false,
+  roles: string[] = [],
 ) {
   return {
     user: {
@@ -23,7 +24,7 @@ function contextWith(
       must_change_password: false,
       is_superuser: isSuperuser,
     },
-    roles: [],
+    roles,
     permissions: {},
     scopes: { is_superuser: isSuperuser, assignments: [] },
     features,
@@ -76,22 +77,25 @@ describe('AuthenticatedLayout', () => {
   it('revela cada item conforme a permissão concedida pelo servidor', async () => {
     fixture.detectChanges();
     httpMock.expectOne(apiConfig.routes.authContext).flush(
-      contextWith({
-        manage_users: { can_view: true },
-        manage_roles: { can_view: false },
-        view_account_audit: { can_view: true },
-        query_senior_references: { can_view: true },
-        manage_sectors: { can_view: true },
-      }),
+      contextWith(
+        {
+          manage_users: { can_view: true },
+          manage_roles: { can_view: false },
+          view_account_audit: { can_view: true },
+          query_senior_references: { can_view: true },
+          manage_sectors: { can_view: true },
+        },
+        false,
+        ['DP'],
+      ),
     );
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(labels()).toEqual([
       'Painel',
-      'Colaboradores',
+      'Abrir processo',
       'Setores',
-      'Responsáveis',
       'Usuários',
       'Auditoria',
     ]);
@@ -115,6 +119,7 @@ describe('AuthenticatedLayout', () => {
     fixture.detectChanges();
 
     expect(labels()).toContain('Configurações');
+    expect(labels()).not.toContain('Abrir processo');
     expect(fixture.nativeElement.querySelector('.nav-section__title')?.textContent.trim()).toBe(
       'Configurações',
     );

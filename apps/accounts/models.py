@@ -13,10 +13,9 @@ from django.utils import timezone
 
 RESPONSIBLE_SECTOR_ROLE_CODE = "RESPONSAVEL_SETOR"
 PEOPLE_DEPARTMENT_ROLE_CODE = "DP"
-FUNCTIONAL_ROLE_CODES = (
-    PEOPLE_DEPARTMENT_ROLE_CODE,
-    RESPONSIBLE_SECTOR_ROLE_CODE,
-)
+# Responsabilidade de setor é derivada do vínculo vigente com o setor. DP é o
+# único papel funcional que continua possuindo atribuição administrativa.
+FUNCTIONAL_ROLE_CODES = (PEOPLE_DEPARTMENT_ROLE_CODE,)
 
 
 class User(AbstractUser):
@@ -182,9 +181,7 @@ class Role(models.Model):
         if not self.name:
             raise ValidationError({"name": "O nome do papel é obrigatório."})
         if self.is_active and self.code not in FUNCTIONAL_ROLE_CODES:
-            raise ValidationError(
-                {"is_active": ("Somente os papéis DP e RESPONSAVEL_SETOR podem permanecer ativos.")}
-            )
+            raise ValidationError({"is_active": "Somente o papel DP pode permanecer ativo."})
 
 
 class ScopeType(models.TextChoices):

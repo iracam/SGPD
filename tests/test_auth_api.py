@@ -362,7 +362,7 @@ def test_context_reports_global_access_for_superuser() -> None:
 
 
 def test_revoked_assignment_disappears_from_context(user: User) -> None:
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     role.permissions.add(
         Permission.objects.get(
             content_type__app_label="accounts",

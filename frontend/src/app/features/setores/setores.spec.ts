@@ -27,6 +27,10 @@ const SETOR: Setor = {
       scope_key: 'E:7',
     },
   ],
+  responsibles: [],
+  effective_responsible_count: 0,
+  scheduled_responsible_count: 0,
+  has_effective_responsible: false,
   version: 1,
   created_at: '2026-07-28T12:00:00-03:00',
   updated_at: '2026-07-28T12:00:00-03:00',
@@ -59,6 +63,25 @@ describe('SetoresPage', () => {
           request.params.get('limit') === '200',
       )
       .flush({ offset: 0, limit: 200, results: setores });
+    httpMock
+      .expectOne(
+        (request) =>
+          request.url === apiConfig.routes.sectorResponsibleCandidates &&
+          request.params.get('limit') === '200',
+      )
+      .flush({
+        offset: 0,
+        limit: 200,
+        results: [
+          {
+            id: 12,
+            username: 'maria.responsavel',
+            display_name: 'Maria Responsável',
+            email: 'maria.responsavel@example.invalid',
+            is_active: true,
+          },
+        ],
+      });
     fixture.detectChanges();
   }
 
@@ -66,6 +89,11 @@ describe('SetoresPage', () => {
     httpMock
       .expectOne((request) => request.url === apiConfig.routes.sectors)
       .flush({ offset: 0, limit: 200, results: setores });
+    httpMock
+      .expectOne(
+        (request) => request.url === apiConfig.routes.sectorResponsibleCandidates,
+      )
+      .flush({ offset: 0, limit: 200, results: [] });
   }
 
   it('renderiza os mesmos setores em cartões e tabela', () => {
@@ -76,7 +104,7 @@ describe('SetoresPage', () => {
     expect(fixture.nativeElement.textContent).toContain('Empresa 7');
   });
 
-  it('cria setor com escopo explícito e justificativa', () => {
+  it('cria setor com escopo e múltiplos responsáveis sem justificativa manual', () => {
     responder([]);
     fixture.componentInstance.abrir();
     const scope = fixture.componentInstance.formulario.controls.scopes.at(0);
@@ -93,7 +121,12 @@ describe('SetoresPage', () => {
       allows_amount: true,
       requires_evidence: false,
       escalation_sector_id: null,
-      reason: 'Configuração inicial homologada.',
+    });
+    fixture.componentInstance.adicionarResponsavel();
+    fixture.componentInstance.formulario.controls.responsibles.at(0).patchValue({
+      user_id: 12,
+      valid_from: '2026-08-01T08:00',
+      valid_until: '',
     });
     fixture.detectChanges();
 
@@ -123,7 +156,13 @@ describe('SetoresPage', () => {
           branch_code: 2,
         },
       ],
-      reason: 'Configuração inicial homologada.',
+      responsibles: [
+        {
+          user_id: 12,
+          valid_from: '2026-08-01T08:00',
+          valid_until: null,
+        },
+      ],
     });
     request.flush(SETOR);
     responderRecarga([SETOR]);
@@ -134,7 +173,6 @@ describe('SetoresPage', () => {
     fixture.componentInstance.abrir(SETOR);
     fixture.componentInstance.formulario.patchValue({
       name: 'Patrimônio corporativo',
-      reason: 'Revisão funcional.',
     });
 
     expect(fixture.componentInstance.formulario.controls.code.disabled).toBe(true);
@@ -154,6 +192,11 @@ describe('SetoresPage', () => {
 
   it('mantém lista vazia e expõe o erro seguro da API', () => {
     fixture.detectChanges();
+    httpMock
+      .expectOne(
+        (request) => request.url === apiConfig.routes.sectorResponsibleCandidates,
+      )
+      .flush({ offset: 0, limit: 200, results: [] });
     httpMock
       .expectOne((request) => request.url === apiConfig.routes.sectors)
       .flush(

@@ -59,6 +59,12 @@
       @if (usuario.ad_username) {
         <span class="selo selo--info">AD: {{ usuario.ad_username }}</span>
       }
+      @if (usuario.sector_link_count) {
+        <span class="selo selo--info">
+          Vinculado a {{ usuario.sector_link_count }}
+          {{ usuario.sector_link_count === 1 ? 'setor' : 'setores' }}
+        </span>
+      }
       <div class="cartao__acoes">
         <p-button
           type="button"
@@ -83,6 +89,7 @@
         <th scope="col">Nome</th>
         <th scope="col">E-mail</th>
         <th scope="col">Situação</th>
+        <th scope="col">Setores</th>
         <th scope="col">AD</th>
         <th scope="col"><span class="sr-only">Ações</span></th>
       </tr>
@@ -99,6 +106,18 @@
             </span>
             @if (usuario.must_change_password) {
               <span class="selo selo--atencao">Senha temporária</span>
+            }
+          </td>
+          <td>
+            @if (usuario.sector_link_count) {
+              <span class="selo selo--info">
+                {{ usuario.sector_link_count }} vínculo(s)
+              </span>
+              @if (usuario.effective_sector_count) {
+                <small>{{ usuario.effective_sector_count }} vigente(s)</small>
+              }
+            } @else {
+              <span>—</span>
             }
           </td>
           <td>{{ usuario.ad_username || '—' }}</td>
@@ -190,9 +209,9 @@
       <fieldset class="papel-inicial">
         <legend>Papel inicial</legend>
         <p>
-          Opcional. DP coordena o processo e RESPONSAVEL_SETOR habilita
-          associações aos setores. O outro papel pode ser adicionado no
-          detalhe; conta e designação serão gravadas juntas e auditadas.
+          Opcional. DP coordena o processo demissional. Responsabilidades são
+          vinculadas diretamente no cadastro do setor e não são papéis
+          atribuíveis.
         </p>
 
         <div class="campo">

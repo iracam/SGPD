@@ -12,14 +12,6 @@ from rest_framework import serializers
 
 from .models import ScopeType
 
-REASON_MAX_LENGTH = 2000
-
-
-def _reason_field() -> serializers.CharField:
-    """Build the justification field for use cases that require human context."""
-
-    return serializers.CharField(max_length=REASON_MAX_LENGTH, trim_whitespace=True)
-
 
 class LoginSerializer(serializers.Serializer[dict[str, str]]):
     username = serializers.CharField(max_length=150, trim_whitespace=True)
@@ -92,14 +84,12 @@ class UserUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     last_name = serializers.CharField(max_length=150, trim_whitespace=True)
     email = serializers.EmailField()
     is_active = serializers.BooleanField()
-    reason = _reason_field()
 
 
 class ResetPasswordSerializer(serializers.Serializer[dict[str, Any]]):
     password = serializers.CharField(max_length=128, trim_whitespace=False)
     password_confirm = serializers.CharField(max_length=128, trim_whitespace=False)
     must_change_password = serializers.BooleanField(default=True)
-    reason = _reason_field()
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         if attrs["password"] != attrs["password_confirm"]:
@@ -109,13 +99,8 @@ class ResetPasswordSerializer(serializers.Serializer[dict[str, Any]]):
         return attrs
 
 
-class ReasonSerializer(serializers.Serializer[dict[str, Any]]):
-    reason = _reason_field()
-
-
-class ReasonVersionSerializer(serializers.Serializer[dict[str, Any]]):
+class VersionSerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField(min_value=1)
-    reason = _reason_field()
 
 
 class AdLinkSerializer(serializers.Serializer[dict[str, Any]]):
@@ -130,7 +115,6 @@ class AdLinkSerializer(serializers.Serializer[dict[str, Any]]):
         allow_blank=True,
         default="",
     )
-    reason = _reason_field()
 
 
 class DirectoryUserCreateSerializer(serializers.Serializer[dict[str, Any]]):

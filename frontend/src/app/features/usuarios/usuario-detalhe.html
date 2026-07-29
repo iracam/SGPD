@@ -55,8 +55,8 @@
       }
     </div>
     <p class="secao__ajuda">
-      DP coordena o ciclo demissional. RESPONSAVEL_SETOR habilita associações
-      aos setores. Os dois papéis podem coexistir nesta conta.
+      DP é o único papel funcional atribuível. A responsabilidade por setor é
+      derivada dos vínculos exibidos na seção seguinte.
     </p>
 
     @if (ativas().length) {
@@ -103,6 +103,60 @@
           }
         </ul>
       </details>
+    }
+  </section>
+
+  <section class="secao">
+    <h2 class="secao__titulo">Setores vinculados</h2>
+    <p class="secao__ajuda">
+      Cada vínculo herda o escopo organizacional do próprio setor.
+    </p>
+    @if (alvo.sector_responsibilities.length) {
+      <ul class="atribuicoes">
+        @for (responsibility of alvo.sector_responsibilities; track responsibility.id) {
+          <li class="atribuicao">
+            <div class="atribuicao__dados">
+              <strong>
+                {{ responsibility.sector.code }} — {{ responsibility.sector.name }}
+              </strong>
+              <small>
+                Início: {{ responsibility.valid_from | date: 'dd/MM/yyyy HH:mm' }}
+                · Fim:
+                {{
+                  responsibility.valid_until
+                    ? (responsibility.valid_until | date: 'dd/MM/yyyy HH:mm')
+                    : 'sem término'
+                }}
+              </small>
+              <small>
+                @for (
+                  scope of responsibility.inherited_scopes;
+                  track scope.scope_key;
+                  let last = $last
+                ) {
+                  @if (scope.scope_type === 'GLOBAL') {
+                    Todas as empresas
+                  } @else if (scope.scope_type === 'COMPANY') {
+                    Empresa {{ scope.company_code }}
+                  } @else {
+                    Empresa {{ scope.company_code }} · filial {{ scope.branch_code }}
+                  }
+                  @if (!last) { · }
+                }
+              </small>
+            </div>
+            <span
+              class="selo"
+              [class.selo--ativo]="responsibility.is_effective"
+              [class.selo--atencao]="!responsibility.is_effective"
+            >
+              {{ responsibility.is_effective ? 'Vigente' : 'Fora da vigência' }}
+            </span>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="vazio">Este usuário não está vinculado a nenhum setor.</p>
     }
   </section>
 
@@ -167,11 +221,6 @@
             <label for="e_active">Conta ativa</label>
           </div>
           @for (erro of erros('is_active'); track erro) { <small class="campo__erro">{{ erro }}</small> }
-          <div class="campo">
-            <label for="e_reason">Justificativa</label>
-            <textarea pTextarea id="e_reason" formControlName="reason" rows="3"></textarea>
-            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
-          </div>
         </div>
       }
 
@@ -190,11 +239,6 @@
           <div class="campo campo--checkbox">
             <p-checkbox inputId="s_must" formControlName="must_change_password" [binary]="true"></p-checkbox>
             <label for="s_must">Exigir troca no próximo acesso</label>
-          </div>
-          <div class="campo">
-            <label for="s_reason">Justificativa</label>
-            <textarea pTextarea id="s_reason" formControlName="reason" rows="3"></textarea>
-            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
           </div>
         </div>
       }
@@ -318,24 +362,19 @@
             @for (erro of erros('username'); track erro) { <small class="campo__erro">{{ erro }}</small> }
           </div>
           <input type="hidden" formControlName="identifier" />
-          <div class="campo">
-            <label for="v_reason">Justificativa</label>
-            <textarea pTextarea id="v_reason" formControlName="reason" rows="3"></textarea>
-            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
-          </div>
         </div>
       }
 
       @default {
-        <div [formGroup]="formMotivo" class="formulario">
+        <div class="formulario">
           @if (acao() === 'revogar' && atribuicaoAlvo(); as atribuicao) {
-            <p>Revogar <strong>{{ atribuicao.role.code }}</strong> no escopo {{ atribuicao.scope_key }}.</p>
+            <p>
+              Confirme a revogação de <strong>{{ atribuicao.role.code }}</strong>
+              no escopo {{ atribuicao.scope_key }}.
+            </p>
+          } @else if (acao() === 'desvincular') {
+            <p>Confirme a desvinculação desta identidade do Active Directory.</p>
           }
-          <div class="campo">
-            <label for="m_reason">Justificativa</label>
-            <textarea pTextarea id="m_reason" formControlName="reason" rows="3"></textarea>
-            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
-          </div>
         </div>
       }
     }

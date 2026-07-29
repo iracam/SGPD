@@ -10,13 +10,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.authorization import has_permission
-from apps.accounts.models import (
-    RESPONSIBLE_SECTOR_ROLE_CODE,
-    RoleAssignment,
-    ScopeType,
-    User,
-    build_scope_key,
-)
+from apps.accounts.models import ScopeType, User, build_scope_key
 from config.middleware import correlation_id
 
 from .models import (
@@ -28,20 +22,20 @@ from .models import (
 )
 
 MANAGE_SECTORS_PERMISSION = "sectors.manage_sectors"
+SECTOR_CREATION_REASON = "Cadastro explícito de setor de validação no SGPD."
+SECTOR_UPDATE_REASON = "Alteração explícita de setor de validação no SGPD."
+SECTOR_ACTIVATION_REASON = "Ativação explícita de setor de validação no SGPD."
+SECTOR_DEACTIVATION_REASON = "Inativação explícita de setor de validação no SGPD."
+RESPONSIBLE_ASSIGNMENT_REASON = "Designação explícita de responsável no cadastro do setor."
+RESPONSIBLE_UPDATE_REASON = "Alteração explícita da validade do responsável no setor."
+RESPONSIBLE_REVOCATION_REASON = "Revogação explícita de responsável no cadastro do setor."
 
 
 def _require_permission(actor: User) -> None:
-    # Sector configuration may span companies. In this first slice the
-    # administrative permission therefore requires an effective global grant.
+    # A configuração pode abranger múltiplas empresas e, por isso, exige a
+    # concessão administrativa global.
     if not has_permission(actor, MANAGE_SECTORS_PERMISSION):
         raise PermissionDenied("O ator não possui permissão para manter setores.")
-
-
-def _required_reason(reason: str) -> str:
-    normalized = reason.strip()
-    if not normalized:
-        raise ValidationError({"reason": "A justificativa é obrigatória."})
-    return normalized
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +43,21 @@ class SectorScopeValue:
     scope_type: ScopeType
     company_code: int | None = None
     branch_code: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SectorResponsibleValue:
+    user_id: int
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+
+
+def _aware_instant(value: datetime | None, *, default_now: bool = False) -> datetime | None:
+    if value is None:
+        return timezone.now() if default_now else None
+    if timezone.is_naive(value):
+        return timezone.make_aware(value)
+    return value
 
 
 def _normalize_scopes(scopes: tuple[SectorScopeValue, ...]) -> tuple[SectorScopeValue, ...]:
@@ -81,6 +90,38 @@ def _normalize_scopes(scopes: tuple[SectorScopeValue, ...]) -> tuple[SectorScope
     return tuple(by_key[key] for key in sorted(by_key))
 
 
+def _normalize_responsibles(
+    values: tuple[SectorResponsibleValue, ...],
+) -> tuple[SectorResponsibleValue, ...]:
+    by_user: dict[int, SectorResponsibleValue] = {}
+    for index, value in enumerate(values):
+        if value.user_id <= 0:
+            raise ValidationError(
+                {f"responsibles.{index}.user_id": "Selecione um usuário responsável."}
+            )
+        if value.user_id in by_user:
+            raise ValidationError(
+                {"responsibles": "O mesmo usuário foi informado mais de uma vez."}
+            )
+        valid_from = _aware_instant(value.valid_from, default_now=True)
+        valid_until = _aware_instant(value.valid_until)
+        assert valid_from is not None
+        if valid_until is not None and valid_until <= valid_from:
+            raise ValidationError(
+                {
+                    f"responsibles.{index}.valid_until": (
+                        "A validade final deve ser posterior à inicial."
+                    )
+                }
+            )
+        by_user[value.user_id] = SectorResponsibleValue(
+            user_id=value.user_id,
+            valid_from=valid_from,
+            valid_until=valid_until,
+        )
+    return tuple(by_user[user_id] for user_id in sorted(by_user))
+
+
 def _scope_payload(scope: SectorScope | SectorScopeValue) -> dict[str, object]:
     return {
         "scope_type": scope.scope_type,
@@ -91,6 +132,22 @@ def _scope_payload(scope: SectorScope | SectorScopeValue) -> dict[str, object]:
             scope.company_code,
             scope.branch_code,
         ),
+    }
+
+
+def _responsibility_state(responsibility: SectorResponsible) -> dict[str, object]:
+    return {
+        "responsibility_id": responsibility.pk,
+        "sector_id": responsibility.sector_id,
+        "user_id": responsibility.user_id,
+        "valid_from": responsibility.valid_from.isoformat(),
+        "valid_until": (
+            responsibility.valid_until.isoformat()
+            if responsibility.valid_until is not None
+            else None
+        ),
+        "is_active": responsibility.is_active,
+        "version": responsibility.version,
     }
 
 
@@ -106,6 +163,10 @@ def _sector_state(sector: ValidationSector) -> dict[str, object]:
         "requires_evidence": sector.requires_evidence,
         "escalation_sector_id": sector.escalation_sector_id,
         "scopes": [_scope_payload(scope) for scope in sector.scopes.all().order_by("scope_key")],
+        "responsibles": [
+            _responsibility_state(item)
+            for item in sector.responsibles.filter(is_active=True).order_by("user_id")
+        ],
     }
 
 
@@ -130,7 +191,11 @@ def _write_scopes(
 
 def _lock_sector_configuration() -> dict[int, ValidationSector]:
     """Serialize catalog mutations so escalation cycles cannot race."""
-    sectors = ValidationSector.objects.select_for_update().prefetch_related("scopes").order_by("pk")
+    sectors = (
+        ValidationSector.objects.select_for_update()
+        .prefetch_related("scopes", "responsibles")
+        .order_by("pk")
+    )
     return {sector.pk: sector for sector in sectors}
 
 
@@ -187,6 +252,175 @@ def _record_event(
     )
 
 
+def _save_responsibility(
+    responsibility: SectorResponsible,
+    *,
+    update_fields: tuple[str, ...] | None = None,
+) -> None:
+    responsibility.full_clean()
+    try:
+        with transaction.atomic():
+            if update_fields is None:
+                responsibility.save()
+            else:
+                responsibility.save(update_fields=update_fields)
+    except IntegrityError as exc:
+        raise ValidationError(
+            {"responsibles": "O usuário já está vinculado a este setor."}
+        ) from exc
+
+
+def _sync_responsibles(
+    *,
+    sector: ValidationSector,
+    actor: User,
+    desired: tuple[SectorResponsibleValue, ...],
+) -> None:
+    normalized = _normalize_responsibles(desired)
+    desired_by_user = {value.user_id: value for value in normalized}
+
+    existing = list(
+        SectorResponsible.objects.select_for_update()
+        .filter(sector=sector)
+        .select_related("user")
+        .order_by("user_id")
+    )
+    existing_by_user = {item.user_id: item for item in existing}
+
+    selected_users = {
+        user.pk: user
+        for user in User.objects.select_for_update().filter(pk__in=desired_by_user).order_by("pk")
+    }
+    missing_user_ids = sorted(desired_by_user.keys() - selected_users.keys())
+    if missing_user_ids:
+        raise ValidationError(
+            {"responsibles": f"Usuário responsável inexistente: {missing_user_ids[0]}."}
+        )
+    inactive_user_ids = sorted(
+        user_id for user_id, user in selected_users.items() if not user.is_active
+    )
+    if inactive_user_ids:
+        raise ValidationError(
+            {"responsibles": f"O usuário {inactive_user_ids[0]} precisa estar ativo."}
+        )
+
+    now = timezone.now()
+    for value in normalized:
+        valid_from = value.valid_from
+        assert valid_from is not None
+        responsibility = existing_by_user.get(value.user_id)
+        before = _responsibility_state(responsibility) if responsibility is not None else None
+
+        if responsibility is None:
+            responsibility = SectorResponsible(
+                sector=sector,
+                user=selected_users[value.user_id],
+                valid_from=valid_from,
+                valid_until=value.valid_until,
+                assigned_by=actor,
+                assigned_at=now,
+                updated_by=actor,
+            )
+            _save_responsibility(responsibility)
+            event_type = SectorEventType.RESPONSIBLE_ASSIGNED
+            reason = RESPONSIBLE_ASSIGNMENT_REASON
+        elif not responsibility.is_active:
+            responsibility.valid_from = valid_from
+            responsibility.valid_until = value.valid_until
+            responsibility.is_active = True
+            responsibility.assigned_by = actor
+            responsibility.assigned_at = now
+            responsibility.updated_by = actor
+            responsibility.revoked_by = None
+            responsibility.revoked_at = None
+            responsibility.version += 1
+            _save_responsibility(
+                responsibility,
+                update_fields=(
+                    "valid_from",
+                    "valid_until",
+                    "is_active",
+                    "assigned_by",
+                    "assigned_at",
+                    "updated_by",
+                    "updated_at",
+                    "revoked_by",
+                    "revoked_at",
+                    "version",
+                ),
+            )
+            event_type = SectorEventType.RESPONSIBLE_ASSIGNED
+            reason = RESPONSIBLE_ASSIGNMENT_REASON
+        elif (
+            responsibility.valid_from != valid_from
+            or responsibility.valid_until != value.valid_until
+        ):
+            responsibility.valid_from = valid_from
+            responsibility.valid_until = value.valid_until
+            responsibility.updated_by = actor
+            responsibility.version += 1
+            _save_responsibility(
+                responsibility,
+                update_fields=(
+                    "valid_from",
+                    "valid_until",
+                    "updated_by",
+                    "updated_at",
+                    "version",
+                ),
+            )
+            event_type = SectorEventType.RESPONSIBLE_UPDATED
+            reason = RESPONSIBLE_UPDATE_REASON
+        else:
+            continue
+
+        _record_event(
+            event_type=event_type,
+            actor=actor,
+            sector=sector,
+            reason=reason,
+            changes={
+                "before": before,
+                "after": _responsibility_state(responsibility),
+            },
+        )
+
+    for responsibility in existing:
+        if not responsibility.is_active or responsibility.user_id in desired_by_user:
+            continue
+        before = _responsibility_state(responsibility)
+        responsibility.is_active = False
+        responsibility.updated_by = actor
+        responsibility.revoked_by = actor
+        responsibility.revoked_at = now
+        responsibility.version += 1
+        _save_responsibility(
+            responsibility,
+            update_fields=(
+                "is_active",
+                "updated_by",
+                "updated_at",
+                "revoked_by",
+                "revoked_at",
+                "version",
+            ),
+        )
+        _record_event(
+            event_type=SectorEventType.RESPONSIBLE_REVOKED,
+            actor=actor,
+            sector=sector,
+            reason=RESPONSIBLE_REVOCATION_REASON,
+            changes={
+                "before": before,
+                "after": _responsibility_state(responsibility),
+            },
+        )
+
+    prefetched = getattr(sector, "_prefetched_objects_cache", None)
+    if prefetched is not None:
+        prefetched.pop("responsibles", None)
+
+
 @dataclass(frozen=True, slots=True)
 class CreateSectorCommand:
     actor: User
@@ -199,15 +433,15 @@ class CreateSectorCommand:
     requires_evidence: bool
     escalation_sector_id: int | None
     scopes: tuple[SectorScopeValue, ...]
-    reason: str
+    responsibles: tuple[SectorResponsibleValue, ...]
 
 
 class CreateSectorService:
     @transaction.atomic
     def execute(self, command: CreateSectorCommand) -> ValidationSector:
         _require_permission(command.actor)
-        reason = _required_reason(command.reason)
         scopes = _normalize_scopes(command.scopes)
+        responsibles = _normalize_responsibles(command.responsibles)
         sectors_by_id = _lock_sector_configuration()
         escalation = _escalation_sector(
             command.escalation_sector_id,
@@ -229,11 +463,16 @@ class CreateSectorService:
         except IntegrityError as exc:
             raise ValidationError({"code": "Já existe um setor com este código."}) from exc
         _write_scopes(sector, scopes)
+        _sync_responsibles(
+            sector=sector,
+            actor=command.actor,
+            desired=responsibles,
+        )
         _record_event(
             event_type=SectorEventType.CREATED,
             actor=command.actor,
             sector=sector,
-            reason=reason,
+            reason=SECTOR_CREATION_REASON,
             changes={"after": _sector_state(sector)},
         )
         return sector
@@ -253,15 +492,15 @@ class UpdateSectorCommand:
     requires_evidence: bool
     escalation_sector_id: int | None
     scopes: tuple[SectorScopeValue, ...]
-    reason: str
+    responsibles: tuple[SectorResponsibleValue, ...]
 
 
 class UpdateSectorService:
     @transaction.atomic
     def execute(self, command: UpdateSectorCommand) -> ValidationSector:
         _require_permission(command.actor)
-        reason = _required_reason(command.reason)
         scopes = _normalize_scopes(command.scopes)
+        responsibles = _normalize_responsibles(command.responsibles)
         sectors_by_id = _lock_sector_configuration()
         try:
             sector = sectors_by_id[command.sector_id]
@@ -309,13 +548,21 @@ class UpdateSectorService:
             )
         )
         _write_scopes(sector, scopes)
+        _sync_responsibles(
+            sector=sector,
+            actor=command.actor,
+            desired=responsibles,
+        )
 
         if before["is_active"] is True and not sector.is_active:
             event_type = SectorEventType.DEACTIVATED
+            reason = SECTOR_DEACTIVATION_REASON
         elif before["is_active"] is False and sector.is_active:
             event_type = SectorEventType.ACTIVATED
+            reason = SECTOR_ACTIVATION_REASON
         else:
             event_type = SectorEventType.UPDATED
+            reason = SECTOR_UPDATE_REASON
         _record_event(
             event_type=event_type,
             actor=command.actor,
@@ -324,366 +571,3 @@ class UpdateSectorService:
             changes={"before": before, "after": _sector_state(sector)},
         )
         return sector
-
-
-def _aware_instant(value: datetime | None, *, default_now: bool = False) -> datetime | None:
-    if value is None:
-        return timezone.now() if default_now else None
-    if timezone.is_naive(value):
-        return timezone.make_aware(value)
-    return value
-
-
-def _scope_covers(
-    container_scope_type: str,
-    container_company_code: int | None,
-    container_branch_code: int | None,
-    target: SectorScopeValue,
-) -> bool:
-    if container_scope_type == ScopeType.GLOBAL:
-        return True
-    if container_scope_type == ScopeType.COMPANY:
-        return (
-            target.scope_type in {ScopeType.COMPANY, ScopeType.BRANCH}
-            and target.company_code == container_company_code
-        )
-    return (
-        container_scope_type == ScopeType.BRANCH
-        and target.scope_type == ScopeType.BRANCH
-        and target.company_code == container_company_code
-        and target.branch_code == container_branch_code
-    )
-
-
-def _responsibility_state(responsibility: SectorResponsible) -> dict[str, object]:
-    return {
-        "responsibility_id": responsibility.pk,
-        "sector_id": responsibility.sector_id,
-        "user_id": responsibility.user_id,
-        "scope_type": responsibility.scope_type,
-        "company_code": responsibility.company_code,
-        "branch_code": responsibility.branch_code,
-        "scope_key": responsibility.scope_key,
-        "valid_from": responsibility.valid_from.isoformat(),
-        "valid_until": (
-            responsibility.valid_until.isoformat()
-            if responsibility.valid_until is not None
-            else None
-        ),
-        "is_active": responsibility.is_active,
-        "version": responsibility.version,
-    }
-
-
-def _validate_responsibility_contract(
-    *,
-    sector_id: int,
-    user_id: int,
-    scope: SectorScopeValue,
-    valid_from: datetime | None,
-    valid_until: datetime | None,
-) -> tuple[ValidationSector, User, datetime, datetime | None]:
-    normalized_valid_from = _aware_instant(valid_from, default_now=True)
-    normalized_valid_until = _aware_instant(valid_until)
-    assert normalized_valid_from is not None
-    if normalized_valid_until is not None and normalized_valid_until <= normalized_valid_from:
-        raise ValidationError({"valid_until": "A validade final deve ser posterior à inicial."})
-
-    sector = (
-        ValidationSector.objects.select_for_update().prefetch_related("scopes").get(pk=sector_id)
-    )
-    user = User.objects.select_for_update().get(pk=user_id)
-    if not sector.is_active:
-        raise ValidationError({"sector_id": "O setor precisa estar ativo."})
-    if not user.is_active:
-        raise ValidationError({"user_id": "O usuário precisa estar ativo."})
-
-    build_scope_key(scope.scope_type, scope.company_code, scope.branch_code)
-    if not any(
-        _scope_covers(
-            sector_scope.scope_type,
-            sector_scope.company_code,
-            sector_scope.branch_code,
-            scope,
-        )
-        for sector_scope in sector.scopes.all()
-    ):
-        raise ValidationError(
-            {"scope_type": "O escopo do responsável excede o atendimento do setor."}
-        )
-
-    role_assignments = list(
-        RoleAssignment.objects.select_for_update()
-        .select_related("role")
-        .filter(
-            user=user,
-            role__code=RESPONSIBLE_SECTOR_ROLE_CODE,
-            role__is_active=True,
-            is_active=True,
-            valid_from__lte=normalized_valid_from,
-        )
-        .order_by("pk")
-    )
-    role_covers_responsibility = any(
-        _scope_covers(
-            assignment.scope_type,
-            assignment.company_code,
-            assignment.branch_code,
-            scope,
-        )
-        and (
-            assignment.valid_until is None
-            or (
-                normalized_valid_until is not None
-                and assignment.valid_until >= normalized_valid_until
-            )
-        )
-        for assignment in role_assignments
-    )
-    if not role_covers_responsibility:
-        raise ValidationError(
-            {
-                "user_id": (
-                    "O usuário precisa possuir o papel RESPONSAVEL_SETOR com "
-                    "escopo e validade que cubram toda a responsabilidade."
-                )
-            }
-        )
-    return sector, user, normalized_valid_from, normalized_valid_until
-
-
-@dataclass(frozen=True, slots=True)
-class AssignSectorResponsibleCommand:
-    actor: User
-    sector_id: int
-    user_id: int
-    scope_type: ScopeType
-    company_code: int | None
-    branch_code: int | None
-    valid_from: datetime | None
-    valid_until: datetime | None
-    reason: str
-
-
-class AssignSectorResponsibleService:
-    @transaction.atomic
-    def execute(self, command: AssignSectorResponsibleCommand) -> SectorResponsible:
-        _require_permission(command.actor)
-        reason = _required_reason(command.reason)
-        scope = SectorScopeValue(
-            scope_type=command.scope_type,
-            company_code=command.company_code,
-            branch_code=command.branch_code,
-        )
-        sector, user, valid_from, valid_until = _validate_responsibility_contract(
-            sector_id=command.sector_id,
-            user_id=command.user_id,
-            scope=scope,
-            valid_from=command.valid_from,
-            valid_until=command.valid_until,
-        )
-        scope_key = build_scope_key(
-            scope.scope_type,
-            scope.company_code,
-            scope.branch_code,
-        )
-        try:
-            responsibility = SectorResponsible.objects.select_for_update().get(
-                sector=sector,
-                user=user,
-                scope_key=scope_key,
-            )
-        except SectorResponsible.DoesNotExist:
-            responsibility = None
-
-        before = _responsibility_state(responsibility) if responsibility is not None else None
-        if responsibility is not None and responsibility.is_active:
-            if (
-                responsibility.valid_from == valid_from
-                and responsibility.valid_until == valid_until
-            ):
-                return responsibility
-            raise ValidationError(
-                {
-                    "user_id": (
-                        "Este usuário já possui uma responsabilidade ativa para "
-                        "o mesmo setor e escopo."
-                    )
-                }
-            )
-
-        now = timezone.now()
-        if responsibility is None:
-            responsibility = SectorResponsible(
-                sector=sector,
-                user=user,
-                scope_type=scope.scope_type,
-                company_code=scope.company_code,
-                branch_code=scope.branch_code,
-                scope_key=scope_key,
-                valid_from=valid_from,
-                valid_until=valid_until,
-                assigned_by=command.actor,
-                assigned_at=now,
-                updated_by=command.actor,
-            )
-        else:
-            responsibility.valid_from = valid_from
-            responsibility.valid_until = valid_until
-            responsibility.is_active = True
-            responsibility.assigned_by = command.actor
-            responsibility.assigned_at = now
-            responsibility.updated_by = command.actor
-            responsibility.revoked_by = None
-            responsibility.revoked_at = None
-            responsibility.version += 1
-
-        responsibility.full_clean()
-        try:
-            with transaction.atomic():
-                responsibility.save()
-        except IntegrityError as exc:
-            raise ValidationError(
-                {
-                    "user_id": (
-                        "Este usuário já possui uma responsabilidade para o mesmo setor e escopo."
-                    )
-                }
-            ) from exc
-        _record_event(
-            event_type=SectorEventType.RESPONSIBLE_ASSIGNED,
-            actor=command.actor,
-            sector=sector,
-            reason=reason,
-            changes={
-                "before": before,
-                "after": _responsibility_state(responsibility),
-            },
-        )
-        return responsibility
-
-
-@dataclass(frozen=True, slots=True)
-class UpdateSectorResponsibleCommand:
-    actor: User
-    responsibility_id: int
-    expected_version: int
-    valid_from: datetime
-    valid_until: datetime | None
-    reason: str
-
-
-class UpdateSectorResponsibleService:
-    @transaction.atomic
-    def execute(self, command: UpdateSectorResponsibleCommand) -> SectorResponsible:
-        _require_permission(command.actor)
-        reason = _required_reason(command.reason)
-        current = SectorResponsible.objects.get(pk=command.responsibility_id)
-        scope = SectorScopeValue(
-            scope_type=ScopeType(current.scope_type),
-            company_code=current.company_code,
-            branch_code=current.branch_code,
-        )
-        sector, _user, valid_from, valid_until = _validate_responsibility_contract(
-            sector_id=current.sector_id,
-            user_id=current.user_id,
-            scope=scope,
-            valid_from=command.valid_from,
-            valid_until=command.valid_until,
-        )
-        responsibility = SectorResponsible.objects.select_for_update().get(
-            pk=command.responsibility_id
-        )
-        if responsibility.version != command.expected_version:
-            raise ValidationError(
-                "A responsabilidade foi alterada por outra sessão. Recarregue a página."
-            )
-        if not responsibility.is_active:
-            raise ValidationError(
-                "Uma responsabilidade revogada deve ser reativada por nova associação."
-            )
-        if responsibility.valid_from == valid_from and responsibility.valid_until == valid_until:
-            return responsibility
-
-        before = _responsibility_state(responsibility)
-        responsibility.valid_from = valid_from
-        responsibility.valid_until = valid_until
-        responsibility.updated_by = command.actor
-        responsibility.version += 1
-        responsibility.full_clean()
-        responsibility.save(
-            update_fields=(
-                "valid_from",
-                "valid_until",
-                "updated_by",
-                "updated_at",
-                "version",
-            )
-        )
-        _record_event(
-            event_type=SectorEventType.RESPONSIBLE_UPDATED,
-            actor=command.actor,
-            sector=sector,
-            reason=reason,
-            changes={
-                "before": before,
-                "after": _responsibility_state(responsibility),
-            },
-        )
-        return responsibility
-
-
-@dataclass(frozen=True, slots=True)
-class RevokeSectorResponsibleCommand:
-    actor: User
-    responsibility_id: int
-    expected_version: int
-    reason: str
-
-
-class RevokeSectorResponsibleService:
-    @transaction.atomic
-    def execute(self, command: RevokeSectorResponsibleCommand) -> SectorResponsible:
-        _require_permission(command.actor)
-        reason = _required_reason(command.reason)
-        current = SectorResponsible.objects.get(pk=command.responsibility_id)
-        sector = ValidationSector.objects.select_for_update().get(pk=current.sector_id)
-        User.objects.select_for_update().get(pk=current.user_id)
-        responsibility = SectorResponsible.objects.select_for_update().get(
-            pk=command.responsibility_id
-        )
-        if not responsibility.is_active:
-            return responsibility
-        if responsibility.version != command.expected_version:
-            raise ValidationError(
-                "A responsabilidade foi alterada por outra sessão. Recarregue a página."
-            )
-
-        before = _responsibility_state(responsibility)
-        responsibility.is_active = False
-        responsibility.updated_by = command.actor
-        responsibility.revoked_by = command.actor
-        responsibility.revoked_at = timezone.now()
-        responsibility.version += 1
-        responsibility.full_clean()
-        responsibility.save(
-            update_fields=(
-                "is_active",
-                "updated_by",
-                "updated_at",
-                "revoked_by",
-                "revoked_at",
-                "version",
-            )
-        )
-        _record_event(
-            event_type=SectorEventType.RESPONSIBLE_REVOKED,
-            actor=command.actor,
-            sector=sector,
-            reason=reason,
-            changes={
-                "before": before,
-                "after": _responsibility_state(responsibility),
-            },
-        )
-        return responsibility

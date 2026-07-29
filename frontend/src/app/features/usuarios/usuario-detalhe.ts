@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -8,7 +9,6 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
 import { SelectModule } from 'primeng/select';
-import { TextareaModule } from 'primeng/textarea';
 import { Observable, finalize } from 'rxjs';
 
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
@@ -34,6 +34,7 @@ const TITULOS: Record<Exclude<Acao, null>, string> = {
   selector: 'app-usuario-detalhe-page',
   imports: [
     ReactiveFormsModule,
+    DatePipe,
     ButtonModule,
     CheckboxModule,
     DialogModule,
@@ -41,7 +42,6 @@ const TITULOS: Record<Exclude<Acao, null>, string> = {
     MessageModule,
     PasswordModule,
     SelectModule,
-    TextareaModule,
   ],
   templateUrl: './usuario-detalhe.html',
   styleUrl: './usuario-detalhe.scss',
@@ -108,14 +108,12 @@ export class UsuarioDetalhePage {
     last_name: ['', [Validators.required]],
     email: ['', [Validators.required, Validators.email]],
     is_active: [true],
-    reason: ['', [Validators.required]],
   });
 
   readonly formSenha = this.formBuilder.nonNullable.group({
     password: ['', [Validators.required]],
     password_confirm: ['', [Validators.required]],
     must_change_password: [true],
-    reason: ['', [Validators.required]],
   });
 
   readonly formPapel = this.formBuilder.nonNullable.group({
@@ -125,14 +123,9 @@ export class UsuarioDetalhePage {
     branch_code: [null as number | null],
   });
 
-  readonly formMotivo = this.formBuilder.nonNullable.group({
-    reason: ['', [Validators.required]],
-  });
-
   readonly formVincular = this.formBuilder.nonNullable.group({
     identifier: ['', [Validators.required]],
     username: ['', [Validators.required]],
-    reason: ['', [Validators.required]],
   });
 
   constructor() {
@@ -165,7 +158,6 @@ export class UsuarioDetalhePage {
         last_name: usuario.last_name,
         email: usuario.email,
         is_active: usuario.is_active,
-        reason: '',
       });
     }
     if (acao === 'senha') {
@@ -177,11 +169,8 @@ export class UsuarioDetalhePage {
         this.carregarPapeis();
       }
     }
-    if (acao === 'revogar' || acao === 'desvincular') {
-      this.formMotivo.reset();
-    }
     if (acao === 'vincular') {
-      this.formVincular.reset({ username: usuario.username, identifier: '', reason: '' });
+      this.formVincular.reset({ username: usuario.username, identifier: '' });
       this.buscaVinculoAd.reset(usuario.username);
       this.resultadosVinculoAd.set([]);
     }
@@ -291,11 +280,10 @@ export class UsuarioDetalhePage {
       }
       case 'revogar': {
         const alvo = this.atribuicaoAlvo();
-        if (this.formMotivo.invalid || !alvo) {
-          this.formMotivo.markAllAsTouched();
+        if (!alvo) {
           return null;
         }
-        return this.service.revogarAtribuicao(alvo.id, this.formMotivo.getRawValue().reason);
+        return this.service.revogarAtribuicao(alvo.id);
       }
       case 'vincular': {
         if (this.formVincular.invalid) {
@@ -308,15 +296,7 @@ export class UsuarioDetalhePage {
         });
       }
       case 'desvincular': {
-        if (this.formMotivo.invalid) {
-          this.formMotivo.markAllAsTouched();
-          return null;
-        }
-        return this.service.desvincularAd(
-          usuario.id,
-          usuario.version,
-          this.formMotivo.getRawValue().reason,
-        );
+        return this.service.desvincularAd(usuario.id, usuario.version);
       }
     }
   }

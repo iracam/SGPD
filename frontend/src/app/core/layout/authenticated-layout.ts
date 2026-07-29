@@ -33,24 +33,18 @@ export class AuthenticatedLayout {
       description: 'Visão geral dos processos demissionais',
     },
     {
-      label: 'Colaboradores',
+      label: 'Abrir processo',
       route: '/fe/colaboradores',
-      icon: 'pi pi-id-card',
-      description: 'Consulta cadastral no Senior HCM',
+      icon: 'pi pi-folder-plus',
+      description: 'Seleção cadastral, snapshot e abertura pelo DP',
       feature: 'query_senior_references',
+      role: 'DP',
     },
     {
       label: 'Setores',
       route: '/fe/setores',
       icon: 'pi pi-building',
-      description: 'Setores de validação, prazos e escopos de atendimento',
-      feature: 'manage_sectors',
-    },
-    {
-      label: 'Responsáveis',
-      route: '/fe/responsaveis',
-      icon: 'pi pi-user-plus',
-      description: 'Usuários, setores, escopos e validade das responsabilidades',
+      description: 'Setores, responsáveis, prazos e escopos de atendimento',
       feature: 'manage_sectors',
     },
     {
@@ -77,7 +71,11 @@ export class AuthenticatedLayout {
   };
 
   protected readonly visibleNavItems = computed(() =>
-    this.navItems.filter((item) => !item.feature || this.authService.canView(item.feature)),
+    this.navItems.filter(
+      (item) =>
+        (!item.feature || this.authService.canView(item.feature)) &&
+        (!item.role || this.authService.currentContext()?.roles.includes(item.role)),
+    ),
   );
   protected readonly showConfigurationSection = computed(
     () =>

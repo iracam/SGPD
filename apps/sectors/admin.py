@@ -54,12 +54,11 @@ class SectorResponsibleAdmin(
     list_display = (
         "sector",
         "user",
-        "scope_key",
         "valid_from",
         "valid_until",
         "is_active",
     )
-    list_filter = ("is_active", "scope_type", "sector")
+    list_filter = ("is_active", "sector")
     search_fields = ("sector__code", "user__username", "user__email")
 
 

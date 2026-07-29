@@ -7,21 +7,12 @@ from django.db import transaction
 from apps.accounts.models import (
     FUNCTIONAL_ROLE_CODES,
     PEOPLE_DEPARTMENT_ROLE_CODE,
-    RESPONSIBLE_SECTOR_ROLE_CODE,
     AccountAuditEvent,
     AccountEventType,
     Role,
 )
 
 ROLE_CATALOG: dict[str, tuple[str, str, tuple[str, ...]]] = {
-    RESPONSIBLE_SECTOR_ROLE_CODE: (
-        "Responsável de setor",
-        (
-            "Autoridade operacional limitada aos setores aos quais o usuário "
-            "estiver explicitamente associado."
-        ),
-        (),
-    ),
     PEOPLE_DEPARTMENT_ROLE_CODE: (
         "Departamento Pessoal",
         (
@@ -34,7 +25,7 @@ ROLE_CATALOG: dict[str, tuple[str, str, tuple[str, ...]]] = {
 
 
 class Command(BaseCommand):
-    help = "Reconcilia o catálogo funcional fixo DP e RESPONSAVEL_SETOR."
+    help = "Reconcilia o catálogo funcional fixo com o papel atribuível DP."
 
     @transaction.atomic
     def handle(self, *args: object, **options: object) -> None:

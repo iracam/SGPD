@@ -4,7 +4,12 @@ import { Observable } from 'rxjs';
 
 import { apiConfig } from '../../core/config/api.config';
 import { Paginado } from '../usuarios/models/usuarios.models';
-import { EdicaoSetor, NovoSetor, Setor } from './models/setores.models';
+import {
+  EdicaoSetor,
+  NovoSetor,
+  Setor,
+  UsuarioResponsavelCandidato,
+} from './models/setores.models';
 
 @Injectable({ providedIn: 'root' })
 export class SetoresService {
@@ -13,6 +18,13 @@ export class SetoresService {
 
   listar(): Observable<Paginado<Setor>> {
     return this.http.get<Paginado<Setor>>(this.base, { params: { limit: 200 } });
+  }
+
+  listarCandidatos(): Observable<Paginado<UsuarioResponsavelCandidato>> {
+    return this.http.get<Paginado<UsuarioResponsavelCandidato>>(
+      apiConfig.routes.sectorResponsibleCandidates,
+      { params: { limit: 200 } },
+    );
   }
 
   criar(payload: NovoSetor): Observable<Setor> {

@@ -15,15 +15,17 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
-import { Observable, finalize } from 'rxjs';
+import { Observable, finalize, forkJoin } from 'rxjs';
 
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
 import {
   EdicaoSetor,
   EscopoSetorEntrada,
   NovoSetor,
+  ResponsavelSetorEntrada,
   Setor,
   TipoEscopoSetor,
+  UsuarioResponsavelCandidato,
 } from './models/setores.models';
 import { SetoresService } from './setores.service';
 
@@ -31,6 +33,12 @@ type EscopoForm = FormGroup<{
   scope_type: FormControl<TipoEscopoSetor>;
   company_code: FormControl<number | null>;
   branch_code: FormControl<number | null>;
+}>;
+
+type ResponsavelForm = FormGroup<{
+  user_id: FormControl<number | null>;
+  valid_from: FormControl<string>;
+  valid_until: FormControl<string>;
 }>;
 
 @Component({
@@ -55,6 +63,7 @@ export class SetoresPage {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly setores = signal<Setor[]>([]);
+  readonly candidatos = signal<UsuarioResponsavelCandidato[]>([]);
   readonly carregando = signal(false);
   readonly erroPagina = signal('');
   readonly vazio = computed(() => !this.carregando() && this.setores().length === 0);
@@ -95,7 +104,7 @@ export class SetoresPage {
     escalation_sector_id: this.formBuilder.control<number | null>(null),
     is_active: this.formBuilder.nonNullable.control(true),
     scopes: this.formBuilder.array([this.criarEscopo('GLOBAL')], Validators.minLength(1)),
-    reason: this.formBuilder.nonNullable.control('', Validators.required),
+    responsibles: this.formBuilder.array<ResponsavelForm>([]),
   });
 
   constructor() {
@@ -124,7 +133,6 @@ export class SetoresPage {
       requires_evidence: setor?.requires_evidence ?? false,
       escalation_sector_id: setor?.escalation_sector?.id ?? null,
       is_active: setor?.is_active ?? true,
-      reason: '',
     });
     this.formulario.controls.scopes.clear();
     for (const current of setor?.scopes ?? [
@@ -135,6 +143,16 @@ export class SetoresPage {
           current.scope_type,
           current.company_code,
           current.branch_code,
+        ),
+      );
+    }
+    this.formulario.controls.responsibles.clear();
+    for (const current of setor?.responsibles ?? []) {
+      this.formulario.controls.responsibles.push(
+        this.criarResponsavel(
+          current.user.id,
+          this.paraDataHoraLocal(current.valid_from),
+          this.paraDataHoraLocal(current.valid_until),
         ),
       );
     }
@@ -154,6 +172,18 @@ export class SetoresPage {
     if (this.formulario.controls.scopes.length > 1) {
       this.formulario.controls.scopes.removeAt(index);
     }
+  }
+
+  adicionarResponsavel(): void {
+    this.formulario.controls.responsibles.push(this.criarResponsavel());
+  }
+
+  removerResponsavel(index: number): void {
+    this.formulario.controls.responsibles.removeAt(index);
+  }
+
+  errosResponsavel(index: number, campo: string): string[] {
+    return this.erros(`responsibles.${index}.${campo}`);
   }
 
   alterarTipoEscopo(index: number): void {
@@ -196,6 +226,13 @@ export class SetoresPage {
       company_code: scope.scope_type === 'GLOBAL' ? null : scope.company_code,
       branch_code: scope.scope_type === 'BRANCH' ? scope.branch_code : null,
     }));
+    const responsibles: ResponsavelSetorEntrada[] = value.responsibles.map(
+      (responsible) => ({
+        user_id: responsible.user_id as number,
+        ...(responsible.valid_from ? { valid_from: responsible.valid_from } : {}),
+        valid_until: responsible.valid_until || null,
+      }),
+    );
     const common = {
       name: value.name,
       description: value.description,
@@ -205,7 +242,7 @@ export class SetoresPage {
       requires_evidence: value.requires_evidence,
       escalation_sector_id: value.escalation_sector_id,
       scopes,
-      reason: value.reason,
+      responsibles,
     };
     const sector = this.emEdicao();
     const operation: Observable<Setor> = sector
@@ -253,6 +290,27 @@ export class SetoresPage {
     return group;
   }
 
+  private criarResponsavel(
+    userId: number | null = null,
+    validFrom = '',
+    validUntil = '',
+  ): ResponsavelForm {
+    return this.formBuilder.group({
+      user_id: this.formBuilder.control<number | null>(userId, Validators.required),
+      valid_from: this.formBuilder.nonNullable.control(validFrom),
+      valid_until: this.formBuilder.nonNullable.control(validUntil),
+    });
+  }
+
+  private paraDataHoraLocal(value: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    const offset = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  }
+
   private configurarValidacaoEscopo(
     group: EscopoForm,
     scopeType: TipoEscopoSetor,
@@ -279,14 +337,19 @@ export class SetoresPage {
   private carregar(): void {
     this.carregando.set(true);
     this.erroPagina.set('');
-    this.service
-      .listar()
+    forkJoin({
+      setores: this.service.listar(),
+      candidatos: this.service.listarCandidatos(),
+    })
       .pipe(
         finalize(() => this.carregando.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (page) => this.setores.set(page.results),
+        next: ({ setores, candidatos }) => {
+          this.setores.set(setores.results);
+          this.candidatos.set(candidatos.results);
+        },
         error: (error) => this.erroPagina.set(errorMessage(error)),
       });
   }

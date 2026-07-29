@@ -23,6 +23,8 @@ export interface Usuario {
   ad_linked_by: string | null;
   ad_authentication_enabled: boolean;
   local_password_allowed: boolean;
+  sector_link_count: number;
+  effective_sector_count: number;
 }
 
 export interface Atribuicao {
@@ -44,6 +46,26 @@ export interface Atribuicao {
 
 export interface UsuarioDetalhe extends Usuario {
   role_assignments: Atribuicao[];
+  sector_responsibilities: ResponsabilidadeSetorUsuario[];
+}
+
+export interface ResponsabilidadeSetorUsuario {
+  id: number;
+  sector: {
+    id: number;
+    code: string;
+    name: string;
+    is_active: boolean;
+  };
+  valid_from: string;
+  valid_until: string | null;
+  is_effective: boolean;
+  inherited_scopes: {
+    scope_type: 'GLOBAL' | 'COMPANY' | 'BRANCH';
+    company_code: number | null;
+    branch_code: number | null;
+    scope_key: string;
+  }[];
 }
 
 export interface NovoUsuario {
@@ -63,14 +85,12 @@ export interface EdicaoUsuario {
   last_name: string;
   email: string;
   is_active: boolean;
-  reason: string;
 }
 
 export interface RedefinicaoSenha {
   password: string;
   password_confirm: string;
   must_change_password: boolean;
-  reason: string;
 }
 
 export interface NovaAtribuicao {
@@ -85,7 +105,6 @@ export interface VinculoAd {
   version: number;
   identifier: string;
   username: string;
-  reason: string;
 }
 
 export interface DiretorioStatus {

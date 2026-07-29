@@ -10,13 +10,15 @@
 }
 
 .campo__ajuda,
-.escopos-form > p {
+.escopos-form > p,
+.responsaveis-form > p {
   color: var(--p-text-muted-color);
   font-size: 0.82rem;
 }
 
 .regras,
-.escopos-form {
+.escopos-form,
+.responsaveis-form {
   margin: 0;
   padding: 1rem;
   border: 1px solid var(--p-content-border-color);
@@ -73,6 +75,61 @@
       grid-row: auto;
     }
   }
+}
+
+.responsaveis-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  > p {
+    margin: 0;
+  }
+}
+
+.responsavel-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--p-content-border-color);
+
+  .campo {
+    grid-column: 1;
+  }
+
+  > p-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: start;
+
+    .campo,
+    > p-button {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    > p-button {
+      margin-top: 1.6rem;
+    }
+  }
+}
+
+.responsavel-indicador {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.responsavel-indicador__agenda {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--p-text-muted-color);
 }
 
 p-inputnumber,

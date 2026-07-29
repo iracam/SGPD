@@ -34,21 +34,21 @@ LINK_AD_IDENTITY_PERMISSION = "accounts.link_ad_identity"
 LOCAL_USER_CREATION_REASON = "Criação explícita de conta local no SGPD."
 ROLE_ASSIGNMENT_REASON = "Designação explícita de papel funcional no SGPD."
 DIRECTORY_IMPORT_REASON = "Criação explícita de conta local a partir do Active Directory."
+USER_UPDATE_REASON = "Alteração explícita do cadastro de usuário no SGPD."
+USER_ACTIVATION_REASON = "Ativação explícita do cadastro de usuário no SGPD."
+USER_DEACTIVATION_REASON = "Inativação explícita do cadastro de usuário no SGPD."
+PASSWORD_RESET_REASON = "Redefinição administrativa explícita de senha no SGPD."
+ROLE_REVOCATION_REASON = "Revogação explícita de papel funcional no SGPD."
+AD_LINK_REASON = "Vinculação explícita de identidade do Active Directory no SGPD."
+AD_UNLINK_REASON = "Desvinculação explícita de identidade do Active Directory no SGPD."
 FIXED_ROLE_CATALOG_MESSAGE = (
-    "O catálogo de papéis é fixo: somente DP e RESPONSAVEL_SETOR podem ser utilizados."
+    "O catálogo de papéis atribuíveis é fixo: somente DP pode ser utilizado."
 )
 
 
 def _require_permission(actor: User, permission: str) -> None:
     if not has_permission(actor, permission):
         raise PermissionDenied("O ator não possui permissão para executar esta operação.")
-
-
-def _required_reason(reason: str) -> str:
-    normalized = reason.strip()
-    if not normalized:
-        raise ValidationError({"reason": "A justificativa é obrigatória."})
-    return normalized
 
 
 def _record_event(
@@ -250,14 +250,12 @@ class UpdateUserCommand:
     first_name: str
     last_name: str
     is_active: bool
-    reason: str
 
 
 class UpdateUserService:
     @transaction.atomic
     def execute(self, command: UpdateUserCommand) -> User:
         _require_permission(command.actor, MANAGE_USERS_PERMISSION)
-        reason = _required_reason(command.reason)
         active_superuser_ids: set[int] = set()
         if not command.is_active:
             # Every deactivation follows the same lock order. This serializes
@@ -308,10 +306,13 @@ class UpdateUserService:
             raise ValidationError("O e-mail informado já está em uso.") from exc
 
         event_type = AccountEventType.USER_UPDATED
+        reason = USER_UPDATE_REASON
         if was_active and not user.is_active:
             event_type = AccountEventType.USER_DEACTIVATED
+            reason = USER_DEACTIVATION_REASON
         elif not was_active and user.is_active:
             event_type = AccountEventType.USER_ACTIVATED
+            reason = USER_ACTIVATION_REASON
         _record_event(
             event_type=event_type,
             actor=command.actor,
@@ -338,14 +339,12 @@ class ResetPasswordCommand:
     user_id: int
     password: str
     must_change_password: bool
-    reason: str
 
 
 class ResetPasswordService:
     @transaction.atomic
     def execute(self, command: ResetPasswordCommand) -> User:
         _require_permission(command.actor, MANAGE_USERS_PERMISSION)
-        reason = _required_reason(command.reason)
         user = User.objects.select_for_update().get(pk=command.user_id)
         config = ActiveDirectoryConfig.from_settings()
         if not config.allows_local_password(
@@ -366,7 +365,7 @@ class ResetPasswordService:
             target_user=user,
             entity_type="USER",
             entity_id=user.pk,
-            reason=reason,
+            reason=PASSWORD_RESET_REASON,
             changes={"must_change_password": user.must_change_password},
         )
         return user
@@ -502,14 +501,12 @@ class AssignRoleService:
 class RevokeRoleCommand:
     actor: User
     assignment_id: int
-    reason: str
 
 
 class RevokeRoleService:
     @transaction.atomic
     def execute(self, command: RevokeRoleCommand) -> RoleAssignment:
         _require_permission(command.actor, MANAGE_ROLES_PERMISSION)
-        reason = _required_reason(command.reason)
         assignment = (
             RoleAssignment.objects.select_for_update()
             .select_related("user", "role")
@@ -528,7 +525,7 @@ class RevokeRoleService:
             target_user=assignment.user,
             entity_type="ROLE_ASSIGNMENT",
             entity_id=assignment.pk,
-            reason=reason,
+            reason=ROLE_REVOCATION_REASON,
             changes={"role": assignment.role.code, "scope": assignment.scope_key},
         )
         return assignment
@@ -659,14 +656,12 @@ class LinkAdIdentityCommand:
     expected_version: int
     identifier: str
     username: str
-    reason: str
 
 
 class LinkAdIdentityService:
     @transaction.atomic
     def execute(self, command: LinkAdIdentityCommand) -> User:
         _require_permission(command.actor, LINK_AD_IDENTITY_PERMISSION)
-        reason = _required_reason(command.reason)
         identifier = command.identifier.strip().casefold()
         ad_username = command.username.strip().lower()
         if not identifier or not ad_username:
@@ -708,8 +703,12 @@ class LinkAdIdentityService:
             target_user=user,
             entity_type="USER",
             entity_id=user.pk,
-            reason=reason,
-            changes={"ad_linked": True},
+            reason=AD_LINK_REASON,
+            changes={
+                "ad_linked": True,
+                "directory_identifier": user.ad_identifier,
+                "directory_username": user.ad_username,
+            },
         )
         return user
 
@@ -722,7 +721,6 @@ class LinkDirectoryIdentityService:
 
     def execute(self, command: LinkAdIdentityCommand) -> User:
         _require_permission(command.actor, LINK_AD_IDENTITY_PERMISSION)
-        reason = _required_reason(command.reason)
         identity = self.directory.get_user(command.identifier)
         return LinkAdIdentityService().execute(
             LinkAdIdentityCommand(
@@ -731,7 +729,6 @@ class LinkDirectoryIdentityService:
                 expected_version=command.expected_version,
                 identifier=identity.identifier,
                 username=identity.username,
-                reason=reason,
             )
         )
 
@@ -741,20 +738,20 @@ class UnlinkAdIdentityCommand:
     actor: User
     user_id: int
     expected_version: int
-    reason: str
 
 
 class UnlinkAdIdentityService:
     @transaction.atomic
     def execute(self, command: UnlinkAdIdentityCommand) -> User:
         _require_permission(command.actor, LINK_AD_IDENTITY_PERMISSION)
-        reason = _required_reason(command.reason)
         user = User.objects.select_for_update().get(pk=command.user_id)
         if user.version != command.expected_version:
             raise ValidationError("O usuário foi alterado por outra sessão. Recarregue a página.")
         if not user.has_ad_link:
             return user
 
+        previous_identifier = user.ad_identifier
+        previous_username = user.ad_username
         user.ad_identifier = None
         user.ad_username = None
         user.ad_linked_at = None
@@ -776,7 +773,11 @@ class UnlinkAdIdentityService:
             target_user=user,
             entity_type="USER",
             entity_id=user.pk,
-            reason=reason,
-            changes={"ad_linked": False},
+            reason=AD_UNLINK_REASON,
+            changes={
+                "ad_linked": False,
+                "directory_identifier": previous_identifier,
+                "directory_username": previous_username,
+            },
         )
         return user

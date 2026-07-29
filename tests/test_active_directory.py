@@ -331,7 +331,6 @@ def test_link_existing_user_revalidates_identity_and_ignores_submitted_username(
             expected_version=user.version,
             identifier=IDENTIFIER,
             username="valor.adulterado",
-            reason="Identidade confirmada no diretório.",
         )
     )
 
@@ -464,7 +463,6 @@ def test_admin_cannot_reset_linked_common_user_password_when_ad_login_is_on(
                 user_id=user.pk,
                 password="Must-not-be-saved!2026",
                 must_change_password=False,
-                reason="Tentativa incompatível com a política AD.",
             )
         )
 
@@ -503,7 +501,6 @@ def test_linked_superuser_password_reset_remains_available_for_fallback(
             user_id=admin.pk,
             password="Fallback-updated!2026",
             must_change_password=False,
-            reason="Rotação da credencial de contingência.",
         )
     )
 
@@ -538,7 +535,6 @@ def test_linked_superuser_password_reset_is_blocked_when_fallback_is_off(
                 user_id=admin.pk,
                 password="Must-not-be-saved!2026",
                 must_change_password=False,
-                reason="Fallback desativado.",
             )
         )
 

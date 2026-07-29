@@ -199,22 +199,6 @@ class SectorResponsible(models.Model):
         on_delete=models.PROTECT,
         related_name="sector_responsibilities",
     )
-    scope_type = models.CharField(
-        "tipo de escopo",
-        max_length=10,
-        choices=ScopeType.choices,
-    )
-    company_code = models.PositiveIntegerField(
-        "código da empresa",
-        null=True,
-        blank=True,
-    )
-    branch_code = models.PositiveIntegerField(
-        "código da filial",
-        null=True,
-        blank=True,
-    )
-    scope_key = models.CharField("chave do escopo", max_length=64, editable=False)
     valid_from = models.DateTimeField("válido desde", default=timezone.now)
     valid_until = models.DateTimeField("válido até", null=True, blank=True)
     is_active = models.BooleanField("ativo", default=True)
@@ -247,33 +231,13 @@ class SectorResponsible(models.Model):
 
     class Meta:
         db_table = "SGPD_SECTOR_RESPONSIBLE"
-        ordering = ("sector__code", "user__username", "scope_key")
+        ordering = ("sector__code", "user__username")
         verbose_name = "responsável de setor"
         verbose_name_plural = "responsáveis de setores"
         constraints = [
             models.UniqueConstraint(
-                fields=("sector", "user", "scope_key"),
-                name="SGPD_UQ_SECTOR_RESP_SCOPE",
-            ),
-            models.CheckConstraint(
-                condition=(
-                    models.Q(
-                        scope_type=ScopeType.GLOBAL,
-                        company_code__isnull=True,
-                        branch_code__isnull=True,
-                    )
-                    | models.Q(
-                        scope_type=ScopeType.COMPANY,
-                        company_code__isnull=False,
-                        branch_code__isnull=True,
-                    )
-                    | models.Q(
-                        scope_type=ScopeType.BRANCH,
-                        company_code__isnull=False,
-                        branch_code__isnull=False,
-                    )
-                ),
-                name="SGPD_CK_SECTOR_RESP_SCOPE",
+                fields=("sector", "user"),
+                name="SGPD_UQ_SECTOR_RESP_USER",
             ),
             models.CheckConstraint(
                 condition=(
@@ -299,19 +263,10 @@ class SectorResponsible(models.Model):
             ),
             models.CheckConstraint(
                 condition=models.Q(
-                    scope_type__isnull=False,
-                    scope_key__isnull=False,
                     assigned_by__isnull=False,
                     updated_by__isnull=False,
                 ),
                 name="SGPD_CK_SECTOR_RESP_REQ",
-            ),
-            models.CheckConstraint(
-                condition=(
-                    (models.Q(company_code__isnull=True) | models.Q(company_code__gt=0))
-                    & (models.Q(branch_code__isnull=True) | models.Q(branch_code__gt=0))
-                ),
-                name="SGPD_CK_SECTOR_RESP_CODES",
             ),
             models.CheckConstraint(
                 condition=models.Q(version__gt=0),
@@ -327,22 +282,13 @@ class SectorResponsible(models.Model):
                 fields=("user", "is_active", "valid_from"),
                 name="SGPD_IX_RESP_USER",
             ),
-            models.Index(
-                fields=("company_code", "branch_code", "is_active"),
-                name="SGPD_IX_RESP_ORG",
-            ),
         ]
 
     def __str__(self) -> str:
-        return f"{self.sector.code} / {self.user} / {self.scope_key}"
+        return f"{self.sector.code} / {self.user}"
 
     def clean(self) -> None:
         super().clean()
-        self.scope_key = build_scope_key(
-            self.scope_type,
-            self.company_code,
-            self.branch_code,
-        )
         if self.valid_until is not None and self.valid_until <= self.valid_from:
             raise ValidationError({"valid_until": "A validade final deve ser posterior à inicial."})
         revocation_values = (

@@ -11,8 +11,9 @@ import logging
 from typing import Any, cast
 
 from django.contrib.auth.models import Permission
-from django.db.models import Q, QuerySet
+from django.db.models import Count, Prefetch, Q, QuerySet
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -39,12 +40,11 @@ from .models import (
 )
 from .serializers import (
     AdLinkSerializer,
-    ReasonSerializer,
-    ReasonVersionSerializer,
     ResetPasswordSerializer,
     RoleAssignmentSerializer,
     UserCreateSerializer,
     UserUpdateSerializer,
+    VersionSerializer,
 )
 from .services import (
     LINK_AD_IDENTITY_PERMISSION,
@@ -106,9 +106,82 @@ def user_detail_payload(user: User) -> dict[str, Any]:
                 has_ad_link=user.has_ad_link,
                 is_superuser=user.is_superuser,
             ),
+            "sector_link_count": getattr(user, "sector_link_count", 0),
+            "effective_sector_count": getattr(user, "effective_sector_count", 0),
         }
     )
     return payload
+
+
+def _user_queryset(*, with_sector_links: bool = False) -> QuerySet[User]:
+    now = timezone.now()
+    queryset = User.objects.annotate(
+        sector_link_count=Count(
+            "sector_responsibilities",
+            filter=Q(sector_responsibilities__is_active=True),
+            distinct=True,
+        ),
+        effective_sector_count=Count(
+            "sector_responsibilities",
+            filter=(
+                Q(is_active=True)
+                & Q(sector_responsibilities__is_active=True)
+                & Q(sector_responsibilities__sector__is_active=True)
+                & Q(sector_responsibilities__valid_from__lte=now)
+                & (
+                    Q(sector_responsibilities__valid_until__isnull=True)
+                    | Q(sector_responsibilities__valid_until__gt=now)
+                )
+            ),
+            distinct=True,
+        ),
+    ).order_by("username")
+    if with_sector_links:
+        from apps.sectors.models import SectorResponsible
+
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "sector_responsibilities",
+                queryset=(
+                    SectorResponsible.objects.filter(is_active=True)
+                    .select_related("sector")
+                    .prefetch_related("sector__scopes")
+                    .order_by("sector__code")
+                ),
+                to_attr="active_sector_links",
+            )
+        )
+    return queryset
+
+
+def sector_link_payload(link: Any) -> dict[str, Any]:
+    from apps.sectors.authorization import responsibility_is_effective
+
+    return {
+        "id": link.pk,
+        "sector": {
+            "id": link.sector_id,
+            "code": link.sector.code,
+            "name": link.sector.name,
+            "is_active": link.sector.is_active,
+        },
+        "valid_from": _isoformat(link.valid_from),
+        "valid_until": _isoformat(link.valid_until),
+        "is_effective": responsibility_is_effective(link),
+        "inherited_scopes": [
+            {
+                "scope_type": scope.scope_type,
+                "company_code": scope.company_code,
+                "branch_code": scope.branch_code,
+                "scope_key": scope.scope_key,
+            }
+            for scope in link.sector.scopes.all().order_by("scope_key")
+        ],
+    }
+
+
+def refreshed_user_payload(user: User) -> dict[str, Any]:
+    return user_detail_payload(_user_queryset().get(pk=user.pk))
 
 
 def role_payload(role: Role) -> dict[str, Any]:
@@ -207,7 +280,7 @@ class UserListCreateView(AccountsAPIView):
 
     def get(self, request: Request) -> Response:
         offset, limit = self.page(request)
-        users = User.objects.order_by("username")
+        users = _user_queryset()
         query = request.query_params.get("q", "").strip()
         if query:
             users = users.filter(
@@ -271,19 +344,23 @@ class UserListCreateView(AccountsAPIView):
                 "outcome": "completed",
             },
         )
-        return Response(user_detail_payload(user), status=201)
+        return Response(refreshed_user_payload(user), status=201)
 
 
 class UserDetailView(AccountsAPIView):
     required_permission = MANAGE_USERS_PERMISSION
 
     def get(self, request: Request, user_id: int) -> Response:
-        user = get_object_or_404(User, pk=user_id)
+        user = get_object_or_404(_user_queryset(with_sector_links=True), pk=user_id)
         assignments = user.role_assignments.select_related(
             "role", "assigned_by", "revoked_by"
         ).order_by("-is_active", "role__code", "scope_key")
         payload = user_detail_payload(user)
         payload["role_assignments"] = [assignment_payload(item) for item in assignments]
+        payload["sector_responsibilities"] = [
+            sector_link_payload(item)
+            for item in cast(list[Any], getattr(user, "active_sector_links", []))
+        ]
         return Response(payload)
 
     def patch(self, request: Request, user_id: int) -> Response:
@@ -301,10 +378,9 @@ class UserDetailView(AccountsAPIView):
                 first_name=data["first_name"],
                 last_name=data["last_name"],
                 is_active=data["is_active"],
-                reason=data["reason"],
             )
         )
-        return Response(user_detail_payload(user))
+        return Response(refreshed_user_payload(user))
 
 
 class UserResetPasswordView(AccountsAPIView):
@@ -322,10 +398,9 @@ class UserResetPasswordView(AccountsAPIView):
                 user_id=user_id,
                 password=data["password"],
                 must_change_password=data["must_change_password"],
-                reason=data["reason"],
             )
         )
-        return Response(user_detail_payload(user))
+        return Response(refreshed_user_payload(user))
 
 
 class UserRoleAssignmentView(AccountsAPIView):
@@ -381,15 +456,11 @@ class RoleAssignmentRevokeView(AccountsAPIView):
 
     def post(self, request: Request, assignment_id: int) -> Response:
         get_object_or_404(RoleAssignment, pk=assignment_id)
-        serializer = ReasonSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = cast(dict[str, Any], serializer.validated_data)
 
         assignment = RevokeRoleService().execute(
             RevokeRoleCommand(
                 actor=self.actor(request),
                 assignment_id=assignment_id,
-                reason=data["reason"],
             )
         )
         return Response(assignment_payload(assignment))
@@ -410,7 +481,6 @@ class UserAdLinkView(AccountsAPIView):
             expected_version=data["version"],
             identifier=data["identifier"],
             username=data["username"],
-            reason=data["reason"],
         )
         try:
             if ActiveDirectoryConfig.from_settings().enabled:
@@ -441,7 +511,7 @@ class UserAdLinkView(AccountsAPIView):
                 message=str(exc),
                 status_code=502,
             )
-        return Response(user_detail_payload(user))
+        return Response(refreshed_user_payload(user))
 
 
 class UserAdUnlinkView(AccountsAPIView):
@@ -449,7 +519,7 @@ class UserAdUnlinkView(AccountsAPIView):
 
     def post(self, request: Request, user_id: int) -> Response:
         get_object_or_404(User, pk=user_id)
-        serializer = ReasonVersionSerializer(data=request.data)
+        serializer = VersionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = cast(dict[str, Any], serializer.validated_data)
 
@@ -458,10 +528,9 @@ class UserAdUnlinkView(AccountsAPIView):
                 actor=self.actor(request),
                 user_id=user_id,
                 expected_version=data["version"],
-                reason=data["reason"],
             )
         )
-        return Response(user_detail_payload(user))
+        return Response(refreshed_user_payload(user))
 
 
 class RoleListView(AccountsAPIView):

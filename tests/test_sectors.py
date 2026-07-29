@@ -91,7 +91,7 @@ def create_command(
         requires_evidence=False,
         escalation_sector_id=escalation_sector_id,
         scopes=scopes or (scope(),),
-        reason="Configuração inicial homologada.",
+        responsibles=(),
     )
 
 
@@ -113,7 +113,7 @@ def update_command(
         "requires_evidence": sector.requires_evidence,
         "escalation_sector_id": sector.escalation_sector_id,
         "scopes": (scope(),),
-        "reason": "Revisão funcional do setor.",
+        "responsibles": (),
     }
     values.update(overrides)
     return UpdateSectorCommand(**values)
@@ -136,7 +136,7 @@ def api_payload(*, code: str = "patrimonio") -> dict[str, Any]:
                 "branch_code": None,
             }
         ],
-        "reason": "Configuração inicial homologada.",
+        "responsibles": [],
     }
 
 
@@ -194,7 +194,7 @@ def test_sector_service_requires_global_manage_permission(plain_user: User) -> N
         content_type__app_label="sectors",
         codename="manage_sectors",
     )
-    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     role.permissions.add(permission)
     RoleAssignment.objects.create(
         user=plain_user,
@@ -455,7 +455,6 @@ def test_sector_api_create_list_detail_and_update(client_actor: Client) -> None:
                 "branch_code": 2,
             }
         ],
-        "reason": "Atualização homologada.",
     }
     update_payload.pop("code")
     update_response = patch_json(

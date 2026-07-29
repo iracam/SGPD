@@ -28,7 +28,31 @@ const LINKED_USER: UsuarioDetalhe = {
   ad_linked_by: 'admin',
   ad_authentication_enabled: true,
   local_password_allowed: false,
+  sector_link_count: 1,
+  effective_sector_count: 1,
   role_assignments: [],
+  sector_responsibilities: [
+    {
+      id: 8,
+      sector: {
+        id: 4,
+        code: 'PATRIMONIO',
+        name: 'Patrimônio',
+        is_active: true,
+      },
+      valid_from: '2026-07-28T18:00:00Z',
+      valid_until: null,
+      is_effective: true,
+      inherited_scopes: [
+        {
+          scope_type: 'COMPANY',
+          company_code: 7,
+          branch_code: null,
+          scope_key: 'E:7',
+        },
+      ],
+    },
+  ],
 };
 
 describe('UsuarioDetalhePage', () => {
@@ -108,8 +132,9 @@ describe('UsuarioDetalhePage', () => {
   it('atribui papel sem solicitar ou enviar justificativa manual', async () => {
     await render();
     expect(fixture.nativeElement.textContent).toContain(
-      'Os dois papéis podem coexistir nesta conta.',
+      'DP é o único papel funcional atribuível.',
     );
+    expect(fixture.nativeElement.textContent).toContain('PATRIMONIO — Patrimônio');
     fixture.componentInstance.abrir('papel');
     fixture.componentInstance.formPapel.setValue({
       role_id: 7,
