@@ -6,6 +6,7 @@ import { provideRouter, Router } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiConfig } from '../../core/config/api.config';
+import { AuthService } from '../../core/auth/auth.service';
 import { Usuario, UsuarioDiretorio } from './models/usuarios.models';
 import { UsuariosPage } from './usuarios';
 
@@ -92,6 +93,126 @@ describe('UsuariosPage', () => {
     const selos = fixture.nativeElement.textContent as string;
     expect(selos).toContain('Senha temporária');
     expect(selos).toContain('Inativo');
+  });
+
+  it('cria usuário local sem exigir ou enviar justificativa manual', () => {
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    responder([]);
+    fixture.componentInstance.abrirDialogo();
+    fixture.componentInstance.formulario.setValue({
+      username: 'novo.local',
+      first_name: 'Novo',
+      last_name: 'Local',
+      email: 'novo.local@example.invalid',
+      password: 'Temporaria-local!2026',
+      password_confirm: 'Temporaria-local!2026',
+      must_change_password: true,
+      role_id: null,
+      scope_type: 'GLOBAL',
+      company_code: null,
+      branch_code: null,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('label[for="reason"]')).toBeNull();
+
+    const createButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.includes('Criar usuário'));
+    createButton?.click();
+    fixture.detectChanges();
+
+    const createRequest = httpMock.expectOne(
+      (request) =>
+        request.url === apiConfig.routes.accountsUsers && request.method === 'POST',
+    );
+    expect(createRequest.request.body).toEqual({
+      username: 'novo.local',
+      first_name: 'Novo',
+      last_name: 'Local',
+      email: 'novo.local@example.invalid',
+      password: 'Temporaria-local!2026',
+      password_confirm: 'Temporaria-local!2026',
+      must_change_password: true,
+    });
+    createRequest.flush({ ...USUARIO, username: 'novo.local' });
+  });
+
+  it('designa o papel inicial no mesmo cadastro e abre o detalhe criado', () => {
+    vi.spyOn(TestBed.inject(AuthService), 'canView').mockImplementation(
+      (permission) => permission === 'manage_roles',
+    );
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    responder([]);
+
+    fixture.componentInstance.abrirDialogo();
+    httpMock
+      .expectOne(
+        (request) =>
+          request.url === apiConfig.routes.accountsRoles &&
+          request.params.get('limit') === '200',
+      )
+      .flush({
+        offset: 0,
+        limit: 200,
+        results: [
+          {
+            id: 7,
+            code: 'DP',
+            name: 'Departamento Pessoal',
+            description: '',
+            is_active: true,
+            version: 1,
+            permissions: [],
+          },
+        ],
+      });
+    fixture.componentInstance.formulario.setValue({
+      username: 'novo.dp',
+      first_name: 'Novo',
+      last_name: 'DP',
+      email: 'novo.dp@example.invalid',
+      password: 'Temporaria-local!2026',
+      password_confirm: 'Temporaria-local!2026',
+      must_change_password: true,
+      role_id: 7,
+      scope_type: 'COMPANY',
+      company_code: 1,
+      branch_code: null,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('label[for="initial_role"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('label[for="initial_role_reason"]')).toBeNull();
+
+    const createButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.includes('Criar usuário'));
+    createButton?.click();
+    fixture.detectChanges();
+
+    const createRequest = httpMock.expectOne(
+      (request) =>
+        request.url === apiConfig.routes.accountsUsers && request.method === 'POST',
+    );
+    expect(createRequest.request.body).toEqual({
+      username: 'novo.dp',
+      first_name: 'Novo',
+      last_name: 'DP',
+      email: 'novo.dp@example.invalid',
+      password: 'Temporaria-local!2026',
+      password_confirm: 'Temporaria-local!2026',
+      must_change_password: true,
+      initial_role: {
+        role_id: 7,
+        scope_type: 'COMPANY',
+        company_code: 1,
+        branch_code: null,
+        valid_until: null,
+      },
+    });
+    createRequest.flush({ ...USUARIO, id: 12, username: 'novo.dp' });
+    expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/fe/usuarios', 12]);
   });
 
   it('exibe a mensagem do envelope quando a listagem falha', () => {

@@ -22,6 +22,7 @@ from apps.accounts.models import (
     ScopeType,
     User,
 )
+from apps.accounts.services import LOCAL_USER_CREATION_REASON, ROLE_ASSIGNMENT_REASON
 
 pytestmark = pytest.mark.django_db
 
@@ -166,6 +167,37 @@ def test_manage_users_does_not_grant_manage_roles(plain_user: User) -> None:
     assert client.get(reverse("accounts-api:audit-list")).status_code == 403
 
 
+def test_initial_role_requires_manage_roles_and_rolls_back_user(plain_user: User) -> None:
+    plain_user.user_permissions.add(
+        Permission.objects.get(content_type__app_label="accounts", codename="manage_users")
+    )
+    role = Role.objects.create(code="DP_SEM_PERMISSAO", name="DP sem permissão")
+    client = Client()
+    client.force_login(plain_user)
+
+    response = _post(
+        client,
+        "accounts-api:user-list",
+        {
+            "username": "papel.negado",
+            "first_name": "Papel",
+            "last_name": "Negado",
+            "email": "papel.negado@example.invalid",
+            "password": TEMPORARY,
+            "password_confirm": TEMPORARY,
+            "initial_role": {
+                "role_id": role.pk,
+                "scope_type": ScopeType.GLOBAL.value,
+            },
+        },
+    )
+
+    assert response.status_code == 403
+    assert not User.objects.filter(username="papel.negado").exists()
+    assert not RoleAssignment.objects.exists()
+    assert not AccountAuditEvent.objects.exists()
+
+
 def test_ad_link_requires_its_own_permission(plain_user: User, admin: User) -> None:
     plain_user.user_permissions.add(
         Permission.objects.get(content_type__app_label="accounts", codename="manage_users")
@@ -207,7 +239,6 @@ def test_create_user_is_audited_and_omits_the_password(admin_client: Client) -> 
             "password": TEMPORARY,
             "password_confirm": TEMPORARY,
             "must_change_password": True,
-            "reason": "Novo responsável de setor.",
         },
     )
 
@@ -217,10 +248,88 @@ def test_create_user_is_audited_and_omits_the_password(admin_client: Client) -> 
     assert body["username"] == "novo.api"
     assert "password" not in body
     assert created.must_change_password
+    event = AccountAuditEvent.objects.get(
+        event_type=AccountEventType.USER_CREATED,
+        target_user=created,
+    )
+    assert event.reason == LOCAL_USER_CREATION_REASON
+
+
+def test_create_user_with_initial_role_is_atomic_and_audited(
+    admin_client: Client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    role = Role.objects.create(code="DP_INICIAL", name="DP inicial")
+
+    with caplog.at_level("INFO", logger="apps.accounts.api_accounts"):
+        response = _post(
+            admin_client,
+            "accounts-api:user-list",
+            {
+                "username": "novo.com.papel",
+                "first_name": "Novo",
+                "last_name": "Com papel",
+                "email": "novo.com.papel@example.invalid",
+                "password": TEMPORARY,
+                "password_confirm": TEMPORARY,
+                "must_change_password": True,
+                "initial_role": {
+                    "role_id": role.pk,
+                    "scope_type": ScopeType.COMPANY.value,
+                    "company_code": 7,
+                },
+            },
+        )
+
+    created = User.objects.get(username="novo.com.papel")
+    assignment = created.role_assignments.get()
+    assert response.status_code == 201
+    assert assignment.role == role
+    assert assignment.scope_key == "E:7"
+    assert assignment.assigned_by.username == "api.admin"
     assert AccountAuditEvent.objects.filter(
         event_type=AccountEventType.USER_CREATED,
         target_user=created,
     ).exists()
+    assigned_event = AccountAuditEvent.objects.get(
+        event_type=AccountEventType.ROLE_ASSIGNED,
+        target_user=created,
+    )
+    assert assigned_event.reason == ROLE_ASSIGNMENT_REASON
+    completed_log = next(
+        record for record in caplog.records if record.message == "account_user_creation_completed"
+    )
+    assert completed_log.__dict__["actor_id"] is not None
+    assert completed_log.__dict__["target_user_id"] == created.pk
+    assert completed_log.__dict__["role_id"] == role.pk
+    assert completed_log.__dict__["initial_role_requested"] is True
+
+
+def test_invalid_initial_role_scope_does_not_create_user(admin_client: Client) -> None:
+    role = Role.objects.create(code="DP_INICIAL_INVALIDO", name="DP inicial inválido")
+
+    response = _post(
+        admin_client,
+        "accounts-api:user-list",
+        {
+            "username": "escopo.invalido",
+            "first_name": "Escopo",
+            "last_name": "Inválido",
+            "email": "escopo.invalido@example.invalid",
+            "password": TEMPORARY,
+            "password_confirm": TEMPORARY,
+            "initial_role": {
+                "role_id": role.pk,
+                "scope_type": ScopeType.BRANCH.value,
+                "company_code": 7,
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert "initial_role" in response.json()["details"]
+    assert not User.objects.filter(username="escopo.invalido").exists()
+    assert not RoleAssignment.objects.exists()
 
 
 def test_create_user_rejects_mismatched_confirmation(admin_client: Client) -> None:
@@ -234,31 +343,12 @@ def test_create_user_rejects_mismatched_confirmation(admin_client: Client) -> No
             "email": "nao.criado@example.invalid",
             "password": TEMPORARY,
             "password_confirm": "Outra-senha!2026",
-            "reason": "Confirmação divergente.",
         },
     )
 
     assert response.status_code == 400
     assert "password_confirm" in response.json()["details"]
     assert not User.objects.filter(username="nao.criado").exists()
-
-
-def test_create_user_requires_a_reason(admin_client: Client) -> None:
-    response = _post(
-        admin_client,
-        "accounts-api:user-list",
-        {
-            "username": "sem.motivo",
-            "first_name": "Sem",
-            "last_name": "Motivo",
-            "email": "sem.motivo@example.invalid",
-            "password": TEMPORARY,
-            "password_confirm": TEMPORARY,
-        },
-    )
-
-    assert response.status_code == 400
-    assert "reason" in response.json()["details"]
 
 
 def test_duplicate_email_is_reported_per_field(admin_client: Client, plain_user: User) -> None:
@@ -272,7 +362,6 @@ def test_duplicate_email_is_reported_per_field(admin_client: Client, plain_user:
             "email": plain_user.email,
             "password": TEMPORARY,
             "password_confirm": TEMPORARY,
-            "reason": "E-mail já utilizado.",
         },
     )
 
@@ -520,26 +609,40 @@ def test_permission_catalog_lists_only_delegable_entries(admin_client: Client) -
     }
 
 
-def test_assign_role_with_company_scope(admin_client: Client, plain_user: User) -> None:
+def test_assign_role_with_company_scope(
+    admin_client: Client,
+    plain_user: User,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     role = Role.objects.create(code="DP_ESCOPO", name="DP com escopo")
 
-    response = _post(
-        admin_client,
-        "accounts-api:user-assign-role",
-        {
-            "role_id": role.pk,
-            "scope_type": ScopeType.COMPANY.value,
-            "company_code": 7,
-            "reason": "Responsável pela empresa 7.",
-        },
-        user_id=plain_user.pk,
-    )
+    with caplog.at_level("INFO", logger="apps.accounts.api_accounts"):
+        response = _post(
+            admin_client,
+            "accounts-api:user-assign-role",
+            {
+                "role_id": role.pk,
+                "scope_type": ScopeType.COMPANY.value,
+                "company_code": 7,
+            },
+            user_id=plain_user.pk,
+        )
 
     body = response.json()
     assert response.status_code == 201
     assert body["company_code"] == 7
     assert body["is_active"] is True
-    assert AccountAuditEvent.objects.filter(event_type=AccountEventType.ROLE_ASSIGNED).exists()
+    event = AccountAuditEvent.objects.get(event_type=AccountEventType.ROLE_ASSIGNED)
+    assert event.reason == ROLE_ASSIGNMENT_REASON
+    messages = [record.message for record in caplog.records]
+    assert "account_role_assignment_requested" in messages
+    completed_log = next(
+        record for record in caplog.records if record.message == "account_role_assignment_completed"
+    )
+    assert completed_log.__dict__["target_user_id"] == plain_user.pk
+    assert completed_log.__dict__["role_id"] == role.pk
+    assert completed_log.__dict__["assignment_id"] == body["id"]
+    assert completed_log.__dict__["scope_key"] == "E:7"
 
 
 @pytest.mark.parametrize(
@@ -568,7 +671,6 @@ def test_inconsistent_scope_is_rejected_per_field(
             "scope_type": scope_type,
             "company_code": company_code,
             "branch_code": branch_code,
-            "reason": "Escopo inconsistente.",
         },
         user_id=plain_user.pk,
     )
@@ -618,7 +720,6 @@ def test_role_cannot_be_assigned_to_an_inactive_user(
         {
             "role_id": role.pk,
             "scope_type": ScopeType.GLOBAL.value,
-            "reason": "Usuário inativo.",
         },
         user_id=plain_user.pk,
     )

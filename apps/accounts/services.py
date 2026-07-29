@@ -33,6 +33,8 @@ from .models import (
 MANAGE_USERS_PERMISSION = "accounts.manage_users"
 MANAGE_ROLES_PERMISSION = "accounts.manage_roles"
 LINK_AD_IDENTITY_PERMISSION = "accounts.link_ad_identity"
+LOCAL_USER_CREATION_REASON = "Criação explícita de conta local no SGPD."
+ROLE_ASSIGNMENT_REASON = "Designação explícita de papel no SGPD."
 DIRECTORY_IMPORT_REASON = "Criação explícita de conta local a partir do Active Directory."
 
 ASSIGNABLE_PERMISSION_CODENAMES = frozenset(
@@ -130,6 +132,16 @@ def assignable_permissions() -> QuerySet[Permission]:
 
 
 @dataclass(frozen=True, slots=True)
+class InitialRoleAssignmentCommand:
+    role_id: int
+    scope_type: ScopeType
+    company_code: int | None
+    branch_code: int | None
+    valid_from: datetime | None
+    valid_until: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class CreateUserCommand:
     actor: User
     username: str
@@ -138,14 +150,13 @@ class CreateUserCommand:
     last_name: str
     password: str
     must_change_password: bool
-    reason: str
+    initial_role: InitialRoleAssignmentCommand | None = None
 
 
 class CreateUserService:
     @transaction.atomic
     def execute(self, command: CreateUserCommand) -> User:
         _require_permission(command.actor, MANAGE_USERS_PERMISSION)
-        reason = _required_reason(command.reason)
         user = User(
             username=command.username,
             email=command.email,
@@ -171,7 +182,7 @@ class CreateUserService:
             target_user=user,
             entity_type="USER",
             entity_id=user.pk,
-            reason=reason,
+            reason=LOCAL_USER_CREATION_REASON,
             changes={
                 "username": user.username,
                 "email": user.email,
@@ -179,6 +190,20 @@ class CreateUserService:
                 "must_change_password": user.must_change_password,
             },
         )
+        if command.initial_role is not None:
+            initial_role = command.initial_role
+            AssignRoleService().execute(
+                AssignRoleCommand(
+                    actor=command.actor,
+                    user_id=user.pk,
+                    role_id=initial_role.role_id,
+                    scope_type=initial_role.scope_type,
+                    company_code=initial_role.company_code,
+                    branch_code=initial_role.branch_code,
+                    valid_from=initial_role.valid_from,
+                    valid_until=initial_role.valid_until,
+                )
+            )
         return user
 
 
@@ -544,14 +569,12 @@ class AssignRoleCommand:
     branch_code: int | None
     valid_from: datetime | None
     valid_until: datetime | None
-    reason: str
 
 
 class AssignRoleService:
     @transaction.atomic
     def execute(self, command: AssignRoleCommand) -> RoleAssignment:
         _require_permission(command.actor, MANAGE_ROLES_PERMISSION)
-        reason = _required_reason(command.reason)
         user = User.objects.select_for_update().get(pk=command.user_id)
         role = Role.objects.select_for_update().get(pk=command.role_id)
         if not user.is_active:
@@ -606,7 +629,7 @@ class AssignRoleService:
             target_user=user,
             entity_type="ROLE_ASSIGNMENT",
             entity_id=assignment.pk,
-            reason=reason,
+            reason=ROLE_ASSIGNMENT_REASON,
             changes={
                 "role": role.code,
                 "scope": scope_key,

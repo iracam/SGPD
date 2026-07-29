@@ -8,13 +8,16 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
-import { TextareaModule } from 'primeng/textarea';
+import { SelectModule } from 'primeng/select';
 import { debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs';
 
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
 import { AuthService } from '../../core/auth/auth.service';
+import { Papel } from '../papeis/models/papeis.models';
+import { PapeisService } from '../papeis/papeis.service';
 import {
   DiretorioStatus,
+  NovoUsuario,
   Usuario,
   UsuarioDiretorio,
 } from './models/usuarios.models';
@@ -30,13 +33,14 @@ import { UsuariosService } from './usuarios.service';
     InputTextModule,
     MessageModule,
     PasswordModule,
-    TextareaModule,
+    SelectModule,
   ],
   templateUrl: './usuarios.html',
   styleUrl: './usuarios.scss',
 })
 export class UsuariosPage {
   private readonly service = inject(UsuariosService);
+  private readonly papeisService = inject(PapeisService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -50,6 +54,7 @@ export class UsuariosPage {
     () =>
       this.authService.canView('link_ad_identity') && this.authService.canView('manage_users'),
   );
+  readonly podeGerenciarPapeis = computed(() => this.authService.canView('manage_roles'));
 
   readonly busca = this.formBuilder.nonNullable.control('');
 
@@ -57,6 +62,14 @@ export class UsuariosPage {
   readonly salvando = signal(false);
   readonly erroFormulario = signal('');
   readonly errosCampo = signal<FieldErrors>({});
+  readonly papeis = signal<Papel[]>([]);
+  readonly carregandoPapeis = signal(false);
+
+  readonly escopos = [
+    { label: 'Global', value: 'GLOBAL' },
+    { label: 'Empresa', value: 'COMPANY' },
+    { label: 'Filial', value: 'BRANCH' },
+  ];
 
   readonly formulario = this.formBuilder.nonNullable.group({
     username: ['', [Validators.required]],
@@ -66,7 +79,10 @@ export class UsuariosPage {
     password: ['', [Validators.required]],
     password_confirm: ['', [Validators.required]],
     must_change_password: [true],
-    reason: ['', [Validators.required]],
+    role_id: [null as number | null],
+    scope_type: ['GLOBAL' as 'GLOBAL' | 'COMPANY' | 'BRANCH'],
+    company_code: [null as number | null],
+    branch_code: [null as number | null],
   });
 
   readonly dialogoAdAberto = signal(false);
@@ -101,10 +117,16 @@ export class UsuariosPage {
   }
 
   abrirDialogo(): void {
-    this.formulario.reset({ must_change_password: true });
+    this.formulario.reset({
+      must_change_password: true,
+      scope_type: 'GLOBAL',
+    });
     this.errosCampo.set({});
     this.erroFormulario.set('');
     this.dialogoAberto.set(true);
+    if (this.podeGerenciarPapeis() && this.papeis().length === 0) {
+      this.carregarPapeis();
+    }
   }
 
   abrirDetalhe(usuario: Usuario): void {
@@ -189,7 +211,7 @@ export class UsuariosPage {
   }
 
   salvar(): void {
-    if (this.formulario.invalid || this.salvando()) {
+    if (!this.validarPapelInicial() || this.formulario.invalid || this.salvando()) {
       this.formulario.markAllAsTouched();
       return;
     }
@@ -197,21 +219,77 @@ export class UsuariosPage {
     this.erroFormulario.set('');
     this.errosCampo.set({});
 
+    const {
+      role_id,
+      scope_type,
+      company_code,
+      branch_code,
+      ...dadosUsuario
+    } = this.formulario.getRawValue();
+    const payload: NovoUsuario = { ...dadosUsuario };
+    if (role_id !== null) {
+      payload.initial_role = {
+        role_id,
+        scope_type,
+        company_code: scope_type === 'GLOBAL' ? null : company_code,
+        branch_code: scope_type === 'BRANCH' ? branch_code : null,
+        valid_until: null,
+      };
+    }
+
     this.service
-      .criar(this.formulario.getRawValue())
+      .criar(payload)
       .pipe(
         finalize(() => this.salvando.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: () => {
+        next: (usuario) => {
           this.dialogoAberto.set(false);
-          this.carregar(this.busca.value);
+          this.abrirDetalhe(usuario);
         },
         error: (error) => {
           this.errosCampo.set(fieldErrors(error));
           this.erroFormulario.set(errorMessage(error, 'Não foi possível criar o usuário.'));
         },
+      });
+  }
+
+  private validarPapelInicial(): boolean {
+    const {
+      role_id,
+      scope_type,
+      company_code,
+      branch_code,
+    } = this.formulario.getRawValue();
+    if (role_id === null) {
+      return true;
+    }
+    if (scope_type !== 'GLOBAL' && company_code === null) {
+      this.erroFormulario.set('Informe a empresa do escopo do papel inicial.');
+      return false;
+    }
+    if (scope_type === 'BRANCH' && branch_code === null) {
+      this.erroFormulario.set('Informe a filial do escopo do papel inicial.');
+      return false;
+    }
+    return true;
+  }
+
+  private carregarPapeis(): void {
+    this.carregandoPapeis.set(true);
+    this.papeisService
+      .listar()
+      .pipe(
+        finalize(() => this.carregandoPapeis.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (pagina) => this.papeis.set(pagina.results.filter((papel) => papel.is_active)),
+        error: (error) =>
+          this.erroFormulario.set(
+            errorMessage(error, 'Não foi possível carregar os papéis disponíveis.'),
+          ),
       });
   }
 

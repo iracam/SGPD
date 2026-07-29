@@ -206,9 +206,16 @@
               optionLabel="code"
               optionValue="id"
               placeholder="Selecione o papel"
+              [loading]="carregandoPapeis()"
               appendTo="body"
               styleClass="campo__select"
             ></p-select>
+            @if (
+              formPapel.controls.role_id.touched &&
+              formPapel.controls.role_id.hasError('required')
+            ) {
+              <small class="campo__erro">Selecione o papel que será atribuído.</small>
+            }
             @for (erro of erros('role_id'); track erro) { <small class="campo__erro">{{ erro }}</small> }
           </div>
           <div class="campo">
@@ -240,11 +247,6 @@
               }
             </div>
           }
-          <div class="campo">
-            <label for="p_reason">Justificativa</label>
-            <textarea pTextarea id="p_reason" formControlName="reason" rows="3"></textarea>
-            @for (erro of erros('reason'); track erro) { <small class="campo__erro">{{ erro }}</small> }
-          </div>
         </div>
       }
 
@@ -336,7 +338,14 @@
 
     <div class="dialogo-acoes">
       <p-button type="button" severity="secondary" [text]="true" label="Cancelar" (onClick)="fechar()"></p-button>
-      <p-button type="submit" icon="pi pi-check" label="Confirmar" [loading]="salvando()"></p-button>
+      <p-button
+        type="button"
+        icon="pi pi-check"
+        label="Confirmar"
+        [loading]="salvando()"
+        [disabled]="acao() === 'papel' && carregandoPapeis()"
+        (onClick)="confirmar()"
+      ></p-button>
     </div>
   </form>
 </p-dialog>

@@ -27,6 +27,22 @@ describe('api-error', () => {
     expect(fieldErrors(erro)).toEqual({ email: ['Inválido.'] });
   });
 
+  it('achata erros de contratos aninhados mantendo o caminho do campo', () => {
+    const erro = resposta({
+      code: 'validation_error',
+      message: 'Os dados enviados são inválidos.',
+      details: {
+        initial_role: {
+          branch_code: ['Informe empresa e filial para esse escopo.'],
+        },
+      },
+    });
+
+    expect(fieldErrors(erro)).toEqual({
+      'initial_role.branch_code': ['Informe empresa e filial para esse escopo.'],
+    });
+  });
+
   it('devolve objeto vazio quando não há details', () => {
     expect(fieldErrors(resposta({ code: 'permission_denied', message: 'Negado.' }))).toEqual({});
   });

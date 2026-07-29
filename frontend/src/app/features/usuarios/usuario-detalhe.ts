@@ -61,6 +61,7 @@ export class UsuarioDetalhePage {
   readonly erroPagina = signal('');
 
   readonly papeis = signal<Papel[]>([]);
+  readonly carregandoPapeis = signal(false);
   readonly podeGerenciarPapeis = computed(() => this.authService.canView('manage_roles'));
   readonly podeVincularAd = computed(() => this.authService.canView('link_ad_identity'));
 
@@ -122,7 +123,6 @@ export class UsuarioDetalhePage {
     scope_type: ['GLOBAL' as 'GLOBAL' | 'COMPANY' | 'BRANCH', [Validators.required]],
     company_code: [null as number | null],
     branch_code: [null as number | null],
-    reason: ['', [Validators.required]],
   });
 
   readonly formMotivo = this.formBuilder.nonNullable.group({
@@ -277,8 +277,7 @@ export class UsuarioDetalhePage {
         return this.service.redefinirSenha(usuario.id, this.formSenha.getRawValue());
       }
       case 'papel': {
-        if (this.formPapel.invalid) {
-          this.formPapel.markAllAsTouched();
+        if (!this.validarAtribuicaoPapel()) {
           return null;
         }
         const valor = this.formPapel.getRawValue();
@@ -288,7 +287,6 @@ export class UsuarioDetalhePage {
           company_code: valor.scope_type === 'GLOBAL' ? null : valor.company_code,
           branch_code: valor.scope_type === 'BRANCH' ? valor.branch_code : null,
           valid_until: null,
-          reason: valor.reason,
         });
       }
       case 'revogar': {
@@ -323,6 +321,24 @@ export class UsuarioDetalhePage {
     }
   }
 
+  private validarAtribuicaoPapel(): boolean {
+    const valor = this.formPapel.getRawValue();
+    if (this.formPapel.invalid || valor.role_id === null) {
+      this.formPapel.markAllAsTouched();
+      this.erroFormulario.set('Selecione o papel que será atribuído.');
+      return false;
+    }
+    if (valor.scope_type !== 'GLOBAL' && valor.company_code === null) {
+      this.erroFormulario.set('Informe a empresa do escopo do papel.');
+      return false;
+    }
+    if (valor.scope_type === 'BRANCH' && valor.branch_code === null) {
+      this.erroFormulario.set('Informe a filial do escopo do papel.');
+      return false;
+    }
+    return true;
+  }
+
   private carregar(): void {
     this.carregando.set(true);
     this.erroPagina.set('');
@@ -339,12 +355,19 @@ export class UsuarioDetalhePage {
   }
 
   private carregarPapeis(): void {
+    this.carregandoPapeis.set(true);
     this.papeisService
       .listar()
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        finalize(() => this.carregandoPapeis.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (pagina) => this.papeis.set(pagina.results.filter((papel) => papel.is_active)),
-        error: () => undefined,
+        error: (error) =>
+          this.erroFormulario.set(
+            errorMessage(error, 'Não foi possível carregar os papéis disponíveis.'),
+          ),
       });
   }
 }

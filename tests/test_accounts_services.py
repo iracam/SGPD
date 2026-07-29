@@ -17,6 +17,8 @@ from apps.accounts.models import (
     User,
 )
 from apps.accounts.services import (
+    LOCAL_USER_CREATION_REASON,
+    ROLE_ASSIGNMENT_REASON,
     AssignRoleCommand,
     AssignRoleService,
     BootstrapIdentityAdminCommand,
@@ -27,6 +29,7 @@ from apps.accounts.services import (
     CreateRoleService,
     CreateUserCommand,
     CreateUserService,
+    InitialRoleAssignmentCommand,
     LinkAdIdentityCommand,
     LinkAdIdentityService,
     RevokeRoleCommand,
@@ -103,7 +106,6 @@ def test_create_user_normalizes_identity_and_audits(actor: User) -> None:
             last_name="Usuária",
             password="Temporary-only!2026",
             must_change_password=True,
-            reason="Admissão no SGPD.",
         )
     )
 
@@ -113,6 +115,7 @@ def test_create_user_normalizes_identity_and_audits(actor: User) -> None:
     event = AccountAuditEvent.objects.get(event_type=AccountEventType.USER_CREATED)
     assert event.actor == actor
     assert event.target_user == user
+    assert event.reason == LOCAL_USER_CREATION_REASON
     assert "password" not in event.changes
 
 
@@ -127,11 +130,77 @@ def test_create_user_rolls_back_when_password_is_invalid(actor: User) -> None:
                 last_name="Fraco",
                 password="123",
                 must_change_password=True,
-                reason="Teste de rollback.",
             )
         )
 
     assert not User.objects.filter(username="usuario.fraco").exists()
+    assert not AccountAuditEvent.objects.exists()
+
+
+def test_create_user_assigns_initial_role_in_the_same_transaction(actor: User) -> None:
+    role = Role.objects.create(code="GESTOR_INICIAL", name="Gestor inicial")
+
+    user = CreateUserService().execute(
+        CreateUserCommand(
+            actor=actor,
+            username="gestor.inicial",
+            email="gestor.inicial@example.invalid",
+            first_name="Gestor",
+            last_name="Inicial",
+            password="Temporary-only!2026",
+            must_change_password=True,
+            initial_role=InitialRoleAssignmentCommand(
+                role_id=role.pk,
+                scope_type=ScopeType.GLOBAL,
+                company_code=None,
+                branch_code=None,
+                valid_from=None,
+                valid_until=None,
+            ),
+        )
+    )
+
+    assignment = user.role_assignments.get()
+    assert assignment.role == role
+    assert assignment.scope_key == "*"
+    assert assignment.assigned_by == actor
+    assert AccountAuditEvent.objects.filter(
+        event_type=AccountEventType.USER_CREATED,
+        target_user=user,
+    ).exists()
+    assert AccountAuditEvent.objects.filter(
+        event_type=AccountEventType.ROLE_ASSIGNED,
+        target_user=user,
+        reason=ROLE_ASSIGNMENT_REASON,
+    ).exists()
+
+
+def test_create_user_rolls_back_when_initial_role_is_inactive(actor: User) -> None:
+    role = Role.objects.create(code="PAPEL_INATIVO", name="Papel inativo", is_active=False)
+
+    with pytest.raises(ValidationError, match="papel inativo"):
+        CreateUserService().execute(
+            CreateUserCommand(
+                actor=actor,
+                username="papel.inativo",
+                email="papel.inativo@example.invalid",
+                first_name="Papel",
+                last_name="Inativo",
+                password="Temporary-only!2026",
+                must_change_password=True,
+                initial_role=InitialRoleAssignmentCommand(
+                    role_id=role.pk,
+                    scope_type=ScopeType.GLOBAL,
+                    company_code=None,
+                    branch_code=None,
+                    valid_from=None,
+                    valid_until=None,
+                ),
+            )
+        )
+
+    assert not User.objects.filter(username="papel.inativo").exists()
+    assert not role.assignments.exists()
     assert not AccountAuditEvent.objects.exists()
 
 
@@ -215,7 +284,6 @@ def test_account_services_reject_actor_without_required_permission() -> None:
                 last_name="Criado",
                 password="Temporary-only!2026",
                 must_change_password=True,
-                reason="Tentativa sem permissão.",
             )
         )
     with pytest.raises(PermissionDenied):
@@ -349,7 +417,6 @@ def test_role_assignment_enforces_organizational_scope(actor: User) -> None:
             branch_code=None,
             valid_from=timezone.now() - timedelta(minutes=1),
             valid_until=None,
-            reason="Responsabilidade pela empresa 1.",
         )
     )
 
@@ -381,7 +448,6 @@ def test_role_assignment_is_idempotent_and_revocable(actor: User) -> None:
         branch_code=None,
         valid_from=None,
         valid_until=None,
-        reason="Atribuição de auditoria.",
     )
 
     first = AssignRoleService().execute(command)
@@ -398,6 +464,15 @@ def test_role_assignment_is_idempotent_and_revocable(actor: User) -> None:
     )
     assert not revoked.is_active
     assert revoked.revoked_by == actor
+
+    reactivated = AssignRoleService().execute(command)
+    assert reactivated.pk == first.pk
+    assert reactivated.is_active
+    assert reactivated.revoked_by is None
+    assert reactivated.revoked_at is None
+    events = AccountAuditEvent.objects.filter(event_type=AccountEventType.ROLE_ASSIGNED)
+    assert events.count() == 2
+    assert set(events.values_list("reason", flat=True)) == {ROLE_ASSIGNMENT_REASON}
 
 
 def test_role_assignment_avoids_for_update_with_limit_on_oracle(
@@ -424,7 +499,6 @@ def test_role_assignment_avoids_for_update_with_limit_on_oracle(
             branch_code=None,
             valid_from=None,
             valid_until=None,
-            reason="Regressão Oracle sem limite em bloqueio.",
         )
     )
 

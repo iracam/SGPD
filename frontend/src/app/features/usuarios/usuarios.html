@@ -125,7 +125,7 @@
   [modal]="true"
   [draggable]="false"
   [dismissableMask]="true"
-  [style]="{ width: '95vw', maxWidth: '34rem' }"
+  [style]="{ width: '95vw', maxWidth: '40rem' }"
 >
   <form class="formulario" [formGroup]="formulario" (ngSubmit)="salvar()">
     @if (erroFormulario()) {
@@ -186,17 +186,94 @@
       <label for="must_change_password">Exigir troca da senha no próximo acesso</label>
     </div>
 
-    <div class="campo">
-      <label for="reason">Justificativa</label>
-      <textarea pTextarea id="reason" formControlName="reason" rows="3"></textarea>
-      @for (erro of erros('reason'); track erro) {
-        <small class="campo__erro">{{ erro }}</small>
-      }
-    </div>
+    @if (podeGerenciarPapeis()) {
+      <fieldset class="papel-inicial">
+        <legend>Papel inicial</legend>
+        <p>
+          Opcional. A conta e a designação serão gravadas juntas e auditadas.
+        </p>
+
+        <div class="campo">
+          <label for="initial_role">Papel</label>
+          <p-select
+            inputId="initial_role"
+            formControlName="role_id"
+            [options]="papeis()"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Criar sem papel inicial"
+            [showClear]="true"
+            [loading]="carregandoPapeis()"
+            appendTo="body"
+            styleClass="campo__select"
+          ></p-select>
+          @for (erro of erros('initial_role.role_id'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        @if (formulario.controls.role_id.value !== null) {
+          <div class="campo">
+            <label for="initial_scope">Escopo</label>
+            <p-select
+              inputId="initial_scope"
+              formControlName="scope_type"
+              [options]="escopos"
+              optionLabel="label"
+              optionValue="value"
+              appendTo="body"
+              styleClass="campo__select"
+            ></p-select>
+            @for (erro of erros('initial_role.scope_type'); track erro) {
+              <small class="campo__erro">{{ erro }}</small>
+            }
+          </div>
+
+          @if (formulario.controls.scope_type.value !== 'GLOBAL') {
+            <div class="campo-duplo">
+              <div class="campo">
+                <label for="initial_company">Empresa</label>
+                <input
+                  pInputText
+                  id="initial_company"
+                  type="number"
+                  inputmode="numeric"
+                  formControlName="company_code"
+                />
+                @for (erro of erros('initial_role.company_code'); track erro) {
+                  <small class="campo__erro">{{ erro }}</small>
+                }
+              </div>
+              @if (formulario.controls.scope_type.value === 'BRANCH') {
+                <div class="campo">
+                  <label for="initial_branch">Filial</label>
+                  <input
+                    pInputText
+                    id="initial_branch"
+                    type="number"
+                    inputmode="numeric"
+                    formControlName="branch_code"
+                  />
+                  @for (erro of erros('initial_role.branch_code'); track erro) {
+                    <small class="campo__erro">{{ erro }}</small>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+      </fieldset>
+    }
 
     <div class="dialogo-acoes">
       <p-button type="button" severity="secondary" [text]="true" label="Cancelar" (onClick)="dialogoAberto.set(false)"></p-button>
-      <p-button type="submit" icon="pi pi-check" label="Criar usuário" [loading]="salvando()"></p-button>
+      <p-button
+        type="button"
+        icon="pi pi-check"
+        label="Criar usuário"
+        [loading]="salvando()"
+        (onClick)="salvar()"
+      ></p-button>
     </div>
   </form>
 </p-dialog>

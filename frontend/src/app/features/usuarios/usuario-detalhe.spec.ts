@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../core/auth/auth.service';
@@ -44,6 +44,7 @@ describe('UsuarioDetalhePage', () => {
           provide: UsuariosService,
           useValue: {
             detalhe: vi.fn(() => of(target)),
+            atribuirPapel: vi.fn(() => of({})),
           },
         },
         {
@@ -102,5 +103,64 @@ describe('UsuarioDetalhePage', () => {
 
     fixture.componentInstance.abrir('senha');
     expect(fixture.componentInstance.acao()).toBe('senha');
+  });
+
+  it('atribui papel sem solicitar ou enviar justificativa manual', async () => {
+    await render();
+    fixture.componentInstance.abrir('papel');
+    fixture.componentInstance.formPapel.setValue({
+      role_id: 7,
+      scope_type: 'COMPANY',
+      company_code: 1,
+      branch_code: null,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('label[for="p_reason"]')).toBeNull();
+
+    const confirmButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.includes('Confirmar'));
+    confirmButton?.click();
+    fixture.detectChanges();
+
+    const service = TestBed.inject(UsuariosService);
+    expect(service.atribuirPapel).toHaveBeenCalledWith(target.id, {
+      role_id: 7,
+      scope_type: 'COMPANY',
+      company_code: 1,
+      branch_code: null,
+      valid_until: null,
+    });
+  });
+
+  it('explica por que a atribuição não foi enviada quando falta o papel', async () => {
+    await render();
+    fixture.componentInstance.abrir('papel');
+    fixture.detectChanges();
+
+    fixture.componentInstance.confirmar();
+    fixture.detectChanges();
+
+    const service = TestBed.inject(UsuariosService);
+    expect(service.atribuirPapel).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Selecione o papel que será atribuído.',
+    );
+  });
+
+  it('exibe a falha ao carregar o catálogo em vez de encerrar silenciosamente', async () => {
+    const papeisService = TestBed.inject(PapeisService);
+    vi.mocked(papeisService.listar).mockReturnValue(
+      throwError(() => new Error('catálogo indisponível')),
+    );
+    await render();
+
+    fixture.componentInstance.abrir('papel');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'Não foi possível carregar os papéis disponíveis.',
+    );
   });
 });

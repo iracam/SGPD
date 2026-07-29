@@ -54,7 +54,7 @@ export interface NovoUsuario {
   password: string;
   password_confirm: string;
   must_change_password: boolean;
-  reason: string;
+  initial_role?: NovaAtribuicao | null;
 }
 
 export interface EdicaoUsuario {
@@ -79,7 +79,6 @@ export interface NovaAtribuicao {
   company_code: number | null;
   branch_code: number | null;
   valid_until: string | null;
-  reason: string;
 }
 
 export interface VinculoAd {

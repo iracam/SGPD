@@ -7,6 +7,7 @@ boundary (ADR-024), so this layer never becomes the only guard.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from django.contrib.auth.models import Permission
@@ -56,6 +57,7 @@ from .services import (
     CreateRoleService,
     CreateUserCommand,
     CreateUserService,
+    InitialRoleAssignmentCommand,
     LinkAdIdentityCommand,
     LinkAdIdentityService,
     LinkDirectoryIdentityService,
@@ -76,6 +78,8 @@ VIEW_ACCOUNT_AUDIT_PERMISSION = "accounts.view_account_audit"
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
+
+logger = logging.getLogger(__name__)
 
 
 def _isoformat(value: Any) -> str | None:
@@ -221,21 +225,57 @@ class UserListCreateView(AccountsAPIView):
         return self.paginated(users, user_detail_payload, offset=offset, limit=limit)
 
     def post(self, request: Request) -> Response:
+        actor = self.actor(request)
+        initial_role_requested = (
+            isinstance(request.data, dict) and request.data.get("initial_role") is not None
+        )
+        logger.info(
+            "account_user_creation_requested",
+            extra={
+                "event_type": "USER_CREATION_REQUESTED",
+                "actor_id": actor.pk,
+                "initial_role_requested": initial_role_requested,
+                "outcome": "received",
+            },
+        )
         serializer = UserCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = cast(dict[str, Any], serializer.validated_data)
+        initial_role_data = data.get("initial_role")
+        initial_role = None
+        if initial_role_data is not None:
+            initial_role = InitialRoleAssignmentCommand(
+                role_id=initial_role_data["role_id"],
+                scope_type=ScopeType(initial_role_data["scope_type"]),
+                company_code=initial_role_data.get("company_code"),
+                branch_code=initial_role_data.get("branch_code"),
+                valid_from=initial_role_data.get("valid_from"),
+                valid_until=initial_role_data.get("valid_until"),
+            )
 
         user = CreateUserService().execute(
             CreateUserCommand(
-                actor=self.actor(request),
+                actor=actor,
                 username=data["username"],
                 email=data["email"],
                 first_name=data["first_name"],
                 last_name=data["last_name"],
                 password=data["password"],
                 must_change_password=data["must_change_password"],
-                reason=data["reason"],
+                initial_role=initial_role,
             )
+        )
+        logger.info(
+            "account_user_creation_completed",
+            extra={
+                "event_type": "USER_CREATED",
+                "actor_id": actor.pk,
+                "target_user_id": user.pk,
+                "role_id": initial_role.role_id if initial_role is not None else None,
+                "scope_type": (initial_role.scope_type if initial_role is not None else None),
+                "initial_role_requested": initial_role is not None,
+                "outcome": "completed",
+            },
         )
         return Response(user_detail_payload(user), status=201)
 
@@ -298,6 +338,16 @@ class UserRoleAssignmentView(AccountsAPIView):
     required_permission = MANAGE_ROLES_PERMISSION
 
     def post(self, request: Request, user_id: int) -> Response:
+        actor = self.actor(request)
+        logger.info(
+            "account_role_assignment_requested",
+            extra={
+                "event_type": "ROLE_ASSIGNMENT_REQUESTED",
+                "actor_id": actor.pk,
+                "target_user_id": user_id,
+                "outcome": "received",
+            },
+        )
         get_object_or_404(User, pk=user_id)
         serializer = RoleAssignmentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -306,7 +356,7 @@ class UserRoleAssignmentView(AccountsAPIView):
 
         assignment = AssignRoleService().execute(
             AssignRoleCommand(
-                actor=self.actor(request),
+                actor=actor,
                 user_id=user_id,
                 role_id=data["role_id"],
                 scope_type=ScopeType(data["scope_type"]),
@@ -314,8 +364,20 @@ class UserRoleAssignmentView(AccountsAPIView):
                 branch_code=data.get("branch_code"),
                 valid_from=data.get("valid_from"),
                 valid_until=data.get("valid_until"),
-                reason=data["reason"],
             )
+        )
+        logger.info(
+            "account_role_assignment_completed",
+            extra={
+                "event_type": "ROLE_ASSIGNED",
+                "actor_id": actor.pk,
+                "target_user_id": user_id,
+                "role_id": assignment.role_id,
+                "assignment_id": assignment.pk,
+                "scope_type": assignment.scope_type,
+                "scope_key": assignment.scope_key,
+                "outcome": "completed",
+            },
         )
         return Response(assignment_payload(assignment), status=201)
 

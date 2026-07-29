@@ -1,6 +1,26 @@
 @use 'listagem';
 @use 'breakpoints' as bp;
 
+.papel-inicial {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.75rem;
+
+  legend {
+    padding: 0 0.35rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    color: var(--p-text-muted-color);
+  }
+}
+
 .diretorio {
   display: flex;
   flex-direction: column;

@@ -13,14 +13,31 @@ function body(error: unknown): ApiError | null {
 
 /**
  * Traduz `details` do envelope da API em erros por campo, prontos para o
- * formulário. Aceita tanto lista quanto string, que é como o backend produz
- * dependendo da origem da validação.
+ * formulário. Aceita lista, string e contratos aninhados, preservando nesses
+ * casos o caminho completo do campo (por exemplo, `initial_role.role_id`).
  */
 export function fieldErrors(error: unknown): FieldErrors {
-  const details = body(error)?.details ?? {};
+  const details = (body(error)?.details ?? {}) as Record<string, unknown>;
   const normalized: FieldErrors = {};
-  for (const [field, messages] of Object.entries(details)) {
-    normalized[field] = Array.isArray(messages) ? messages : [messages];
+
+  const visit = (prefix: string, detail: unknown): void => {
+    if (typeof detail === 'string') {
+      normalized[prefix] = [detail];
+      return;
+    }
+    if (Array.isArray(detail)) {
+      normalized[prefix] = detail.map(String);
+      return;
+    }
+    if (detail !== null && typeof detail === 'object') {
+      for (const [field, nested] of Object.entries(detail)) {
+        visit(prefix ? `${prefix}.${field}` : field, nested);
+      }
+    }
+  };
+
+  for (const [field, detail] of Object.entries(details)) {
+    visit(field, detail);
   }
   return normalized;
 }
