@@ -1,0 +1,150 @@
+@use 'breakpoints' as bp;
+
+.cabecalho {
+  margin-block-end: 1.25rem;
+}
+
+.lista {
+  display: grid;
+  gap: 1rem;
+}
+
+.cartao {
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.9rem;
+  background: var(--p-content-background);
+}
+
+.tarefa {
+  display: grid;
+  gap: 1rem;
+}
+
+.tarefa__cabecalho,
+.acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tarefa__cabecalho h2,
+.tarefa__cabecalho p,
+.checklist h3,
+.vazio h2,
+.vazio p {
+  margin-block: 0.2rem;
+}
+
+.rotulo {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.metadados {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.metadados dt {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+}
+
+.metadados dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.checklist {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.pergunta,
+.observacao {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.pergunta {
+  padding: 0.85rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.7rem;
+}
+
+.pergunta > label,
+.observacao > label {
+  font-weight: 650;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--p-form-field-border-color);
+  border-radius: var(--p-form-field-border-radius);
+  background: var(--p-form-field-background);
+  color: var(--p-form-field-color);
+  font: inherit;
+}
+
+select[multiple] {
+  min-height: 7rem;
+}
+
+.confirmacao {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  min-height: 44px;
+}
+
+.confirmacao input {
+  width: 1.25rem;
+  min-height: 1.25rem;
+}
+
+.acoes {
+  align-items: stretch;
+}
+
+.vazio {
+  text-align: center;
+}
+
+.vazio i {
+  color: var(--p-primary-color);
+  font-size: 2rem;
+}
+
+@include bp.from(bp.$md) {
+  .tarefa__cabecalho,
+  .acoes {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .metadados {
+    grid-template-columns: repeat(3, minmax(8rem, 1fr));
+  }
+
+  .acoes {
+    justify-content: flex-end;
+  }
+}
+
+@include bp.from(bp.$lg) {
+  input,
+  select {
+    min-height: var(--control-height);
+  }
+}

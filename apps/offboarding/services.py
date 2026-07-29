@@ -5,12 +5,14 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import F, Q, QuerySet
 from django.utils import timezone
 
 from apps.accounts.authorization import has_effective_role
@@ -28,6 +30,7 @@ from apps.sectors.models import (
     ValidationSector,
 )
 from apps.templates_engine.models import (
+    ChecklistResponseType,
     ChecklistTemplateItem,
     ChecklistTemplateVersion,
     ValidationGroupVersion,
@@ -54,6 +57,8 @@ from .models import (
 PROCESS_OPENED_DESCRIPTION = "Abertura explícita de processo demissional pelo DP."
 DRAFT_SELECTION_DESCRIPTION = "Seleção de grupos e ajustes do rascunho pelo DP."
 PROCESS_STARTED_DESCRIPTION = "Início explícito e idempotente do processo pelo DP."
+SECTOR_TASK_STARTED_DESCRIPTION = "Início explícito da análise pela pessoa responsável."
+SECTOR_TASK_COMPLETED_DESCRIPTION = "Conclusão explícita da validação pelo setor."
 START_ACTION = "START"
 
 
@@ -1047,3 +1052,447 @@ class StartOffboardingProcessService:
             tasks=tuple(task_rows),
             replayed=False,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ChecklistAnswerValue:
+    item_id: int
+    value: Any
+
+
+@dataclass(frozen=True, slots=True)
+class StartSectorTaskCommand:
+    actor: User
+    task_id: int
+    expected_version: int
+    idempotency_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class CompleteSectorTaskCommand:
+    actor: User
+    task_id: int
+    expected_version: int
+    idempotency_key: str
+    answers: tuple[ChecklistAnswerValue, ...]
+    notes: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class SectorTaskMutationResult:
+    task: ProcessSectorTask
+    replayed: bool
+
+
+def sector_tasks_for_actor(actor: User) -> QuerySet[ProcessSectorTask]:
+    """Return only tasks covered by an effective sector responsibility."""
+
+    if not actor.is_active:
+        return ProcessSectorTask.objects.none()
+    instant = timezone.now()
+    scope = (
+        Q(sector__scopes__scope_type="GLOBAL")
+        | Q(
+            sector__scopes__scope_type="COMPANY",
+            sector__scopes__company_code=F("process__company_code"),
+        )
+        | Q(
+            sector__scopes__scope_type="BRANCH",
+            sector__scopes__company_code=F("process__company_code"),
+            sector__scopes__branch_code=F("process__branch_code"),
+        )
+    )
+    return (
+        ProcessSectorTask.objects.filter(
+            process__status=ProcessStatus.STARTED,
+            sector__is_active=True,
+            sector__responsibles__user=actor,
+            sector__responsibles__is_active=True,
+            sector__responsibles__valid_from__lte=instant,
+        )
+        .filter(
+            Q(sector__responsibles__valid_until__isnull=True)
+            | Q(sector__responsibles__valid_until__gt=instant)
+        )
+        .filter(scope)
+        .distinct()
+    )
+
+
+def _scope_covers_process(scope: SectorScope, process: OffboardingProcess) -> bool:
+    return (
+        scope.scope_type == "GLOBAL"
+        or (scope.scope_type == "COMPANY" and scope.company_code == process.company_code)
+        or (
+            scope.scope_type == "BRANCH"
+            and scope.company_code == process.company_code
+            and scope.branch_code == process.branch_code
+        )
+    )
+
+
+def _lock_task_and_authority(
+    *,
+    actor: User,
+    task_id: int,
+    at: datetime,
+) -> tuple[User, OffboardingProcess, ProcessSectorTask]:
+    try:
+        process_id = ProcessSectorTask.objects.values_list("process_id", flat=True).get(pk=task_id)
+    except ProcessSectorTask.DoesNotExist as exc:
+        raise ProcessSectorTask.DoesNotExist from exc
+    process = OffboardingProcess.objects.select_for_update().get(pk=process_id)
+    task = ProcessSectorTask.objects.select_for_update().get(pk=task_id, process=process)
+    sector = ValidationSector.objects.select_for_update().get(pk=task.sector_id)
+    responsibilities = list(
+        SectorResponsible.objects.select_for_update()
+        .filter(
+            sector=sector,
+            user_id=actor.pk,
+            is_active=True,
+            valid_from__lte=at,
+        )
+        .filter(Q(valid_until__isnull=True) | Q(valid_until__gt=at))
+        .order_by("pk")
+    )
+    try:
+        locked_actor = User.objects.select_for_update().get(pk=actor.pk)
+    except User.DoesNotExist as exc:
+        raise PermissionDenied("O ator não está mais disponível.") from exc
+    scopes = tuple(SectorScope.objects.filter(sector=sector).order_by("pk"))
+    if (
+        not locked_actor.is_active
+        or not sector.is_active
+        or not responsibilities
+        or not any(_scope_covers_process(scope, process) for scope in scopes)
+    ):
+        raise PermissionDenied(
+            "O ator não possui responsabilidade vigente pelo setor no escopo do processo."
+        )
+    if process.status != ProcessStatus.STARTED:
+        raise ValidationError("A tarefa só pode ser movimentada em processo iniciado.")
+    return locked_actor, process, task
+
+
+def _task_action(prefix: str, task_id: int) -> str:
+    action = f"{prefix}:{task_id}"
+    if len(action) > 30:
+        raise ValidationError("O identificador da tarefa excede o contrato de idempotência.")
+    return action
+
+
+def _validated_idempotency_key(value: str) -> str:
+    key = value.strip()
+    if not key:
+        raise ValidationError({"idempotency_key": "Informe a chave de idempotência."})
+    if len(key) > 100:
+        raise ValidationError(
+            {"idempotency_key": "A chave de idempotência aceita até 100 caracteres."}
+        )
+    return key
+
+
+def _canonical_hash(payload: dict[str, Any]) -> str:
+    canonical = json.dumps(
+        payload,
+        separators=(",", ":"),
+        sort_keys=True,
+        ensure_ascii=False,
+    ).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _task_idempotency_replay(
+    *,
+    process: OffboardingProcess,
+    task: ProcessSectorTask,
+    actor: User,
+    action: str,
+    key: str,
+    request_hash: str,
+) -> SectorTaskMutationResult | None:
+    previous_rows = list(
+        ProcessActionIdempotency.objects.select_for_update()
+        .filter(process=process, action=action, idempotency_key=key)
+        .order_by("pk")
+    )
+    if not previous_rows:
+        return None
+    previous = previous_rows[0]
+    if previous.actor_id != actor.pk or previous.request_hash != request_hash:
+        raise IdempotencyConflict("A chave de idempotência já foi usada com outro conteúdo.")
+    task.refresh_from_db()
+    return SectorTaskMutationResult(task=task, replayed=True)
+
+
+def _record_task_idempotency(
+    *,
+    process: OffboardingProcess,
+    task: ProcessSectorTask,
+    actor: User,
+    action: str,
+    key: str,
+    request_hash: str,
+) -> None:
+    ProcessActionIdempotency.objects.create(
+        process=process,
+        action=action,
+        idempotency_key=key,
+        request_hash=request_hash,
+        response={
+            "task_id": task.pk,
+            "status": task.status,
+            "version": task.version,
+        },
+        actor=actor,
+    )
+
+
+class StartSectorTaskService:
+    @transaction.atomic
+    def execute(self, command: StartSectorTaskCommand) -> SectorTaskMutationResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        action = _task_action("TSTART", command.task_id)
+        request_hash = _canonical_hash(
+            {
+                "task_id": command.task_id,
+                "expected_version": command.expected_version,
+            }
+        )
+        actor, process, task = _lock_task_and_authority(
+            actor=command.actor,
+            task_id=command.task_id,
+            at=timezone.now(),
+        )
+        replay = _task_idempotency_replay(
+            process=process,
+            task=task,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if task.status != SectorTaskStatus.PENDING:
+            raise ValidationError("Somente uma tarefa pendente pode entrar em análise.")
+        if task.version != command.expected_version:
+            raise ValidationError("A tarefa foi alterada por outra sessão. Recarregue a página.")
+
+        task.status = SectorTaskStatus.IN_ANALYSIS
+        task.version += 1
+        task.full_clean()
+        task.save(update_fields=("status", "version"))
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.SECTOR_TASK_STARTED,
+            actor=actor,
+            description=SECTOR_TASK_STARTED_DESCRIPTION,
+            data={
+                "task_id": task.pk,
+                "sector_id": task.sector_id,
+                "status": task.status,
+                "task_version": task.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        _record_task_idempotency(
+            process=process,
+            task=task,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        return SectorTaskMutationResult(task=task, replayed=False)
+
+
+def _choice_values(item: ProcessChecklistItem) -> tuple[str, ...]:
+    choices = item.config_snapshot.get("choices")
+    if not isinstance(choices, list) or any(not isinstance(value, str) for value in choices):
+        raise ValidationError(
+            {"answers": f"O item {item.pk} possui configuração histórica inválida."}
+        )
+    return tuple(value.strip() for value in choices)
+
+
+def _validated_answer(item: ProcessChecklistItem, value: Any) -> Any:
+    response_type = item.response_type_snapshot
+    if response_type == ChecklistResponseType.FILE:
+        raise ValidationError(
+            {"answers": f"O item {item.pk} depende do módulo de evidências ainda não habilitado."}
+        )
+    if item.requires_evidence:
+        raise ValidationError(
+            {"answers": f"O item {item.pk} exige evidência e ainda não pode ser concluído."}
+        )
+    if response_type == ChecklistResponseType.BOOLEAN:
+        if type(value) is not bool:
+            raise ValidationError({"answers": f"O item {item.pk} exige resposta sim/não."})
+        return value
+    if response_type == ChecklistResponseType.TEXT:
+        if not isinstance(value, str) or not value.strip():
+            raise ValidationError({"answers": f"O item {item.pk} exige texto não vazio."})
+        return value.strip()
+    if response_type == ChecklistResponseType.NUMBER:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValidationError({"answers": f"O item {item.pk} exige um número."})
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValidationError({"answers": f"O item {item.pk} exige um número finito."})
+        return value
+    if response_type == ChecklistResponseType.DATE:
+        if not isinstance(value, str):
+            raise ValidationError({"answers": f"O item {item.pk} exige uma data ISO."})
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValidationError({"answers": f"O item {item.pk} exige uma data ISO."}) from exc
+        if parsed.isoformat() != value:
+            raise ValidationError({"answers": f"O item {item.pk} exige uma data ISO."})
+        return value
+    if response_type == ChecklistResponseType.SINGLE_CHOICE:
+        choices = _choice_values(item)
+        if not isinstance(value, str) or value not in choices:
+            raise ValidationError({"answers": f"O item {item.pk} exige uma das opções publicadas."})
+        return value
+    if response_type == ChecklistResponseType.MULTIPLE_CHOICE:
+        choices = _choice_values(item)
+        if (
+            not isinstance(value, list)
+            or any(not isinstance(entry, str) for entry in value)
+            or len(set(value)) != len(value)
+            or any(entry not in choices for entry in value)
+        ):
+            raise ValidationError(
+                {"answers": f"O item {item.pk} exige opções publicadas sem repetição."}
+            )
+        if item.is_required and not value:
+            raise ValidationError({"answers": f"O item obrigatório {item.pk} exige resposta."})
+        return value
+    if response_type == ChecklistResponseType.CONFIRMATION:
+        if value is not True:
+            raise ValidationError({"answers": f"O item {item.pk} exige confirmação positiva."})
+        return True
+    raise ValidationError({"answers": f"O tipo histórico do item {item.pk} não é suportado."})
+
+
+def _validated_answers(
+    items: tuple[ProcessChecklistItem, ...],
+    answers: tuple[ChecklistAnswerValue, ...],
+) -> dict[int, Any]:
+    answer_ids = [answer.item_id for answer in answers]
+    if len(answer_ids) != len(set(answer_ids)):
+        raise ValidationError({"answers": "Um item do checklist foi informado mais de uma vez."})
+    items_by_id = {item.pk: item for item in items}
+    unknown = set(answer_ids) - items_by_id.keys()
+    if unknown:
+        raise ValidationError({"answers": "Uma resposta não pertence à tarefa informada."})
+    supplied = {answer.item_id: answer.value for answer in answers}
+    for item in items:
+        if item.is_required and (item.pk not in supplied or supplied[item.pk] is None):
+            raise ValidationError({"answers": f"O item obrigatório {item.pk} exige resposta."})
+    return {
+        item_id: _validated_answer(items_by_id[item_id], value)
+        for item_id, value in supplied.items()
+        if value is not None
+    }
+
+
+class CompleteSectorTaskService:
+    @transaction.atomic
+    def execute(self, command: CompleteSectorTaskCommand) -> SectorTaskMutationResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        notes = command.notes.strip()
+        if len(notes) > 4000:
+            raise ValidationError({"notes": "As observações aceitam até 4000 caracteres."})
+        answer_payload = [
+            {"item_id": answer.item_id, "value": answer.value}
+            for answer in sorted(command.answers, key=lambda value: value.item_id)
+        ]
+        action = _task_action("TCOMP", command.task_id)
+        request_hash = _canonical_hash(
+            {
+                "task_id": command.task_id,
+                "expected_version": command.expected_version,
+                "answers": answer_payload,
+                "notes": notes,
+            }
+        )
+        completed_at = timezone.now()
+        actor, process, task = _lock_task_and_authority(
+            actor=command.actor,
+            task_id=command.task_id,
+            at=completed_at,
+        )
+        replay = _task_idempotency_replay(
+            process=process,
+            task=task,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if task.status != SectorTaskStatus.IN_ANALYSIS:
+            raise ValidationError("Somente uma tarefa em análise pode ser concluída.")
+        if task.version != command.expected_version:
+            raise ValidationError("A tarefa foi alterada por outra sessão. Recarregue a página.")
+
+        items = tuple(
+            ProcessChecklistItem.objects.select_for_update()
+            .filter(task=task)
+            .order_by("display_order", "pk")
+        )
+        normalized = _validated_answers(items, command.answers)
+        for item in items:
+            if item.pk not in normalized:
+                continue
+            # Oracle 19c validates JSONField with `IS JSON`, que não aceita um
+            # escalar JSON no topo. O envelope mantém booleanos, números,
+            # textos e datas dentro de um documento objeto compatível.
+            item.response = {"value": normalized[item.pk]}
+            item.answered_by = actor
+            item.answered_at = completed_at
+            item.full_clean(exclude={"config_snapshot"})
+            item.save(update_fields=("response", "answered_by", "answered_at"))
+
+        task.status = SectorTaskStatus.COMPLETED
+        task.completed_at = completed_at
+        task.completed_by = actor
+        task.notes = notes
+        task.version += 1
+        task.full_clean()
+        task.save(
+            update_fields=(
+                "status",
+                "completed_at",
+                "completed_by",
+                "notes",
+                "version",
+            )
+        )
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.SECTOR_TASK_COMPLETED,
+            actor=actor,
+            description=SECTOR_TASK_COMPLETED_DESCRIPTION,
+            data={
+                "task_id": task.pk,
+                "sector_id": task.sector_id,
+                "status": task.status,
+                "answered_item_ids": sorted(normalized),
+                "answered_item_count": len(normalized),
+                "task_version": task.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        _record_task_idempotency(
+            process=process,
+            task=task,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        return SectorTaskMutationResult(task=task, replayed=False)

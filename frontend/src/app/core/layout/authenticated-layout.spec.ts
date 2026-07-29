@@ -124,4 +124,25 @@ describe('AuthenticatedLayout', () => {
       'Configurações',
     );
   });
+
+  it('mostra Minhas tarefas somente para responsabilidade derivada de setor', async () => {
+    fixture.detectChanges();
+    httpMock.expectOne(apiConfig.routes.authContext).flush(
+      contextWith(
+        {
+          manage_users: { can_view: false },
+          manage_roles: { can_view: false },
+          view_account_audit: { can_view: false },
+          query_senior_references: { can_view: false },
+          manage_sectors: { can_view: false },
+        },
+        false,
+        ['RESPONSAVEL_SETOR'],
+      ),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(labels()).toEqual(['Painel', 'Minhas tarefas']);
+  });
 });

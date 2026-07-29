@@ -50,9 +50,15 @@
 }
 
 .topbar__menu {
+  min-width: 44px;
+
   @include bp.from(bp.$lg) {
     display: none;
   }
+}
+
+:host ::ng-deep .topbar__menu .p-button {
+  min-width: 44px;
 }
 
 .topbar__collapse {

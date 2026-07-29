@@ -1,0 +1,198 @@
+<header class="cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-clipboard" aria-hidden="true"></i>
+      Validação setorial
+    </span>
+    <h1 class="page-title">Minhas tarefas</h1>
+    <p class="page-lead">
+      Tarefas exibidas conforme seu vínculo vigente, setor e escopo organizacional.
+    </p>
+  </div>
+</header>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+@if (aviso()) {
+  <p-message severity="success" [text]="aviso()"></p-message>
+}
+
+@if (carregando()) {
+  <section class="cartao"><p>Carregando tarefas…</p></section>
+} @else {
+  <section class="lista" aria-label="Tarefas de setor">
+    @for (tarefa of tarefas(); track tarefa.id) {
+      <article class="cartao tarefa">
+        <header class="tarefa__cabecalho">
+          <div>
+            <span class="rotulo">{{ tarefa.sector.name }}</span>
+            <h2>{{ tarefa.process.employee_name }}</h2>
+            <p>
+              Matrícula {{ tarefa.process.employee_registration }} · Empresa
+              {{ tarefa.process.company_code }} · Filial {{ tarefa.process.branch_code }}
+            </p>
+          </div>
+          <p-tag
+            [severity]="severidade(tarefa)"
+            [value]="tarefa.status"
+          ></p-tag>
+        </header>
+
+        <dl class="metadados">
+          <div>
+            <dt>Prazo</dt>
+            <dd>{{ tarefa.due_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
+          </div>
+          <div>
+            <dt>Template</dt>
+            <dd>{{ tarefa.template.code }} · v{{ tarefa.template.version_number }}</dd>
+          </div>
+          <div>
+            <dt>Versão</dt>
+            <dd>{{ tarefa.version }}</dd>
+          </div>
+        </dl>
+
+        @if (tarefa.status === 'PENDENTE') {
+          <div class="acoes">
+            <p-button
+              type="button"
+              icon="pi pi-play"
+              label="Iniciar análise"
+              [loading]="tarefaEmMutacao() === tarefa.id"
+              [disabled]="tarefaEmMutacao() !== null"
+              (onClick)="iniciar(tarefa)"
+            ></p-button>
+          </div>
+        } @else {
+          <section class="checklist" [attr.aria-labelledby]="'checklist-' + tarefa.id">
+            <h3 [id]="'checklist-' + tarefa.id">Checklist</h3>
+            @for (item of tarefa.checklist_items; track item.id) {
+              <div class="pergunta">
+                <label [for]="'item-' + item.id">
+                  {{ item.question }}
+                  @if (item.is_required) {
+                    <span aria-label="obrigatório">*</span>
+                  }
+                </label>
+
+                @if (item.requires_evidence || item.response_type === 'FILE') {
+                  <p-message
+                    severity="warn"
+                    text="Este item depende do módulo de evidências e não pode ser concluído nesta fase."
+                  ></p-message>
+                } @else {
+                  @switch (item.response_type) {
+                    @case ('BOOLEAN') {
+                      <select
+                        [id]="'item-' + item.id"
+                        [disabled]="tarefa.status === 'CONCLUIDA'"
+                        (change)="atualizarResposta(item, $event)"
+                      >
+                        <option value="">Selecione</option>
+                        <option value="true">Sim</option>
+                        <option value="false">Não</option>
+                      </select>
+                    }
+                    @case ('TEXT') {
+                      <textarea
+                        [id]="'item-' + item.id"
+                        rows="3"
+                        [disabled]="tarefa.status === 'CONCLUIDA'"
+                        (input)="atualizarResposta(item, $event)"
+                      ></textarea>
+                    }
+                    @case ('NUMBER') {
+                      <input
+                        [id]="'item-' + item.id"
+                        type="number"
+                        [disabled]="tarefa.status === 'CONCLUIDA'"
+                        (input)="atualizarResposta(item, $event)"
+                      />
+                    }
+                    @case ('DATE') {
+                      <input
+                        [id]="'item-' + item.id"
+                        type="date"
+                        [disabled]="tarefa.status === 'CONCLUIDA'"
+                        (change)="atualizarResposta(item, $event)"
+                      />
+                    }
+                    @case ('SINGLE_CHOICE') {
+                      <select
+                        [id]="'item-' + item.id"
+                        [disabled]="tarefa.status === 'CONCLUIDA'"
+                        (change)="atualizarResposta(item, $event)"
+                      >
+                        <option value="">Selecione</option>
+                        @for (opcao of item.config.choices ?? []; track opcao) {
+                          <option [value]="opcao">{{ opcao }}</option>
+                        }
+                      </select>
+                    }
+                    @case ('MULTIPLE_CHOICE') {
+                      <select
+                        [id]="'item-' + item.id"
+                        multiple
+                        [disabled]="tarefa.status === 'CONCLUIDA'"
+                        (change)="atualizarResposta(item, $event)"
+                      >
+                        @for (opcao of item.config.choices ?? []; track opcao) {
+                          <option [value]="opcao">{{ opcao }}</option>
+                        }
+                      </select>
+                    }
+                    @case ('CONFIRMATION') {
+                      <label class="confirmacao" [for]="'item-' + item.id">
+                        <input
+                          [id]="'item-' + item.id"
+                          type="checkbox"
+                          [disabled]="tarefa.status === 'CONCLUIDA'"
+                          (change)="atualizarResposta(item, $event)"
+                        />
+                        Confirmo a validação
+                      </label>
+                    }
+                  }
+                }
+
+                @if (tarefa.status === 'CONCLUIDA' && item.answered_at) {
+                  <small>Respondido em {{ item.answered_at | date: 'dd/MM/yyyy HH:mm' }}</small>
+                }
+              </div>
+            }
+          </section>
+
+          @if (tarefa.status === 'EM_ANALISE') {
+            <div class="observacao">
+              <label [for]="'notes-' + tarefa.id">Observações da conclusão</label>
+              <textarea
+                [id]="'notes-' + tarefa.id"
+                rows="3"
+                maxlength="4000"
+                (input)="atualizarObservacao(tarefa.id, $event)"
+              ></textarea>
+            </div>
+            <div class="acoes">
+              <p-button
+                type="button"
+                icon="pi pi-check"
+                label="Concluir tarefa"
+                [loading]="tarefaEmMutacao() === tarefa.id"
+                [disabled]="tarefaEmMutacao() !== null"
+                (onClick)="concluir(tarefa)"
+              ></p-button>
+            </div>
+          }
+        }
+      </article>
+    } @empty {
+      <article class="cartao vazio">
+        <i class="pi pi-check-circle" aria-hidden="true"></i>
+        <h2>Nenhuma tarefa disponível</h2>
+        <p>Não há tarefas em processo iniciado para seus vínculos vigentes.</p>
+      </article>
+    }
+  </section>
+}

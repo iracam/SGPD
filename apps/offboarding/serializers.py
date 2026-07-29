@@ -6,7 +6,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import DraftOverrideAction
+from .models import DraftOverrideAction, SectorTaskStatus
 
 
 class OpenOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
@@ -71,3 +71,35 @@ class UpdateDraftSelectionSerializer(serializers.Serializer[dict[str, Any]]):
 
 class StartOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
     expected_version = serializers.IntegerField(min_value=1)
+
+
+class SectorTaskQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(
+        choices=SectorTaskStatus.choices,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    offset = serializers.IntegerField(min_value=0, required=False, default=0)
+    limit = serializers.IntegerField(min_value=1, max_value=100, required=False, default=50)
+
+
+class StartSectorTaskSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
+
+
+class ChecklistAnswerSerializer(serializers.Serializer[dict[str, Any]]):
+    item_id = serializers.IntegerField(min_value=1)
+    value = serializers.JSONField(allow_null=True)
+
+
+class CompleteSectorTaskSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
+    answers = ChecklistAnswerSerializer(many=True)
+    notes = serializers.CharField(
+        max_length=4000,
+        required=False,
+        allow_blank=True,
+        default="",
+        trim_whitespace=True,
+    )

@@ -41,6 +41,12 @@ export const FE_ROUTES: Routes = [
             title: 'Rascunho do processo | SGPD',
           },
           {
+            path: 'tarefas',
+            loadComponent: () =>
+              import('./features/tarefas/tarefas').then((m) => m.TarefasPage),
+            title: 'Minhas tarefas | SGPD',
+          },
+          {
             path: 'workflow-config',
             loadComponent: () =>
               import('./features/workflow-config/workflow-config').then(

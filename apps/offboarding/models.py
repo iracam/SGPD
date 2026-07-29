@@ -19,6 +19,8 @@ class ProcessEventType(models.TextChoices):
     OPENED = "PROCESS_OPENED", "Processo aberto"
     DRAFT_SELECTION_UPDATED = "DRAFT_SELECTION_UPDATED", "Seleção do rascunho alterada"
     STARTED = "PROCESS_STARTED", "Processo iniciado"
+    SECTOR_TASK_STARTED = "SECTOR_TASK_STARTED", "Tarefa de setor iniciada"
+    SECTOR_TASK_COMPLETED = "SECTOR_TASK_COMPLETED", "Tarefa de setor concluída"
 
 
 class DraftOverrideAction(models.TextChoices):
@@ -28,6 +30,8 @@ class DraftOverrideAction(models.TextChoices):
 
 class SectorTaskStatus(models.TextChoices):
     PENDING = "PENDENTE", "Pendente"
+    IN_ANALYSIS = "EM_ANALISE", "Em análise"
+    COMPLETED = "CONCLUIDA", "Concluída"
 
 
 class OffboardingProcessQuerySet(models.QuerySet["OffboardingProcess"]):

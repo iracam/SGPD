@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from django.core.exceptions import PermissionDenied
 from django.db.models import F, Q
+from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -27,15 +28,22 @@ from .models import (
     DraftOverrideAction,
     EmployeeSnapshot,
     OffboardingProcess,
+    ProcessChecklistItem,
     ProcessSectorTask,
 )
 from .serializers import (
+    CompleteSectorTaskSerializer,
     ManagerCandidateQuerySerializer,
     OpenOffboardingProcessSerializer,
+    SectorTaskQuerySerializer,
     StartOffboardingProcessSerializer,
+    StartSectorTaskSerializer,
     UpdateDraftSelectionSerializer,
 )
 from .services import (
+    ChecklistAnswerValue,
+    CompleteSectorTaskCommand,
+    CompleteSectorTaskService,
     DraftSectorOverrideValue,
     GetDraftProcessContextService,
     IdempotencyConflict,
@@ -43,8 +51,11 @@ from .services import (
     OpenOffboardingProcessService,
     StartOffboardingProcessCommand,
     StartOffboardingProcessService,
+    StartSectorTaskCommand,
+    StartSectorTaskService,
     UpdateDraftSelectionCommand,
     UpdateDraftSelectionService,
+    sector_tasks_for_actor,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,8 +123,28 @@ def process_payload(process: OffboardingProcess) -> dict[str, Any]:
     }
 
 
-def _task_payload(task: ProcessSectorTask) -> dict[str, Any]:
+def _checklist_item_payload(item: ProcessChecklistItem) -> dict[str, Any]:
+    response = item.response
+    if isinstance(response, dict) and set(response) == {"value"}:
+        response = response["value"]
     return {
+        "id": item.pk,
+        "code": item.code_snapshot,
+        "question": item.question_snapshot,
+        "response_type": item.response_type_snapshot,
+        "is_required": item.is_required,
+        "blocks_process": item.blocks_process,
+        "requires_evidence": item.requires_evidence,
+        "allows_pending": item.allows_pending,
+        "display_order": item.display_order,
+        "config": item.config_snapshot,
+        "response": response,
+        "answered_at": item.answered_at.isoformat() if item.answered_at else None,
+    }
+
+
+def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> dict[str, Any]:
+    payload = {
         "id": task.pk,
         "status": task.status,
         "sector": {
@@ -131,9 +162,24 @@ def _task_payload(task: ProcessSectorTask) -> dict[str, Any]:
         "sla_hours": task.sla_hours_snapshot,
         "due_at": task.due_at.isoformat(),
         "started_at": task.started_at.isoformat(),
+        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        "notes": task.notes,
         "checklist_item_count": task.checklist_items.count(),
         "version": task.version,
     }
+    if include_items:
+        payload["process"] = {
+            "uuid": str(task.process.uuid),
+            "company_code": task.process.company_code,
+            "branch_code": task.process.branch_code,
+            "employee_name": task.process.employee_snapshot.employee_name,
+            "employee_registration": task.process.employee_registration,
+            "due_date": task.process.due_date.isoformat(),
+        }
+        payload["checklist_items"] = [
+            _checklist_item_payload(item) for item in task.checklist_items.all()
+        ]
+    return payload
 
 
 def _scope_applies(scope: SectorScope, process: OffboardingProcess) -> bool:
@@ -420,5 +466,130 @@ class ProcessStartView(APIView):
                 status_code=409,
             )
         payload = _draft_payload(cast(User, request.user), process_uuid)
+        payload["idempotency_replayed"] = result.replayed
+        return Response(payload)
+
+
+def _responsible_task_queryset(actor: User) -> Any:
+    return (
+        sector_tasks_for_actor(actor)
+        .select_related(
+            "process",
+            "process__employee_snapshot",
+            "sector",
+            "template_version",
+            "completed_by",
+        )
+        .prefetch_related("checklist_items")
+        .order_by("due_at", "pk")
+    )
+
+
+class SectorTaskListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        serializer = SectorTaskQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        tasks = _responsible_task_queryset(cast(User, request.user))
+        if data["status"]:
+            tasks = tasks.filter(status=data["status"])
+        offset = data["offset"]
+        rows = tasks[offset : offset + data["limit"]]
+        return Response(
+            {
+                "offset": offset,
+                "limit": data["limit"],
+                "results": [_task_payload(task, include_items=True) for task in rows],
+            }
+        )
+
+
+class SectorTaskDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, task_id: int) -> Response:
+        task = get_object_or_404(
+            _responsible_task_queryset(cast(User, request.user)),
+            pk=task_id,
+        )
+        return Response(_task_payload(task, include_items=True))
+
+
+class SectorTaskStartView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, task_id: int) -> Response:
+        get_object_or_404(
+            _responsible_task_queryset(cast(User, request.user)),
+            pk=task_id,
+        )
+        serializer = StartSectorTaskSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        try:
+            result = StartSectorTaskService().execute(
+                StartSectorTaskCommand(
+                    actor=cast(User, request.user),
+                    task_id=task_id,
+                    expected_version=data["expected_version"],
+                    idempotency_key=request.headers.get("Idempotency-Key", ""),
+                )
+            )
+        except IdempotencyConflict as exc:
+            return api_error(
+                code="idempotency_conflict",
+                message=str(exc),
+                status_code=409,
+            )
+        task = get_object_or_404(
+            _responsible_task_queryset(cast(User, request.user)),
+            pk=result.task.pk,
+        )
+        payload = _task_payload(task, include_items=True)
+        payload["idempotency_replayed"] = result.replayed
+        return Response(payload)
+
+
+class SectorTaskCompleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, task_id: int) -> Response:
+        get_object_or_404(
+            _responsible_task_queryset(cast(User, request.user)),
+            pk=task_id,
+        )
+        serializer = CompleteSectorTaskSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        try:
+            result = CompleteSectorTaskService().execute(
+                CompleteSectorTaskCommand(
+                    actor=cast(User, request.user),
+                    task_id=task_id,
+                    expected_version=data["expected_version"],
+                    idempotency_key=request.headers.get("Idempotency-Key", ""),
+                    answers=tuple(
+                        ChecklistAnswerValue(
+                            item_id=answer["item_id"],
+                            value=answer["value"],
+                        )
+                        for answer in data["answers"]
+                    ),
+                    notes=data["notes"],
+                )
+            )
+        except IdempotencyConflict as exc:
+            return api_error(
+                code="idempotency_conflict",
+                message=str(exc),
+                status_code=409,
+            )
+        task = get_object_or_404(
+            _responsible_task_queryset(cast(User, request.user)),
+            pk=result.task.pk,
+        )
+        payload = _task_payload(task, include_items=True)
         payload["idempotency_replayed"] = result.replayed
         return Response(payload)

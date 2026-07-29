@@ -41,6 +41,13 @@ export class AuthenticatedLayout {
       role: 'DP',
     },
     {
+      label: 'Minhas tarefas',
+      route: '/fe/tarefas',
+      icon: 'pi pi-clipboard',
+      description: 'Checklists atribuídos aos seus setores e escopos vigentes',
+      role: 'RESPONSAVEL_SETOR',
+    },
+    {
       label: 'Setores',
       route: '/fe/setores',
       icon: 'pi pi-building',

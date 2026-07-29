@@ -19,6 +19,7 @@ export const apiConfig = {
 
     processes: '/api/v1/processes/',
     processManagerCandidates: '/api/v1/processes/manager-candidates/',
+    tasks: '/api/v1/tasks/',
     workflowTemplates: '/api/v1/workflow-config/templates/',
     workflowGroups: '/api/v1/workflow-config/groups/',
     workflowSectors: '/api/v1/workflow-config/sectors/',
