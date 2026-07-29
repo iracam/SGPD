@@ -54,7 +54,6 @@ describe('WorkflowConfigPage', () => {
   it('cria o primeiro template sem inventar perguntas no cliente', () => {
     component.formularioTemplate.patchValue({
       code: 'TPL_TI',
-      sector_id: 7,
       name: 'Checklist de TI',
       default_due_hours: 12,
     });
@@ -67,6 +66,7 @@ describe('WorkflowConfigPage', () => {
 
     const create = httpMock.expectOne(apiConfig.routes.workflowTemplates);
     expect(create.request.method).toBe('POST');
+    expect(create.request.body.sector_id).toBeUndefined();
     expect(create.request.body.items).toEqual([
       {
         code: 'ACESSOS',
@@ -78,6 +78,64 @@ describe('WorkflowConfigPage', () => {
         allows_pending: true,
         display_order: 1,
         config: {},
+      },
+    ]);
+    create.flush({});
+
+    httpMock.expectOne(apiConfig.routes.workflowSectors).flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowTemplates)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+  });
+
+  it('associa setor e template reutilizável separadamente no grupo', () => {
+    component.templates.set([
+      {
+        id: 3,
+        code: 'TPL_COMPARTILHADO',
+        name: 'Checklist compartilhado',
+        description: '',
+        is_active: true,
+        current_version_id: 12,
+        version: 2,
+        versions: [
+          {
+            id: 12,
+            version_number: 1,
+            status: 'PUBLISHED',
+            default_due_hours: 12,
+            created_at: '2026-07-29T12:00:00-03:00',
+            published_at: '2026-07-29T12:10:00-03:00',
+            items: [],
+          },
+        ],
+      },
+    ]);
+    component.formularioGrupo.patchValue({
+      code: 'PADRAO',
+      name: 'Desligamento padrão',
+    });
+    component.formularioGrupo.controls.sectors.at(0).patchValue({
+      sector_id: 7,
+      template_version_id: 12,
+      due_hours_override: 8,
+    });
+
+    component.criarGrupo();
+
+    const create = httpMock.expectOne(apiConfig.routes.workflowGroups);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body.sectors).toEqual([
+      {
+        sector_id: 7,
+        template_version_id: 12,
+        is_required: true,
+        blocks_process: true,
+        due_hours_override: 8,
+        display_order: 1,
       },
     ]);
     create.flush({});

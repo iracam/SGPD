@@ -168,7 +168,6 @@ def _create_template_version(
 class CreateChecklistTemplateCommand:
     actor: User
     code: str
-    sector_id: int
     name: str
     description: str
     default_due_hours: int | None
@@ -192,15 +191,8 @@ class CreateChecklistTemplateService:
             "name",
             "O nome do template é obrigatório.",
         )
-        try:
-            sector = ValidationSector.objects.select_for_update().get(pk=command.sector_id)
-        except ValidationSector.DoesNotExist as exc:
-            raise ValidationError({"sector_id": "O setor informado não existe."}) from exc
-        if not sector.is_active:
-            raise ValidationError({"sector_id": "O setor precisa estar ativo."})
         template = ChecklistTemplate(
             code=code,
-            sector=sector,
             name=name,
             description=command.description.strip(),
         )
@@ -222,7 +214,6 @@ class CreateChecklistTemplateService:
             entity_id=template.pk,
             data={
                 "template_id": template.pk,
-                "sector_id": sector.pk,
                 "initial_version_id": version.pk,
             },
         )
@@ -246,17 +237,13 @@ class CreateChecklistTemplateVersionService:
     ) -> ChecklistTemplateVersion:
         _require_permission(command.actor)
         try:
-            template = (
-                ChecklistTemplate.objects.select_for_update()
-                .select_related("sector")
-                .get(pk=command.template_id)
-            )
+            template = ChecklistTemplate.objects.select_for_update().get(pk=command.template_id)
         except ChecklistTemplate.DoesNotExist as exc:
             raise ChecklistTemplate.DoesNotExist from exc
         if template.version != command.expected_version:
             raise ValidationError("O template foi alterado por outra sessão. Recarregue a página.")
-        if not template.is_active or not template.sector.is_active:
-            raise ValidationError("O template e seu setor precisam estar ativos.")
+        if not template.is_active:
+            raise ValidationError("O template precisa estar ativo.")
         version = _create_template_version(
             template=template,
             actor=command.actor,
@@ -285,7 +272,7 @@ class PublishChecklistTemplateVersionService:
         try:
             version = (
                 ChecklistTemplateVersion.objects.select_for_update()
-                .select_related("template__sector")
+                .select_related("template")
                 .get(pk=command.version_id)
             )
         except ChecklistTemplateVersion.DoesNotExist as exc:
@@ -301,8 +288,8 @@ class PublishChecklistTemplateVersionService:
             raise ValidationError("O template foi alterado por outra sessão. Recarregue a página.")
         if version.status != VersionStatus.DRAFT:
             raise ValidationError("Somente uma versão em rascunho pode ser publicada.")
-        if not template.is_active or not version.template.sector.is_active:
-            raise ValidationError("O template e seu setor precisam estar ativos.")
+        if not template.is_active:
+            raise ValidationError("O template precisa estar ativo.")
         if not items:
             raise ValidationError("A versão precisa possuir ao menos uma pergunta.")
         now = timezone.now()

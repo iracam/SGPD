@@ -39,6 +39,7 @@ type PerguntaForm = FormGroup<{
 }>;
 
 type RegraForm = FormGroup<{
+  sector_id: FormControl<number | null>;
   template_version_id: FormControl<number | null>;
   is_required: FormControl<boolean>;
   blocks_process: FormControl<boolean>;
@@ -91,8 +92,7 @@ export class WorkflowConfigPage {
       .filter((template) => template.current_version_id !== null)
       .map((template) => ({
         id: template.current_version_id as number,
-        sector_id: template.sector.id,
-        label: `${template.sector.code} · ${template.code} v${
+        label: `${template.code} v${
           template.versions.find(
             (version) => version.id === template.current_version_id,
           )?.version_number ?? ''
@@ -102,7 +102,6 @@ export class WorkflowConfigPage {
 
   readonly formularioTemplate = this.formBuilder.group({
     code: this.formBuilder.nonNullable.control('', Validators.required),
-    sector_id: this.formBuilder.control<number | null>(null, Validators.required),
     name: this.formBuilder.nonNullable.control('', Validators.required),
     description: this.formBuilder.nonNullable.control(''),
     default_due_hours: this.formBuilder.control<number | null>(null),
@@ -148,7 +147,6 @@ export class WorkflowConfigPage {
     const value = this.formularioTemplate.getRawValue();
     const payload: NovoTemplate = {
       code: value.code,
-      sector_id: value.sector_id as number,
       name: value.name,
       description: value.description,
       default_due_hours: value.default_due_hours,
@@ -203,27 +201,18 @@ export class WorkflowConfigPage {
       return;
     }
     const value = this.formularioGrupo.getRawValue();
-    const options = this.versoesTemplatePublicadas();
     const payload: NovoGrupo = {
       code: value.code,
       name: value.name,
       description: value.description,
-      sectors: value.sectors.map((rule, index) => {
-        const template = options.find(
-          (option) => option.id === rule.template_version_id,
-        );
-        if (!template) {
-          throw new Error('Template publicado não encontrado.');
-        }
-        return {
-          sector_id: template.sector_id,
-          template_version_id: template.id,
-          is_required: rule.is_required,
-          blocks_process: rule.blocks_process,
-          due_hours_override: rule.due_hours_override,
-          display_order: index + 1,
-        };
-      }),
+      sectors: value.sectors.map((rule, index) => ({
+        sector_id: rule.sector_id as number,
+        template_version_id: rule.template_version_id as number,
+        is_required: rule.is_required,
+        blocks_process: rule.blocks_process,
+        due_hours_override: rule.due_hours_override,
+        display_order: index + 1,
+      })),
     };
     this.salvandoGrupo.set(true);
     this.limparMensagens();
@@ -304,6 +293,10 @@ export class WorkflowConfigPage {
 
   private criarRegra(): RegraForm {
     return this.formBuilder.group({
+      sector_id: this.formBuilder.control<number | null>(
+        null,
+        Validators.required,
+      ),
       template_version_id: this.formBuilder.control<number | null>(
         null,
         Validators.required,
@@ -317,7 +310,6 @@ export class WorkflowConfigPage {
   private resetarTemplate(): void {
     this.formularioTemplate.reset({
       code: '',
-      sector_id: null,
       name: '',
       description: '',
       default_due_hours: null,

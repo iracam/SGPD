@@ -44,7 +44,6 @@ export interface TemplateChecklist {
   name: string;
   description: string;
   is_active: boolean;
-  sector: { id: number; code: string; name: string };
   current_version_id: number | null;
   version: number;
   versions: VersaoTemplate[];
@@ -92,7 +91,6 @@ export interface PaginaWorkflow<T> {
 
 export interface NovoTemplate {
   code: string;
-  sector_id: number;
   name: string;
   description: string;
   default_due_hours: number | null;

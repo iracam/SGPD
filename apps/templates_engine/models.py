@@ -46,12 +46,6 @@ class ProtectedConfigurationQuerySet(models.QuerySet[Any]):
 
 class ChecklistTemplate(models.Model):
     code = models.CharField("código", max_length=50, unique=True)
-    sector = models.ForeignKey(
-        "sectors.ValidationSector",
-        verbose_name="setor",
-        on_delete=models.PROTECT,
-        related_name="checklist_templates",
-    )
     name = models.CharField("nome", max_length=120)
     description = models.TextField("descrição", blank=True)
     is_active = models.BooleanField("ativo", default=True)
@@ -79,9 +73,6 @@ class ChecklistTemplate(models.Model):
                 condition=models.Q(code__isnull=False, name__isnull=False, version__gt=0),
                 name="SGPD_CK_TPL_REQUIRED",
             ),
-        ]
-        indexes = [
-            models.Index(fields=("sector", "is_active"), name="SGPD_IX_TPL_SECTOR"),
         ]
 
     def clean(self) -> None:
@@ -479,10 +470,6 @@ class ValidationGroupSector(models.Model):
         super().clean()
         if self.group_version.status != VersionStatus.DRAFT:
             raise ValidationError("Setores só podem ser incluídos em versão de grupo em rascunho.")
-        if self.template_version.template.sector_id != self.sector_id:
-            raise ValidationError(
-                {"template_version": "O template precisa pertencer ao mesmo setor."}
-            )
         if self.template_version.status not in {
             VersionStatus.PUBLISHED,
             VersionStatus.RETIRED,

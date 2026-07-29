@@ -43,17 +43,6 @@
           <label for="template-code">Código</label>
           <input id="template-code" pInputText formControlName="code" />
         </div>
-        <div class="campo">
-          <label for="template-sector">Setor</label>
-          <p-select
-            inputId="template-sector"
-            formControlName="sector_id"
-            [options]="setores()"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="Selecione"
-          ></p-select>
-        </div>
         <div class="campo campo--largo">
           <label for="template-name">Nome</label>
           <input id="template-name" pInputText formControlName="name" />
@@ -189,6 +178,17 @@
           <fieldset [formGroupName]="i" class="linha">
             <legend>Setor {{ i + 1 }}</legend>
             <div class="grade-campos">
+              <div class="campo">
+                <label [for]="'grupo-setor-' + i">Setor</label>
+                <p-select
+                  [inputId]="'grupo-setor-' + i"
+                  formControlName="sector_id"
+                  [options]="setores()"
+                  optionLabel="name"
+                  optionValue="id"
+                  placeholder="Selecione"
+                ></p-select>
+              </div>
               <div class="campo campo--largo">
                 <label [for]="'grupo-template-' + i">Template publicado</label>
                 <p-select
@@ -249,7 +249,7 @@
       <div class="registro">
         <div>
           <strong>{{ template.code }} — {{ template.name }}</strong>
-          <small>{{ template.sector.name }} · versão de concorrência {{ template.version }}</small>
+          <small>Reutilizável entre setores · versão de concorrência {{ template.version }}</small>
         </div>
         <div class="registro__acoes">
           @for (version of template.versions; track version.id) {

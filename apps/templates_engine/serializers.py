@@ -34,7 +34,6 @@ class ChecklistVersionSerializer(serializers.Serializer[dict[str, Any]]):
 
 class ChecklistTemplateCreateSerializer(ChecklistVersionSerializer):
     code = serializers.CharField(max_length=50, trim_whitespace=True)
-    sector_id = serializers.IntegerField(min_value=1)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
     description = serializers.CharField(
         max_length=2000,

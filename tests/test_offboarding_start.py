@@ -184,7 +184,6 @@ def create_published_template(
         CreateChecklistTemplateCommand(
             actor=actor,
             code=code or f"TPL_{sector.code}",
-            sector_id=sector.pk,
             name=f"Template {sector.name}",
             description="",
             default_due_hours=12,
@@ -331,6 +330,62 @@ def test_start_generates_sector_task_and_historical_questions_once(
     assert (
         ProcessAuditEvent.objects.get(event_type=ProcessEventType.STARTED).data["task_count"] == 1
     )
+
+
+def test_start_reuses_template_with_independent_snapshots_for_each_sector(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    technology = create_sector(actor)
+    finance = create_sector(actor, code="FINANCEIRO")
+    template = create_published_template(actor, technology, code="TPL_COMPARTILHADO")
+    template_version = template.current_version
+    assert template_version is not None
+    group = CreateValidationGroupService().execute(
+        CreateValidationGroupCommand(
+            actor=actor,
+            code="MULTISSETOR",
+            name="Validação multissetor",
+            description="",
+            sectors=(
+                GroupSectorValue(
+                    sector_id=technology.pk,
+                    template_version_id=template_version.pk,
+                    is_required=True,
+                    blocks_process=True,
+                    due_hours_override=6,
+                    display_order=1,
+                ),
+                GroupSectorValue(
+                    sector_id=finance.pk,
+                    template_version_id=template_version.pk,
+                    is_required=True,
+                    blocks_process=False,
+                    due_hours_override=10,
+                    display_order=2,
+                ),
+            ),
+        )
+    )
+    group_version = group.versions.get()
+    PublishValidationGroupVersionService().execute(
+        PublishValidationGroupVersionCommand(
+            actor=actor,
+            version_id=group_version.pk,
+            expected_group_version=group.version,
+        )
+    )
+    selected = select_group(actor, process, group_version.pk)
+
+    result = start(actor, selected)
+
+    assert len(result.tasks) == 2
+    assert {task.sector_id for task in result.tasks} == {technology.pk, finance.pk}
+    assert {task.template_version_id for task in result.tasks} == {template_version.pk}
+    snapshots = list(ProcessChecklistItem.objects.order_by("task_id"))
+    assert len(snapshots) == 2
+    assert snapshots[0].task_id != snapshots[1].task_id
+    assert {snapshot.question_snapshot for snapshot in snapshots} == {"A validação foi concluída?"}
 
 
 def test_start_replay_is_idempotent_and_does_not_duplicate_audit(

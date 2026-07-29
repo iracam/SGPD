@@ -595,13 +595,12 @@ class UpdateDraftSelectionService:
                 template.status != VersionStatus.PUBLISHED
                 or not template.template.is_active
                 or template.template.current_version_id != template.pk
-                or template.template.sector_id != sector.pk
             ):
                 raise ValidationError(
                     {
                         "overrides": (
                             f"A inclusão de {sector.code} exige o template vigente publicado "
-                            "do mesmo setor."
+                            "informado."
                         )
                     }
                 )

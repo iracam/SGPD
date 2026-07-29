@@ -92,11 +92,6 @@ def template_payload(template: ChecklistTemplate) -> dict[str, Any]:
         "name": template.name,
         "description": template.description,
         "is_active": template.is_active,
-        "sector": {
-            "id": template.sector_id,
-            "code": template.sector.code,
-            "name": template.sector.name,
-        },
         "current_version_id": template.current_version_id,
         "version": template.version,
         "versions": [
@@ -162,7 +157,7 @@ def group_payload(group: ValidationGroup) -> dict[str, Any]:
 
 def template_queryset() -> QuerySet[ChecklistTemplate]:
     return (
-        ChecklistTemplate.objects.select_related("sector", "current_version")
+        ChecklistTemplate.objects.select_related("current_version")
         .prefetch_related("versions__items")
         .order_by("code")
     )
@@ -272,7 +267,6 @@ class ChecklistTemplateListCreateView(WorkflowConfigurationAPIView):
             CreateChecklistTemplateCommand(
                 actor=self.actor(request),
                 code=data["code"],
-                sector_id=data["sector_id"],
                 name=data["name"],
                 description=data["description"],
                 default_due_hours=data.get("default_due_hours"),

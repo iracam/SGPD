@@ -403,11 +403,6 @@ class ProcessSectorOverride(models.Model):
                 raise ValidationError(
                     {"template_version": "A inclusão exige uma versão de template."}
                 )
-            assert self.template_version is not None
-            if self.template_version.template.sector_id != self.sector_id:
-                raise ValidationError(
-                    {"template_version": "O template precisa pertencer ao setor incluído."}
-                )
         elif self.template_version_id is not None:
             raise ValidationError({"template_version": "A remoção não deve informar um template."})
 

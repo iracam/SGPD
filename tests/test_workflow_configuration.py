@@ -17,7 +17,6 @@ from apps.templates_engine.models import (
     ChecklistResponseType,
     ChecklistTemplate,
     ChecklistTemplateItem,
-    ValidationGroupSector,
     VersionStatus,
     WorkflowConfigurationAuditEvent,
 )
@@ -92,14 +91,10 @@ def item(code: str = "ACESSOS", order: int = 1) -> ChecklistItemValue:
     )
 
 
-def template_command(
-    actor: User,
-    sector: ValidationSector,
-) -> CreateChecklistTemplateCommand:
+def template_command(actor: User) -> CreateChecklistTemplateCommand:
     return CreateChecklistTemplateCommand(
         actor=actor,
         code="TI_DESLIGAMENTO",
-        sector_id=sector.pk,
         name="Checklist de TI",
         description="Validações mínimas de TI.",
         default_due_hours=12,
@@ -107,8 +102,8 @@ def template_command(
     )
 
 
-def publish_template(actor: User, sector: ValidationSector) -> ChecklistTemplate:
-    template = CreateChecklistTemplateService().execute(template_command(actor, sector))
+def publish_template(actor: User) -> ChecklistTemplate:
+    template = CreateChecklistTemplateService().execute(template_command(actor))
     version = template.versions.get()
     PublishChecklistTemplateVersionService().execute(
         PublishChecklistTemplateVersionCommand(
@@ -123,10 +118,9 @@ def publish_template(actor: User, sector: ValidationSector) -> ChecklistTemplate
 
 def test_service_requires_explicit_configuration_permission(
     plain_user: User,
-    sector: ValidationSector,
 ) -> None:
     with pytest.raises(PermissionDenied, match="grupos e templates"):
-        CreateChecklistTemplateService().execute(template_command(plain_user, sector))
+        CreateChecklistTemplateService().execute(template_command(plain_user))
 
     assert not ChecklistTemplate.objects.exists()
     assert not WorkflowConfigurationAuditEvent.objects.exists()
@@ -134,9 +128,8 @@ def test_service_requires_explicit_configuration_permission(
 
 def test_template_is_created_published_and_audited(
     actor: User,
-    sector: ValidationSector,
 ) -> None:
-    template = CreateChecklistTemplateService().execute(template_command(actor, sector))
+    template = CreateChecklistTemplateService().execute(template_command(actor))
     version = template.versions.get()
 
     assert version.status == VersionStatus.DRAFT
@@ -170,9 +163,8 @@ def test_template_is_created_published_and_audited(
 
 def test_new_template_version_retires_previous_without_changing_items(
     actor: User,
-    sector: ValidationSector,
 ) -> None:
-    template = publish_template(actor, sector)
+    template = publish_template(actor)
     first = template.current_version
     assert first is not None
 
@@ -206,7 +198,7 @@ def test_group_pins_published_template_version(
     actor: User,
     sector: ValidationSector,
 ) -> None:
-    template = publish_template(actor, sector)
+    template = publish_template(actor)
     template_version = template.current_version
     assert template_version is not None
 
@@ -247,11 +239,11 @@ def test_group_pins_published_template_version(
     assert group.current_version_id == published.pk
 
 
-def test_group_rejects_template_from_another_sector(
+def test_group_reuses_the_same_template_in_multiple_sectors(
     actor: User,
     sector: ValidationSector,
 ) -> None:
-    template = publish_template(actor, sector)
+    template = publish_template(actor)
     template_version = template.current_version
     assert template_version is not None
     other = ValidationSector.objects.create(
@@ -260,32 +252,40 @@ def test_group_rejects_template_from_another_sector(
         default_due_hours=24,
     )
 
-    with pytest.raises(ValidationError, match="mesmo setor"):
-        CreateValidationGroupService().execute(
-            CreateValidationGroupCommand(
-                actor=actor,
-                code="INVALIDO",
-                name="Inválido",
-                description="",
-                sectors=(
-                    GroupSectorValue(
-                        sector_id=other.pk,
-                        template_version_id=template_version.pk,
-                        is_required=True,
-                        blocks_process=True,
-                        due_hours_override=None,
-                        display_order=1,
-                    ),
+    group = CreateValidationGroupService().execute(
+        CreateValidationGroupCommand(
+            actor=actor,
+            code="COMPARTILHADO",
+            name="Template compartilhado",
+            description="",
+            sectors=(
+                GroupSectorValue(
+                    sector_id=sector.pk,
+                    template_version_id=template_version.pk,
+                    is_required=True,
+                    blocks_process=True,
+                    due_hours_override=None,
+                    display_order=1,
                 ),
-            )
+                GroupSectorValue(
+                    sector_id=other.pk,
+                    template_version_id=template_version.pk,
+                    is_required=True,
+                    blocks_process=False,
+                    due_hours_override=8,
+                    display_order=2,
+                ),
+            ),
         )
+    )
 
-    assert not ValidationGroupSector.objects.filter(sector=other).exists()
+    rules = list(group.versions.get().sector_rules.order_by("display_order"))
+    assert [rule.sector_id for rule in rules] == [sector.pk, other.pk]
+    assert {rule.template_version_id for rule in rules} == {template_version.pk}
 
 
 def test_audit_failure_rolls_back_template(
     actor: User,
-    sector: ValidationSector,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fail_create(**kwargs: Any) -> None:
@@ -298,7 +298,7 @@ def test_audit_failure_rolls_back_template(
     )
 
     with pytest.raises(IntegrityError, match="audit unavailable"):
-        CreateChecklistTemplateService().execute(template_command(actor, sector))
+        CreateChecklistTemplateService().execute(template_command(actor))
 
     assert not ChecklistTemplate.objects.exists()
     assert not ChecklistTemplateItem.objects.exists()
@@ -368,7 +368,6 @@ def test_template_and_group_api_create_versioned_configuration(
     client.force_login(actor)
     template_payload = {
         "code": "TI_DESLIGAMENTO",
-        "sector_id": sector.pk,
         "name": "Checklist de TI",
         "description": "",
         "default_due_hours": 12,
@@ -393,6 +392,7 @@ def test_template_and_group_api_create_versioned_configuration(
     )
 
     assert response.status_code == 201
+    assert "sector" not in response.json()
     assert response.json()["versions"][0]["status"] == VersionStatus.DRAFT
     template = ChecklistTemplate.objects.get()
     template_version = template.versions.get()
