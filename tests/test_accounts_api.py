@@ -44,7 +44,6 @@ ENDPOINTS: list[tuple[str, dict[str, Any], str, dict[str, Any]]] = [
     ("accounts-api:role-list", {}, "post", {}),
     ("accounts-api:role-detail", {"role_id": 1}, "get", {}),
     ("accounts-api:role-detail", {"role_id": 1}, "patch", {}),
-    ("accounts-api:permission-list", {}, "get", {}),
     ("accounts-api:audit-list", {}, "get", {}),
 ]
 
@@ -171,7 +170,7 @@ def test_initial_role_requires_manage_roles_and_rolls_back_user(plain_user: User
     plain_user.user_permissions.add(
         Permission.objects.get(content_type__app_label="accounts", codename="manage_users")
     )
-    role = Role.objects.create(code="DP_SEM_PERMISSAO", name="DP sem permissão")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     client = Client()
     client.force_login(plain_user)
 
@@ -259,7 +258,7 @@ def test_create_user_with_initial_role_is_atomic_and_audited(
     admin_client: Client,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    role = Role.objects.create(code="DP_INICIAL", name="DP inicial")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
 
     with caplog.at_level("INFO", logger="apps.accounts.api_accounts"):
         response = _post(
@@ -306,7 +305,7 @@ def test_create_user_with_initial_role_is_atomic_and_audited(
 
 
 def test_invalid_initial_role_scope_does_not_create_user(admin_client: Client) -> None:
-    role = Role.objects.create(code="DP_INICIAL_INVALIDO", name="DP inicial inválido")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
 
     response = _post(
         admin_client,
@@ -385,7 +384,7 @@ def test_user_list_caps_the_page_size(admin_client: Client) -> None:
 
 
 def test_user_detail_includes_role_assignments(admin_client: Client, plain_user: User) -> None:
-    role = Role.objects.create(code="DP_API", name="DP API")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     RoleAssignment.objects.create(
         user=plain_user,
         role=role,
@@ -399,7 +398,7 @@ def test_user_detail_includes_role_assignments(admin_client: Client, plain_user:
         reverse("accounts-api:user-detail", kwargs={"user_id": plain_user.pk})
     ).json()
 
-    assert body["role_assignments"][0]["role"]["code"] == "DP_API"
+    assert body["role_assignments"][0]["role"]["code"] == "RESPONSAVEL_SETOR"
 
 
 def test_unknown_user_returns_404(admin_client: Client) -> None:
@@ -554,59 +553,57 @@ def test_linked_user_exposes_policy_and_rejects_local_password_reset(
 # --------------------------------------------------------------------------
 
 
-def test_create_role_with_delegable_permissions(admin_client: Client) -> None:
-    permission = Permission.objects.get(
-        content_type__app_label="accounts",
-        codename="view_account_audit",
+def test_fixed_role_catalog_is_read_only(admin_client: Client) -> None:
+    responsible = Role.objects.create(
+        code="RESPONSAVEL_SETOR",
+        name="Responsável de setor",
+    )
+    dp = Role.objects.create(code="DP", name="Departamento Pessoal")
+    legacy = Role.objects.create(code="FINANCEIRO", name="Financeiro", is_active=False)
+
+    response = admin_client.get(reverse("accounts-api:role-list"))
+    assert response.status_code == 200
+    assert [item["code"] for item in response.json()["results"]] == [
+        "DP",
+        "RESPONSAVEL_SETOR",
+    ]
+    assert (
+        admin_client.get(reverse("accounts-api:role-detail", kwargs={"role_id": dp.pk})).status_code
+        == 200
     )
 
-    response = _post(
+    create_response = _post(
         admin_client,
         "accounts-api:role-list",
         {
             "code": "auditor_api",
             "name": "Auditor API",
-            "description": "Somente leitura da auditoria.",
-            "permission_ids": [permission.pk],
-            "reason": "Novo papel de auditoria.",
+            "permission_ids": [],
+            "reason": "Tentativa fora do catálogo fixo.",
         },
     )
-
-    body = response.json()
-    assert response.status_code == 201
-    assert body["code"] == "AUDITOR_API"
-    assert [item["codename"] for item in body["permissions"]] == ["view_account_audit"]
-
-
-def test_non_delegable_permission_is_rejected(admin_client: Client) -> None:
-    permission = Permission.objects.filter(content_type__app_label="auth").first()
-    assert permission is not None
-
-    response = _post(
+    update_response = _patch(
         admin_client,
-        "accounts-api:role-list",
+        "accounts-api:role-detail",
         {
-            "code": "papel_invalido",
-            "name": "Papel inválido",
-            "permission_ids": [permission.pk],
-            "reason": "Permissão fora do catálogo.",
+            "version": responsible.version,
+            "name": "Outro nome",
+            "description": "",
+            "is_active": True,
+            "permission_ids": [],
+            "reason": "Tentativa fora do catálogo fixo.",
         },
+        role_id=responsible.pk,
     )
 
-    assert response.status_code == 400
-    assert not Role.objects.filter(code="PAPEL_INVALIDO").exists()
-
-
-def test_permission_catalog_lists_only_delegable_entries(admin_client: Client) -> None:
-    body = admin_client.get(reverse("accounts-api:permission-list")).json()
-
-    assert {item["codename"] for item in body["results"]} == {
-        "manage_users",
-        "manage_roles",
-        "link_ad_identity",
-        "view_account_audit",
-        "query_senior_references",
-    }
+    assert create_response.status_code == 405
+    assert update_response.status_code == 405
+    assert (
+        admin_client.get(
+            reverse("accounts-api:role-detail", kwargs={"role_id": legacy.pk})
+        ).status_code
+        == 404
+    )
 
 
 def test_assign_role_with_company_scope(
@@ -614,7 +611,7 @@ def test_assign_role_with_company_scope(
     plain_user: User,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    role = Role.objects.create(code="DP_ESCOPO", name="DP com escopo")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
 
     with caplog.at_level("INFO", logger="apps.accounts.api_accounts"):
         response = _post(
@@ -631,6 +628,7 @@ def test_assign_role_with_company_scope(
     body = response.json()
     assert response.status_code == 201
     assert body["company_code"] == 7
+    assert body["role"]["code"] == "DP"
     assert body["is_active"] is True
     event = AccountAuditEvent.objects.get(event_type=AccountEventType.ROLE_ASSIGNED)
     assert event.reason == ROLE_ASSIGNMENT_REASON
@@ -661,7 +659,7 @@ def test_inconsistent_scope_is_rejected_per_field(
     branch_code: int | None,
     field: str,
 ) -> None:
-    role = Role.objects.create(code="DP_ESCOPO_INVALIDO", name="Escopo inválido")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
 
     response = _post(
         admin_client,
@@ -681,7 +679,7 @@ def test_inconsistent_scope_is_rejected_per_field(
 
 
 def test_revoke_role_keeps_the_trail(admin_client: Client, plain_user: User, admin: User) -> None:
-    role = Role.objects.create(code="DP_REVOGAR", name="DP a revogar")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     assignment = RoleAssignment.objects.create(
         user=plain_user,
         role=role,
@@ -712,7 +710,7 @@ def test_role_cannot_be_assigned_to_an_inactive_user(
 ) -> None:
     plain_user.is_active = False
     plain_user.save(update_fields=("is_active",))
-    role = Role.objects.create(code="DP_INATIVO", name="DP inativo")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
 
     response = _post(
         admin_client,

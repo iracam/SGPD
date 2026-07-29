@@ -11,6 +11,13 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+RESPONSIBLE_SECTOR_ROLE_CODE = "RESPONSAVEL_SETOR"
+PEOPLE_DEPARTMENT_ROLE_CODE = "DP"
+FUNCTIONAL_ROLE_CODES = (
+    PEOPLE_DEPARTMENT_ROLE_CODE,
+    RESPONSIBLE_SECTOR_ROLE_CODE,
+)
+
 
 class User(AbstractUser):
     email = models.EmailField("e-mail", unique=True)
@@ -154,6 +161,10 @@ class Role(models.Model):
                 name="SGPD_CK_ROLE_REQUIRED",
             ),
             models.CheckConstraint(
+                condition=(models.Q(code__in=FUNCTIONAL_ROLE_CODES) | models.Q(is_active=False)),
+                name="SGPD_CK_ROLE_ACTIVE_CODE",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(version__gt=0),
                 name="SGPD_CK_ROLE_VERSION",
             ),
@@ -170,6 +181,10 @@ class Role(models.Model):
             raise ValidationError({"code": "O código do papel é obrigatório."})
         if not self.name:
             raise ValidationError({"name": "O nome do papel é obrigatório."})
+        if self.is_active and self.code not in FUNCTIONAL_ROLE_CODES:
+            raise ValidationError(
+                {"is_active": ("Somente os papéis DP e RESPONSAVEL_SETOR podem permanecer ativos.")}
+            )
 
 
 class ScopeType(models.TextChoices):

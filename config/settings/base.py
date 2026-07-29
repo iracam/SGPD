@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.core",
     "apps.integrations",
+    "apps.sectors",
     "apps.system_settings",
 ]
 

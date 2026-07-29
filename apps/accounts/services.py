@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from django.contrib.auth.models import Permission
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.integrations.active_directory.client import ActiveDirectoryClient
@@ -21,6 +18,7 @@ from config.middleware import correlation_id
 
 from .authorization import has_permission
 from .models import (
+    FUNCTIONAL_ROLE_CODES,
     AccountAuditEvent,
     AccountEventType,
     Role,
@@ -34,17 +32,10 @@ MANAGE_USERS_PERMISSION = "accounts.manage_users"
 MANAGE_ROLES_PERMISSION = "accounts.manage_roles"
 LINK_AD_IDENTITY_PERMISSION = "accounts.link_ad_identity"
 LOCAL_USER_CREATION_REASON = "Criação explícita de conta local no SGPD."
-ROLE_ASSIGNMENT_REASON = "Designação explícita de papel no SGPD."
+ROLE_ASSIGNMENT_REASON = "Designação explícita de papel funcional no SGPD."
 DIRECTORY_IMPORT_REASON = "Criação explícita de conta local a partir do Active Directory."
-
-ASSIGNABLE_PERMISSION_CODENAMES = frozenset(
-    {
-        "manage_users",
-        "manage_roles",
-        "link_ad_identity",
-        "view_account_audit",
-        "query_senior_references",
-    }
+FIXED_ROLE_CATALOG_MESSAGE = (
+    "O catálogo de papéis é fixo: somente DP e RESPONSAVEL_SETOR podem ser utilizados."
 )
 
 
@@ -103,32 +94,6 @@ def record_authentication_event(
         reason=reason,
         changes={},
     )
-
-
-def _permissions(permission_ids: Iterable[int]) -> list[Permission]:
-    ids = set(permission_ids)
-    permissions = list(
-        Permission.objects.filter(
-            pk__in=ids,
-            content_type__app_label="accounts",
-        ).select_related("content_type")
-    )
-    if len(permissions) != len(ids):
-        raise ValidationError({"permissions": "Uma ou mais permissões são inválidas."})
-    if any(
-        permission.codename not in ASSIGNABLE_PERMISSION_CODENAMES for permission in permissions
-    ):
-        raise ValidationError({"permissions": "A seleção contém uma permissão não delegável."})
-    return permissions
-
-
-def assignable_permissions() -> QuerySet[Permission]:
-    """Return the deliberately small permission catalog exposed to role managers."""
-
-    return Permission.objects.filter(
-        content_type__app_label="accounts",
-        codename__in=ASSIGNABLE_PERMISSION_CODENAMES,
-    ).select_related("content_type")
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,21 +182,25 @@ class BootstrapIdentityAdminCommand:
 
 
 class BootstrapIdentityAdminService:
-    """Create the single initial administrator without a pre-existing actor."""
+    """Create the technical SuperAdmin without assigning a functional role."""
 
     @transaction.atomic
     def execute(self, command: BootstrapIdentityAdminCommand) -> User:
-        try:
-            role = Role.objects.select_for_update().get(
-                code="ADMIN_IDENTIDADE",
+        active_role_codes = set(
+            Role.objects.select_for_update()
+            .filter(
+                code__in=FUNCTIONAL_ROLE_CODES,
                 is_active=True,
             )
-        except Role.DoesNotExist as exc:
+            .order_by("code")
+            .values_list("code", flat=True)
+        )
+        if active_role_codes != set(FUNCTIONAL_ROLE_CODES):
             raise ValidationError(
-                "O papel ADMIN_IDENTIDADE não existe ou está inativo. "
+                "O catálogo funcional não existe ou está inativo. "
                 "Execute bootstrap_roles antes deste comando."
-            ) from exc
-        # The role row serializes concurrent bootstrap attempts even while the
+            )
+        # The role rows serialize concurrent bootstrap attempts even while the
         # user table is empty and therefore has no row that could be locked.
         if User.objects.filter(is_superuser=True).exists():
             raise ValidationError("O bootstrap já foi concluído.")
@@ -268,26 +237,6 @@ class BootstrapIdentityAdminService:
                 "is_staff": True,
                 "is_superuser": True,
             },
-        )
-        assignment = RoleAssignment(
-            user=user,
-            role=role,
-            scope_type=ScopeType.GLOBAL,
-            company_code=None,
-            branch_code=None,
-            scope_key="*",
-            assigned_by=user,
-        )
-        assignment.full_clean()
-        assignment.save()
-        _record_event(
-            event_type=AccountEventType.ROLE_ASSIGNED,
-            actor=user,
-            target_user=user,
-            entity_type="ROLE_ASSIGNMENT",
-            entity_id=assignment.pk,
-            reason="Papel global atribuído durante o bootstrap administrativo.",
-            changes={"role": role.code, "scope": "*"},
         )
         return user
 
@@ -463,103 +412,6 @@ class ChangeOwnPasswordService:
 
 
 @dataclass(frozen=True, slots=True)
-class CreateRoleCommand:
-    actor: User
-    code: str
-    name: str
-    description: str
-    permission_ids: tuple[int, ...]
-    reason: str
-
-
-class CreateRoleService:
-    @transaction.atomic
-    def execute(self, command: CreateRoleCommand) -> Role:
-        _require_permission(command.actor, MANAGE_ROLES_PERMISSION)
-        reason = _required_reason(command.reason)
-        permissions = _permissions(command.permission_ids)
-        role = Role(
-            code=command.code,
-            name=command.name,
-            description=command.description.strip(),
-        )
-        role.full_clean()
-        try:
-            role.save()
-        except IntegrityError as exc:
-            raise ValidationError({"code": "Já existe um papel com este código."}) from exc
-        role.permissions.set(permissions)
-        _record_event(
-            event_type=AccountEventType.ROLE_CREATED,
-            actor=command.actor,
-            entity_type="ROLE",
-            entity_id=role.pk,
-            reason=reason,
-            changes={
-                "code": role.code,
-                "name": role.name,
-                "permissions": sorted(permission.codename for permission in permissions),
-            },
-        )
-        return role
-
-
-@dataclass(frozen=True, slots=True)
-class UpdateRoleCommand:
-    actor: User
-    role_id: int
-    expected_version: int
-    name: str
-    description: str
-    is_active: bool
-    permission_ids: tuple[int, ...]
-    reason: str
-
-
-class UpdateRoleService:
-    @transaction.atomic
-    def execute(self, command: UpdateRoleCommand) -> Role:
-        _require_permission(command.actor, MANAGE_ROLES_PERMISSION)
-        reason = _required_reason(command.reason)
-        permissions = _permissions(command.permission_ids)
-        role = (
-            Role.objects.select_for_update().prefetch_related("permissions").get(pk=command.role_id)
-        )
-        if role.version != command.expected_version:
-            raise ValidationError("O papel foi alterado por outra sessão. Recarregue a página.")
-        before = {
-            "name": role.name,
-            "description": role.description,
-            "is_active": role.is_active,
-            "permissions": sorted(role.permissions.values_list("codename", flat=True)),
-        }
-        role.name = command.name
-        role.description = command.description.strip()
-        role.is_active = command.is_active
-        role.version += 1
-        role.full_clean()
-        role.save(update_fields=("name", "description", "is_active", "version", "updated_at"))
-        role.permissions.set(permissions)
-        _record_event(
-            event_type=AccountEventType.ROLE_UPDATED,
-            actor=command.actor,
-            entity_type="ROLE",
-            entity_id=role.pk,
-            reason=reason,
-            changes={
-                "before": before,
-                "after": {
-                    "name": role.name,
-                    "description": role.description,
-                    "is_active": role.is_active,
-                    "permissions": sorted(permission.codename for permission in permissions),
-                },
-            },
-        )
-        return role
-
-
-@dataclass(frozen=True, slots=True)
 class AssignRoleCommand:
     actor: User
     user_id: int
@@ -581,6 +433,8 @@ class AssignRoleService:
             raise ValidationError("Não é possível atribuir papel a um usuário inativo.")
         if not role.is_active:
             raise ValidationError("Não é possível atribuir um papel inativo.")
+        if role.code not in FUNCTIONAL_ROLE_CODES:
+            raise ValidationError(FIXED_ROLE_CATALOG_MESSAGE)
 
         scope_key = build_scope_key(
             command.scope_type,

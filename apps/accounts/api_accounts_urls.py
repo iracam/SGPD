@@ -54,8 +54,7 @@ urlpatterns = [
         api_accounts.RoleAssignmentRevokeView.as_view(),
         name="role-assignment-revoke",
     ),
-    path("roles/", api_accounts.RoleListCreateView.as_view(), name="role-list"),
+    path("roles/", api_accounts.RoleListView.as_view(), name="role-list"),
     path("roles/<int:role_id>/", api_accounts.RoleDetailView.as_view(), name="role-detail"),
-    path("permissions/", api_accounts.PermissionListView.as_view(), name="permission-list"),
     path("audit/", api_accounts.AuditListView.as_view(), name="audit-list"),
 ]

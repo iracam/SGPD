@@ -88,7 +88,7 @@ def test_company_endpoint_filters_results_by_role_scope(
         password="Scoped-dp-test!2026",
     )
     permission = Permission.objects.get(codename="query_senior_references")
-    role = Role.objects.create(code="DP_TESTE", name="DP de teste")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     role.permissions.add(permission)
     assignment = RoleAssignment(
         user=user,
@@ -122,7 +122,7 @@ def test_branch_endpoint_rejects_company_outside_role_scope(
         password="Restricted-dp-test!2026",
     )
     permission = Permission.objects.get(codename="query_senior_references")
-    role = Role.objects.create(code="DP_RESTRITO", name="DP restrito")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     role.permissions.add(permission)
     assignment = RoleAssignment(
         user=user,

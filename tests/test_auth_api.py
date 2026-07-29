@@ -316,7 +316,7 @@ def test_context_reports_no_access_for_a_user_without_roles(user: User) -> None:
 
 
 def test_context_exposes_company_scoped_permission(user: User) -> None:
-    role = Role.objects.create(code="DP_TESTE", name="DP de teste")
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
     role.permissions.add(
         Permission.objects.get(
             content_type__app_label="accounts",
@@ -337,7 +337,7 @@ def test_context_exposes_company_scoped_permission(user: User) -> None:
 
     body = client.get(reverse("auth-api:context")).json()
 
-    assert body["roles"] == ["DP_TESTE"]
+    assert body["roles"] == ["DP"]
     assert body["features"]["query_senior_references"]["can_view"] is True
     assert body["permissions"]["query_senior_references"]["companies"] == [7]
     assert body["features"]["manage_users"]["can_view"] is False
@@ -362,7 +362,7 @@ def test_context_reports_global_access_for_superuser() -> None:
 
 
 def test_revoked_assignment_disappears_from_context(user: User) -> None:
-    role = Role.objects.create(code="AUDITOR_TESTE", name="Auditor de teste")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     role.permissions.add(
         Permission.objects.get(
             content_type__app_label="accounts",

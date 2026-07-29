@@ -30,6 +30,7 @@ from config.api import api_error
 from .api import user_payload
 from .authorization import has_permission
 from .models import (
+    FUNCTIONAL_ROLE_CODES,
     AccountAuditEvent,
     Role,
     RoleAssignment,
@@ -42,8 +43,6 @@ from .serializers import (
     ReasonVersionSerializer,
     ResetPasswordSerializer,
     RoleAssignmentSerializer,
-    RoleCreateSerializer,
-    RoleUpdateSerializer,
     UserCreateSerializer,
     UserUpdateSerializer,
 )
@@ -53,8 +52,6 @@ from .services import (
     MANAGE_USERS_PERMISSION,
     AssignRoleCommand,
     AssignRoleService,
-    CreateRoleCommand,
-    CreateRoleService,
     CreateUserCommand,
     CreateUserService,
     InitialRoleAssignmentCommand,
@@ -67,11 +64,8 @@ from .services import (
     RevokeRoleService,
     UnlinkAdIdentityCommand,
     UnlinkAdIdentityService,
-    UpdateRoleCommand,
-    UpdateRoleService,
     UpdateUserCommand,
     UpdateUserService,
-    assignable_permissions,
 )
 
 VIEW_ACCOUNT_AUDIT_PERMISSION = "accounts.view_account_audit"
@@ -470,66 +464,29 @@ class UserAdUnlinkView(AccountsAPIView):
         return Response(user_detail_payload(user))
 
 
-class RoleListCreateView(AccountsAPIView):
+class RoleListView(AccountsAPIView):
     required_permission = MANAGE_ROLES_PERMISSION
 
     def get(self, request: Request) -> Response:
         offset, limit = self.page(request)
-        roles = Role.objects.prefetch_related("permissions").order_by("code")
+        roles = Role.objects.filter(
+            code__in=FUNCTIONAL_ROLE_CODES,
+            is_active=True,
+        ).prefetch_related("permissions")
         return self.paginated(roles, role_payload, offset=offset, limit=limit)
-
-    def post(self, request: Request) -> Response:
-        serializer = RoleCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = cast(dict[str, Any], serializer.validated_data)
-
-        role = CreateRoleService().execute(
-            CreateRoleCommand(
-                actor=self.actor(request),
-                code=data["code"],
-                name=data["name"],
-                description=data["description"],
-                permission_ids=tuple(data["permission_ids"]),
-                reason=data["reason"],
-            )
-        )
-        return Response(role_payload(role), status=201)
 
 
 class RoleDetailView(AccountsAPIView):
     required_permission = MANAGE_ROLES_PERMISSION
 
     def get(self, request: Request, role_id: int) -> Response:
-        role = get_object_or_404(Role.objects.prefetch_related("permissions"), pk=role_id)
-        return Response(role_payload(role))
-
-    def patch(self, request: Request, role_id: int) -> Response:
-        get_object_or_404(Role, pk=role_id)
-        serializer = RoleUpdateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = cast(dict[str, Any], serializer.validated_data)
-
-        role = UpdateRoleService().execute(
-            UpdateRoleCommand(
-                actor=self.actor(request),
-                role_id=role_id,
-                expected_version=data["version"],
-                name=data["name"],
-                description=data["description"],
-                is_active=data["is_active"],
-                permission_ids=tuple(data["permission_ids"]),
-                reason=data["reason"],
-            )
+        role = get_object_or_404(
+            Role.objects.prefetch_related("permissions"),
+            pk=role_id,
+            code__in=FUNCTIONAL_ROLE_CODES,
+            is_active=True,
         )
         return Response(role_payload(role))
-
-
-class PermissionListView(AccountsAPIView):
-    required_permission = MANAGE_ROLES_PERMISSION
-
-    def get(self, request: Request) -> Response:
-        permissions = assignable_permissions().order_by("codename")
-        return Response({"results": [permission_payload(item) for item in permissions]})
 
 
 class AuditListView(AccountsAPIView):

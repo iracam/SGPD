@@ -8,8 +8,10 @@ from django.core.management import call_command
 from django.db import connection
 from django.utils import timezone
 
-from apps.accounts.authorization import has_permission
+from apps.accounts.authorization import has_effective_role, has_permission
 from apps.accounts.models import (
+    PEOPLE_DEPARTMENT_ROLE_CODE,
+    RESPONSIBLE_SECTOR_ROLE_CODE,
     AccountAuditEvent,
     AccountEventType,
     Role,
@@ -25,8 +27,6 @@ from apps.accounts.services import (
     BootstrapIdentityAdminService,
     ChangeOwnPasswordCommand,
     ChangeOwnPasswordService,
-    CreateRoleCommand,
-    CreateRoleService,
     CreateUserCommand,
     CreateUserService,
     InitialRoleAssignmentCommand,
@@ -78,7 +78,11 @@ def test_bootstrap_creates_single_audited_identity_admin() -> None:
     assert user.username == "primeiro.admin"
     assert user.is_superuser
     assert user.is_staff
-    assert user.role_assignments.get().role.code == "ADMIN_IDENTIDADE"
+    assert not user.role_assignments.exists()
+    assert list(Role.objects.filter(is_active=True).values_list("code", flat=True)) == [
+        "DP",
+        "RESPONSAVEL_SETOR",
+    ]
     assert AccountAuditEvent.objects.filter(
         event_type=AccountEventType.USER_CREATED,
         actor__isnull=True,
@@ -94,6 +98,54 @@ def test_bootstrap_creates_single_audited_identity_admin() -> None:
                 password="Bootstrap-admin-test!2026",
             )
         )
+
+
+def test_bootstrap_reconciles_the_fixed_role_catalog() -> None:
+    call_command("bootstrap_roles")
+    role = Role.objects.get(code="RESPONSAVEL_SETOR")
+    dp_role = Role.objects.get(code="DP")
+    assert list(dp_role.permissions.values_list("codename", flat=True)) == [
+        "query_senior_references"
+    ]
+    extra = Permission.objects.get(
+        content_type__app_label="accounts",
+        codename="manage_users",
+    )
+    role.permissions.add(extra)
+    role.name = "Nome divergente"
+    role.description = "Descrição divergente"
+    role.is_active = False
+    role.save(update_fields=("name", "description", "is_active"))
+    before = AccountAuditEvent.objects.count()
+
+    call_command("bootstrap_roles")
+
+    role.refresh_from_db()
+    assert role.name == "Responsável de setor"
+    assert role.is_active
+    assert not role.permissions.exists()
+    event = AccountAuditEvent.objects.filter(
+        event_type=AccountEventType.ROLE_UPDATED,
+        entity_type="ROLE",
+        entity_id=str(role.pk),
+    ).latest("occurred_at")
+    assert event.changes["before"]["is_active"] is False
+    assert event.changes["after"]["is_active"] is True
+    assert event.changes["after"]["permissions"] == []
+    assert AccountAuditEvent.objects.count() == before + 1
+
+    call_command("bootstrap_roles")
+    assert AccountAuditEvent.objects.count() == before + 1
+
+
+def test_fixed_role_model_accepts_dp_and_rejects_role_outside_catalog() -> None:
+    Role(code="DP", name="Departamento Pessoal").full_clean()
+    legacy = Role(code="FINANCEIRO", name="Financeiro")
+    with pytest.raises(ValidationError, match="Somente os papéis DP e RESPONSAVEL_SETOR"):
+        legacy.full_clean()
+
+    assert not Role.objects.exists()
+    assert not AccountAuditEvent.objects.exists()
 
 
 def test_create_user_normalizes_identity_and_audits(actor: User) -> None:
@@ -138,7 +190,7 @@ def test_create_user_rolls_back_when_password_is_invalid(actor: User) -> None:
 
 
 def test_create_user_assigns_initial_role_in_the_same_transaction(actor: User) -> None:
-    role = Role.objects.create(code="GESTOR_INICIAL", name="Gestor inicial")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
 
     user = CreateUserService().execute(
         CreateUserCommand(
@@ -287,17 +339,6 @@ def test_account_services_reject_actor_without_required_permission() -> None:
             )
         )
     with pytest.raises(PermissionDenied):
-        CreateRoleService().execute(
-            CreateRoleCommand(
-                actor=unauthorized_actor,
-                code="SEM_PERMISSAO",
-                name="Não criado",
-                description="",
-                permission_ids=(),
-                reason="Tentativa sem permissão.",
-            )
-        )
-    with pytest.raises(PermissionDenied):
         LinkAdIdentityService().execute(
             LinkAdIdentityCommand(
                 actor=unauthorized_actor,
@@ -396,16 +437,11 @@ def test_ad_unlink_requires_current_version(actor: User) -> None:
 
 def test_role_assignment_enforces_organizational_scope(actor: User) -> None:
     permission = Permission.objects.get(codename="query_senior_references")
-    role = CreateRoleService().execute(
-        CreateRoleCommand(
-            actor=actor,
-            code="dp_empresa",
-            name="DP por empresa",
-            description="Acesso cadastral limitado.",
-            permission_ids=(permission.pk,),
-            reason="Matriz de acesso.",
-        )
+    role = Role.objects.create(
+        code=PEOPLE_DEPARTMENT_ROLE_CODE,
+        name="Departamento Pessoal",
     )
+    role.permissions.add(permission)
     user = create_user("dp.empresa")
     assignment = AssignRoleService().execute(
         AssignRoleCommand(
@@ -434,10 +470,64 @@ def test_role_assignment_enforces_organizational_scope(actor: User) -> None:
         branch_code=10,
     )
     assert not has_permission(user, "accounts.query_senior_references")
+    assert has_effective_role(
+        user,
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        company_code=1,
+        branch_code=10,
+    )
+    assert not has_effective_role(
+        user,
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        company_code=2,
+        branch_code=10,
+    )
+    assert not has_effective_role(actor, PEOPLE_DEPARTMENT_ROLE_CODE)
+
+
+def test_user_can_accumulate_dp_and_sector_responsible_roles(actor: User) -> None:
+    dp_role = Role.objects.create(
+        code=PEOPLE_DEPARTMENT_ROLE_CODE,
+        name="Departamento Pessoal",
+    )
+    responsible_role = Role.objects.create(
+        code=RESPONSIBLE_SECTOR_ROLE_CODE,
+        name="Responsável de setor",
+    )
+    user = create_user("dp.responsavel")
+
+    for role in (dp_role, responsible_role):
+        AssignRoleService().execute(
+            AssignRoleCommand(
+                actor=actor,
+                user_id=user.pk,
+                role_id=role.pk,
+                scope_type=ScopeType.GLOBAL,
+                company_code=None,
+                branch_code=None,
+                valid_from=None,
+                valid_until=None,
+            )
+        )
+
+    assert set(
+        user.role_assignments.filter(is_active=True).values_list("role__code", flat=True)
+    ) == {
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        RESPONSIBLE_SECTOR_ROLE_CODE,
+    }
+    assert has_effective_role(user, PEOPLE_DEPARTMENT_ROLE_CODE)
+    assert (
+        AccountAuditEvent.objects.filter(
+            event_type=AccountEventType.ROLE_ASSIGNED,
+            target_user=user,
+        ).count()
+        == 2
+    )
 
 
 def test_role_assignment_is_idempotent_and_revocable(actor: User) -> None:
-    role = Role.objects.create(code="AUDITOR_TESTE", name="Auditor de teste")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     user = create_user("auditor.teste")
     command = AssignRoleCommand(
         actor=actor,
@@ -486,7 +576,7 @@ def test_role_assignment_avoids_for_update_with_limit_on_oracle(
         False,
     )
     monkeypatch.setattr(connection.ops, "for_update_sql", lambda **_kwargs: "")
-    role = Role.objects.create(code="ORACLE_LOCK", name="Regressão Oracle")
+    role = Role.objects.create(code="RESPONSAVEL_SETOR", name="Responsável de setor")
     user = create_user("oracle.lock")
 
     assignment = AssignRoleService().execute(

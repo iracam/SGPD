@@ -36,6 +36,55 @@ def effective_assignments(user: User, permission: str) -> QuerySet[RoleAssignmen
     )
 
 
+def _has_assignment_in_scope(
+    assignments: QuerySet[RoleAssignment],
+    *,
+    company_code: int | None,
+    branch_code: int | None,
+) -> bool:
+    if branch_code is not None and company_code is None:
+        return False
+    if company_code is None:
+        return assignments.filter(scope_type=ScopeType.GLOBAL).exists()
+    if branch_code is None:
+        return assignments.filter(
+            Q(scope_type=ScopeType.GLOBAL)
+            | Q(scope_type=ScopeType.COMPANY, company_code=company_code)
+        ).exists()
+    return assignments.filter(
+        Q(scope_type=ScopeType.GLOBAL)
+        | Q(scope_type=ScopeType.COMPANY, company_code=company_code)
+        | Q(
+            scope_type=ScopeType.BRANCH,
+            company_code=company_code,
+            branch_code=branch_code,
+        )
+    ).exists()
+
+
+def has_effective_role(
+    user: User,
+    role_code: str,
+    *,
+    company_code: int | None = None,
+    branch_code: int | None = None,
+) -> bool:
+    """Check an explicit, current role assignment in the requested scope.
+
+    SuperAdmin is deliberately not an implicit functional DP or sector
+    responsible.
+    """
+
+    if not user.is_authenticated or not user.is_active:
+        return False
+    assignments = active_assignments(user).filter(role__code=role_code.strip().upper())
+    return _has_assignment_in_scope(
+        assignments,
+        company_code=company_code,
+        branch_code=branch_code,
+    )
+
+
 def has_permission(
     user: User,
     permission: str,
@@ -55,23 +104,11 @@ def has_permission(
     ).exists():
         return True
 
-    assignments = effective_assignments(user, permission)
-    if company_code is None:
-        return assignments.filter(scope_type=ScopeType.GLOBAL).exists()
-    if branch_code is None:
-        return assignments.filter(
-            Q(scope_type=ScopeType.GLOBAL)
-            | Q(scope_type=ScopeType.COMPANY, company_code=company_code)
-        ).exists()
-    return assignments.filter(
-        Q(scope_type=ScopeType.GLOBAL)
-        | Q(scope_type=ScopeType.COMPANY, company_code=company_code)
-        | Q(
-            scope_type=ScopeType.BRANCH,
-            company_code=company_code,
-            branch_code=branch_code,
-        )
-    ).exists()
+    return _has_assignment_in_scope(
+        effective_assignments(user, permission),
+        company_code=company_code,
+        branch_code=branch_code,
+    )
 
 
 def allowed_company_codes(user: User, permission: str) -> set[int] | None:

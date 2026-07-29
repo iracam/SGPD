@@ -43,6 +43,7 @@ DELEGABLE_PERMISSIONS: tuple[str, ...] = (
     "accounts.link_ad_identity",
     "accounts.view_account_audit",
     SENIOR_REFERENCE_PERMISSION,
+    "sectors.manage_sectors",
 )
 
 

@@ -135,38 +135,3 @@ class AdLinkSerializer(serializers.Serializer[dict[str, Any]]):
 
 class DirectoryUserCreateSerializer(serializers.Serializer[dict[str, Any]]):
     identifier = serializers.CharField(max_length=255, trim_whitespace=True)
-
-
-class RoleCreateSerializer(serializers.Serializer[dict[str, Any]]):
-    code = serializers.CharField(max_length=50, trim_whitespace=True)
-    name = serializers.CharField(max_length=120, trim_whitespace=True)
-    description = serializers.CharField(
-        max_length=REASON_MAX_LENGTH,
-        allow_blank=True,
-        default="",
-        trim_whitespace=True,
-    )
-    permission_ids = serializers.ListField(
-        child=serializers.IntegerField(min_value=1),
-        allow_empty=True,
-        default=list,
-    )
-    reason = _reason_field()
-
-
-class RoleUpdateSerializer(serializers.Serializer[dict[str, Any]]):
-    version = serializers.IntegerField(min_value=1)
-    name = serializers.CharField(max_length=120, trim_whitespace=True)
-    description = serializers.CharField(
-        max_length=REASON_MAX_LENGTH,
-        allow_blank=True,
-        default="",
-        trim_whitespace=True,
-    )
-    is_active = serializers.BooleanField()
-    permission_ids = serializers.ListField(
-        child=serializers.IntegerField(min_value=1),
-        allow_empty=True,
-        default=list,
-    )
-    reason = _reason_field()
