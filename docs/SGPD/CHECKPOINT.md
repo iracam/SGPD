@@ -422,7 +422,12 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - Código público numérico igual ao `ID`, busca por nome, edição auditada do
     único rascunho e criação de nova versão a partir do conteúdo publicado.
   - Cada pergunta recebe o próprio `ID` como código e não aceita código manual.
-  - Nenhum template, grupo ou pergunta funcional foi semeado sem homologação.
+  - Nenhum template, grupo ou pergunta funcional é semeado automaticamente.
+  - O Oracle DEV contém o template piloto `Demissional Geral` versão 1 e o
+    grupo piloto `Todos` versão 1 publicados manualmente. O grupo associa os
+    nove setores ao mesmo template como obrigatórios e bloqueantes; esse
+    conteúdo permanece pendente de homologação funcional antes de uso
+    operacional.
 - [x] Versionamento.
   - Publicação substitui a versão vigente sem alterar versões históricas;
     versões publicadas/aposentadas e snapshots permanecem imutáveis.
@@ -467,6 +472,9 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     setor, versão do template e perguntas congelados.
   - Retry idêntico devolve o resultado persistido; chave divergente responde
     conflito sem mutação parcial.
+  - Smoke transacional no Oracle DEV validou abertura, seleção e início com o
+    grupo piloto: nove tarefas, nove snapshots de checklist, três eventos e
+    replay idempotente, com rollback integral ao final.
 - [ ] Estados.
   - `RASCUNHO` e `INICIADO` estão implementados; execução/conclusão de tarefas,
     cancelamento, reabertura, prontidão, liberação e encerramento continuam
@@ -1444,4 +1452,22 @@ Próximo passo: recarregar a SPA no navegador e validar a edição do grupo já 
 Comandos executados: leitura integral da documentação obrigatória; diagnóstico de API, services, models e SPA; testes direcionados e completos; Ruff; format; Mypy; Django check; makemigrations check; revisão do sqlmigrate Oracle; Vitest; build Angular; aplicação da migration state-only templates_engine.0005; validação do plano final de migrations e diff check.
 Arquivos alterados: models, service, serializer, API, URLs e migration 0005 de templates_engine; editor, contrato, service e testes Angular de workflow-config; testes backend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, ROADMAP.md, SECURITY.md e MANIFEST.json.
 Testes: 306 testes backend e 66 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,13 kB e chunk lazy workflow-config de 25,74 kB. O sqlmigrate confirmou que templates_engine.0005 não executa DDL; a migration foi registrada no Oracle DEV e o plano final ficou vazio. Nenhum objeto ou dado do Senior HCM foi consultado ou alterado.
+```
+
+### 2026-07-29 — Smoke transacional do início do processo
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 4 — Workflow / Validação integrada
+O que foi concluído: estado real do Oracle DEV reconciliado com o checkpoint; template piloto Demissional Geral versão 1 e grupo piloto Todos versão 1 confirmados como publicados; fluxo abrir → selecionar → iniciar executado pelos services reais dentro de transação com rollback obrigatório; replay da mesma Idempotency-Key validado sem duplicação.
+Diagnóstico: o grupo piloto associa os nove setores ao mesmo template, todos obrigatórios e bloqueantes. O template possui SLA de 12 horas e uma pergunta booleana; os setores conservam prazo provisório de 24 horas, escopo global e parâmetros ainda não homologados. Não existia processo ou tarefa antes do teste.
+Decisões: o smoke valida a integração técnica, não homologa o conteúdo funcional. Nenhum processo piloto permanecerá no Oracle até aprovação explícita de escopos, prazos, bloqueios, evidências, valores e perguntas. O próximo incremento de código será execução de tarefa, resposta de checklist e conclusão de setor, sem antecipar pendências avançadas.
+Riscos: a configuração publicada é excessivamente genérica para uso operacional e inclui todos os setores como bloqueantes; iniciar um desligamento real antes da homologação pode criar obrigações e prazos incorretos. A primeira tentativa do preflight usou agregação ORM sobre cabeçalho com NCLOB e recebeu ORA-00932 antes de qualquer escrita; a consulta foi substituída por contagem separada compatível com Oracle.
+Pendências: homologar funcionalmente o template, o grupo e os nove setores; validar visualmente os assets publicados da SPA; implementar o ciclo inicial de tarefa com autorização derivada do setor, concorrência, idempotência e auditoria.
+Próximo passo: especificar e implementar o incremento vertical responder checklist → concluir tarefa de setor, mantendo pendências, evidências e valores fora do recorte até suas fases próprias.
+Comandos executados: leitura da documentação obrigatória; revisão integral do diff; pytest; Ruff check/format; Mypy; Django check; makemigrations check; Vitest; build Angular; commits locais da implementação e documentação; consultas Oracle somente leitura; smoke pelos services dentro de transaction.atomic com transaction.set_rollback(true); validação das contagens após rollback.
+Arquivos alterados: README.md; docs/SGPD/ROADMAP.md; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
+Commits anteriores ao smoke: fc174d0 (implementação, migrations e testes); fd38df6 (documentação da configuração funcional).
+Testes: 306 testes backend e 66 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,13 kB. O smoke abriu um rascunho, selecionou um grupo, iniciou nove tarefas, copiou nove itens, gravou três eventos e uma chave idempotente, e o retry devolveu replay com as mesmas nove tarefas. Após rollback, processos, snapshots, tarefas, itens, origens, eventos e chaves de idempotência permaneceram todos com contagem zero. O Senior foi acessado somente por SELECT e nenhum objeto VETORH foi alterado.
 ```

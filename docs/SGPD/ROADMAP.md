@@ -209,9 +209,11 @@ o setor sincroniza seus vínculos atomicamente e as listas de setores/usuários
 exibem indicadores. `DP` permanece como único papel atribuível, cumulativo e
 independente da responsabilidade de setor. Templates e grupos versionados
 também estão implementados com publicação auditada e SPA; nenhuma pergunta ou
-composição funcional foi semeada. Templates são neutros quanto a setor e podem
-ser reutilizados por diferentes regras de grupo. Regras automáticas de
-aplicabilidade continuam pendentes.
+composição funcional é carregada automaticamente. O Oracle DEV contém o
+template piloto `Demissional Geral` e o grupo piloto `Todos` publicados
+manualmente, ainda sujeitos à homologação funcional. Templates são neutros
+quanto a setor e podem ser reutilizados por diferentes regras de grupo. Regras
+automáticas de aplicabilidade continuam pendentes.
 
 O editor de templates usa o `ID` numérico gerado pelo banco, busca pelo nome e
 permite corrigir o único rascunho do cabeçalho. Para conteúdo publicado, a SPA
@@ -263,6 +265,13 @@ painéis operacionais permanecem pendentes. As migrations
 aplicadas e validadas no Oracle DEV.
 `templates_engine.0003`, que normaliza o identificador automático e habilita o
 editor de rascunho, também está aplicada e validada.
+
+Um smoke transacional com rollback obrigatório validou no Oracle DEV o fluxo
+abrir → selecionar → iniciar sobre a configuração piloto publicada. Foram
+geradas nove tarefas, nove snapshots de checklist e três eventos de auditoria;
+o retry com a mesma chave foi reconhecido como replay sem duplicação. Nenhuma
+linha do teste permaneceu persistida e o Senior foi consultado somente por
+`SELECT`.
 
 ## Fase 5 — Pendências e evidências
 

@@ -277,10 +277,11 @@ de setores, seus escopos e responsáveis. O Oracle DEV contém os nove setores
 informados pelo responsável funcional, ainda com prazo, escopo e regras
 provisórios. O cadastro de responsáveis está implementado e o Oracle DEV
 contém 10 associações ativas cobrindo os nove setores. Grupos, regras e
-templates agora são configuráveis, sem carga funcional automática: templates
-são neutros quanto a setor, enquanto perguntas, SLAs e composição precisam ser
-homologados e cadastrados. O papel `DP` possui uma atribuição global ativa para
-`victor.delgado`; qualquer capacidade
+templates agora são configuráveis, sem carga funcional automática. O Oracle
+DEV contém o template piloto `Demissional Geral` e o grupo piloto `Todos`
+publicados; seu conteúdo, SLAs e composição ainda precisam de homologação
+funcional antes de uso operacional. Templates são neutros quanto a setor. O
+papel `DP` possui uma atribuição global ativa para `victor.delgado`; qualquer capacidade
 `RESPONSAVEL_SETOR` é derivada de seus vínculos vigentes.
 
 A migração da interface foi concluída. A API de autenticação, contexto,
@@ -288,5 +289,12 @@ administração de contas e workflow está publicada em `/api/v1/`, e a SPA
 autentica, aplica o tema, filtra o menu pelo contexto do servidor, administra
 contas, configura grupos/templates, abre e inicia o rascunho. O Django Admin somente leitura
 permanece como ferramenta técnica de diagnóstico.
+
+Em 2026-07-29, um smoke transacional no Oracle DEV validou o fluxo
+abrir → selecionar → iniciar com os services reais: nove tarefas, nove
+snapshots de checklist, três eventos de auditoria e replay idempotente foram
+confirmados. O rollback obrigatório removeu integralmente processo, snapshot,
+tarefas, itens, auditoria e chave de idempotência criados pelo teste. O Senior
+foi acessado somente por `SELECT`.
 
 Consulte `PROMPT.md` para o procedimento completo.
