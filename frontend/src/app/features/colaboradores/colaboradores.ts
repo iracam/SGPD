@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
@@ -65,6 +66,7 @@ export class ColaboradoresPage {
   private readonly service = inject(ColaboradoresService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
   private readonly requisicoesColaborador = new Subject<RequisicaoColaborador>();
   private requisicaoGestores: Subscription | null = null;
 
@@ -204,7 +206,10 @@ export class ColaboradoresPage {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (processo) => this.processoAberto.set(processo),
+        next: (processo) => {
+          this.processoAberto.set(processo);
+          void this.router.navigate(['/fe/processos', processo.uuid, 'rascunho']);
+        },
         error: (error) => {
           this.errosAbertura.set(fieldErrors(error));
           this.erroAbertura.set(

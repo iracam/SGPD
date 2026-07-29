@@ -1,0 +1,142 @@
+@use 'breakpoints' as bp;
+
+.cabecalho,
+.cabecalho__acoes,
+.subtitulo,
+.acoes,
+.registro,
+.registro__acoes {
+  display: flex;
+  flex-direction: column;
+}
+
+.cabecalho {
+  gap: 1rem;
+  margin-block-end: 1.25rem;
+}
+
+.cabecalho__acoes,
+.acoes {
+  gap: 0.55rem;
+}
+
+.cartao {
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.9rem;
+  background: var(--p-content-background);
+}
+
+.editor {
+  margin-block-end: 1rem;
+}
+
+.editor h2,
+.editor h3 {
+  margin-block: 0 0.7rem;
+}
+
+.grade-campos {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.campo {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.campo input,
+.campo textarea,
+.campo p-select,
+.campo p-inputNumber {
+  width: 100%;
+}
+
+.subtitulo {
+  gap: 0.6rem;
+  margin-block: 1rem 0.65rem;
+}
+
+.linhas,
+.catalogos {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.linha {
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.7rem;
+}
+
+.linha legend {
+  padding-inline: 0.35rem;
+  font-weight: 700;
+}
+
+.opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-block: 0.8rem;
+}
+
+.opcoes label {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.acoes {
+  margin-block-start: 1rem;
+}
+
+.registro {
+  gap: 0.7rem;
+  padding-block: 0.8rem;
+  border-block-start: 1px solid var(--p-content-border-color);
+}
+
+.registro small {
+  display: block;
+  margin-block-start: 0.2rem;
+  color: var(--p-text-muted-color);
+}
+
+.registro__acoes {
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+
+@include bp.from(bp.$md) {
+  .cabecalho,
+  .subtitulo,
+  .registro,
+  .registro__acoes {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .cabecalho__acoes,
+  .acoes {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .grade-campos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .campo--total {
+    grid-column: 1 / -1;
+  }
+}
+
+@include bp.from(bp.$xl) {
+  .catalogos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

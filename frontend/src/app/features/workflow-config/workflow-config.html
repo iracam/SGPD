@@ -1,0 +1,313 @@
+<header class="cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-list-check" aria-hidden="true"></i>
+      Configuração auditada
+    </span>
+    <h1 class="page-title">Grupos e templates</h1>
+    <p class="page-lead">
+      Cadastre versões explícitas. Publicações novas não alteram processos já iniciados.
+    </p>
+  </div>
+  <div class="cabecalho__acoes">
+    <p-button
+      type="button"
+      [outlined]="true"
+      icon="pi pi-plus"
+      label="Novo template"
+      (onClick)="exibirTemplate.set(!exibirTemplate())"
+    ></p-button>
+    <p-button
+      type="button"
+      icon="pi pi-sitemap"
+      label="Novo grupo"
+      [disabled]="versoesTemplatePublicadas().length === 0"
+      (onClick)="exibirGrupo.set(!exibirGrupo())"
+    ></p-button>
+  </div>
+</header>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+@if (aviso()) {
+  <p-message severity="success" [text]="aviso()"></p-message>
+}
+
+@if (exibirTemplate()) {
+  <section class="cartao editor" aria-labelledby="novo-template">
+    <h2 id="novo-template">Novo template — versão 1</h2>
+    <form [formGroup]="formularioTemplate" (ngSubmit)="criarTemplate()">
+      <div class="grade-campos">
+        <div class="campo">
+          <label for="template-code">Código</label>
+          <input id="template-code" pInputText formControlName="code" />
+        </div>
+        <div class="campo">
+          <label for="template-sector">Setor</label>
+          <p-select
+            inputId="template-sector"
+            formControlName="sector_id"
+            [options]="setores()"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Selecione"
+          ></p-select>
+        </div>
+        <div class="campo campo--largo">
+          <label for="template-name">Nome</label>
+          <input id="template-name" pInputText formControlName="name" />
+        </div>
+        <div class="campo">
+          <label for="template-sla">SLA padrão (horas)</label>
+          <p-inputNumber
+            inputId="template-sla"
+            formControlName="default_due_hours"
+            [min]="1"
+            [max]="8760"
+          ></p-inputNumber>
+        </div>
+        <div class="campo campo--total">
+          <label for="template-description">Descrição</label>
+          <textarea
+            id="template-description"
+            pTextarea
+            rows="2"
+            formControlName="description"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="subtitulo">
+        <h3>Perguntas</h3>
+        <p-button
+          type="button"
+          size="small"
+          [outlined]="true"
+          icon="pi pi-plus"
+          label="Adicionar"
+          (onClick)="adicionarPergunta()"
+        ></p-button>
+      </div>
+      <div formArrayName="items" class="linhas">
+        @for (pergunta of formularioTemplate.controls.items.controls; track pergunta; let i = $index) {
+          <fieldset [formGroupName]="i" class="linha">
+            <legend>Pergunta {{ i + 1 }}</legend>
+            <div class="grade-campos">
+              <div class="campo">
+                <label [for]="'pergunta-code-' + i">Código</label>
+                <input [id]="'pergunta-code-' + i" pInputText formControlName="code" />
+              </div>
+              <div class="campo">
+                <label [for]="'pergunta-type-' + i">Tipo de resposta</label>
+                <p-select
+                  [inputId]="'pergunta-type-' + i"
+                  formControlName="response_type"
+                  [options]="tiposResposta"
+                  optionLabel="label"
+                  optionValue="value"
+                ></p-select>
+              </div>
+              <div class="campo campo--total">
+                <label [for]="'pergunta-text-' + i">Pergunta</label>
+                <textarea
+                  [id]="'pergunta-text-' + i"
+                  pTextarea
+                  rows="2"
+                  formControlName="question"
+                ></textarea>
+              </div>
+            </div>
+            <div class="opcoes">
+              <label><p-checkbox formControlName="is_required" [binary]="true"></p-checkbox> Obrigatória</label>
+              <label><p-checkbox formControlName="blocks_process" [binary]="true"></p-checkbox> Bloqueante</label>
+              <label><p-checkbox formControlName="requires_evidence" [binary]="true"></p-checkbox> Exige evidência</label>
+              <label><p-checkbox formControlName="allows_pending" [binary]="true"></p-checkbox> Permite pendência</label>
+            </div>
+            <p-button
+              type="button"
+              severity="danger"
+              size="small"
+              [text]="true"
+              icon="pi pi-trash"
+              label="Remover pergunta"
+              [disabled]="formularioTemplate.controls.items.length === 1"
+              (onClick)="removerPergunta(i)"
+            ></p-button>
+          </fieldset>
+        }
+      </div>
+      <div class="acoes">
+        <p-button
+          type="submit"
+          icon="pi pi-save"
+          label="Criar versão em rascunho"
+          [loading]="salvandoTemplate()"
+        ></p-button>
+      </div>
+    </form>
+  </section>
+}
+
+@if (exibirGrupo()) {
+  <section class="cartao editor" aria-labelledby="novo-grupo">
+    <h2 id="novo-grupo">Novo grupo — versão 1</h2>
+    <form [formGroup]="formularioGrupo" (ngSubmit)="criarGrupo()">
+      <div class="grade-campos">
+        <div class="campo">
+          <label for="grupo-code">Código</label>
+          <input id="grupo-code" pInputText formControlName="code" />
+        </div>
+        <div class="campo">
+          <label for="grupo-name">Nome</label>
+          <input id="grupo-name" pInputText formControlName="name" />
+        </div>
+        <div class="campo campo--total">
+          <label for="grupo-description">Descrição</label>
+          <textarea
+            id="grupo-description"
+            pTextarea
+            rows="2"
+            formControlName="description"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="subtitulo">
+        <h3>Setores e templates</h3>
+        <p-button
+          type="button"
+          size="small"
+          [outlined]="true"
+          icon="pi pi-plus"
+          label="Adicionar"
+          (onClick)="adicionarRegra()"
+        ></p-button>
+      </div>
+      <div formArrayName="sectors" class="linhas">
+        @for (regra of formularioGrupo.controls.sectors.controls; track regra; let i = $index) {
+          <fieldset [formGroupName]="i" class="linha">
+            <legend>Setor {{ i + 1 }}</legend>
+            <div class="grade-campos">
+              <div class="campo campo--largo">
+                <label [for]="'grupo-template-' + i">Template publicado</label>
+                <p-select
+                  [inputId]="'grupo-template-' + i"
+                  formControlName="template_version_id"
+                  [options]="versoesTemplatePublicadas()"
+                  optionLabel="label"
+                  optionValue="id"
+                  placeholder="Selecione"
+                ></p-select>
+              </div>
+              <div class="campo">
+                <label [for]="'grupo-sla-' + i">SLA específico (horas)</label>
+                <p-inputNumber
+                  [inputId]="'grupo-sla-' + i"
+                  formControlName="due_hours_override"
+                  [min]="1"
+                  [max]="8760"
+                ></p-inputNumber>
+              </div>
+            </div>
+            <div class="opcoes">
+              <label><p-checkbox formControlName="is_required" [binary]="true"></p-checkbox> Obrigatório</label>
+              <label><p-checkbox formControlName="blocks_process" [binary]="true"></p-checkbox> Bloqueante</label>
+            </div>
+            <p-button
+              type="button"
+              severity="danger"
+              size="small"
+              [text]="true"
+              icon="pi pi-trash"
+              label="Remover setor"
+              [disabled]="formularioGrupo.controls.sectors.length === 1"
+              (onClick)="removerRegra(i)"
+            ></p-button>
+          </fieldset>
+        }
+      </div>
+      <div class="acoes">
+        <p-button
+          type="submit"
+          icon="pi pi-save"
+          label="Criar grupo em rascunho"
+          [loading]="salvandoGrupo()"
+        ></p-button>
+      </div>
+    </form>
+  </section>
+}
+
+<section class="catalogos" aria-label="Catálogo versionado">
+  <article class="cartao">
+    <div class="subtitulo">
+      <h2>Templates</h2>
+      <span>{{ templates().length }} cadastrado(s)</span>
+    </div>
+    @for (template of templates(); track template.id) {
+      <div class="registro">
+        <div>
+          <strong>{{ template.code }} — {{ template.name }}</strong>
+          <small>{{ template.sector.name }} · versão de concorrência {{ template.version }}</small>
+        </div>
+        <div class="registro__acoes">
+          @for (version of template.versions; track version.id) {
+            <p-tag
+              [severity]="version.status === 'PUBLISHED' ? 'success' : version.status === 'DRAFT' ? 'warn' : 'secondary'"
+              [value]="'v' + version.version_number + ' · ' + version.status"
+            ></p-tag>
+          }
+          @if (template.versions[0]?.status === 'DRAFT') {
+            <p-button
+              type="button"
+              size="small"
+              icon="pi pi-check"
+              label="Publicar"
+              (onClick)="publicarTemplate(template)"
+            ></p-button>
+          }
+        </div>
+      </div>
+    } @empty {
+      <p>Nenhum template cadastrado. O sistema não cria perguntas funcionais automaticamente.</p>
+    }
+  </article>
+
+  <article class="cartao">
+    <div class="subtitulo">
+      <h2>Grupos de validação</h2>
+      <span>{{ grupos().length }} cadastrado(s)</span>
+    </div>
+    @for (grupo of grupos(); track grupo.id) {
+      <div class="registro">
+        <div>
+          <strong>{{ grupo.code }} — {{ grupo.name }}</strong>
+          <small>
+            {{ grupo.versions[0]?.sectors?.length || 0 }} setor(es) · versão de concorrência
+            {{ grupo.version }}
+          </small>
+        </div>
+        <div class="registro__acoes">
+          @for (version of grupo.versions; track version.id) {
+            <p-tag
+              [severity]="version.status === 'PUBLISHED' ? 'success' : version.status === 'DRAFT' ? 'warn' : 'secondary'"
+              [value]="'v' + version.version_number + ' · ' + version.status"
+            ></p-tag>
+          }
+          @if (grupo.versions[0]?.status === 'DRAFT') {
+            <p-button
+              type="button"
+              size="small"
+              icon="pi pi-check"
+              label="Publicar"
+              (onClick)="publicarGrupo(grupo)"
+            ></p-button>
+          }
+        </div>
+      </div>
+    } @empty {
+      <p>Nenhum grupo cadastrado.</p>
+    }
+  </article>
+</section>

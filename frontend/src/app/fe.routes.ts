@@ -33,6 +33,22 @@ export const FE_ROUTES: Routes = [
             title: 'Abrir processo | SGPD',
           },
           {
+            path: 'processos/:uuid/rascunho',
+            loadComponent: () =>
+              import('./features/processo-rascunho/processo-rascunho').then(
+                (m) => m.ProcessoRascunhoPage,
+              ),
+            title: 'Rascunho do processo | SGPD',
+          },
+          {
+            path: 'workflow-config',
+            loadComponent: () =>
+              import('./features/workflow-config/workflow-config').then(
+                (m) => m.WorkflowConfigPage,
+              ),
+            title: 'Grupos e templates | SGPD',
+          },
+          {
             path: 'setores',
             loadComponent: () =>
               import('./features/setores/setores').then((m) => m.SetoresPage),

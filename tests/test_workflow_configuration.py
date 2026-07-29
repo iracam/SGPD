@@ -307,6 +307,7 @@ def test_audit_failure_rolls_back_template(
 @pytest.mark.parametrize(
     ("method", "route_name", "kwargs"),
     [
+        ("get", "workflow-configuration-api:sector-list", {}),
         ("get", "workflow-configuration-api:template-list", {}),
         ("post", "workflow-configuration-api:template-list", {}),
         (

@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.authorization import has_permission
 from apps.accounts.models import User
+from apps.sectors.models import ValidationSector
 
 from .models import (
     ChecklistTemplate,
@@ -231,6 +232,24 @@ class WorkflowConfigurationAPIView(APIView):
         except ValueError:
             offset, limit = 0, DEFAULT_PAGE_SIZE
         return offset, max(1, min(limit, MAX_PAGE_SIZE))
+
+
+class WorkflowSectorListView(WorkflowConfigurationAPIView):
+    def get(self, request: Request) -> Response:
+        sectors = ValidationSector.objects.filter(is_active=True).order_by("code")
+        return Response(
+            {
+                "results": [
+                    {
+                        "id": sector.pk,
+                        "code": sector.code,
+                        "name": sector.name,
+                        "default_due_hours": sector.default_due_hours,
+                    }
+                    for sector in sectors
+                ]
+            }
+        )
 
 
 class ChecklistTemplateListCreateView(WorkflowConfigurationAPIView):

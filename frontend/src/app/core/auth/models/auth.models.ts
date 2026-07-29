@@ -33,7 +33,8 @@ export type PermissionKey =
   | 'link_ad_identity'
   | 'view_account_audit'
   | 'query_senior_references'
-  | 'manage_sectors';
+  | 'manage_sectors'
+  | 'manage_workflow_configuration';
 
 export interface PermissionGrant {
   granted: boolean;

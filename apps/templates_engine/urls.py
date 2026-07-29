@@ -6,6 +6,11 @@ app_name = "workflow-configuration-api"
 
 urlpatterns = [
     path(
+        "sectors/",
+        api.WorkflowSectorListView.as_view(),
+        name="sector-list",
+    ),
+    path(
         "templates/",
         api.ChecklistTemplateListCreateView.as_view(),
         name="template-list",

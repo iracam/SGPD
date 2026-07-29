@@ -1,0 +1,170 @@
+<header class="cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-file-edit" aria-hidden="true"></i>
+      Checkpoint 4
+    </span>
+    <h1 class="page-title">Rascunho do processo</h1>
+    <p class="page-lead">
+      Confirme os grupos, revise os setores resolvidos e inicie a geração das tarefas.
+    </p>
+  </div>
+</header>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+@if (aviso()) {
+  <p-message severity="success" [text]="aviso()"></p-message>
+}
+
+@if (carregando()) {
+  <section class="cartao"><p>Carregando rascunho…</p></section>
+} @else if (contexto(); as dados) {
+  <section class="cartao resumo" aria-labelledby="processo-colaborador">
+    <div>
+      <span class="rotulo">Colaborador</span>
+      <h2 id="processo-colaborador">{{ dados.process.employee_snapshot.employee_name }}</h2>
+      <p>
+        Matrícula {{ dados.process.employee_registration }} · Empresa
+        {{ dados.process.company_code }} · Filial {{ dados.process.branch_code }}
+      </p>
+    </div>
+    <dl>
+      <div>
+        <dt>Situação</dt>
+        <dd>
+          <p-tag
+            [severity]="dados.process.status === 'INICIADO' ? 'success' : 'warn'"
+            [value]="dados.process.status"
+          ></p-tag>
+        </dd>
+      </div>
+      <div>
+        <dt>Data limite</dt>
+        <dd>{{ dados.process.due_date | date: 'dd/MM/yyyy' }}</dd>
+      </div>
+      <div>
+        <dt>Versão</dt>
+        <dd>{{ dados.process.version }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  @if (!iniciado()) {
+    <section class="cartao" aria-labelledby="titulo-grupos">
+      <div class="secao-titulo">
+        <div>
+          <span class="rotulo">Configuração versionada</span>
+          <h2 id="titulo-grupos">Grupos de validação</h2>
+        </div>
+        <p>Somente versões vigentes e publicadas podem entrar em uma nova seleção.</p>
+      </div>
+
+      <form [formGroup]="formulario" (ngSubmit)="salvarSelecao()">
+        <label for="grupos">Grupos aplicáveis</label>
+        <p-multiSelect
+          inputId="grupos"
+          formControlName="group_version_ids"
+          [options]="dados.available_groups"
+          optionLabel="name"
+          optionValue="version_id"
+          display="chip"
+          placeholder="Selecione ao menos um grupo"
+          emptyMessage="Nenhum grupo publicado atende ao escopo"
+          ariaLabel="Grupos de validação"
+        >
+          <ng-template #item let-grupo>
+            <span>{{ grupo.code }} — {{ grupo.name }} · v{{ grupo.version_number }}</span>
+          </ng-template>
+        </p-multiSelect>
+        <div class="acoes">
+          <p-button
+            type="submit"
+            icon="pi pi-save"
+            label="Salvar seleção"
+            [loading]="salvando()"
+            [disabled]="!selecaoAlterada()"
+          ></p-button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <section class="cartao" aria-labelledby="titulo-setores">
+    <div class="secao-titulo">
+      <div>
+        <span class="rotulo">Resultado determinístico</span>
+        <h2 id="titulo-setores">
+          {{ iniciado() ? 'Tarefas geradas' : 'Setores que serão gerados' }}
+        </h2>
+      </div>
+    </div>
+
+    @if (iniciado()) {
+      <div class="lista-setores">
+        @for (tarefa of dados.tasks; track tarefa.id) {
+          <article class="setor">
+            <div>
+              <strong>{{ tarefa.sector.name }}</strong>
+              <small>
+                {{ tarefa.template.code }} v{{ tarefa.template.version_number }} ·
+                {{ tarefa.checklist_item_count }} pergunta(s)
+              </small>
+            </div>
+            <span>Prazo {{ tarefa.due_at | date: 'dd/MM/yyyy HH:mm' }}</span>
+          </article>
+        }
+      </div>
+    } @else {
+      <div class="lista-setores">
+        @for (setor of dados.selection.resolved_sectors; track setor.sector_id) {
+          <article class="setor">
+            <div>
+              <strong>{{ setor.name }}</strong>
+              <small>
+                {{ setor.template_code }} v{{ setor.template_version_number }} ·
+                SLA {{ setor.sla_hours }}h
+              </small>
+            </div>
+            <div class="marcadores">
+              @if (setor.is_required) {
+                <p-tag severity="warn" value="Obrigatório"></p-tag>
+              }
+              @if (setor.blocks_process) {
+                <p-tag severity="danger" value="Bloqueante"></p-tag>
+              }
+            </div>
+          </article>
+        } @empty {
+          <p>Nenhum setor aplicável foi resolvido.</p>
+        }
+      </div>
+
+      @if (dados.selection.blockers.length > 0) {
+        <div class="bloqueios" role="alert">
+          <strong>O início está bloqueado</strong>
+          <ul>
+            @for (bloqueio of dados.selection.blockers; track bloqueio) {
+              <li>{{ bloqueio }}</li>
+            }
+          </ul>
+        </div>
+      }
+
+      <div class="acoes acoes--inicio">
+        <p-button
+          type="button"
+          icon="pi pi-play"
+          label="Iniciar processo e gerar tarefas"
+          [loading]="iniciando()"
+          [disabled]="!podeIniciar()"
+          (onClick)="iniciar()"
+        ></p-button>
+        @if (selecaoAlterada()) {
+          <small>Salve a seleção antes de iniciar.</small>
+        }
+      </div>
+    }
+  </section>
+}

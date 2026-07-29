@@ -48,6 +48,13 @@ export class AuthenticatedLayout {
       feature: 'manage_sectors',
     },
     {
+      label: 'Grupos e templates',
+      route: '/fe/workflow-config',
+      icon: 'pi pi-list-check',
+      description: 'Templates versionados e grupos do processo demissional',
+      feature: 'manage_workflow_configuration',
+    },
+    {
       label: 'Usuários',
       route: '/fe/usuarios',
       icon: 'pi pi-users',

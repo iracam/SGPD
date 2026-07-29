@@ -1,0 +1,130 @@
+@use 'breakpoints' as bp;
+
+.cabecalho,
+.secao-titulo,
+.resumo,
+.setor,
+.acoes {
+  display: flex;
+  flex-direction: column;
+}
+
+.cabecalho {
+  margin-block-end: 1.25rem;
+}
+
+.cartao {
+  padding: 1rem;
+  margin-block-end: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.9rem;
+  background: var(--p-content-background);
+}
+
+.cartao h2,
+.cartao p {
+  margin-block: 0.2rem;
+}
+
+.rotulo {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.resumo {
+  gap: 1rem;
+}
+
+.resumo dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.resumo dt {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+}
+
+.resumo dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+form {
+  display: grid;
+  gap: 0.65rem;
+  margin-block-start: 1rem;
+}
+
+p-multiSelect {
+  width: 100%;
+}
+
+.acoes {
+  gap: 0.5rem;
+  align-items: stretch;
+  margin-block-start: 0.75rem;
+}
+
+.lista-setores {
+  display: grid;
+  gap: 0.65rem;
+  margin-block-start: 1rem;
+}
+
+.setor {
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.7rem;
+}
+
+.setor small {
+  display: block;
+  margin-block-start: 0.2rem;
+  color: var(--p-text-muted-color);
+}
+
+.marcadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.bloqueios {
+  padding: 0.9rem;
+  margin-block-start: 1rem;
+  border-inline-start: 0.3rem solid var(--status-blocked-color);
+  border-radius: 0.35rem;
+  background: var(--status-blocked-bg);
+  color: var(--status-blocked-color);
+}
+
+.bloqueios ul {
+  margin-block-end: 0;
+  padding-inline-start: 1.25rem;
+}
+
+@include bp.from(bp.$md) {
+  .secao-titulo,
+  .resumo,
+  .setor,
+  .acoes {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .resumo dl {
+    grid-template-columns: repeat(3, minmax(7rem, 1fr));
+  }
+
+  .acoes {
+    justify-content: flex-end;
+  }
+}
