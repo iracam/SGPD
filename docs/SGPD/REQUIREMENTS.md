@@ -354,12 +354,19 @@ O cadastro e a publicação estão disponíveis na API e na SPA sem carga
 automática de perguntas funcionais. O cadastro do template não solicita setor;
 setor e template são escolhidos separadamente ao compor o grupo.
 
+O código público do template é o `ID` numérico gerado pelo banco e não é
+informado pelo usuário. O catálogo pode ser pesquisado pelo nome. Nome,
+descrição, SLA e perguntas podem ser corrigidos na versão `DRAFT`, com versão
+otimista e auditoria; conteúdo publicado exige nova versão.
+
 ### RF-015 — Versionamento
 
 Templates e itens deverão ser versionados.
 
-Versões publicadas/aposentadas, perguntas e relações de grupo são imutáveis.
-Processos fixam a versão exata e copiam snapshots no início.
+Versões publicadas/aposentadas, suas perguntas e relações de grupo são
+imutáveis. Um template mantém no máximo um rascunho editável; publicar ou criar
+uma nova versão usa locks ordenados e versão otimista. Processos fixam a versão
+exata e copiam snapshots no início.
 
 ### RF-016 — Geração de tarefas
 

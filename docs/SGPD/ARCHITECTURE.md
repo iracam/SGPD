@@ -493,6 +493,7 @@ GET         /api/v1/sectors/responsible-candidates/
 GET         /api/v1/workflow-config/sectors/
 GET  POST   /api/v1/workflow-config/templates/
 POST        /api/v1/workflow-config/templates/{id}/versions/
+PUT         /api/v1/workflow-config/template-versions/{id}/
 POST        /api/v1/workflow-config/template-versions/{id}/publish/
 GET  POST   /api/v1/workflow-config/groups/
 POST        /api/v1/workflow-config/groups/{id}/versions/
@@ -513,6 +514,13 @@ Os contratos `workflow-config` exigem
 vigente anterior sem alterar seu conteúdo; cada versão de grupo fixa uma
 versão exata de template por setor. A mesma versão pode ser reutilizada por
 quantos setores forem necessários, sem duplicar seu conteúdo.
+
+Templates usam o próprio `ID` como código público numérico e aceitam busca
+parcial por nome no parâmetro `q`. A versão `DRAFT` pode ser editada
+atomicamente; o service bloqueia cabeçalho, versões e itens em ordem
+determinística, exige a versão otimista, limita o agregado a um rascunho e
+audita a substituição do conteúdo. Uma versão publicada permanece imutável e a
+SPA cria um novo rascunho clonado antes de editá-la.
 
 Todos os responsáveis efetivos do setor receberão a mesma notificação e terão
 a mesma autoridade. No workflow futuro, mutações de tarefa deverão bloquear ou

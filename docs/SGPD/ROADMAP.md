@@ -213,6 +213,11 @@ composição funcional foi semeada. Templates são neutros quanto a setor e pode
 ser reutilizados por diferentes regras de grupo. Regras automáticas de
 aplicabilidade continuam pendentes.
 
+O editor de templates usa o `ID` numérico gerado pelo banco, busca pelo nome e
+permite corrigir o único rascunho do cabeçalho. Para conteúdo publicado, a SPA
+cria uma nova versão clonada antes da edição; versões históricas permanecem
+imutáveis e auditadas.
+
 ## Fase 4 — Processo demissional
 
 ### Entregas
@@ -247,6 +252,8 @@ possuem editor visual. Regras automáticas de sugestão, estados posteriores e
 painéis operacionais permanecem pendentes. As migrations
 `templates_engine.0001`, `templates_engine.0002` e `offboarding.0002` estão
 aplicadas e validadas no Oracle DEV.
+`templates_engine.0003`, que normaliza o identificador automático e habilita o
+editor de rascunho, também está aplicada e validada.
 
 ## Fase 5 — Pendências e evidências
 

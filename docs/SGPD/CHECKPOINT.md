@@ -413,11 +413,17 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - Perguntas tipadas, obrigatoriedade, bloqueio, evidência, pendência,
     ordenação, configuração e prazo padrão.
   - Cabeçalho e versões são neutros quanto a setor.
+  - Código público numérico igual ao `ID`, busca por nome, edição auditada do
+    único rascunho e criação de nova versão a partir do conteúdo publicado.
   - Nenhum template, grupo ou pergunta funcional foi semeado sem homologação.
 - [x] Versionamento.
-  - Publicação substitui a versão vigente sem alterar versões históricas.
+  - Publicação substitui a versão vigente sem alterar versões históricas;
+    versões publicadas/aposentadas e snapshots permanecem imutáveis.
   - Migrations `templates_engine.0001`, `templates_engine.0002` e
     `offboarding.0002` aplicadas e validadas no Oracle DEV.
+  - `templates_engine.0003` aplicada e validada no Oracle DEV, com código
+    técnico normalizado, constraint habilitada/validada, índice único válido e
+    plano final vazio.
 - [x] Permissões.
   - SuperAdmin mantém a administração técnica fora do catálogo funcional.
   - O único papel funcional atribuível ativo é `DP`.
@@ -1378,4 +1384,21 @@ Comandos executados: diagnóstico de models, services, API, SPA e migrations; co
 Arquivos alterados: models, services, serializers, API e migration 0002 de templates_engine; validações mínimas de offboarding; feature Angular workflow-config; testes backend/frontend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md e MANIFEST.json.
 Commits: 78af8f6 (template neutro, compatibilidade mínima, migration, SPA e testes); documentação final em commit próprio.
 Testes: 290 testes backend e 62 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build inicial de 497,13 kB e chunk lazy workflow-config de 20,10 kB. No Oracle DEV, templates_engine.0002 está aplicada, SECTOR_ID e seus objetos dependentes estão ausentes, constraints restantes estão ENABLED/VALIDATED, índices estão VALID e o plano está vazio. O smoke publicou um template sem atributo de setor e confirmou templates=0 e eventos=0 após rollback. Nenhum objeto ou dado do Senior foi consultado ou alterado.
+```
+
+### 2026-07-29 — Código numérico e editor de rascunho de template
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Templates
+O que foi concluído: o código público do template passou a ser o ID numérico gerado pelo banco e saiu do formulário/payload de criação; a API recebeu busca parcial pelo nome e atualização completa da versão DRAFT; o service permite somente um rascunho por template, bloqueia cabeçalho, versões e itens em ordem determinística, exige versão otimista e audita a substituição de nome, descrição, SLA e perguntas; versões publicadas/aposentadas continuam imutáveis; a SPA passou a pesquisar pelo nome, editar o rascunho e clonar a versão publicada em um novo rascunho pelo botão “Nova versão”.
+Diagnóstico: o template criado pelo usuário não podia ser editado porque a SPA oferecia apenas criação/publicação e a API não possuía mutação do DRAFT; a rota existente de nova versão não era exposta pela tela. O código textual manual não tinha uso funcional, pois a identificação operacional ocorre pelo nome.
+Decisões: ADR-041 aceita; o ID é a referência pública; a coluna física CODE permanece apenas como compatibilidade técnica reversível e é normalizada para a representação decimal do ID; correções no DRAFT são atômicas e auditadas; conteúdo publicado sempre exige nova versão; snapshots existentes não são alterados; grupos permaneceram fora do incremento, salvo a tipagem compatível do identificador de template.
+Riscos: a coluna técnica é anulável apenas no INSERT transitório e deve ser preenchida pelo service na mesma transação; acesso direto ao ORM fora do service permanece proibido. A clonagem na SPA preserva o conteúdo publicado, mas opções funcionais de SINGLE_CHOICE/MULTIPLE_CHOICE continuam dependendo de homologação.
+Pendências: executar a edição autenticada pelo navegador após atualizar a SPA; homologar perguntas e opções funcionais antes de publicar.
+Próximo passo: editar e revisar o template #2 pelo novo fluxo; depois continuar a homologação do conteúdo dos templates sem ampliar grupos.
+Comandos executados: testes direcionados e completos; migration de avanço e rollback com dado legado no banco de testes; Ruff check/format; Mypy; Django makemigrations check; Vitest; build Angular; plano e aplicação da migration 0003; validação Oracle de dados, constraint, índice e plano; smoke transacional de edição/auditoria com rollback obrigatório; revisão documental e diff check.
+Arquivos alterados: models, services, serializers, API, URLs e migration 0003 de templates_engine; snapshots técnicos de offboarding; tela, models, service e testes Angular de workflow-config; tipos do rascunho; testes backend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md e MANIFEST.json.
+Testes: 298 testes backend e 65 testes frontend passaram; Ruff, format e Mypy sem erros; Django não detectou divergência de migrations; avanço e rollback da 0003 preservaram um template com código manual e um registro posterior; build de produção concluído com bundle inicial de 497,13 kB e chunk lazy workflow-config de 24,69 kB. No Oracle DEV, o template #2 permaneceu DRAFT com SLA 12 e uma pergunta, o código técnico passou de GEN_01 para 2, a constraint está ENABLED/VALIDATED, o índice está UNIQUE/VALID e o plano está vazio. O smoke alterou nome, versão, itens e auditoria dentro da transação e confirmou restauração integral após rollback. Nenhum objeto ou dado do Senior HCM foi consultado ou alterado.
 ```

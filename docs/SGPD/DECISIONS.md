@@ -1302,3 +1302,84 @@ sem apagar versões históricas.
 - uma publicação nova permanece única e reaproveitável, reduzindo duplicação;
 - auditoria de criação de template não registra mais `sector_id`;
 - nenhuma tabela ou dado do Senior HCM é consultado ou alterado.
+
+## ADR-041 — Identificador numérico e edição controlada do rascunho de template
+
+### Estado
+
+Aceita e implementada em 2026-07-29 por decisão explícita do responsável
+funcional. Complementa as ADR-039 e ADR-040.
+
+### Contexto
+
+O primeiro editor exigia um código textual arbitrário e permitia apenas criar
+e publicar a primeira versão. O operador localiza templates pelo nome; portanto
+o código manual não acrescentava significado funcional. Além disso, um erro
+antes da primeira publicação obrigava criar outro registro, embora a versão
+ainda fosse um rascunho sem uso histórico.
+
+Versões publicadas ou aposentadas já podem estar fixadas por grupos e processos
+e precisam continuar imutáveis.
+
+### Decisão
+
+- usar o `ID` do cabeçalho como código público numérico, gerado pelo banco;
+- retirar `code` dos payloads de criação e dos formulários de template;
+- pesquisar o catálogo por `name` com correspondência parcial sem diferenciar
+  maiúsculas e minúsculas;
+- manter a coluna física `CODE` somente como compatibilidade técnica de
+  rollback, preenchida com a representação decimal do `ID` e nunca exposta
+  como identificador independente;
+- permitir alterar nome, descrição, SLA e conjunto ordenado de perguntas
+  somente enquanto a versão estiver em `DRAFT`;
+- limitar cada template a um único rascunho por vez no service;
+- criar uma nova versão a partir da versão publicada antes de qualquer mudança
+  histórica; a SPA clona o conteúdo vigente para o novo rascunho;
+- bloquear primeiro o cabeçalho e depois suas versões e itens, em ordem
+  determinística, tanto na edição quanto na publicação;
+- exigir a versão otimista do cabeçalho em edição, criação de versão e
+  publicação;
+- substituir os itens do rascunho na mesma transação e registrar
+  `TPL_DRAFT_UPDATED`; falha de validação ou auditoria desfaz cabeçalho, SLA e
+  perguntas;
+- manter versões `PUBLISHED` e `RETIRED`, seus itens e todos os snapshots de
+  processo imutáveis.
+
+Os contratos mínimos ficam:
+
+- `GET /api/v1/workflow-config/templates/?q={nome}`;
+- `POST /api/v1/workflow-config/templates/`;
+- `PUT /api/v1/workflow-config/template-versions/{id}/`;
+- `POST /api/v1/workflow-config/templates/{id}/versions/`;
+- `POST /api/v1/workflow-config/template-versions/{id}/publish/`.
+
+### Migration e rollback
+
+`templates_engine.0003_use_numeric_template_identifier_and_edit_drafts`
+torna a coluna técnica anulável para permitir o primeiro `INSERT`, quando o
+`ID` ainda não existe, e normaliza todos os valores existentes em duas etapas:
+primeiro `NULL`, depois a representação decimal do `ID` pela camada de
+migration. Isso evita colisão transitória com códigos manuais antigos e
+preserva a unicidade.
+
+O service preenche a coluna com o `ID` na mesma transação da criação. A
+reversão mantém os valores numéricos não nulos, recompõe o campo obrigatório e
+não precisa reconstruir códigos arbitrários. A migration altera somente
+objetos do schema SGPD e não consulta nem escreve no Senior HCM.
+
+A migration foi aplicada no Oracle DEV com um template existente em `DRAFT`.
+Seu código técnico foi normalizado de `GEN_01` para `2`, igual ao `ID`, sem
+alterar nome, versão, SLA ou pergunta. Constraint, índice único e plano final
+foram validados; um smoke de edição com auditoria confirmou rollback integral.
+
+### Consequências
+
+- o usuário reconhece e busca o template pelo nome; o número serve somente
+  como referência estável;
+- correções de rascunho deixam trilha de auditoria sem criar versões
+  descartáveis;
+- qualquer conteúdo já publicado continua exigindo uma nova versão;
+- chamadas fora dos services de domínio permanecem proibidas, inclusive para
+  não persistir a coluna técnica no estado transitório;
+- a busca atual respeita a paginação máxima da API, sem regra de negócio no
+  cliente.

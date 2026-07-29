@@ -284,7 +284,7 @@ A regra poderá usar expressão declarativa em fase posterior.
 
 - `ID`
 - `NOME`
-- `CODIGO`
+- `CODIGO_TECNICO` — representação decimal do `ID`, sem entrada manual
 - `VERSAO_LOCK`
 - `ATIVO`
 - `VERSAO_VIGENTE_ID`
@@ -294,6 +294,9 @@ O cabeçalho está em `SGPD_CHECKLIST_TEMPLATE`; conteúdo e SLA ficam em
 históricas e aposenta a vigente anterior. O template não pertence a um setor:
 `SGPD_VALIDATION_GROUP_SECTOR` é a associação versionada entre setor e versão
 de template, permitindo reutilizar o mesmo questionário em vários setores.
+O `ID` é também o código público numérico. A coluna física `CODE` permanece
+somente para compatibilidade reversível da migration e é preenchida pelo
+service na mesma transação, sem semântica funcional própria.
 
 #### TEMPLATE_CHECKLIST_ITEM
 
@@ -309,8 +312,11 @@ de template, permitindo reutilizar o mesmo questionário em vários setores.
 - `ORDEM_EXIBICAO`
 - `CONFIG_JSON`
 
-`SGPD_CHECKLIST_TEMPLATE_ITEM` rejeita alteração/exclusão; uma nova pergunta
-ou mudança de texto exige outra versão do template.
+Itens podem ser substituídos atomicamente enquanto sua versão estiver em
+`DRAFT`. Depois da publicação, `SGPD_CHECKLIST_TEMPLATE_ITEM` rejeita
+alteração/exclusão; uma nova pergunta ou mudança de texto exige outra versão
+do template. Cada cabeçalho possui no máximo um rascunho em manutenção pelo
+service.
 
 ### Processo
 

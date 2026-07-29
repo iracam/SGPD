@@ -9,23 +9,23 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "869ca4b880f7412caf68ad1f145cf63f0026de43c6feb293ce31b20a4962cac8",
-      "bytes": 24099
+      "sha256": "406c1ae4e876fe372113bc1cb4a6046d4efc71855a250460159d2533970ef6e6",
+      "bytes": 24596
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "a6ac9eae95d25d375816e635d053ffbf64b7239a5dd4cc6924aa6e3251ab5186",
-      "bytes": 152549
+      "sha256": "ac82e807f6acdb2c2eb86d5c200f76cad7dbc29761df50eb1634993581b666ac",
+      "bytes": 156632
     },
     {
       "file": "DATA_MODEL.md",
-      "sha256": "a8db536bafa3a493603a70058235dc4043b119bd51ea42b9cb354add15981216",
-      "bytes": 16156
+      "sha256": "1e33b4344cc94a2b724b2ee67bfb543a6b9a80bf11093a22182a1fa2d4d78537",
+      "bytes": 16626
     },
     {
       "file": "DECISIONS.md",
-      "sha256": "5e42732ccceeec1e31d9e0d57ef78a2ef6ef5d948862aed510cdbe5baced9585",
-      "bytes": 53042
+      "sha256": "0d32846c983c82a3c3cac5c68ce7f5480d79c81a52bfbda79a6f4cb30ebd78bc",
+      "bytes": 56926
     },
     {
       "file": "ENVIRONMENT.md",
@@ -49,8 +49,8 @@
     },
     {
       "file": "MIGRATION_FRONTEND_SPA.md",
-      "sha256": "b70a88b312a254ca7cc2462701a2345609c44b953b47601c4e4b424d00e219fa",
-      "bytes": 23102
+      "sha256": "911fa00d6cab9b11ba54ae5cfd83441d395a82aa0ff60a69f92b33980e154a9f",
+      "bytes": 23290
     },
     {
       "file": "PROMPT.md",
@@ -59,23 +59,23 @@
     },
     {
       "file": "README.md",
-      "sha256": "ecad90cb0a3876e38d07154a692b42ab1c4ba4efaa3ca61de1de97e88588addd",
-      "bytes": 13650
+      "sha256": "a21e3e369d7088f0b4b69f79ae08415be3015c0de9d26e807cd26d095bd10064",
+      "bytes": 13905
     },
     {
       "file": "REQUIREMENTS.md",
-      "sha256": "d9e11592b40f15c4ed2b6268c113e5abb51f066e48063b7c3ef130253966ae69",
-      "bytes": 20912
+      "sha256": "31f0f3836bba567beba7f7f5f3df781b376855e2d17c0f97df665465e28e67a5",
+      "bytes": 21344
     },
     {
       "file": "RISK_REGISTER.md",
-      "sha256": "f39c30b19f05a3c86ab1db26cb547e10194d0b434900af735e44d54ede5c6e4b",
-      "bytes": 13369
+      "sha256": "73cb92eba7833c4f458f0960ba509a9468e0b3621ed691e4b00496fa9ebd00e8",
+      "bytes": 13803
     },
     {
       "file": "ROADMAP.md",
-      "sha256": "e3e5f523259b9faec58cd5e8712ff179c48072b9d3c873ad3f9decb13a1b97a4",
-      "bytes": 11348
+      "sha256": "a8b5a5b2ef1e6b73ca0a71830a1deb35d3b8d03949cb15bb75eb643b1efc3144",
+      "bytes": 11751
     },
     {
       "file": "SECURITY.md",

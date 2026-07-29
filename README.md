@@ -257,7 +257,10 @@ um mesmo template pode ser associado a diferentes setores nos grupos. O
 rascunho fixa as versões escolhidas e o início idempotente gera tarefas e
 snapshots de perguntas em `INICIADO`. As migrations `templates_engine.0001`,
 `templates_engine.0002` e `offboarding.0002` foram aplicadas e validadas no
-Oracle DEV.
+Oracle DEV. Templates usam código numérico automático igual ao `ID`, são
+pesquisados pelo nome e permitem editar somente a versão em rascunho; conteúdo
+publicado exige uma nova versão. A migration `templates_engine.0003` foi
+aplicada e validada no Oracle DEV.
 
 SMTP AUTH e o uso do remetente configurado foram validados no Microsoft 365
 via TLS/STARTTLS em 2026-07-28. Uma mensagem de prova foi aceita pelo serviço.
