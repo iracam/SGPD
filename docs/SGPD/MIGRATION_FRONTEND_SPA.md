@@ -268,6 +268,7 @@ devolvido por `GET /auth/context/`.
 | --- | --- | --- | --- |
 | Painel | `/fe/painel` | `pi pi-th-large` | — |
 | Abrir processo | `/fe/colaboradores` | `pi pi-folder-plus` | `query_senior_references` + papel `DP` |
+| Minhas tarefas | `/fe/tarefas` | `pi pi-check-square` | capacidade derivada `RESPONSAVEL_SETOR` |
 | Setores | `/fe/setores` | `pi pi-building` | `manage_sectors` |
 | Grupos e templates | `/fe/workflow-config` | `pi pi-list-check` | `manage_workflow_configuration` |
 | Usuários | `/fe/usuarios` | `pi pi-users` | `manage_users` |
@@ -284,7 +285,10 @@ acrescenta gestor, datas, motivo, prioridade, observações e confirmação da
 abertura; após sucesso navega ao rascunho. `/fe/processos/:uuid/rascunho`
 confirma grupos, projeta bloqueios e chama o início com chave idempotente
 preservada durante retries. `/fe/workflow-config` cria e edita versões em
-rascunho de templates e grupos. Setores, templates, grupos e perguntas não
+rascunho de templates e grupos. `/fe/tarefas` lista apenas as tarefas
+autorizadas pelo backend, inicia a análise e monta controles a partir do tipo
+histórico de cada pergunta; regras e validações permanecem nos services Django.
+Chaves idempotentes são preservadas durante retries. Setores, templates, grupos e perguntas não
 possuem campo de código nos formulários: o backend gera o identificador
 numérico a partir do `ID` e a SPA apenas o exibe. Para template já publicado,
 “Nova versão” clona a versão vigente em um novo rascunho antes da edição, mas

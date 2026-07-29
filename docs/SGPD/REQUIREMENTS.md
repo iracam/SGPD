@@ -398,6 +398,18 @@ Estado implementado:
 
 As tarefas dos setores deverão ocorrer em paralelo.
 
+Estado implementado:
+
+- a tarefa pertence ao setor, sem responsável individual;
+- a listagem considera vínculo vigente e escopo herdado `GLOBAL`, `COMPANY` ou
+  `BRANCH`, sem conceder acesso implícito a SuperAdmin;
+- qualquer responsável efetivo pode iniciar `PENDENTE → EM_ANALISE` e concluir
+  `EM_ANALISE → CONCLUIDA`;
+- lock do processo, tarefa, setor, vínculos e ator, versão otimista,
+  `Idempotency-Key`, auditoria e transação única implementam first-writer-wins;
+- o processo permanece `INICIADO`; consolidação e prontidão pertencem a
+  incrementos posteriores.
+
 ### RF-018 — Respostas de checklist
 
 Os itens poderão aceitar:
@@ -410,6 +422,19 @@ Os itens poderão aceitar:
 - múltipla seleção;
 - arquivo;
 - confirmação obrigatória.
+
+Estado implementado:
+
+- conclusão recebe todas as respostas obrigatórias da tarefa em uma operação
+  atômica, sem rascunho parcial neste incremento;
+- backend valida booleano, texto não vazio, número finito, data ISO, escolha
+  simples, múltipla escolha sem repetição e confirmação positiva;
+- pergunta, tipo, opções e flags são lidos do snapshot histórico, nunca do
+  template vigente;
+- resposta, ator, instante, conclusão, auditoria e idempotência confirmam ou
+  revertem juntos;
+- `FILE` e qualquer item com `requires_evidence` são rejeitados explicitamente
+  até o módulo de evidências da Fase 5.
 
 ### RF-019 — Pendências
 

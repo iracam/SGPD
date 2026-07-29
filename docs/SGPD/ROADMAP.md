@@ -250,7 +250,8 @@ Processo completo sem pendências avançadas.
 
 ### Estado em 2026-07-29
 
-Iniciada pelos incrementos de abertura e início. A SPA reaproveita a cascata
+Iniciada pelos incrementos de abertura, início e execução inicial das tarefas.
+A SPA reaproveita a cascata
 Senior, lista gestores ativos e cria `RASCUNHO`; o service relê o colaborador,
 usa `has_effective_role()` antes da consulta e após lock transacional, impede
 duplicidade e grava processo, snapshot e `PROCESS_OPENED` atomicamente. A
@@ -260,11 +261,17 @@ gerando uma tarefa por setor e snapshots de perguntas. Ausência de responsável
 vigente em setor obrigatório bloqueia e desfaz a transição. A SPA cobre
 confirmação de grupos e início; ajustes manuais existem na API e ainda não
 possuem editor visual. Regras automáticas de sugestão, estados posteriores e
-painéis operacionais permanecem pendentes. As migrations
+painel do DP permanecem pendentes. A SPA `/fe/tarefas` já funciona como painel
+inicial dos setores: filtra pelo vínculo e escopo vigentes, inicia a análise,
+valida respostas simples e conclui a tarefa com concorrência, idempotência e
+auditoria. Itens de arquivo ou com evidência obrigatória aguardam a Fase 5; a
+conclusão ainda não promove automaticamente o estado do processo. As migrations
 `templates_engine.0001`, `templates_engine.0002` e `offboarding.0002` estão
 aplicadas e validadas no Oracle DEV.
 `templates_engine.0003`, que normaliza o identificador automático e habilita o
 editor de rascunho, também está aplicada e validada.
+`offboarding.0003`, state-only para os novos estados/eventos, também está
+aplicada e deixou o plano Oracle DEV vazio.
 
 Um smoke transacional com rollback obrigatório validou no Oracle DEV o fluxo
 abrir → selecionar → iniciar sobre a configuração piloto publicada. Foram
@@ -272,6 +279,11 @@ geradas nove tarefas, nove snapshots de checklist e três eventos de auditoria;
 o retry com a mesma chave foi reconhecido como replay sem duplicação. Nenhuma
 linha do teste permaneceu persistida e o Senior foi consultado somente por
 `SELECT`.
+
+Um segundo smoke, também com rollback obrigatório, iniciou e concluiu uma das
+tarefas, validou os dois replays idempotentes e cinco eventos totais. A
+resposta booleana foi persistida no envelope JSON compatível com Oracle e
+nenhuma linha permaneceu após o rollback.
 
 ## Fase 5 — Pendências e evidências
 

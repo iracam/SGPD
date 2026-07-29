@@ -422,7 +422,8 @@ Estado implementado em `SGPD_EMPLOYEE_SNAPSHOT`:
 - `CORRELATION_ID`
 
 `SGPD_PROCESS_AUDIT` é append-only. Aceita `PROCESS_OPENED`,
-`DRAFT_SELECTION_UPDATED` e `PROCESS_STARTED`, sem nome, e-mail ou CPF.
+`DRAFT_SELECTION_UPDATED`, `PROCESS_STARTED`, `SECTOR_TASK_STARTED` e
+`SECTOR_TASK_COMPLETED`, sem nome, e-mail, CPF ou valor das respostas.
 
 #### PROCESSO_GRUPO E AJUSTE_MANUAL
 
@@ -464,7 +465,9 @@ fan-out, sem se tornarem propriedade da tarefa.
 
 Estado implementado em `SGPD_PROCESS_SECTOR_TASK`, com unicidade por processo e
 setor. `SGPD_TASK_GROUP_SOURCE` preserva todos os grupos que originaram uma
-tarefa sobreposta.
+tarefa sobreposta. O ciclo inicial usa `PENDENTE`, `EM_ANALISE` e `CONCLUIDA`;
+versão, conclusão, ator e observação são atualizados somente por services
+transacionais.
 
 #### PROCESSO_CHECKLIST_ITEM
 
@@ -485,13 +488,19 @@ tarefa sobreposta.
 - `RESPONDIDO_EM`
 
 `SGPD_PROCESS_CHECKLIST_ITEM` copia integralmente o contrato da pergunta no
-início; referências a versões antigas continuam protegidas.
+início; referências a versões antigas continuam protegidas. Ao concluir a
+tarefa, resposta, ator e instante são gravados atomicamente. Para compatibilidade
+com a constraint `IS JSON` do Oracle 19c, `RESPOSTA_JSON` usa internamente o
+envelope `{"value": ...}` mesmo para booleano, número, texto e data; a API
+remove o envelope ao projetar a resposta.
 
 #### PROCESSO_IDEMPOTENCIA
 
 `SGPD_PROCESS_IDEMPOTENCY` é único por processo, ação e chave. Registra hash do
 corpo canônico, ator, resposta mínima e conclusão. O registro de `START` é
-gravado na mesma transação das tarefas, do novo estado e da auditoria.
+gravado na mesma transação das tarefas, do novo estado e da auditoria. As ações
+de tarefa usam identificadores `TSTART:<task_id>` e `TCOMP:<task_id>`, também
+vinculados ao ator e ao hash do corpo.
 
 ### Pendências
 

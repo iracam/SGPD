@@ -1441,3 +1441,63 @@ e não consultam nem escrevem no Senior HCM.
   Oracle não são revertidas junto com transações;
 - qualquer novo cadastro configurável local que proponha código manual deve
   justificar a exceção em ADR.
+
+## ADR-043 — Execução concorrente da tarefa e resposta JSON compatível com Oracle
+
+### Estado
+
+Aceita e implementada em 2026-07-29.
+
+### Contexto
+
+As tarefas já eram geradas por setor, sem proprietário individual, mas não
+possuíam ciclo operacional. O incremento precisava preservar a igualdade entre
+responsáveis, limitar acesso pelo escopo vigente, validar snapshots históricos
+e impedir duplicação sob retry ou concorrência.
+
+No smoke do Oracle DEV, a primeira tentativa de gravar a resposta booleana
+como escalar JSON acionou `ORA-02290` na constraint `IS JSON` de
+`SGPD_PROCESS_CHECKLIST_ITEM.RESPONSE`. A transação externa foi revertida e
+nenhum dado permaneceu. O comportamento difere do SQLite usado nos testes
+unitários e exige um contrato explícito de persistência.
+
+### Decisão
+
+- manter a tarefa pertencente ao setor, sem campo de responsável individual;
+- autorizar consulta e mutação somente por vínculo vigente cujo escopo herdado
+  cobre o processo; SuperAdmin não recebe autoridade funcional implícita;
+- implementar `PENDENTE → EM_ANALISE → CONCLUIDA` com locks ordenados, versão
+  otimista, chave idempotente por tarefa/ação e auditoria atômica;
+- exigir todas as respostas obrigatórias válidas na conclusão, sem persistir
+  rascunho parcial neste incremento;
+- validar tipos e opções no backend a partir do snapshot histórico;
+- bloquear `FILE` e itens com evidência obrigatória até a Fase 5;
+- armazenar cada resposta no documento `{"value": ...}`, compatível com a
+  constraint Oracle, e remover o envelope na projeção da API;
+- registrar na auditoria somente IDs e quantidade de itens respondidos, nunca
+  valores ou observações;
+- não promover automaticamente o estado do processo após a conclusão.
+
+### Migration e rollback
+
+`offboarding.0003_alter_processauditevent_event_type_and_more` altera somente
+o estado conhecido pelo Django para incluir escolhas de tarefa e evento. O SQL
+Oracle direto e reverso é no-op. A migration foi registrada no Oracle DEV e o
+plano final ficou vazio.
+
+O smoke integrado abriu e iniciou um processo, iniciou e concluiu uma tarefa e
+repetiu as três ações com as mesmas chaves. O rollback obrigatório removeu
+processo, snapshot, tarefas, respostas, auditoria e idempotência. Nenhuma
+tabela do Senior foi escrita.
+
+### Consequências
+
+- responsáveis de um mesmo setor continuam com autoridade equivalente e a
+  primeira transação válida vence;
+- retries idênticos não duplicam mudança nem evento; chave divergente retorna
+  conflito;
+- a API mantém respostas simples e não expõe o detalhe físico do Oracle;
+- templates com arquivo/evidência não podem ser concluídos até o módulo
+  correspondente existir;
+- prontidão, pendências, painel do DP e estados posteriores continuam fora
+  deste incremento.

@@ -3,8 +3,8 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis, papel DP e configuração versionada; Fase 4 cobre abertura, seleção e início do rascunho
-- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores, responsáveis, abertura, edição de rascunhos de grupos/templates e início do processo; interface server-side removida
+- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis, papel DP e configuração versionada; Fase 4 cobre abertura, seleção, início e ciclo inicial das tarefas
+- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores, responsáveis, abertura, edição de rascunhos de grupos/templates, início do processo e tarefas dos setores; interface server-side removida
 - Banco: Oracle
 - Backend: Django API-only, com Django Admin somente leitura preservado
 - UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028
@@ -476,19 +476,25 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     grupo piloto: nove tarefas, nove snapshots de checklist, três eventos e
     replay idempotente, com rollback integral ao final.
 - [ ] Estados.
-  - `RASCUNHO` e `INICIADO` estão implementados; execução/conclusão de tarefas,
-    cancelamento, reabertura, prontidão, liberação e encerramento continuam
-    pendentes.
+  - `RASCUNHO` e `INICIADO` estão implementados.
+  - Tarefas implementam `PENDENTE → EM_ANALISE → CONCLUIDA`; cancelamento,
+    reabertura, prontidão, liberação e encerramento continuam pendentes.
 - [ ] Prazos.
   - Prazo inicial da tarefa usa `override > grupo > template > setor`, contado
     do início e limitado pela data final do processo.
   - Recalendário, escalada e tratamento de atraso aguardam homologação.
 - [ ] Painéis.
+  - `/fe/tarefas` entrega o painel inicial dos setores com listagem, detalhe,
+    início, respostas tipadas e conclusão.
+  - Painel do DP, filtros operacionais avançados e consolidação permanecem
+    pendentes.
 - [x] Auditoria.
   - `PROCESS_OPENED` é append-only e integra a mesma transação de processo e
     snapshot, sem dados pessoais no payload técnico.
   - `DRAFT_SELECTION_UPDATED` e `PROCESS_STARTED` integram as transações de
     seleção e início; falha de auditoria provoca rollback integral.
+  - `SECTOR_TASK_STARTED` e `SECTOR_TASK_COMPLETED` integram as mutações da
+    tarefa e não carregam valores das respostas.
 
 ## Checkpoint 5 — Pendências
 
@@ -1470,4 +1476,21 @@ Comandos executados: leitura da documentação obrigatória; revisão integral d
 Arquivos alterados: README.md; docs/SGPD/ROADMAP.md; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
 Commits anteriores ao smoke: fc174d0 (implementação, migrations e testes); fd38df6 (documentação da configuração funcional).
 Testes: 306 testes backend e 66 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,13 kB. O smoke abriu um rascunho, selecionou um grupo, iniciou nove tarefas, copiou nove itens, gravou três eventos e uma chave idempotente, e o retry devolveu replay com as mesmas nove tarefas. Após rollback, processos, snapshots, tarefas, itens, origens, eventos e chaves de idempotência permaneceram todos com contagem zero. O Senior foi acessado somente por SELECT e nenhum objeto VETORH foi alterado.
+```
+
+### 2026-07-29 — Ciclo inicial da tarefa de setor
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 4 — Workflow / Tarefas de setor
+O que foi concluído: listagem autorizada de tarefas, detalhe, início da análise, validação tipada e conclusão atômica do checklist; services, API e SPA /fe/tarefas implementados; eventos SECTOR_TASK_STARTED e SECTOR_TASK_COMPLETED; migration state-only offboarding.0003 aplicada no Oracle DEV; validação visual clara/escura e responsiva.
+Diagnóstico: as tarefas geradas não possuíam superfície operacional. A autorização precisava decorrer do vínculo vigente e do escopo herdado do setor, sem proprietário individual nem elevação implícita de SuperAdmin. O primeiro smoke Oracle revelou que a constraint IS JSON do Oracle 19c rejeita resposta escalar no topo.
+Decisões: ADR-043 aceita; tarefa permanece pertencente ao setor; consulta e mutação revalidam vínculo, vigência e escopo; primeira transação válida vence com lock, versão e idempotência; conclusão envia todas as respostas obrigatórias de uma vez; FILE e item com evidência obrigatória permanecem bloqueados até a Fase 5; resposta é armazenada internamente em {"value": ...} e projetada sem envelope; auditoria não contém valores das respostas; conclusão não altera automaticamente o processo.
+Riscos: templates que exigem arquivo/evidência não podem ser concluídos neste incremento; não há salvamento parcial das respostas; configuração piloto permanece sem homologação funcional; owner SGPD continua sendo a conexão única do DEV pela ADR-022.
+Pendências: implementar pendências/evidências e hash; consolidar prontidão e painel do DP; homologar template, grupo, escopos, prazos e bloqueios; adicionar estados posteriores, cancelamento, reabertura, liberação e encerramento.
+Próximo passo: iniciar a Fase 5 por um incremento vertical de pendência e evidência privada com autorização, hash, auditoria e compatibilidade Oracle, permitindo então concluir itens que exigem evidência.
+Comandos executados: revisão integral da documentação e do checkpoint; testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; sqlmigrate e migrate plan; aplicação de offboarding.0003 no Oracle DEV; dois smokes de tarefa sob transaction.atomic com rollback obrigatório; Vitest; build Angular; inspeção visual em 360, 390, 768, 1024 e 1440 px e tema escuro; validação de manifesto e diff.
+Arquivos alterados: models, services, serializers, API, URLs e migration 0003 de offboarding; rota, menu e feature frontend/src/app/features/tarefas; testes backend/frontend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, WORKFLOWS.md e MANIFEST.json.
+Testes: 321 testes backend e 70 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build inicial de 497,15 kB. O smoke iniciou e concluiu uma tarefa, confirmou replay de início, processo e conclusão, cinco eventos e três chaves idempotentes. A primeira gravação escalar recebeu ORA-02290 e foi integralmente revertida; após o envelope JSON, o smoke passou. O rollback final deixou contagem zero para todos os dados criados e o Senior foi acessado somente por SELECT.
 ```

@@ -60,6 +60,7 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R57 | Vincular template a um único setor causar duplicação de questionários e versões divergentes | Mitigado em 2026-07-29 | Médio | Template neutro quanto a setor; associação mantida somente na regra versionada do grupo; mesma versão testada em múltiplos setores e snapshots independentes por tarefa |
 | R58 | Edição concorrente de rascunho perder perguntas ou alterar conteúdo histórico | Mitigado em 2026-07-29 | Alto | Somente `DRAFT` é editável; um rascunho por template; lock ordenado do cabeçalho, versões e itens; versão otimista; substituição e auditoria na mesma transação; publicados/aposentados e snapshots permanecem imutáveis |
 | R59 | Normalização dos códigos locais colidir, quebrar ordenação ou alterar snapshots históricos | Mitigado no código em 2026-07-29 | Alto | Migrations em duas etapas (`NULL` e depois `ID` decimal), criação transacional pelos services, ordenação por nome/PK em vez de texto numérico, testes de avanço/rollback e nenhuma alteração em snapshots de processos; aplicar no Oracle somente após preflight e revisão do SQL |
+| R60 | Resposta escalar de checklist violar a constraint JSON do Oracle ou vazar conteúdo sensível na auditoria | Mitigado em 2026-07-29 | Alto | Documento interno `{"value": ...}` compatível com `IS JSON`, projeção simples na API, validação tipada no backend, smoke Oracle com rollback e auditoria restrita a IDs/quantidade de itens |
 
 ## Riscos encerrados
 

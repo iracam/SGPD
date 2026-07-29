@@ -233,7 +233,9 @@ Serviços de workflow implementados na Fase 4:
 - `OpenOffboardingProcessService`;
 - `UpdateDraftSelectionService`;
 - `GetDraftProcessContextService`;
-- `StartOffboardingProcessService`.
+- `StartOffboardingProcessService`;
+- `StartSectorTaskService`;
+- `CompleteSectorTaskService`.
 
 Serviços de workflow planejados para as fases 4 a 9:
 
@@ -271,6 +273,19 @@ responsáveis vigentes, cria tarefas/perguntas históricas e registra
 `PROCESS_STARTED` e a chave idempotente na mesma transação. A ordenação de
 locks acompanha Setor → responsabilidades → usuários para evitar inversão com
 a manutenção do catálogo.
+
+`sector_tasks_for_actor()` limita consulta ao vínculo vigente do ator com o
+setor e ao escopo herdado que cobre empresa/filial do processo. SuperAdmin não
+recebe autoridade funcional implícita. `StartSectorTaskService` e
+`CompleteSectorTaskService` voltam a validar essa autoridade sob locks
+ordenados, exigem versão e chave idempotente e gravam tarefa, respostas e
+auditoria na mesma transação. A conclusão valida o snapshot de cada pergunta;
+valores das respostas não são copiados para o evento de auditoria.
+
+No Oracle 19c, `JSONField` usa constraint `IS JSON`, que rejeita um escalar
+JSON no topo. Por isso `RESPONSE` armazena internamente o documento
+`{"value": ...}`; a API projeta novamente o valor simples. Esse detalhe é
+isolado no backend e não cria regra de negócio no Angular.
 
 ### Consulta ao Senior
 
@@ -471,6 +486,20 @@ iniciam o processo. O início exige `Idempotency-Key`: repetição pelo mesmo at
 e corpo recupera o resultado; reutilização divergente responde
 `409 Conflict` com o código `idempotency_conflict`.
 
+Endpoints de tarefa implementados:
+
+```text
+GET  /api/v1/tasks/
+GET  /api/v1/tasks/{id}/
+POST /api/v1/tasks/{id}/start/
+POST /api/v1/tasks/{id}/complete/
+```
+
+Listagem e detalhe são limitados pela responsabilidade efetiva do setor. Início
+e conclusão exigem `Idempotency-Key` e versão esperada; conflito de chave
+responde `409`, tarefa fora do escopo responde `404` e falha de regra mantém o
+envelope padronizado da API.
+
 Endpoints de domínio planejados:
 
 ```text
@@ -478,10 +507,6 @@ GET  /api/v1/processes/
 GET  /api/v1/processes/{uuid}/
 POST /api/v1/processes/{uuid}/release/
 POST /api/v1/processes/{uuid}/cancel/
-
-GET  /api/v1/tasks/
-POST /api/v1/tasks/{id}/start/
-POST /api/v1/tasks/{id}/complete/
 
 POST /api/v1/pending-items/
 POST /api/v1/pending-items/{uuid}/resolve/

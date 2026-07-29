@@ -4,8 +4,9 @@
 
 Este documento define o fluxo funcional alvo. A abertura em `RASCUNHO`, a
 seleção versionada e a transição idempotente para `INICIADO` estão
-implementadas; as demais transições deverão ser confirmadas e testadas nos
-checkpoints das Fases 4 a 8.
+implementadas. O ciclo inicial da tarefa `PENDENTE → EM_ANALISE → CONCLUIDA`
+e as respostas simples de checklist também estão implementados; as demais
+transições deverão ser confirmadas e testadas nos checkpoints das Fases 4 a 8.
 
 ## 1. Fluxo principal
 
@@ -119,15 +120,22 @@ Processo cancelado com justificativa.
 
 ## 3. Estados da tarefa de setor
 
-- PENDENTE
-- EM_ANALISE
+- PENDENTE — implementado;
+- EM_ANALISE — implementado;
 - SEM_PENDENCIA
 - COM_PENDENCIA
 - AGUARDANDO_REGULARIZACAO
 - REGULARIZADA
 - APROVADA_COM_RESSALVA
-- CONCLUIDA
+- CONCLUIDA — implementado;
 - CANCELADA
+
+O responsável vigente no escopo inicia a análise explicitamente. A conclusão
+exige a tarefa em análise e todas as respostas obrigatórias válidas. Ambas as
+ações usam locks, versão otimista, chave idempotente e auditoria na mesma
+transação. Respostas que dependem de arquivo/evidência aguardam a Fase 5 e não
+podem concluir a tarefa. Neste incremento a conclusão da última tarefa não
+altera automaticamente o estado do processo.
 
 ## 4. Estados da pendência
 
@@ -215,6 +223,13 @@ A chave é única por processo e ação `START`. Repetir a mesma chave, corpo e
 ator devolve a transição anterior sem novo efeito. Reutilizar a chave com corpo
 ou ator diferente retorna conflito. Qualquer falha remove tarefas, auditoria e
 registro idempotente pelo rollback da mesma transação.
+
+### Idempotência das tarefas
+
+Início e conclusão usam uma chave por tarefa e ação. Repetir a mesma chave,
+ator, versão esperada e corpo devolve replay sem nova auditoria. Reusar a chave
+com conteúdo ou ator diferente retorna conflito. Falha de resposta, auditoria
+ou persistência reverte tarefa, checklist e idempotência em conjunto.
 
 ## 7. Escalada
 

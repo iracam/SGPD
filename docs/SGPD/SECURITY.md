@@ -256,6 +256,13 @@ Exemplos:
 - múltiplos responsáveis de um setor têm a mesma autoridade; a primeira ação
   válida vence e as demais não duplicam efeitos.
 
+Na API de tarefas, listagem e detalhe devolvem `404` para tarefa fora da
+responsabilidade vigente e do escopo herdado do ator. A mutação repete essa
+autorização sob locks; SuperAdmin não recebe acesso funcional implícito. Os
+eventos de conclusão registram apenas IDs dos itens respondidos e quantidade,
+nunca o conteúdo das respostas ou observações, reduzindo exposição de dados
+pessoais na trilha técnica.
+
 ## 4. Segregação
 
 - quem informa um valor não deve necessariamente aprová-lo;

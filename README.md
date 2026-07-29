@@ -173,6 +173,11 @@ Processo demissional:
   vigentes, gera uma tarefa por setor e congela template e perguntas;
 - a ausência de responsável vigente em setor obrigatório bloqueia toda a
   transação, sem criar tarefa, auditoria parcial ou chave idempotente.
+- `/fe/tarefas`: responsáveis vigentes veem somente tarefas dos próprios
+  setores no escopo do processo, iniciam a análise e concluem o checklist;
+- início e conclusão da tarefa usam versão otimista, lock, `Idempotency-Key`,
+  auditoria e rollback atômico; itens que exigem arquivo ou evidência aguardam
+  a Fase 5.
 
 ## Escopo técnico atual
 
@@ -247,7 +252,7 @@ mesma autorização por escopo dos endpoints JSON. O `LEFT JOIN` de centro de
 custo foi homologado no Oracle DEV e a consulta de colaboradores concluiu a
 medição controlada com até dez conexões concorrentes sem erros ou timeouts.
 
-A Fase 4 possui abertura e início implementados. A SPA permite ao
+A Fase 4 possui abertura, início e ciclo inicial das tarefas implementados. A SPA permite ao
 `DP` selecionar colaborador e gestor, informar datas, motivo, prioridade e
 observações e criar o processo em `RASCUNHO`. O backend revalida
 `has_effective_role()` após bloquear a autoridade funcional, relê a chave
@@ -255,7 +260,10 @@ completa no Senior, preserva os snapshots do colaborador e do gestor e registra
 auditoria append-only. Templates e grupos possuem versões publicadas imutáveis;
 um mesmo template pode ser associado a diferentes setores nos grupos. O
 rascunho fixa as versões escolhidas e o início idempotente gera tarefas e
-snapshots de perguntas em `INICIADO`. As migrations `templates_engine.0001`,
+snapshots de perguntas em `INICIADO`. Responsáveis vigentes podem movimentar
+as tarefas `PENDENTE → EM_ANALISE → CONCLUIDA` e responder os tipos simples do
+checklist pela SPA; respostas de arquivo ou com evidência obrigatória
+permanecem bloqueadas até a Fase 5. As migrations `templates_engine.0001`,
 `templates_engine.0002` e `offboarding.0002` foram aplicadas e validadas no
 Oracle DEV. Entidades configuráveis locais usam código numérico automático
 igual ao `ID`: setores, templates, grupos e perguntas não solicitam código do
@@ -294,7 +302,9 @@ Em 2026-07-29, um smoke transacional no Oracle DEV validou o fluxo
 abrir → selecionar → iniciar com os services reais: nove tarefas, nove
 snapshots de checklist, três eventos de auditoria e replay idempotente foram
 confirmados. O rollback obrigatório removeu integralmente processo, snapshot,
-tarefas, itens, auditoria e chave de idempotência criados pelo teste. O Senior
-foi acessado somente por `SELECT`.
+tarefas, itens, auditoria e chave de idempotência criados pelo teste. Um
+segundo smoke validou início e conclusão de uma tarefa, inclusive retries
+idempotentes, e também foi integralmente revertido. O Senior foi acessado
+somente por `SELECT`.
 
 Consulte `PROMPT.md` para o procedimento completo.
