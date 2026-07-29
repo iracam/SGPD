@@ -966,7 +966,7 @@ class StartOffboardingProcessService:
                 blocks_process=plan.blocks_process,
                 sector_code_snapshot=plan.sector.code,
                 sector_name_snapshot=plan.sector.name,
-                template_code_snapshot=plan.template_version.template.code,
+                template_code_snapshot=str(plan.template_version.template_id),
                 template_version_snapshot=plan.template_version.version_number,
                 sla_hours_snapshot=plan.sla_hours,
                 due_at=due_at,

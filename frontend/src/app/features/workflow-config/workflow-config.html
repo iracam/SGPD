@@ -15,7 +15,7 @@
       [outlined]="true"
       icon="pi pi-plus"
       label="Novo template"
-      (onClick)="exibirTemplate.set(!exibirTemplate())"
+      (onClick)="abrirNovoTemplate()"
     ></p-button>
     <p-button
       type="button"
@@ -35,14 +35,20 @@
 }
 
 @if (exibirTemplate()) {
-  <section class="cartao editor" aria-labelledby="novo-template">
-    <h2 id="novo-template">Novo template — versão 1</h2>
-    <form [formGroup]="formularioTemplate" (ngSubmit)="criarTemplate()">
+  <section class="cartao editor" aria-labelledby="editor-template">
+    <h2 id="editor-template">
+      @if (templateEmEdicao(); as template) {
+        Editar template #{{ template.code }} — versão
+        {{ rascunhoTemplate(template)?.version_number }} em rascunho
+      } @else {
+        Novo template — versão 1
+      }
+    </h2>
+    <p class="editor__nota">
+      O código numérico é gerado automaticamente após salvar.
+    </p>
+    <form [formGroup]="formularioTemplate" (ngSubmit)="salvarTemplate()">
       <div class="grade-campos">
-        <div class="campo">
-          <label for="template-code">Código</label>
-          <input id="template-code" pInputText formControlName="code" />
-        </div>
         <div class="campo campo--largo">
           <label for="template-name">Nome</label>
           <input id="template-name" pInputText formControlName="name" />
@@ -128,9 +134,16 @@
       </div>
       <div class="acoes">
         <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          label="Cancelar"
+          (onClick)="cancelarEditorTemplate()"
+        ></p-button>
+        <p-button
           type="submit"
           icon="pi pi-save"
-          label="Criar versão em rascunho"
+          [label]="templateEmEdicao() ? 'Salvar rascunho' : 'Criar em rascunho'"
           [loading]="salvandoTemplate()"
         ></p-button>
       </div>
@@ -243,12 +256,33 @@
   <article class="cartao">
     <div class="subtitulo">
       <h2>Templates</h2>
-      <span>{{ templates().length }} cadastrado(s)</span>
+      <span>{{ templatesVisiveis().length }} encontrado(s)</span>
     </div>
-    @for (template of templates(); track template.id) {
+    <div class="busca">
+      <div class="campo">
+        <label for="busca-template">Buscar pelo nome</label>
+        <input
+          #buscaTemplateInput
+          id="busca-template"
+          pInputText
+          type="search"
+          [value]="buscaTemplate()"
+          (input)="buscaTemplate.set(buscaTemplateInput.value)"
+          (keydown.enter)="$event.preventDefault(); buscarTemplates()"
+        />
+      </div>
+      <p-button
+        type="button"
+        icon="pi pi-search"
+        label="Buscar"
+        [loading]="carregando()"
+        (onClick)="buscarTemplates()"
+      ></p-button>
+    </div>
+    @for (template of templatesVisiveis(); track template.id) {
       <div class="registro">
         <div>
-          <strong>{{ template.code }} — {{ template.name }}</strong>
+          <strong>#{{ template.code }} — {{ template.name }}</strong>
           <small>Reutilizável entre setores · versão de concorrência {{ template.version }}</small>
         </div>
         <div class="registro__acoes">
@@ -258,13 +292,31 @@
               [value]="'v' + version.version_number + ' · ' + version.status"
             ></p-tag>
           }
-          @if (template.versions[0]?.status === 'DRAFT') {
+          @if (rascunhoTemplate(template)) {
+            <p-button
+              type="button"
+              size="small"
+              [outlined]="true"
+              icon="pi pi-pencil"
+              label="Editar rascunho"
+              (onClick)="editarRascunho(template)"
+            ></p-button>
             <p-button
               type="button"
               size="small"
               icon="pi pi-check"
               label="Publicar"
               (onClick)="publicarTemplate(template)"
+            ></p-button>
+          } @else if (template.current_version_id) {
+            <p-button
+              type="button"
+              size="small"
+              [outlined]="true"
+              icon="pi pi-copy"
+              label="Nova versão"
+              [loading]="salvandoTemplate()"
+              (onClick)="criarNovaVersao(template)"
             ></p-button>
           }
         </div>

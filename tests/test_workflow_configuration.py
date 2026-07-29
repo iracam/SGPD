@@ -7,7 +7,8 @@ from typing import Any
 import pytest
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
+from django.db.migrations.executor import MigrationExecutor
 from django.test import Client
 from django.urls import reverse
 
@@ -33,6 +34,8 @@ from apps.templates_engine.services import (
     PublishChecklistTemplateVersionService,
     PublishValidationGroupVersionCommand,
     PublishValidationGroupVersionService,
+    UpdateChecklistTemplateDraftCommand,
+    UpdateChecklistTemplateDraftService,
 )
 
 pytestmark = pytest.mark.django_db
@@ -94,7 +97,6 @@ def item(code: str = "ACESSOS", order: int = 1) -> ChecklistItemValue:
 def template_command(actor: User) -> CreateChecklistTemplateCommand:
     return CreateChecklistTemplateCommand(
         actor=actor,
-        code="TI_DESLIGAMENTO",
         name="Checklist de TI",
         description="Validações mínimas de TI.",
         default_due_hours=12,
@@ -134,6 +136,7 @@ def test_template_is_created_published_and_audited(
 
     assert version.status == VersionStatus.DRAFT
     assert version.version_number == 1
+    assert template.code == str(template.pk)
     assert version.items.get().code == "ACESSOS"
     assert WorkflowConfigurationAuditEvent.objects.count() == 2
 
@@ -304,6 +307,161 @@ def test_audit_failure_rolls_back_template(
     assert not ChecklistTemplateItem.objects.exists()
 
 
+def test_draft_can_be_edited_in_place_and_is_audited(
+    actor: User,
+) -> None:
+    template = CreateChecklistTemplateService().execute(template_command(actor))
+    draft = template.versions.get()
+
+    updated = UpdateChecklistTemplateDraftService().execute(
+        UpdateChecklistTemplateDraftCommand(
+            actor=actor,
+            version_id=draft.pk,
+            expected_template_version=template.version,
+            name="Checklist corporativo",
+            description="Conteúdo revisado.",
+            default_due_hours=18,
+            items=(item("EQUIPAMENTOS"),),
+        )
+    )
+    template.refresh_from_db()
+
+    assert updated.pk == draft.pk
+    assert updated.default_due_hours == 18
+    assert list(updated.items.values_list("code", flat=True)) == ["EQUIPAMENTOS"]
+    assert template.name == "Checklist corporativo"
+    assert template.description == "Conteúdo revisado."
+    assert template.version == 2
+    event = WorkflowConfigurationAuditEvent.objects.get(event_type="TPL_DRAFT_UPDATED")
+    assert event.entity_id == draft.pk
+    assert event.data["previous_item_codes"] == ["ACESSOS"]
+    assert event.data["item_codes"] == ["EQUIPAMENTOS"]
+
+
+def test_published_template_requires_a_new_draft_before_editing(
+    actor: User,
+) -> None:
+    template = publish_template(actor)
+    published = template.current_version
+    assert published is not None
+
+    with pytest.raises(ValidationError, match="Somente uma versão em rascunho"):
+        UpdateChecklistTemplateDraftService().execute(
+            UpdateChecklistTemplateDraftCommand(
+                actor=actor,
+                version_id=published.pk,
+                expected_template_version=template.version,
+                name="Não deve mudar",
+                description="",
+                default_due_hours=6,
+                items=(item("ALTERADO"),),
+            )
+        )
+
+    template.refresh_from_db()
+    published.refresh_from_db()
+    assert template.name == "Checklist de TI"
+    assert published.default_due_hours == 12
+    assert published.items.get().code == "ACESSOS"
+
+
+def test_draft_update_rejects_stale_version_and_permission(
+    actor: User,
+    plain_user: User,
+) -> None:
+    template = CreateChecklistTemplateService().execute(template_command(actor))
+    draft = template.versions.get()
+    command = UpdateChecklistTemplateDraftCommand(
+        actor=actor,
+        version_id=draft.pk,
+        expected_template_version=template.version + 1,
+        name="Não deve mudar",
+        description="",
+        default_due_hours=6,
+        items=(item("ALTERADO"),),
+    )
+
+    with pytest.raises(ValidationError, match="outra sessão"):
+        UpdateChecklistTemplateDraftService().execute(command)
+    with pytest.raises(PermissionDenied, match="grupos e templates"):
+        UpdateChecklistTemplateDraftService().execute(
+            UpdateChecklistTemplateDraftCommand(
+                actor=plain_user,
+                version_id=draft.pk,
+                expected_template_version=template.version,
+                name="Não deve mudar",
+                description="",
+                default_due_hours=6,
+                items=(item("ALTERADO"),),
+            )
+        )
+
+    template.refresh_from_db()
+    assert template.name == "Checklist de TI"
+    assert draft.items.get().code == "ACESSOS"
+
+
+def test_draft_update_rolls_back_when_audit_fails(
+    actor: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    template = CreateChecklistTemplateService().execute(template_command(actor))
+    draft = template.versions.get()
+
+    def fail_create(**kwargs: Any) -> None:
+        raise IntegrityError("audit unavailable")
+
+    monkeypatch.setattr(WorkflowConfigurationAuditEvent.objects, "create", fail_create)
+    with pytest.raises(IntegrityError, match="audit unavailable"):
+        UpdateChecklistTemplateDraftService().execute(
+            UpdateChecklistTemplateDraftCommand(
+                actor=actor,
+                version_id=draft.pk,
+                expected_template_version=template.version,
+                name="Não deve persistir",
+                description="",
+                default_due_hours=6,
+                items=(item("ALTERADO"),),
+            )
+        )
+
+    template.refresh_from_db()
+    draft.refresh_from_db()
+    assert template.name == "Checklist de TI"
+    assert template.version == 1
+    assert draft.default_due_hours == 12
+    assert draft.items.get().code == "ACESSOS"
+
+
+def test_template_allows_only_one_draft_per_template(
+    actor: User,
+) -> None:
+    template = publish_template(actor)
+    CreateChecklistTemplateVersionService().execute(
+        CreateChecklistTemplateVersionCommand(
+            actor=actor,
+            template_id=template.pk,
+            expected_version=template.version,
+            default_due_hours=8,
+            items=(item("VERSAO_2"),),
+        )
+    )
+    template.refresh_from_db()
+
+    with pytest.raises(ValidationError, match="já possui uma versão em rascunho"):
+        CreateChecklistTemplateVersionService().execute(
+            CreateChecklistTemplateVersionCommand(
+                actor=actor,
+                template_id=template.pk,
+                expected_version=template.version,
+                default_due_hours=4,
+                items=(item("VERSAO_3"),),
+            )
+        )
+
+    assert template.versions.filter(status=VersionStatus.DRAFT).count() == 1
+
+
 @pytest.mark.parametrize(
     ("method", "route_name", "kwargs"),
     [
@@ -318,6 +476,11 @@ def test_audit_failure_rolls_back_template(
         (
             "post",
             "workflow-configuration-api:template-version-publish",
+            {"version_id": 999},
+        ),
+        (
+            "put",
+            "workflow-configuration-api:template-version-update",
             {"version_id": 999},
         ),
         ("get", "workflow-configuration-api:group-list", {}),
@@ -367,7 +530,7 @@ def test_template_and_group_api_create_versioned_configuration(
     client = Client()
     client.force_login(actor)
     template_payload = {
-        "code": "TI_DESLIGAMENTO",
+        "code": "CODIGO_MANUAL_IGNORADO",
         "name": "Checklist de TI",
         "description": "",
         "default_due_hours": 12,
@@ -393,6 +556,8 @@ def test_template_and_group_api_create_versioned_configuration(
 
     assert response.status_code == 201
     assert "sector" not in response.json()
+    assert response.json()["code"] == response.json()["id"]
+    assert isinstance(response.json()["code"], int)
     assert response.json()["versions"][0]["status"] == VersionStatus.DRAFT
     template = ChecklistTemplate.objects.get()
     template_version = template.versions.get()
@@ -428,3 +593,110 @@ def test_template_and_group_api_create_versioned_configuration(
 
     assert group_response.status_code == 201
     assert group_response.json()["versions"][0]["sectors"][0]["sector"]["code"] == "TECNOLOGIA"
+    assert (
+        group_response.json()["versions"][0]["sectors"][0]["template_version"]["template_code"]
+        == template.pk
+    )
+
+
+def test_template_api_updates_draft_and_searches_by_name(
+    actor: User,
+) -> None:
+    client = Client()
+    client.force_login(actor)
+    template = CreateChecklistTemplateService().execute(template_command(actor))
+    draft = template.versions.get()
+    other = CreateChecklistTemplateService().execute(
+        CreateChecklistTemplateCommand(
+            actor=actor,
+            name="Checklist financeiro",
+            description="",
+            default_due_hours=24,
+            items=(item("FINANCEIRO"),),
+        )
+    )
+
+    update = client.put(
+        reverse(
+            "workflow-configuration-api:template-version-update",
+            kwargs={"version_id": draft.pk},
+        ),
+        data={
+            "expected_version": template.version,
+            "name": "Checklist de tecnologia revisado",
+            "description": "Revisão.",
+            "default_due_hours": 8,
+            "items": [
+                {
+                    "code": "ACESSOS_V2",
+                    "question": "Os acessos foram revisados?",
+                    "response_type": "BOOLEAN",
+                    "is_required": True,
+                    "blocks_process": True,
+                    "requires_evidence": False,
+                    "allows_pending": True,
+                    "display_order": 1,
+                    "config": {},
+                }
+            ],
+        },
+        content_type="application/json",
+    )
+    assert update.status_code == 200
+    assert update.json()["id"] == template.pk
+    assert update.json()["code"] == template.pk
+    assert update.json()["name"] == "Checklist de tecnologia revisado"
+    assert update.json()["versions"][0]["items"][0]["code"] == "ACESSOS_V2"
+
+    search = client.get(
+        reverse("workflow-configuration-api:template-list"),
+        {"q": "TECNOLOGIA"},
+    )
+    assert search.status_code == 200
+    assert [row["id"] for row in search.json()["results"]] == [template.pk]
+    assert other.pk not in [row["id"] for row in search.json()["results"]]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_numeric_template_identifier_migration_preserves_forward_and_rollback() -> None:
+    previous = [("templates_engine", "0002_make_templates_sector_neutral")]
+    current = [("templates_engine", "0003_use_numeric_template_identifier_and_edit_drafts")]
+    executor = MigrationExecutor(connection)
+    executor.migrate(previous)
+    old_apps = executor.loader.project_state(previous).apps
+    old_template_model = old_apps.get_model("templates_engine", "ChecklistTemplate")
+    legacy = old_template_model.objects.create(
+        code="CODIGO_MANUAL",
+        name="Template existente",
+        description="",
+    )
+
+    try:
+        executor = MigrationExecutor(connection)
+        executor.migrate(current)
+        current_apps = executor.loader.project_state(current).apps
+        current_template_model = current_apps.get_model(
+            "templates_engine",
+            "ChecklistTemplate",
+        )
+        normalized = current_template_model.objects.get(pk=legacy.pk)
+        assert normalized.code == str(legacy.pk)
+
+        rollback_pk = legacy.pk + 100
+        current_template_model.objects.create(
+            id=rollback_pk,
+            code=str(rollback_pk),
+            name="Template criado depois",
+            description="",
+        )
+        executor = MigrationExecutor(connection)
+        executor.migrate(previous)
+        rollback_apps = executor.loader.project_state(previous).apps
+        rollback_template_model = rollback_apps.get_model(
+            "templates_engine",
+            "ChecklistTemplate",
+        )
+        assert rollback_template_model.objects.get(pk=legacy.pk).code == str(legacy.pk)
+        assert rollback_template_model.objects.get(pk=rollback_pk).code == str(rollback_pk)
+    finally:
+        MigrationExecutor(connection).migrate(current)

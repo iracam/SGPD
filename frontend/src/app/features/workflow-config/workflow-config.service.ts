@@ -4,9 +4,11 @@ import { Observable } from 'rxjs';
 
 import { apiConfig } from '../../core/config/api.config';
 import {
+  AtualizacaoRascunhoTemplate,
   GrupoValidacao,
   NovoGrupo,
   NovoTemplate,
+  NovaVersaoTemplate,
   PaginaWorkflow,
   SetorWorkflow,
   TemplateChecklist,
@@ -24,10 +26,14 @@ export class WorkflowConfigService {
     );
   }
 
-  listarTemplates(): Observable<PaginaWorkflow<TemplateChecklist>> {
+  listarTemplates(query = ''): Observable<PaginaWorkflow<TemplateChecklist>> {
+    const params: Record<string, string | number> = { limit: 200 };
+    if (query.trim()) {
+      params['q'] = query.trim();
+    }
     return this.http.get<PaginaWorkflow<TemplateChecklist>>(
       apiConfig.routes.workflowTemplates,
-      { params: { limit: 200 } },
+      { params },
     );
   }
 
@@ -41,6 +47,26 @@ export class WorkflowConfigService {
   criarTemplate(payload: NovoTemplate): Observable<TemplateChecklist> {
     return this.http.post<TemplateChecklist>(
       apiConfig.routes.workflowTemplates,
+      payload,
+    );
+  }
+
+  atualizarRascunhoTemplate(
+    versionId: number,
+    payload: AtualizacaoRascunhoTemplate,
+  ): Observable<TemplateChecklist> {
+    return this.http.put<TemplateChecklist>(
+      `/api/v1/workflow-config/template-versions/${versionId}/`,
+      payload,
+    );
+  }
+
+  criarVersaoTemplate(
+    templateId: number,
+    payload: NovaVersaoTemplate,
+  ): Observable<VersaoTemplate> {
+    return this.http.post<VersaoTemplate>(
+      `/api/v1/workflow-config/templates/${templateId}/versions/`,
       payload,
     );
   }

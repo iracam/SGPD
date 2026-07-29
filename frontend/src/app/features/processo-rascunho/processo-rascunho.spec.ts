@@ -37,7 +37,7 @@ function contexto(status: 'RASCUNHO' | 'INICIADO' = 'RASCUNHO'): ContextoRascunh
           code: 'TECNOLOGIA',
           name: 'Tecnologia',
           template_version_id: 20,
-          template_code: 'TPL_TI',
+          template_code: 20,
           template_version_number: 1,
           is_required: true,
           blocks_process: true,

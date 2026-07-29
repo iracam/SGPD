@@ -25,6 +25,7 @@ from .models import (
 )
 from .serializers import (
     ChecklistTemplateCreateSerializer,
+    ChecklistTemplateDraftUpdateSerializer,
     ChecklistVersionSerializer,
     PublishVersionSerializer,
     ValidationGroupCreateSerializer,
@@ -46,6 +47,8 @@ from .services import (
     PublishChecklistTemplateVersionService,
     PublishValidationGroupVersionCommand,
     PublishValidationGroupVersionService,
+    UpdateChecklistTemplateDraftCommand,
+    UpdateChecklistTemplateDraftService,
 )
 
 DEFAULT_PAGE_SIZE = 50
@@ -88,7 +91,7 @@ def template_version_payload(
 def template_payload(template: ChecklistTemplate) -> dict[str, Any]:
     return {
         "id": template.pk,
-        "code": template.code,
+        "code": template.pk,
         "name": template.name,
         "description": template.description,
         "is_active": template.is_active,
@@ -112,7 +115,7 @@ def group_rule_payload(rule: ValidationGroupSector) -> dict[str, Any]:
         "template_version": {
             "id": rule.template_version_id,
             "template_id": rule.template_version.template_id,
-            "template_code": rule.template_version.template.code,
+            "template_code": rule.template_version.template_id,
             "version_number": rule.template_version.version_number,
             "status": rule.template_version.status,
         },
@@ -159,7 +162,7 @@ def template_queryset() -> QuerySet[ChecklistTemplate]:
     return (
         ChecklistTemplate.objects.select_related("current_version")
         .prefetch_related("versions__items")
-        .order_by("code")
+        .order_by("name", "pk")
     )
 
 
@@ -251,6 +254,9 @@ class ChecklistTemplateListCreateView(WorkflowConfigurationAPIView):
     def get(self, request: Request) -> Response:
         offset, limit = self.page(request)
         templates = template_queryset()
+        query = request.query_params.get("q", "").strip()
+        if query:
+            templates = templates.filter(name__icontains=query[:120])
         return Response(
             {
                 "offset": offset,
@@ -266,7 +272,6 @@ class ChecklistTemplateListCreateView(WorkflowConfigurationAPIView):
         template = CreateChecklistTemplateService().execute(
             CreateChecklistTemplateCommand(
                 actor=self.actor(request),
-                code=data["code"],
                 name=data["name"],
                 description=data["description"],
                 default_due_hours=data.get("default_due_hours"),
@@ -299,6 +304,28 @@ class ChecklistTemplateVersionCreateView(WorkflowConfigurationAPIView):
             )
         )
         return Response(template_version_payload(version), status=201)
+
+
+class ChecklistTemplateDraftUpdateView(WorkflowConfigurationAPIView):
+    def put(self, request: Request, version_id: int) -> Response:
+        get_object_or_404(ChecklistTemplateVersion, pk=version_id)
+        serializer = ChecklistTemplateDraftUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        version = UpdateChecklistTemplateDraftService().execute(
+            UpdateChecklistTemplateDraftCommand(
+                actor=self.actor(request),
+                version_id=version_id,
+                expected_template_version=data["expected_version"],
+                name=data["name"],
+                description=data["description"],
+                default_due_hours=data.get("default_due_hours"),
+                items=_items(data["items"]),
+            )
+        )
+        return Response(
+            template_payload(template_queryset().get(pk=version.template_id)),
+        )
 
 
 class ChecklistTemplatePublishView(WorkflowConfigurationAPIView):

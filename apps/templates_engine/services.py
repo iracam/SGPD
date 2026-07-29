@@ -114,28 +114,17 @@ def _normalize_items(
     return tuple(sorted(normalized, key=lambda item: item.display_order))
 
 
-def _create_template_version(
-    *,
-    template: ChecklistTemplate,
-    actor: User,
-    default_due_hours: int | None,
-    items: tuple[ChecklistItemValue, ...],
-) -> ChecklistTemplateVersion:
-    normalized_items = _normalize_items(items)
+def _validate_default_due_hours(default_due_hours: int | None) -> None:
     if default_due_hours is not None and default_due_hours <= 0:
         raise ValidationError({"default_due_hours": "O prazo do template deve ser maior que zero."})
-    versions = list(
-        ChecklistTemplateVersion.objects.select_for_update()
-        .filter(template=template)
-        .order_by("version_number")
-    )
-    version = ChecklistTemplateVersion.objects.create(
-        template=template,
-        version_number=(versions[-1].version_number + 1 if versions else 1),
-        default_due_hours=default_due_hours,
-        created_by=actor,
-    )
-    for value in normalized_items:
+
+
+def _create_template_items(
+    *,
+    version: ChecklistTemplateVersion,
+    items: tuple[ChecklistItemValue, ...],
+) -> None:
+    for value in items:
         item = ChecklistTemplateItem(
             template_version=version,
             code=value.code,
@@ -150,6 +139,29 @@ def _create_template_version(
         )
         item.full_clean()
         item.save()
+
+
+def _create_template_version(
+    *,
+    template: ChecklistTemplate,
+    actor: User,
+    default_due_hours: int | None,
+    items: tuple[ChecklistItemValue, ...],
+) -> ChecklistTemplateVersion:
+    normalized_items = _normalize_items(items)
+    _validate_default_due_hours(default_due_hours)
+    versions = list(
+        ChecklistTemplateVersion.objects.select_for_update()
+        .filter(template=template)
+        .order_by("version_number")
+    )
+    version = ChecklistTemplateVersion.objects.create(
+        template=template,
+        version_number=(versions[-1].version_number + 1 if versions else 1),
+        default_due_hours=default_due_hours,
+        created_by=actor,
+    )
+    _create_template_items(version=version, items=normalized_items)
     _audit(
         event_type=WorkflowConfigurationEventType.TEMPLATE_VERSION_CREATED,
         actor=actor,
@@ -167,7 +179,6 @@ def _create_template_version(
 @dataclass(frozen=True, slots=True)
 class CreateChecklistTemplateCommand:
     actor: User
-    code: str
     name: str
     description: str
     default_due_hours: int | None
@@ -181,26 +192,20 @@ class CreateChecklistTemplateService:
         command: CreateChecklistTemplateCommand,
     ) -> ChecklistTemplate:
         _require_permission(command.actor)
-        code = _required_text(
-            command.code,
-            "code",
-            "O código do template é obrigatório.",
-        ).upper()
         name = _required_text(
             command.name,
             "name",
             "O nome do template é obrigatório.",
         )
         template = ChecklistTemplate(
-            code=code,
             name=name,
             description=command.description.strip(),
         )
         template.full_clean()
-        try:
-            template.save()
-        except IntegrityError as exc:
-            raise ValidationError({"code": "Já existe um template com este código."}) from exc
+        template.save()
+        template.code = str(template.pk)
+        template.full_clean()
+        template.save(update_fields=("code",))
         version = _create_template_version(
             template=template,
             actor=command.actor,
@@ -218,6 +223,101 @@ class CreateChecklistTemplateService:
             },
         )
         return template
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateChecklistTemplateDraftCommand:
+    actor: User
+    version_id: int
+    expected_template_version: int
+    name: str
+    description: str
+    default_due_hours: int | None
+    items: tuple[ChecklistItemValue, ...]
+
+
+class UpdateChecklistTemplateDraftService:
+    @transaction.atomic
+    def execute(
+        self,
+        command: UpdateChecklistTemplateDraftCommand,
+    ) -> ChecklistTemplateVersion:
+        _require_permission(command.actor)
+        name = _required_text(command.name, "name", "O nome do template é obrigatório.")
+        description = command.description.strip()
+        normalized_items = _normalize_items(command.items)
+        _validate_default_due_hours(command.default_due_hours)
+        try:
+            template_id = ChecklistTemplateVersion.objects.values_list(
+                "template_id",
+                flat=True,
+            ).get(pk=command.version_id)
+        except ChecklistTemplateVersion.DoesNotExist as exc:
+            raise ChecklistTemplateVersion.DoesNotExist from exc
+
+        template = ChecklistTemplate.objects.select_for_update().get(pk=template_id)
+        versions: list[ChecklistTemplateVersion] = list(
+            ChecklistTemplateVersion.objects.select_for_update()
+            .filter(template=template)
+            .order_by("pk")
+        )
+        version = next(
+            (row for row in versions if row.pk == command.version_id),
+            None,
+        )
+        if version is None:
+            raise ChecklistTemplateVersion.DoesNotExist
+        if template.version != command.expected_template_version:
+            raise ValidationError("O template foi alterado por outra sessão. Recarregue a página.")
+        if not template.is_active:
+            raise ValidationError("O template precisa estar ativo.")
+        if version.status != VersionStatus.DRAFT:
+            raise ValidationError(
+                "Somente uma versão em rascunho pode ser editada; crie uma nova versão."
+            )
+
+        persisted_items = list(
+            ChecklistTemplateItem.objects.select_for_update()
+            .filter(template_version=version)
+            .order_by("display_order", "pk")
+        )
+        previous_name = template.name
+        previous_description = template.description
+        previous_due_hours = version.default_due_hours
+        previous_codes = [item.code for item in persisted_items]
+        for persisted_item in persisted_items:
+            persisted_item.delete()
+
+        version.default_due_hours = command.default_due_hours
+        version.full_clean()
+        version.save(update_fields=("default_due_hours",))
+        _create_template_items(version=version, items=normalized_items)
+
+        template.name = name
+        template.description = description
+        template.version += 1
+        template.full_clean()
+        template.save(update_fields=("name", "description", "version", "updated_at"))
+        _audit(
+            event_type=WorkflowConfigurationEventType.TEMPLATE_DRAFT_UPDATED,
+            actor=command.actor,
+            entity_type="CHECKLIST_TEMPLATE_VERSION",
+            entity_id=version.pk,
+            data={
+                "template_id": template.pk,
+                "version_number": version.version_number,
+                "previous_name": previous_name,
+                "name": template.name,
+                "description_changed": previous_description != template.description,
+                "previous_default_due_hours": previous_due_hours,
+                "default_due_hours": version.default_due_hours,
+                "previous_item_codes": previous_codes,
+                "item_codes": [item.code for item in normalized_items],
+                "item_count": len(normalized_items),
+                "template_version": template.version,
+            },
+        )
+        return version
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +344,15 @@ class CreateChecklistTemplateVersionService:
             raise ValidationError("O template foi alterado por outra sessão. Recarregue a página.")
         if not template.is_active:
             raise ValidationError("O template precisa estar ativo.")
+        draft_versions = list(
+            ChecklistTemplateVersion.objects.select_for_update()
+            .filter(template=template, status=VersionStatus.DRAFT)
+            .order_by("pk")
+        )
+        if draft_versions:
+            raise ValidationError(
+                "O template já possui uma versão em rascunho. Edite-a antes de criar outra."
+            )
         version = _create_template_version(
             template=template,
             actor=command.actor,
@@ -270,19 +379,24 @@ class PublishChecklistTemplateVersionService:
     ) -> ChecklistTemplateVersion:
         _require_permission(command.actor)
         try:
-            version = (
-                ChecklistTemplateVersion.objects.select_for_update()
-                .select_related("template")
-                .get(pk=command.version_id)
-            )
+            template_id = ChecklistTemplateVersion.objects.values_list(
+                "template_id",
+                flat=True,
+            ).get(pk=command.version_id)
         except ChecklistTemplateVersion.DoesNotExist as exc:
             raise ChecklistTemplateVersion.DoesNotExist from exc
-        template = ChecklistTemplate.objects.select_for_update().get(pk=version.template_id)
+        template = ChecklistTemplate.objects.select_for_update().get(pk=template_id)
         all_versions = list(
             ChecklistTemplateVersion.objects.select_for_update()
             .filter(template=template)
-            .order_by("version_number")
+            .order_by("pk")
         )
+        version = next(
+            (row for row in all_versions if row.pk == command.version_id),
+            None,
+        )
+        if version is None:
+            raise ChecklistTemplateVersion.DoesNotExist
         items = list(version.items.select_for_update().order_by("display_order"))
         if template.version != command.expected_template_version:
             raise ValidationError("O template foi alterado por outra sessão. Recarregue a página.")

@@ -19,12 +19,16 @@ import { finalize, forkJoin } from 'rxjs';
 
 import { errorMessage } from '../../core/api/api-error';
 import {
+  AtualizacaoRascunhoTemplate,
   GrupoValidacao,
+  ItemTemplate,
   NovoGrupo,
   NovoTemplate,
+  NovaVersaoTemplate,
   SetorWorkflow,
   TemplateChecklist,
   TipoRespostaChecklist,
+  VersaoTemplate,
 } from './models/workflow-config.models';
 import { WorkflowConfigService } from './workflow-config.service';
 
@@ -69,6 +73,7 @@ export class WorkflowConfigPage {
 
   readonly setores = signal<SetorWorkflow[]>([]);
   readonly templates = signal<TemplateChecklist[]>([]);
+  readonly templatesVisiveis = signal<TemplateChecklist[]>([]);
   readonly grupos = signal<GrupoValidacao[]>([]);
   readonly carregando = signal(true);
   readonly salvandoTemplate = signal(false);
@@ -77,6 +82,8 @@ export class WorkflowConfigPage {
   readonly aviso = signal('');
   readonly exibirTemplate = signal(false);
   readonly exibirGrupo = signal(false);
+  readonly buscaTemplate = signal('');
+  readonly templateEmEdicao = signal<TemplateChecklist | null>(null);
 
   readonly tiposResposta: Array<{ label: string; value: TipoRespostaChecklist }> = [
     { label: 'Sim / não', value: 'BOOLEAN' },
@@ -92,7 +99,7 @@ export class WorkflowConfigPage {
       .filter((template) => template.current_version_id !== null)
       .map((template) => ({
         id: template.current_version_id as number,
-        label: `${template.code} v${
+        label: `#${template.code} · ${template.name} · v${
           template.versions.find(
             (version) => version.id === template.current_version_id,
           )?.version_number ?? ''
@@ -101,7 +108,6 @@ export class WorkflowConfigPage {
   );
 
   readonly formularioTemplate = this.formBuilder.group({
-    code: this.formBuilder.nonNullable.control('', Validators.required),
     name: this.formBuilder.nonNullable.control('', Validators.required),
     description: this.formBuilder.nonNullable.control(''),
     default_due_hours: this.formBuilder.control<number | null>(null),
@@ -139,14 +145,45 @@ export class WorkflowConfigPage {
     }
   }
 
-  criarTemplate(): void {
+  abrirNovoTemplate(): void {
+    this.templateEmEdicao.set(null);
+    this.resetarTemplate();
+    this.exibirTemplate.set(true);
+    this.limparMensagens();
+  }
+
+  editarRascunho(template: TemplateChecklist): void {
+    const draft = this.rascunhoTemplate(template);
+    if (!draft) {
+      return;
+    }
+    this.templateEmEdicao.set(template);
+    this.formularioTemplate.reset({
+      name: template.name,
+      description: template.description,
+      default_due_hours: draft.default_due_hours,
+    });
+    this.formularioTemplate.controls.items.clear();
+    for (const pergunta of draft.items) {
+      this.formularioTemplate.controls.items.push(this.criarPergunta(pergunta));
+    }
+    this.exibirTemplate.set(true);
+    this.limparMensagens();
+  }
+
+  cancelarEditorTemplate(): void {
+    this.exibirTemplate.set(false);
+    this.templateEmEdicao.set(null);
+    this.resetarTemplate();
+  }
+
+  salvarTemplate(): void {
     if (this.formularioTemplate.invalid || this.salvandoTemplate()) {
       this.formularioTemplate.markAllAsTouched();
       return;
     }
     const value = this.formularioTemplate.getRawValue();
     const payload: NovoTemplate = {
-      code: value.code,
       name: value.name,
       description: value.description,
       default_due_hours: value.default_due_hours,
@@ -156,18 +193,32 @@ export class WorkflowConfigPage {
         config: {},
       })),
     };
+    const template = this.templateEmEdicao();
+    const draft = template ? this.rascunhoTemplate(template) : undefined;
+    const request =
+      template && draft
+        ? this.service.atualizarRascunhoTemplate(draft.id, {
+            ...payload,
+            expected_version: template.version,
+          } satisfies AtualizacaoRascunhoTemplate)
+        : this.service.criarTemplate(payload);
     this.salvandoTemplate.set(true);
     this.limparMensagens();
-    this.service
-      .criarTemplate(payload)
+    request
       .pipe(
         finalize(() => this.salvandoTemplate.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: () => {
-          this.aviso.set('Template criado em rascunho. Publique-o após a revisão.');
+        next: (savedTemplate) => {
+          this.aviso.set(
+            template
+              ? `Rascunho do template #${savedTemplate.code} atualizado.`
+              : `Template #${savedTemplate.code} criado em rascunho.`,
+          );
           this.exibirTemplate.set(false);
+          this.templateEmEdicao.set(null);
+          this.buscaTemplate.set('');
           this.resetarTemplate();
           this.carregar();
         },
@@ -176,8 +227,56 @@ export class WorkflowConfigPage {
       });
   }
 
+  criarNovaVersao(template: TemplateChecklist): void {
+    if (this.rascunhoTemplate(template) || this.salvandoTemplate()) {
+      return;
+    }
+    const published = template.versions.find(
+      (version) => version.id === template.current_version_id,
+    );
+    if (!published) {
+      return;
+    }
+    const payload: NovaVersaoTemplate = {
+      expected_version: template.version,
+      default_due_hours: published.default_due_hours,
+      items: this.itensParaPayload(published.items),
+    };
+    this.salvandoTemplate.set(true);
+    this.limparMensagens();
+    this.service
+      .criarVersaoTemplate(template.id, payload)
+      .pipe(
+        finalize(() => this.salvandoTemplate.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (draft) => {
+          const atualizado: TemplateChecklist = {
+            ...template,
+            version: template.version + 1,
+            versions: [draft, ...template.versions],
+          };
+          this.templates.update((templates) =>
+            templates.map((item) => (item.id === template.id ? atualizado : item)),
+          );
+          this.templatesVisiveis.update((templates) =>
+            templates.map((item) => (item.id === template.id ? atualizado : item)),
+          );
+          this.editarRascunho(atualizado);
+          this.aviso.set(
+            `Versão ${draft.version_number} do template #${template.code} criada em rascunho.`,
+          );
+        },
+        error: (error) =>
+          this.erro.set(
+            errorMessage(error, 'Não foi possível criar uma nova versão do template.'),
+          ),
+      });
+  }
+
   publicarTemplate(template: TemplateChecklist): void {
-    const draft = template.versions.find((version) => version.status === 'DRAFT');
+    const draft = this.rascunhoTemplate(template);
     if (!draft) {
       return;
     }
@@ -187,7 +286,8 @@ export class WorkflowConfigPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso.set(`Template ${template.code} publicado.`);
+          this.aviso.set(`Template #${template.code} publicado.`);
+          this.buscaTemplate.set('');
           this.carregar();
         },
         error: (error) =>
@@ -253,6 +353,26 @@ export class WorkflowConfigPage {
       });
   }
 
+  buscarTemplates(): void {
+    this.carregando.set(true);
+    this.limparMensagens();
+    this.service
+      .listarTemplates(this.buscaTemplate())
+      .pipe(
+        finalize(() => this.carregando.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (templates) => this.templatesVisiveis.set(templates.results),
+        error: (error) =>
+          this.erro.set(errorMessage(error, 'Não foi possível buscar os templates.')),
+      });
+  }
+
+  rascunhoTemplate(template: TemplateChecklist): VersaoTemplate | undefined {
+    return template.versions.find((version) => version.status === 'DRAFT');
+  }
+
   private carregar(): void {
     this.carregando.set(true);
     forkJoin({
@@ -268,6 +388,7 @@ export class WorkflowConfigPage {
         next: ({ sectors, templates, groups }) => {
           this.setores.set(sectors.results);
           this.templates.set(templates.results);
+          this.templatesVisiveis.set(templates.results);
           this.grupos.set(groups.results);
         },
         error: (error) =>
@@ -277,17 +398,22 @@ export class WorkflowConfigPage {
       });
   }
 
-  private criarPergunta(): PerguntaForm {
+  private criarPergunta(item?: ItemTemplate): PerguntaForm {
     return this.formBuilder.group({
-      code: this.formBuilder.nonNullable.control('', Validators.required),
-      question: this.formBuilder.nonNullable.control('', Validators.required),
-      response_type: this.formBuilder.nonNullable.control<TipoRespostaChecklist>(
-        'BOOLEAN',
+      code: this.formBuilder.nonNullable.control(item?.code ?? '', Validators.required),
+      question: this.formBuilder.nonNullable.control(
+        item?.question ?? '',
+        Validators.required,
       ),
-      is_required: this.formBuilder.nonNullable.control(true),
-      blocks_process: this.formBuilder.nonNullable.control(false),
-      requires_evidence: this.formBuilder.nonNullable.control(false),
-      allows_pending: this.formBuilder.nonNullable.control(true),
+      response_type: this.formBuilder.nonNullable.control<TipoRespostaChecklist>(
+        item?.response_type ?? 'BOOLEAN',
+      ),
+      is_required: this.formBuilder.nonNullable.control(item?.is_required ?? true),
+      blocks_process: this.formBuilder.nonNullable.control(item?.blocks_process ?? false),
+      requires_evidence: this.formBuilder.nonNullable.control(
+        item?.requires_evidence ?? false,
+      ),
+      allows_pending: this.formBuilder.nonNullable.control(item?.allows_pending ?? true),
     });
   }
 
@@ -309,13 +435,18 @@ export class WorkflowConfigPage {
 
   private resetarTemplate(): void {
     this.formularioTemplate.reset({
-      code: '',
       name: '',
       description: '',
       default_due_hours: null,
     });
     this.formularioTemplate.controls.items.clear();
     this.formularioTemplate.controls.items.push(this.criarPergunta());
+  }
+
+  private itensParaPayload(
+    items: ItemTemplate[],
+  ): Array<Omit<ItemTemplate, 'id'>> {
+    return items.map(({ id: _id, ...item }) => item);
   }
 
   private resetarGrupo(): void {

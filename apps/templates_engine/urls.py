@@ -26,6 +26,11 @@ urlpatterns = [
         name="template-version-publish",
     ),
     path(
+        "template-versions/<int:version_id>/",
+        api.ChecklistTemplateDraftUpdateView.as_view(),
+        name="template-version-update",
+    ),
+    path(
         "groups/",
         api.ValidationGroupListCreateView.as_view(),
         name="group-list",

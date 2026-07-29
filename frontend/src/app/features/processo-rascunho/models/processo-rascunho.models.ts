@@ -28,7 +28,7 @@ export interface GrupoDisponivel {
     is_required: boolean;
     blocks_process: boolean;
     template_version_id: number;
-    template_code: string;
+    template_code: number;
     template_version_number: number;
   }>;
 }
@@ -49,7 +49,7 @@ export interface SetorResolvidoRascunho {
   code: string;
   name: string;
   template_version_id: number;
-  template_code: string;
+  template_code: number;
   template_version_number: number;
   is_required: boolean;
   blocks_process: boolean;

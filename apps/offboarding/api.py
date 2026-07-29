@@ -160,7 +160,7 @@ def _available_group_payload(
             "is_required": rule.is_required,
             "blocks_process": rule.blocks_process,
             "template_version_id": rule.template_version_id,
-            "template_code": rule.template_version.template.code,
+            "template_code": rule.template_version.template_id,
             "template_version_number": rule.template_version.version_number,
         }
         for rule in version.sector_rules.all()
@@ -253,7 +253,7 @@ def _draft_payload(actor: User, process_uuid: str) -> dict[str, Any]:
                     "code": plan.sector.code,
                     "name": plan.sector.name,
                     "template_version_id": plan.template_version.pk,
-                    "template_code": plan.template_version.template.code,
+                    "template_code": plan.template_version.template_id,
                     "template_version_number": plan.template_version.version_number,
                     "is_required": plan.is_required,
                     "blocks_process": plan.blocks_process,

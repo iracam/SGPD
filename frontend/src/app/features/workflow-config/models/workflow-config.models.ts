@@ -40,7 +40,7 @@ export interface VersaoTemplate {
 
 export interface TemplateChecklist {
   id: number;
-  code: string;
+  code: number;
   name: string;
   description: string;
   is_active: boolean;
@@ -55,7 +55,7 @@ export interface RegraGrupo {
   template_version: {
     id: number;
     template_id: number;
-    template_code: string;
+    template_code: number;
     version_number: number;
     status: 'DRAFT' | 'PUBLISHED' | 'RETIRED';
   };
@@ -90,11 +90,21 @@ export interface PaginaWorkflow<T> {
 }
 
 export interface NovoTemplate {
-  code: string;
   name: string;
   description: string;
   default_due_hours: number | null;
   items: Array<Omit<ItemTemplate, 'id'>>;
+}
+
+export interface NovaVersaoTemplate {
+  expected_version: number;
+  default_due_hours: number | null;
+  items: Array<Omit<ItemTemplate, 'id'>>;
+}
+
+export interface AtualizacaoRascunhoTemplate extends NovaVersaoTemplate {
+  name: string;
+  description: string;
 }
 
 export interface NovoGrupo {

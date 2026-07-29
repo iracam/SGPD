@@ -177,13 +177,10 @@ def create_sector(
 def create_published_template(
     actor: User,
     sector: ValidationSector,
-    *,
-    code: str | None = None,
 ) -> ChecklistTemplate:
     template = CreateChecklistTemplateService().execute(
         CreateChecklistTemplateCommand(
             actor=actor,
-            code=code or f"TPL_{sector.code}",
             name=f"Template {sector.name}",
             description="",
             default_due_hours=12,
@@ -319,6 +316,7 @@ def test_start_generates_sector_task_and_historical_questions_once(
     task = ProcessSectorTask.objects.get()
     assert task.sector == sector
     assert task.sector_code_snapshot == "TECNOLOGIA"
+    assert task.template_code_snapshot == str(task.template_version.template_id)
     assert task.template_version_snapshot == 1
     assert task.sla_hours_snapshot == 6
     assert task.is_required
@@ -338,7 +336,7 @@ def test_start_reuses_template_with_independent_snapshots_for_each_sector(
 ) -> None:
     technology = create_sector(actor)
     finance = create_sector(actor, code="FINANCEIRO")
-    template = create_published_template(actor, technology, code="TPL_COMPARTILHADO")
+    template = create_published_template(actor, technology)
     template_version = template.current_version
     assert template_version is not None
     group = CreateValidationGroupService().execute(
@@ -546,7 +544,6 @@ def test_overlapping_groups_merge_stricter_rule_and_conflicting_template_fails(
     second_template = create_published_template(
         actor,
         sector,
-        code="TPL_TECNOLOGIA_ALTERNATIVO",
     )
     conflicting = create_published_group(
         actor,

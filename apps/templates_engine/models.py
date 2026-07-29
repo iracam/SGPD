@@ -30,6 +30,7 @@ class ChecklistResponseType(models.TextChoices):
 class WorkflowConfigurationEventType(models.TextChoices):
     TEMPLATE_CREATED = "TEMPLATE_CREATED", "Template criado"
     TEMPLATE_VERSION_CREATED = "TPL_VERSION_CREATED", "Versão de template criada"
+    TEMPLATE_DRAFT_UPDATED = "TPL_DRAFT_UPDATED", "Rascunho de template alterado"
     TEMPLATE_PUBLISHED = "TEMPLATE_PUBLISHED", "Template publicado"
     GROUP_CREATED = "GROUP_CREATED", "Grupo criado"
     GROUP_VERSION_CREATED = "GROUP_VERSION_CREATED", "Versão de grupo criada"
@@ -45,7 +46,14 @@ class ProtectedConfigurationQuerySet(models.QuerySet[Any]):
 
 
 class ChecklistTemplate(models.Model):
-    code = models.CharField("código", max_length=50, unique=True)
+    # O PK só existe após o primeiro INSERT; o service preenche este legado na mesma transação.
+    code = models.CharField(  # noqa: DJ001
+        "código técnico",
+        max_length=50,
+        unique=True,
+        null=True,
+        editable=False,
+    )
     name = models.CharField("nome", max_length=120)
     description = models.TextField("descrição", blank=True)
     is_active = models.BooleanField("ativo", default=True)
@@ -65,23 +73,20 @@ class ChecklistTemplate(models.Model):
 
     class Meta:
         db_table = "SGPD_CHECKLIST_TEMPLATE"
-        ordering = ("code",)
+        ordering = ("name", "pk")
         verbose_name = "template de checklist"
         verbose_name_plural = "templates de checklist"
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(code__isnull=False, name__isnull=False, version__gt=0),
+                condition=models.Q(name__isnull=False, version__gt=0),
                 name="SGPD_CK_TPL_REQUIRED",
             ),
         ]
 
     def clean(self) -> None:
         super().clean()
-        self.code = self.code.strip().upper()
         self.name = self.name.strip()
         self.description = self.description.strip()
-        if not self.code:
-            raise ValidationError({"code": "O código do template é obrigatório."})
         if not self.name:
             raise ValidationError({"name": "O nome do template é obrigatório."})
         if self.current_version_id is not None:
@@ -136,7 +141,7 @@ class ChecklistTemplateVersion(models.Model):
 
     class Meta:
         db_table = "SGPD_CHECKLIST_TEMPLATE_VER"
-        ordering = ("template__code", "-version_number")
+        ordering = ("template_id", "-version_number")
         verbose_name = "versão de template"
         verbose_name_plural = "versões de templates"
         constraints = [
@@ -172,13 +177,19 @@ class ChecklistTemplateVersion(models.Model):
             immutable_fields = (
                 "template_id",
                 "version_number",
-                "default_due_hours",
                 "created_by_id",
                 "created_at",
             )
             if any(getattr(self, field) != getattr(persisted, field) for field in immutable_fields):
                 raise ValidationError(
                     "O conteúdo de uma versão de template é imutável; crie outra versão."
+                )
+            if (
+                self.default_due_hours != persisted.default_due_hours
+                and persisted.status != VersionStatus.DRAFT
+            ):
+                raise ValidationError(
+                    "O conteúdo de uma versão publicada é imutável; crie outra versão."
                 )
         super().save(*args, **kwargs)
 
@@ -237,7 +248,8 @@ class ChecklistTemplateItem(models.Model):
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self.pk is not None:
             raise ValidationError(
-                "Perguntas versionadas são imutáveis; crie outra versão do template."
+                "Perguntas versionadas são imutáveis por alteração direta; "
+                "use o service do rascunho."
             )
         super().save(*args, **kwargs)
 
@@ -266,7 +278,12 @@ class ChecklistTemplateItem(models.Model):
             )
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
-        raise ValidationError("Itens versionados não podem ser excluídos.")
+        status = (
+            ChecklistTemplateVersion.objects.only("status").get(pk=self.template_version_id).status
+        )
+        if status != VersionStatus.DRAFT:
+            raise ValidationError("Itens publicados não podem ser excluídos.")
+        return super().delete(*args, **kwargs)
 
 
 class ValidationGroup(models.Model):

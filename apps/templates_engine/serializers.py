@@ -33,7 +33,18 @@ class ChecklistVersionSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class ChecklistTemplateCreateSerializer(ChecklistVersionSerializer):
-    code = serializers.CharField(max_length=50, trim_whitespace=True)
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    description = serializers.CharField(
+        max_length=2000,
+        allow_blank=True,
+        required=False,
+        default="",
+        trim_whitespace=True,
+    )
+
+
+class ChecklistTemplateDraftUpdateSerializer(ChecklistVersionSerializer):
+    expected_version = serializers.IntegerField(min_value=1)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
     description = serializers.CharField(
         max_length=2000,
