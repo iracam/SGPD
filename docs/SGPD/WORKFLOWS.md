@@ -147,7 +147,13 @@ Pré-condições:
 - snapshot criado;
 - data limite informada;
 - pelo menos um setor obrigatório;
-- responsáveis resolvidos ou fila de responsabilidade configurada.
+- cada setor selecionado ativo e compatível com o escopo do processo;
+- ao menos um vínculo de responsável efetivo para cada setor obrigatório no
+  instante do início.
+
+O início não escolhe um responsável individual. A tarefa pertence ao setor e
+todos os seus responsáveis efetivos, de igual autoridade, podem agir conforme
+o escopo vigente.
 
 ### Em validação para pronto para análise do DP
 

@@ -396,13 +396,22 @@ estado, sem nome, e-mail ou CPF.
 - `STATUS`
 - `OBRIGATORIO`
 - `BLOQUEIO`
-- `RESPONSAVEL_ID`
+- `SETOR_CODIGO_SNAPSHOT`
+- `SETOR_NOME_SNAPSHOT`
+- `TEMPLATE_VERSAO_ID`
 - `DATA_LIMITE`
 - `INICIADO_EM`
 - `CONCLUIDO_EM`
 - `CONCLUIDO_POR_ID`
 - `OBSERVACAO`
 - `VERSAO_LOCK`
+
+Uma tarefa pertence ao setor e não possui um responsável individual. A
+autorização operacional é derivada dos vínculos efetivos do setor no escopo
+organizacional do processo, preservando a igualdade entre múltiplos
+responsáveis. Os identificadores dos destinatários de uma futura notificação,
+quando necessários, deverão ser registrados separadamente como resultado do
+fan-out, sem se tornarem propriedade da tarefa.
 
 #### PROCESSO_CHECKLIST_ITEM
 

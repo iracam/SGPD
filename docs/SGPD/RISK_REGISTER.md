@@ -12,7 +12,7 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R05 | Desconto indevido | Média | Muito alto | Pretensão, aprovação e segregação |
 | R06 | Acesso indevido a documentos médicos | Média | Muito alto | Autorização por classe e setor |
 | R07 | E-mails não enviados | Média | Médio | Fila, retry e painel de falhas |
-| R08 | Responsável ausente | Alta | Médio | Múltiplos responsáveis de igual autoridade, validade explícita, fila e escalada |
+| R08 | Responsável ausente | Alta | Médio | Múltiplos responsáveis de igual autoridade, validade explícita e bloqueio do início quando setor obrigatório não possuir vínculo efetivo no escopo; escalada posterior sem proprietário individual da tarefa |
 | R09 | Processo travado por regra mal configurada | Média | Alto | Simulação e validação de regras |
 | R10 | Duplicidade de processo | Mitigado na abertura em 2026-07-29 | Alto | Validação sob lock e `ACTIVE_EMPLOYEE_KEY` única no Oracle enquanto o processo não estiver encerrado; cancelamento e encerramento futuros liberarão a chave somente por service auditado |
 | R11 | Indisponibilidade ou lentidão do Senior bloquear novas pesquisas | Média | Alto | Timeout, paginação, filtros, health check e erro explícito sem usar dados obsoletos |

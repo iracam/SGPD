@@ -116,9 +116,10 @@
   - Uma conta pode ser cadastrada localmente ou criada explicitamente a partir
     de uma identidade AD; o login nunca provisiona conta.
 - [x] Definir papéis.
-  - Catálogo funcional fixo em `DP` e `RESPONSAVEL_SETOR`.
-  - Os papéis podem coexistir na mesma conta, com escopo, validade e revogação
-    próprios.
+  - `DP` é o único papel funcional atribuível, com escopo, validade e
+    revogação próprios.
+  - `RESPONSAVEL_SETOR` é uma capacidade derivada do vínculo vigente mantido
+    no agregado Setor e herda integralmente o escopo do próprio setor.
   - SuperAdmin é atributo técnico e não recebe papel funcional implicitamente.
 - [x] Definir escopo por empresa/filial.
   - Global, empresa e filial, com validade e revogação lógica.
@@ -249,8 +250,10 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     digitada; a auditoria usa motivo padronizado e a revogação preserva
     justificativa obrigatória.
 - [x] Redefinição de senha.
-- [x] Papéis fixos `DP` e `RESPONSAVEL_SETOR`: listagem, atribuição e
-  revogação.
+- [x] Catálogo funcional fixo: listagem, atribuição e revogação de `DP`.
+  - `RESPONSAVEL_SETOR`, inicialmente atribuível nesta fase, foi substituído
+    pela capacidade derivada do vínculo de setor na ADR-038; seu registro
+    legado permanece inativo apenas para rastreabilidade.
 - [x] Criação e edição de papéis removidas pela ADR-034.
 - [x] Vínculo e desvínculo AD.
 - [x] Catálogo editável de permissões removido pela ADR-034.
@@ -284,8 +287,8 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - Listagem com busca, criação em diálogo e detalhe.
 - [x] Detalhe do usuário: edição, redefinição de senha, atribuição e revogação
   de papéis, vínculo e desvínculo AD.
-- [x] Tela dinâmica de papéis removida; atribuição dos papéis fixos permanece
-  no cadastro e detalhe do usuário.
+- [x] Tela dinâmica de papéis removida; atribuição de `DP` permanece no
+  cadastro e detalhe do usuário.
 - [x] Auditoria, com filtro por tipo de evento e paginação sem total.
 - [x] Troca da própria senha, entregue na Fase D.
 - [x] Conferência visual nos cinco pontos de quebra.
@@ -388,13 +391,14 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - Nove setores funcionais cadastrados e auditados no Oracle DEV em
     2026-07-29; prazo, escopo e regras permanecem provisórios até homologação.
 - [x] Responsáveis.
-  - Associação explícita por usuário, setor e escopo, sem tipo ou flags.
+  - Associação explícita por usuário e setor, sem tipo ou flags individuais.
   - Validade, versão otimista, revogação lógica e auditoria append-only.
-  - Escopo contido simultaneamente no setor e em `RESPONSAVEL_SETOR`; período
-    contido na validade dessa atribuição.
-  - API e SPA em `/fe/responsaveis`, sem endpoint de exclusão.
-  - Migration `sectors.0002` aditiva, revisada, aplicada e validada no Oracle
-    DEV.
+  - Escopo herdado integralmente do setor, sem cópia no vínculo ou atribuição
+    redundante de papel.
+  - Manutenção incorporada ao agregado Setor pela API e por `/fe/setores`;
+    não existe endpoint ou tela independente de responsáveis.
+  - Migrations `sectors.0002`, `sectors.0003` e `accounts.0009` revisadas,
+    aplicadas e validadas no Oracle DEV.
   - Dez associações reais cobrem os nove setores no Oracle DEV; os vínculos
     foram cadastrados pelo responsável funcional e não derivados do AD.
 - [ ] Grupos.
@@ -403,8 +407,9 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [ ] Versionamento.
 - [x] Permissões.
   - SuperAdmin mantém a administração técnica fora do catálogo funcional.
-  - Os papéis ativos são `DP` e `RESPONSAVEL_SETOR`.
-  - Ações sobre tarefas decorrem da associação ao setor; abertura,
+  - O único papel funcional atribuível ativo é `DP`.
+  - `RESPONSAVEL_SETOR` é derivado de vínculo vigente; ações sobre tarefas
+    decorrem dessa associação e do escopo herdado do setor. Abertura,
     acompanhamento, análise, liberação e encerramento decorrerão de `DP`
     vigente no escopo do processo.
 
@@ -1294,4 +1299,20 @@ Próximo passo: seguir o Checkpoint 4 com grupos/templates mínimos e início id
 Comandos executados: leitura integral da documentação obrigatória; diagnóstico de código e Oracle somente leitura; testes baseline; revisão de sqlmigrate e migrate --plan; migrations accounts.0009 e sectors.0003; validação pós-migração de colunas, constraints, duplicidades, papéis e eventos; smokes de listagem/detalhe via APIRequestFactory; suíte backend; Ruff; Mypy; Django check; makemigrations check; Vitest; build Angular; diff check.
 Arquivos alterados: models, services, autorização, serializers, APIs, admin, URLs, bootstrap e migrations de accounts/sectors; tela, models e serviços Angular de setores/usuários; remoção da feature independente de responsáveis; testes backend/frontend; README.md; ARCHITECTURE.md, DATA_MODEL.md, DECISIONS.md, GLOSSARY.md, INTEGRATION_ACTIVE_DIRECTORY.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, VISION.md, CHECKPOINT.md e MANIFEST.json.
 Testes: 261 testes backend e 58 testes frontend passaram; Ruff e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build Angular concluído. Após retorno da homologação, o alinhamento desktop dos campos de responsável foi corrigido sem alterar o layout móvel; os 58 testes frontend e o build Angular passaram novamente. No Oracle DEV, somente DP permanece ativo, 1 atribuição DP permanece vigente, as 10 atribuições redundantes RESPONSAVEL_SETOR foram revogadas com 10 eventos auditados, os 10 vínculos de setor foram preservados sem duplicidade, as novas constraints estão ENABLED/VALIDATED e o plano final de migrations está vazio. As APIs retornaram 9 setores, todos com responsável vigente, 10 usuários vinculados e o detalhe com seus setores. Nenhum objeto ou dado do Senior foi consultado ou alterado.
+```
+
+### 2026-07-29 — Correção de inconsistências normativas antes do início
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 4 — Preparação documental
+O que foi concluído: checklists normativos alinhados à ADR-038; RESPONSAVEL_SETOR registrado somente como capacidade derivada do vínculo vigente; escopo duplicado e tela/API independente retirados do estado atual; PROCESSO_SETOR corrigido para pertencer ao setor sem responsável individual; pré-condição de início alinhada ao bloqueio de setor obrigatório sem vínculo efetivo; risco R08 atualizado sem pressupor fila inexistente.
+Decisões: preservar os registros cronológicos intermediários como histórico não normativo; manter DP como único papel atribuível; derivar autorização da tarefa pelo setor e escopo vigentes; não inventar proprietário individual nem fila de responsabilidade.
+Riscos: o catálogo funcional dos nove setores permanece provisório e não deve alimentar tarefas até a homologação de grupos, templates, escopos, prazos e bloqueios.
+Pendências: implementar a configuração versionada, a seleção do rascunho e o início idempotente conforme a homologação arquitetural aprovada, sem cadastrar perguntas funcionais não fornecidas.
+Próximo passo: criar o incremento vertical de grupos/templates configuráveis e início idempotente, com migrations aditivas e revisão do SQL Oracle.
+Comandos executados: leitura integral da documentação obrigatória; buscas cruzadas por papéis, responsabilidade, escopo e propriedade da tarefa; validação de JSON, hashes, links e diff.
+Arquivos alterados: CHECKPOINT.md, DATA_MODEL.md, WORKFLOWS.md, RISK_REGISTER.md e MANIFEST.json.
+Testes: alteração exclusivamente documental; integridade documental e manifesto validados; nenhuma consulta ou escrita no Senior HCM.
 ```
