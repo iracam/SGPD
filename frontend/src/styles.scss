@@ -64,12 +64,12 @@
   --p-form-field-placeholder-color: #7f9098;
   --p-form-field-shadow: none;
 
-  /* Alvo mínimo de toque no estado base (ADR-028). */
+  /* Alvo mínimo de toque e altura única de controles (ADR-028). */
   --touch-target: 2.75rem;
-  --form-control-height: var(--touch-target);
+  --control-height: var(--touch-target);
 
   @include bp.from(bp.$lg) {
-    --form-control-height: 2.25rem;
+    --control-height: 2.25rem;
   }
 }
 
@@ -154,7 +154,8 @@ a,
 }
 
 .p-button {
-  min-height: var(--touch-target);
+  min-height: var(--control-height);
+  height: var(--control-height);
 }
 
 // `input.p-inputtext` em vez de `.p-inputtext`: os estilos do Aura são
@@ -163,8 +164,8 @@ a,
 input.p-inputtext,
 .p-select,
 .p-password input {
-  min-height: var(--form-control-height);
-  height: var(--form-control-height);
+  min-height: var(--control-height);
+  height: var(--control-height);
   // Campos abaixo de 16px disparam o zoom automático do iOS.
   font-size: 1rem;
 
