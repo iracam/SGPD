@@ -33,7 +33,7 @@ O sistema não substitui o Senior HCM no cálculo ou processamento da rescisão.
 - Oracle Database 19c
 - Celery ou Django-Q2 para tarefas assíncronas
 - Redis em container quando filas, cache ou locks forem necessários
-- cadastro de usuários e papéis no SGPD, com autenticação local e integração
+- cadastro de usuários e papéis funcionais no SGPD, com autenticação local e integração
   configurável com LDAP/Active Directory por `django-auth-ldap`
 - Microsoft 365 SMTP para notificações
 - filesystem local privado para evidências
@@ -96,9 +96,10 @@ npm --prefix frontend run build
 
 As migrations Oracle somente podem ser aplicadas após revisão do SQL. O
 próprio usuário `SGPD` possui `CREATE TABLE` e `CREATE SEQUENCE`, ambos sem
-`ADMIN OPTION`, e quota finita de 500 MB em `PIMS_DATA`. As 25 migrations do
-baseline foram aplicadas e validadas no DEV; a remoção do campo LDAP legado
-está versionada e aguarda aplicação revisada.
+`ADMIN OPTION`, e quota finita de 500 MB em `PIMS_DATA`. As migrations do
+baseline e a remoção do campo LDAP legado foram aplicadas e validadas no DEV.
+Migrations funcionais novas continuam exigindo revisão do SQL Oracle antes da
+aplicação.
 
 Não executar rollback para `zero` após existirem usuários ou auditoria: isso
 removeria fisicamente o histórico. Correções de schema devem usar migration
@@ -109,9 +110,12 @@ Administração funcional de contas:
 
 - `/fe/login`: autenticação local ou AD, conforme ativação e vínculo da conta;
 - `/fe/usuarios`: criação e manutenção auditada de usuários;
-- `/fe/papeis`: papéis, permissões e escopos;
+- os papéis funcionais fixos `DP` e `RESPONSAVEL_SETOR` são atribuídos no
+  cadastro ou detalhe do usuário e podem coexistir na mesma conta; não existe
+  catálogo editável;
 - `/fe/auditoria`: auditoria de contas;
-- `uv run manage.py bootstrap_roles`: catálogo inicial idempotente de papéis;
+- `uv run manage.py bootstrap_roles`: reconciliação idempotente dos papéis
+  funcionais fixos;
 - `uv run manage.py bootstrap_identity_admin`: bootstrap interativo, único e
   auditado da primeira conta humana.
 - `uv run manage.py check_active_directory`: valida configuração, transporte, bind e
@@ -127,8 +131,8 @@ Integração Active Directory:
 - `/fe/usuarios/:id`: pesquisa e vincula uma identidade à conta existente;
 - descoberta e autenticação possuem switches independentes;
 - credenciais AD válidas nunca criam usuário ou permissão implicitamente;
-- grupos AD podem restringir elegibilidade, mas papéis e escopos continuam no
-  SGPD;
+- grupos AD podem restringir elegibilidade, mas o papel, associações de setor e
+  escopos continuam no SGPD;
 - a senha de bind salva pela interface fica cifrada e nunca é devolvida pela
   API; o certificado fica em storage privado fora do WhiteNoise;
 - descoberta e login usam o mesmo transporte escolhido pelo SuperAdmin;
@@ -139,6 +143,17 @@ Integração Active Directory:
   configuração e contingência local de SuperAdmin;
 - configuração e filtros estão em
   `docs/SGPD/INTEGRATION_ACTIVE_DIRECTORY.md`.
+
+Configuração funcional:
+
+- `/fe/setores`: cadastro auditado de setores de validação;
+- `/fe/responsaveis`: associação auditada de usuários aos setores e escopos;
+- escopos globais, por empresa ou por filial, usando somente os códigos do
+  Senior e sem replicar referências;
+- prazos, bloqueio, valores, evidência e destino de escalada configuráveis;
+- setores são inativados, nunca excluídos;
+- responsáveis possuem a mesma autoridade, validade explícita, versão
+  otimista e revogação lógica, sem coordenador ou substituto.
 
 Consulta cadastral Senior:
 
@@ -193,16 +208,19 @@ A SPA vive em `frontend/`. As versões exatas estão em
 8. Regras e checklists serão versionados.
 9. Pendências serão entidades próprias e auditáveis.
 10. Valores informados serão tratados como pretensões de cobrança.
-11. A liberação final continuará sob responsabilidade do DP.
+11. A abertura, análise final, liberação e encerramento continuarão sob
+    responsabilidade de usuário com o papel `DP` vigente no escopo do processo.
 
 ## Estado atual
 
 A descoberta do ambiente e o contrato SQL do Senior estão concluídos. A
 fundação Django está criada e validada localmente; a aplicação conecta ao
 Oracle com `python-oracledb` em modo Thick. A base de autenticação, usuários,
-papéis, escopos, vínculo administrativo com o AD e auditoria foi aplicada no
-Oracle DEV. O catálogo inicial contém nove papéis e cinco permissões
-delegáveis. A descoberta LDAP, a importação/vinculação verificada e o backend
+papéis funcionais, escopos, vínculo administrativo com o AD e auditoria foi
+aplicada no Oracle DEV. O catálogo funcional fixo contém `DP` e
+`RESPONSAVEL_SETOR`; os demais papéis legados permanecem inativos sem apagar
+histórico.
+A descoberta LDAP, a importação/vinculação verificada e o backend
 de autenticação foram implementados com Django 5.2.16 LTS,
 `django-auth-ldap` 5.3.0 e `python-ldap` 3.4.7. Bind, bases e grupo foram
 validados. O transporte de descoberta e login é uma escolha única: TLS monta
@@ -223,8 +241,16 @@ via TLS/STARTTLS em 2026-07-28. Uma mensagem de prova foi aceita pelo serviço.
 O checkpoint das Fases 1 e 2 foi estabilizado e versionado localmente em
 2026-07-28. Os services administrativos validam a permissão do ator, a
 auditoria rejeita mutação e exclusão em lote, e a desativação concorrente
-preserva ao menos um superusuário ativo. A configuração funcional da Fase 3
-ainda não foi iniciada.
+preserva ao menos um superusuário ativo. A Fase 3 foi iniciada pelo cadastro
+de setores, seus escopos e responsáveis. O Oracle DEV contém os nove setores
+informados pelo responsável funcional, ainda com prazo, escopo e regras
+provisórios. O cadastro de responsáveis está implementado e o Oracle DEV
+contém 10 associações ativas cobrindo os nove setores. Grupos, regras e
+templates ainda não foram implementados. O papel `DP` possui uma atribuição
+global ativa para `victor.delgado`, que também acumula
+`RESPONSAVEL_SETOR` global e a responsabilidade global pelo setor Departamento
+Pessoal. Essa é uma designação operacional explícita, não uma derivação
+automática da responsabilidade de setor.
 
 A migração da interface foi concluída. A API de autenticação, contexto e
 administração de contas está publicada em `/api/v1/`, e a SPA autentica, aplica

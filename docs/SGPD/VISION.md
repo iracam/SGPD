@@ -57,14 +57,18 @@ O SGPD será uma aplicação web corporativa para:
 
 ## 3. Usuários
 
-Todos os perfis abaixo pertencem ao SGPD. Gestores, e-mails, papéis e escopos
-não virão do Senior HCM nem de grupos AD. A conta poderá ser cadastrada
+Todos os participantes abaixo pertencem ao SGPD. O catálogo funcional fixo
+possui `DP` e `RESPONSAVEL_SETOR`; os demais títulos abaixo descrevem setor ou
+contexto de atuação, não novos papéis. Os dois papéis podem coexistir na mesma
+conta. Gestores, e-mails, papéis, associações e escopos não virão do Senior HCM
+nem de grupos AD. A conta poderá ser cadastrada
 localmente e vinculada depois, ou criada explicitamente a partir de uma
 identidade pesquisada no Active Directory. A autenticação AD somente aceitará
 contas previamente vinculadas e nunca provisionará usuário durante o login.
 
 ### Departamento Pessoal
 
+- possui o papel `DP` vigente no escopo do processo;
 - inicia o processo;
 - informa datas;
 - seleciona ou confirma grupos;
@@ -74,22 +78,21 @@ contas previamente vinculadas e nunca provisionará usuário durante o login.
 - libera o processo;
 - registra encerramento.
 
+O papel `DP` coordena o ciclo do processo e não associa o usuário
+automaticamente ao setor de validação Departamento Pessoal. Quando a mesma
+pessoa também executar tarefas desse setor, receberá separadamente
+`RESPONSAVEL_SETOR` e a associação explícita ao setor.
+
 ### Responsável de setor
 
+- compartilha a mesma autoridade com os demais responsáveis do setor;
 - recebe tarefas;
+- recebe todas as notificações destinadas ao setor;
 - responde checklist;
 - registra pendências;
 - anexa evidências;
 - informa valores estimados;
 - conclui a validação.
-
-### Coordenador de setor
-
-- acompanha tarefas do setor;
-- redistribui responsáveis;
-- trata atrasos;
-- aprova exceções;
-- recebe escaladas.
 
 ### Gestor imediato
 

@@ -10,7 +10,7 @@ implementadas não antecipam a criação de processo ou snapshot.
 ## 1. Fluxo principal
 
 ```text
-DP abre processo
+Usuário com papel DP vigente abre o processo
     |
     v
 Sistema consulta o Senior em tempo real por SELECT parametrizado
@@ -22,7 +22,7 @@ Sistema cria snapshot do colaborador
 Sistema sugere grupos de validação
     |
     v
-DP confirma ou ajusta os setores
+Usuário com papel DP confirma ou ajusta os setores
     |
     v
 Sistema gera tarefas e checklists
@@ -41,7 +41,7 @@ Pendências / evidências         Pendências / evidências
         Consolidação automática
                     |
                     v
-          Análise final do DP
+     Análise final por usuário com papel DP
                     |
           +---------+---------+
           |                   |
@@ -94,7 +94,7 @@ Todos os setores concluíram suas tarefas.
 
 ### LIBERADO_PARA_RESCISAO
 
-DP autorizou o prosseguimento.
+Usuário com papel `DP` vigente no escopo autorizou o prosseguimento.
 
 ### RESCISAO_PROCESSADA
 
@@ -159,7 +159,7 @@ Pré-condições:
 
 Pré-condições:
 
-- DP revisou o consolidado;
+- usuário com papel `DP` vigente no escopo revisou o consolidado;
 - valores foram analisados;
 - exceções possuem decisão;
 - usuário possui permissão de liberação.
@@ -194,10 +194,15 @@ O sistema deverá considerar calendário útil configurável em fase posterior.
 Exemplo:
 
 - 48 horas antes: lembrete ao responsável;
-- 24 horas antes: lembrete ao responsável e coordenador;
-- vencido: coordenador e DP;
-- vencido crítico: gestor da área e DP;
+- 24 horas antes: lembrete a todos os responsáveis do setor;
+- vencido: alerta a todos os responsáveis e aos responsáveis do Departamento
+  Pessoal;
+- vencido crítico: reforço aos mesmos destinatários;
 - processo próximo ao limite: alerta consolidado.
+
+Quando houver mais de um responsável, todos recebem os avisos e podem agir. A
+primeira transação válida movimenta a tarefa; tentativas posteriores observam
+o novo estado e não repetem efeitos.
 
 ## 8. Reabertura
 

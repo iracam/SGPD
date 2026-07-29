@@ -25,7 +25,7 @@ autorizado estão em `CHECKPOINT.md`.
 - dicionário de termos;
 - mapa AS-IS;
 - mapa TO-BE;
-- matriz de papéis;
+- matriz de setores e responsáveis;
 - contrato preliminar das consultas SQL ao Senior;
 - arquitetura validada;
 - backlog;
@@ -44,7 +44,7 @@ Checkpoint 0 aprovado.
 - projeto Django;
 - configuração do ambiente DEV;
 - conexão Oracle;
-- cadastro local de usuários, gestores, e-mails e papéis;
+- cadastro local de usuários, e-mails e papel funcional;
 - autenticação local;
 - descoberta de usuários/grupos, importação explícita, vínculo e autenticação
   AD em estágios;
@@ -64,14 +64,20 @@ Aplicação acessível e autenticada.
 
 ### Estado em 2026-07-27
 
-A base de autenticação local, usuários, papéis, escopos, auditoria de contas,
-troca obrigatória de senha temporária e vínculo administrativo com o AD está
-implementada e aplicada no Oracle DEV. A primeira conta humana foi criada pelo
+A base de autenticação local, usuários, papel funcional, escopos, auditoria de
+contas, troca obrigatória de senha temporária e vínculo administrativo com o
+AD está implementada e aplicada no Oracle DEV. A primeira conta humana foi criada pelo
 bootstrap auditado. SMTP AUTH e `Send As` foram validados em 2026-07-28 com
 uma mensagem de prova aceita pelo Microsoft 365. Em 2026-07-28, a autorização
 dos services, a imutabilidade da auditoria contra operações em lote e a
 concorrência do último superusuário foram endurecidas antes do versionamento do
 checkpoint.
+
+Em 2026-07-29, o catálogo funcional foi inicialmente simplificado para
+`RESPONSAVEL_SETOR`; a decisão posterior ADR-036 o fixou em `DP` e
+`RESPONSAVEL_SETOR`, cumulativos e independentes. SuperAdmin permaneceu como
+atributo técnico e os demais papéis legados foram preservados apenas como
+histórico inativo.
 
 Em 2026-07-28, a integração AD foi antecipada da Fase 10 e implementada com
 `django-auth-ldap` e `python-ldap`: pesquisa por OU/grupo, criação local
@@ -119,7 +125,8 @@ definitiva e não precisem ser escritos duas vezes.
 
 - decisões registradas nas ADR-025 a ADR-028;
 - API de autenticação e contexto de autorização;
-- API de administração de contas, papéis, escopos, vínculo AD e auditoria;
+- API de administração de contas, atribuição dos papéis fixos, escopos, vínculo AD
+  e auditoria;
 - envelope de erro padronizado e tradução única do `ValidationError`;
 - SPA Angular com PrimeNG, mobile first;
 - integração do build com o Django e o WhiteNoise;
@@ -133,10 +140,11 @@ Django Admin somente leitura preservado.
 
 ### Estado em 2026-07-28
 
-Fases A a G concluídas. A SPA autentica, administra contas e papéis, consulta a
-auditoria e executa a cascata Empresa → Filial → Tipo → Colaborador sobre os
-quatro endpoints Senior homologados. O Django Admin somente leitura foi
-preservado.
+Fases A a G concluídas. A SPA autentica, administra contas e a atribuição dos
+papéis fixos, consulta a auditoria e executa a cascata Empresa → Filial → Tipo →
+Colaborador sobre os quatro endpoints Senior homologados. O Django Admin
+somente leitura foi
+preservado. A rota de catálogo editável de papéis foi removida em 2026-07-29.
 
 O plano completo, com as sete fases e seus critérios de conclusão, está em
 `MIGRATION_FRONTEND_SPA.md`.
@@ -164,8 +172,8 @@ antecipar setores, grupos de validação, templates ou workflow.
 Implementação e testes concluídos. A ADR-032 simplificou o transporte em uma
 única escolha administrativa: com TLS usa LDAPS e CA; sem TLS funciona para
 descoberta e login com aviso explícito. A migration de remoção do campo legado
-ainda precisa ser aplicada no Oracle DEV. O login AD permanece desligado até o
-teste controlado da configuração escolhida.
+foi aplicada no Oracle DEV. O login AD permanece desligado até o teste
+controlado da configuração escolhida.
 
 ## Fase 3 — Configuração funcional
 
@@ -183,6 +191,26 @@ teste controlado da configuração escolhida.
 ### Saída esperada
 
 Administrador consegue configurar o processo sem alteração de código.
+
+### Estado em 2026-07-29
+
+Iniciada. O primeiro incremento vertical entrega setores de validação, escopos
+globais/empresa/filial, prazos, indicadores de bloqueio/valor/evidência,
+escalada sem ciclos, autorização, auditoria, API e SPA mobile first. O catálogo
+de nove setores informado pelo responsável funcional está cadastrado no Oracle
+DEV; seus prazos, escopos e regras permanecem provisórios até homologação.
+O desenho de responsáveis foi fechado: somente `RESPONSAVEL_SETOR`, um ou mais
+por setor, todos com a mesma autoridade, notificações em conjunto e
+concorrência em que a primeira ação válida prevalece. O cadastro de
+responsáveis está implementado com setor, escopo, validade, versão, revogação
+lógica, auditoria, API e SPA; 10 associações ativas cobrem os nove setores no
+Oracle DEV. O catálogo funcional também contém `DP`, cumulativo e independente
+da responsabilidade de setor, para abertura, acompanhamento, análise,
+liberação e encerramento do processo dentro do escopo. As transições ainda
+pertencem à Fase 4. `victor.delgado` possui atribuições globais ativas de `DP`
+e `RESPONSAVEL_SETOR` e responsabilidade global pelo setor Departamento
+Pessoal, confirmando a acumulação sem derivação automática. Grupos, regras de
+aplicabilidade, templates e versionamento de templates permanecem pendentes.
 
 ## Fase 4 — Processo demissional
 

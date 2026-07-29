@@ -364,6 +364,9 @@ Instant Client 19.28 indicado por `ORACLE_CLIENT_LIB_DIR`.
 
 Complementada pela ADR-029 em 2026-07-28. O vínculo administrativo passou a ser
 verificado no diretório quando a descoberta AD está habilitada.
+O catálogo múltiplo e sua manutenção dinâmica foram substituídos pela ADR-034
+em 2026-07-29; as regras de vínculo AD, escopo, validade, revogação e auditoria
+permanecem vigentes.
 
 ### Decisão
 
@@ -400,12 +403,13 @@ justificativa e auditoria. Esse vínculo não ativa autenticação LDAP/AD.
 
 `ADMIN_IDENTIDADE`, `DP`, `RESPONSAVEL_SETOR`, `COORDENADOR_SETOR`,
 `GESTOR_IMEDIATO`, `FINANCEIRO`, `JURIDICO`, `AUDITOR` e
-`ADMIN_FUNCIONAL`.
+`ADMIN_FUNCIONAL`. Este catálogo é histórico e não está mais ativo.
 
 ### Consequências
 
 - o SGPD possui autorização aplicável antes do workflow;
-- papéis podem receber novas permissões quando módulos forem adicionados;
+- a possibilidade de criar papéis e ampliar suas permissões foi substituída
+  pelo catálogo fixo da ADR-034;
 - autenticação LDAP/AD ainda exige atributo estável homologado, endpoint, TLS,
   base de busca, credencial técnica e política de contingência;
 - a senha local não é desabilitada apenas pelo vínculo administrativo.
@@ -824,3 +828,197 @@ central de configurações, onde preenche o grupo obrigatório.
 - o risco R48 passa a incluir também a senha do usuário quando o login operar
   sem TLS;
 - o transporte deixa de variar entre descoberta e autenticação.
+
+## ADR-033 — Escopo explícito e inativação dos setores
+
+### Estado
+
+Aceita em 2026-07-28 como primeiro incremento da Fase 3.
+
+### Decisão
+
+Modelar a cobertura de cada setor por registros relacionais explícitos com
+escopo `GLOBAL`, `COMPANY` ou `BRANCH`, reutilizando a semântica organizacional
+já adotada para papéis sem criar tabelas de referência do Senior.
+
+- todo setor possui ao menos um escopo;
+- global não pode coexistir com empresa ou filial;
+- empresa cobre suas filiais e impede filial redundante da mesma empresa;
+- os códigos externos são positivos, mas não recebem foreign key local;
+- código do setor é imutável;
+- setor é inativado, nunca excluído;
+- alterações usam versão otimista e service transacional;
+- mutações bloqueiam as linhas do pequeno catálogo em ordem determinística para
+  serializar a validação da cadeia de escalada;
+- escalada exige setor ativo e não pode formar ciclo;
+- auditoria append-only registra antes/depois, justificativa e correlation ID.
+
+### Consequências
+
+- três tabelas aditivas pertencem ao schema SGPD: setor, escopo e auditoria;
+- indisponibilidade do Senior não impede consultar configurações existentes;
+- a confirmação operacional dos códigos continua responsabilidade da
+  configuração funcional, sem cache ou réplica cadastral;
+- a permissão `sectors.manage_sectors` exige concessão global neste incremento,
+  pois um único setor pode atender múltiplas empresas;
+- responsáveis, grupos, templates e workflow permanecem fora deste
+  incremento.
+
+## ADR-034 — Papel funcional único e responsabilidade compartilhada
+
+### Estado
+
+Parcialmente substituída em 2026-07-29 pela ADR-036. Permanecem vigentes a
+igualdade entre responsáveis de setor, a ausência de coordenador/substituto e
+a proibição de catálogo dinâmico. Deixam de vigorar o papel funcional único e
+a derivação das capacidades de DP pela associação ao setor.
+
+### Decisão
+
+Manter somente `RESPONSAVEL_SETOR` como papel funcional ativo.
+
+- não existe papel de coordenador, DP, Financeiro, Jurídico, gestor, auditor ou
+  administrador funcional;
+- SuperAdmin é autoridade técnica por `User.is_superuser` e não pertence ao
+  catálogo funcional;
+- ações especiais decorrem do setor associado e do caso de uso: por exemplo,
+  responsáveis do Departamento Pessoal liberam o processo;
+- um setor pode possuir um ou mais responsáveis com a mesma autoridade;
+- todos os responsáveis ativos do setor recebem as mesmas notificações e
+  e-mails;
+- qualquer responsável pode movimentar a tarefa;
+- a primeira transação válida confirma a ação; concorrentes recebem o estado
+  atualizado, sem duplicar auditoria, e-mail ou efeito externo;
+- o grupo AD `BSA_SGPD` serve apenas para elegibilidade e descoberta de
+  identidades, nunca para conceder papel ou associar setor.
+
+### Controles
+
+- criação e edição dinâmica de papéis são indisponíveis na API e na SPA;
+- `AssignRoleService` aceita somente `RESPONSAVEL_SETOR`;
+- `SGPD_CK_ROLE_ACTIVE_CODE` impede outro código ativo no Oracle;
+- papéis legados são inativados e atribuições legadas revogadas, sem exclusão
+  física;
+- associação de responsável será explícita, versionada, auditada e delimitada
+  por setor e escopo;
+- mutações de tarefa usarão transação, lock ou versão e idempotência.
+
+### Consequências
+
+- o menu `/fe/papeis` e o catálogo de permissões deixam de existir;
+- cadastro e detalhe de usuário podem atribuir somente o papel fixo;
+- os dez responsáveis já importados permanecem com sua atribuição;
+- regras futuras não devem testar códigos de papel para distinguir DP,
+  Financeiro ou Medicina; devem verificar o setor da responsabilidade;
+- o modelo de responsáveis fica menor, sem coordenador, principal, substituto
+  ou flags individuais de capacidade.
+
+## ADR-035 — Associação de responsável contida pelo setor e pelo papel
+
+### Estado
+
+Aceita em 2026-07-29 no incremento vertical de responsáveis da Fase 3.
+
+### Decisão
+
+Modelar cada responsabilidade como uma associação única de usuário, setor e
+chave de escopo, com:
+
+- escopo `GLOBAL`, `COMPANY` ou `BRANCH`;
+- validade iniciada em instante explícito e término opcional exclusivo;
+- versão otimista;
+- atribuição, atualização e revogação com ator e data;
+- revogação lógica, sem `DELETE`;
+- auditoria antes/depois no log append-only do setor.
+
+Uma associação somente pode ser criada, atualizada ou reativada quando:
+
+1. usuário e setor estão ativos;
+2. o escopo cabe na cobertura configurada do setor;
+3. existe uma atribuição ativa e não revogada de `RESPONSAVEL_SETOR`;
+4. uma única atribuição do papel cobre todo o escopo e período da
+   responsabilidade.
+
+O service bloqueia setor, usuário, atribuições do papel e associação em ordem
+determinística. A identidade usuário + setor + escopo não muda: ajuste de
+setor ou escopo exige revogar e associar novamente. Repetir uma associação
+idêntica é idempotente; reativar reutiliza a mesma linha e incrementa a versão.
+
+### Autorização
+
+A autoridade operacional exige simultaneamente o papel fixo e uma
+responsabilidade vigente para o setor e contexto organizacional. A revogação
+ou expiração de qualquer um retira a autoridade. `is_superuser` não satisfaz
+essa verificação, pois SuperAdmin é autoridade técnica e não responsável
+funcional.
+
+### Consequências
+
+- `SGPD_SECTOR_RESPONSIBLE` é a única tabela aditiva deste incremento;
+- candidatos da SPA são contas ativas com o papel fixo vigente;
+- o mesmo `manage_sectors` global administra setores e responsáveis;
+- nenhuma referência do Senior é replicada e nenhum objeto `VETORH` é
+  alterado;
+- fan-out de notificações e first-writer-wins permanecem nos incrementos
+  próprios de workflow e notificações.
+
+## ADR-036 — Papel DP cumulativo e separado da responsabilidade de setor
+
+### Estado
+
+Aceita em 2026-07-29 por decisão explícita do responsável funcional.
+
+### Contexto
+
+`RESPONSAVEL_SETOR` identifica quem executa as tarefas de um ou mais setores.
+O ciclo demissional também precisa identificar quem coordena o processo como
+um todo: abertura, acompanhamento, análise, liberação, cancelamento e
+encerramento. Essa autoridade não é equivalente a executar a validação do
+setor Departamento Pessoal.
+
+Uma mesma pessoa poderá exercer as duas funções. Portanto, derivar `DP` da
+associação ao setor impediria representar de modo explícito tanto a acumulação
+quanto a separação dessas responsabilidades.
+
+### Decisão
+
+Manter um catálogo funcional fixo com dois códigos acumuláveis:
+
+- `RESPONSAVEL_SETOR`: pré-requisito para associação e atuação nas tarefas do
+  setor;
+- `DP`: coordenação do ciclo demissional no escopo organizacional atribuído.
+
+O papel `DP`:
+
+- possui escopo `GLOBAL`, `COMPANY` ou `BRANCH`, validade e revogação lógica;
+- concede `accounts.query_senior_references` para a seleção cadastral que
+  antecede a abertura;
+- será exigido pelos services de abertura, acompanhamento, análise final,
+  liberação, cancelamento e encerramento;
+- não concede `manage_users`, `manage_roles` ou `manage_sectors`;
+- não associa o usuário ao setor Departamento Pessoal;
+- não é concedido por grupo AD, associação de setor ou `is_superuser`.
+
+`has_effective_role()` centraliza a verificação explícita de código, vigência e
+escopo para os futuros services do workflow. A verificação do papel não
+substitui validações de estado, prontidão, segregação, concorrência e auditoria
+de cada transição.
+
+### Controles
+
+- `SGPD_CK_ROLE_ACTIVE_CODE` aceita somente `DP` e
+  `RESPONSAVEL_SETOR` ativos;
+- `AssignRoleService` rejeita códigos fora desse catálogo;
+- criação e edição dinâmica de papéis continuam indisponíveis;
+- atribuição e revogação reutilizam transação e auditoria existentes;
+- a mesma conta pode possuir os dois papéis no mesmo ou em diferentes escopos;
+- os endpoints de workflow ainda não são criados nesta decisão.
+
+### Consequências
+
+- a parte de papel único da ADR-034 é substituída;
+- a igualdade entre responsáveis de um mesmo setor continua inalterada;
+- o registro histórico `DP` pode ser reativado sem criar papel duplicado;
+- responsável pelo setor Departamento Pessoal e `DP` são conceitos
+  independentes;
+- a implementação concreta das transições permanece no Checkpoint 4.

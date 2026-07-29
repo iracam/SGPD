@@ -97,7 +97,7 @@ Redis será iniciado em container somente quando houver funcionalidade que depen
 
 O cadastro funcional de usuários pertence ao SGPD:
 
-- usuários, gestores, e-mails, papéis e escopos são mantidos no schema SGPD;
+- usuários, e-mails, papéis funcionais e escopos são mantidos no schema SGPD;
 - o Senior HCM não provisiona usuários;
 - a autenticação local permanece disponível enquanto a integração AD estiver
   desabilitada e para a contingência administrativa controlada;
@@ -107,8 +107,11 @@ O cadastro funcional de usuários pertence ao SGPD:
   `/api/v1/accounts/` e consumidos pela SPA;
 - os services administrativos repetem a autorização no limite do caso de uso,
   independentemente da proteção aplicada pelos endpoints;
-- papéis possuem permissões delegáveis e atribuições com escopo global, por
-  empresa ou por filial, validade e revogação lógica;
+- o catálogo funcional é fixo em `DP` e `RESPONSAVEL_SETOR`; os papéis podem
+  coexistir e suas atribuições possuem escopo global, por empresa ou por
+  filial, validade e revogação lógica;
+- SuperAdmin é autoridade técnica por `is_superuser`, fora do catálogo
+  funcional;
 - senha temporária pode exigir troca no primeiro acesso;
 - login, logout, falha de autenticação e toda manutenção de conta são
   auditados com correlation ID;
@@ -167,6 +170,7 @@ Estrutura incremental adotada:
 apps/
 ├── accounts/
 ├── core/
+├── sectors/
 ├── system_settings/
 └── integrations/
     ├── active_directory/
@@ -179,7 +183,7 @@ frontend/
 ```
 
 Novos módulos serão criados somente quando o respectivo checkpoint exigir.
-`accounts` contém conta local, papéis, escopos, services, autorização, API e
+`accounts` contém conta local, papel funcional, escopos, services, autorização, API e
 auditoria de contas. `core` contém os endpoints operacionais e a view que serve
 a SPA. `integrations/active_directory` contém configuração tipada, cliente
 LDAP somente leitura, backend de autenticação e verificação operacional.
@@ -187,6 +191,10 @@ LDAP somente leitura, backend de autenticação e verificação operacional.
 existem models para objetos do AD ou do Senior.
 `system_settings` contém o singleton LDAP, criptografia de segredo, validação
 X.509, services auditados e a API exclusiva de SuperAdmin.
+`sectors` contém os incrementos de setores e responsáveis: cobertura
+global/empresa/filial, validade, versão otimista, revogação lógica, bloqueio
+pessimista nas mutações críticas, auditoria append-only, services, API e
+administração técnica somente leitura.
 
 A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
 
@@ -199,8 +207,6 @@ Serviços administrativos implementados:
 - `CreateUserService`
 - `UpdateUserService`
 - `ResetPasswordService`
-- `CreateRoleService`
-- `UpdateRoleService`
 - `AssignRoleService`
 - `RevokeRoleService`
 - `LinkDirectoryIdentityService`
@@ -218,6 +224,20 @@ Serviços de workflow planejados para as fases 3 a 9:
 - `ReleaseForTerminationService`
 - `CloseOffboardingProcessService`
 - `EscalateOverdueTasksService`
+
+Serviços funcionais implementados na Fase 3:
+
+- `CreateSectorService`;
+- `UpdateSectorService`;
+- `AssignSectorResponsibleService`;
+- `UpdateSectorResponsibleService`;
+- `RevokeSectorResponsibleService`.
+
+Todos exigem `sectors.manage_sectors` com concessão global e executam em
+transação. Os services de setor rejeitam ciclos de escalada. Os services de
+responsabilidade bloqueiam setor, usuário, atribuição de papel e associação,
+exigem que escopo e validade sejam cobertos simultaneamente pelo setor e pelo
+papel `RESPONSAVEL_SETOR`, e registram antes/depois na auditoria append-only.
 
 ### Consulta ao Senior
 
@@ -293,9 +313,8 @@ POST        /api/v1/accounts/users/{id}/roles/
 POST        /api/v1/accounts/users/{id}/ad-link/
 POST        /api/v1/accounts/users/{id}/ad-unlink/
 POST        /api/v1/accounts/role-assignments/{id}/revoke/
-GET  POST   /api/v1/accounts/roles/
-GET  PATCH  /api/v1/accounts/roles/{id}/
-GET         /api/v1/accounts/permissions/
+GET         /api/v1/accounts/roles/
+GET         /api/v1/accounts/roles/{id}/
 GET         /api/v1/accounts/audit/
 GET         /api/v1/accounts/directory/status/
 GET         /api/v1/accounts/directory/groups/?q=
@@ -321,16 +340,24 @@ Cada endpoint valida entrada, invoca o service correspondente e traduz o
 resultado. Nenhum implementa regra de negócio.
 
 `POST /api/v1/accounts/users/` aceita uma designação inicial opcional em
-`initial_role`, com papel e escopo organizacional. O
+`initial_role`, para `DP` ou `RESPONSAVEL_SETOR`, com escopo organizacional. O
 `CreateUserService` compõe a criação com o `AssignRoleService` dentro da mesma
 transação: a operação simples continua exigindo `manage_users`; ao incluir o
 papel, `manage_roles` também é revalidada no service. Conta, atribuição e seus
 dois eventos de auditoria são confirmados ou desfeitos em conjunto.
 
-O `AssignRoleService` também atende criação, reativação e atualização de
-validade da atribuição. Esses fluxos não recebem justificativa digitada e
-auditam um motivo operacional padronizado. A revogação continua isolada no
-`RevokeRoleService` e exige justificativa.
+O `AssignRoleService` aceita somente `DP` e `RESPONSAVEL_SETOR` e também atende
+criação, reativação e atualização de validade da atribuição. Esses fluxos não
+recebem justificativa digitada e auditam um motivo operacional padronizado. A
+revogação continua isolada no `RevokeRoleService` e exige justificativa.
+Criação e edição dinâmica de papéis, o catálogo de permissões e a tela
+`/fe/papeis` não possuem superfície ativa.
+
+`has_effective_role()` é o limite reutilizável para os services do workflow:
+o papel `DP` deve estar ativo, vigente e cobrir a empresa/filial do processo.
+SuperAdmin não satisfaz essa verificação implicitamente. Neste incremento,
+`DP` recebe `query_senior_references`; as transições do processo continuam
+pendentes da Fase 4.
 
 A API emite `account_role_assignment_requested` ao receber a operação e
 `account_role_assignment_completed` após o commit do service. O cadastro
@@ -340,8 +367,8 @@ inicial. Esses logs carregam correlation ID e somente IDs, escopo e resultado;
 payload, login, e-mail e senha não são projetados.
 
 A autorização é declarada por endpoint e reavaliada a cada requisição:
-`manage_users` para usuários e senha, `manage_roles` para papéis, atribuições e
-o catálogo de permissões, `link_ad_identity` para o vínculo com o AD e
+`manage_users` para usuários e senha, `manage_roles` somente para atribuir ou
+revogar os papéis fixos, `link_ad_identity` para o vínculo com o AD e
 `view_account_audit` para a auditoria. O service revalida a mesma permissão no
 próprio limite, conforme a ADR-024, de modo que a checagem do endpoint é
 redundante por decisão e não é o único guarda.
@@ -413,6 +440,32 @@ POST /api/v1/pending-items/{uuid}/decision/
 
 POST /api/v1/evidence/
 ```
+
+Endpoints de configuração funcional implementados:
+
+```text
+GET  POST  /api/v1/sectors/
+GET  PATCH /api/v1/sectors/{id}/
+GET  POST  /api/v1/sector-responsibilities/
+GET  PATCH /api/v1/sector-responsibilities/{id}/
+POST        /api/v1/sector-responsibilities/{id}/revoke/
+GET         /api/v1/sector-responsibilities/candidates/
+```
+
+Não existe `DELETE`: a desativação é uma alteração explícita, versionada e
+auditada. A cobertura usa escopos `GLOBAL`, `COMPANY` e `BRANCH`; um escopo
+global não pode coexistir com escopos específicos e uma filial não é repetida
+quando toda a empresa já está coberta. Responsabilidades são únicas por
+usuário, setor e chave de escopo, possuem validade e versão, são revogadas sem
+exclusão e só se tornam autoridade operacional quando `RESPONSAVEL_SETOR`
+também está vigente e cobre o mesmo contexto. Não existe coordenador ou
+substituto.
+
+Todos os responsáveis efetivos do setor receberão a mesma notificação e terão
+a mesma autoridade. No workflow futuro, mutações de tarefa deverão bloquear ou
+versionar o estado crítico e possuir chave de idempotência: a primeira
+transação válida confirma a ação; as demais observam o novo estado sem
+duplicar auditoria, e-mail ou efeito financeiro.
 
 Com a ADR-025 e a conclusão da Fase G, a API é a única superfície funcional da
 aplicação. Comandos de gestão também podem chamar services diretamente,

@@ -126,10 +126,11 @@ Para o SGPD, “ativo/elegível” significa “não demitido”. Portanto, outr
 - local de trabalho foi retirado do escopo e não será consultado nem usado nas regras do MVP;
 - gestor não vem do Senior: será um usuário cadastrado no SGPD e selecionado na abertura do processo;
 - e-mail não vem do Senior: será mantido no perfil do usuário do SGPD;
-- nenhum usuário, gestor, e-mail, papel ou permissão do sistema será provisionado pelo Senior;
+- nenhum usuário, gestor, e-mail, papel funcional, associação ou permissão do
+  sistema será provisionado pelo Senior;
 - a integração AD é independente do Senior: vincula ou cria explicitamente a
-  conta SGPD a partir da identidade corporativa, sem importar papéis ou
-  permissões e sem usar dados Senior para autenticação.
+  conta SGPD a partir da identidade corporativa, sem importar papéis,
+  associações ou permissões e sem usar dados Senior para autenticação.
 
 ## 6. Implementação
 

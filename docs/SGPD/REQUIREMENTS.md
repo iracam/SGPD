@@ -10,7 +10,10 @@ atual e a fase autorizada estão em `CHECKPOINT.md`.
 
 ### RF-001 — Autenticação
 
-Todos os usuários, inclusive gestores, deverão ser cadastrados no SGPD com nome, e-mail, situação e papéis.
+Todos os usuários deverão ser cadastrados no SGPD com nome, e-mail e situação.
+Usuários que executam validações recebem `RESPONSAVEL_SETOR` e são associados
+explicitamente aos setores atendidos. Usuários que coordenam o ciclo
+demissional recebem `DP`. Os papéis podem coexistir na mesma conta.
 
 O SGPD deverá preservar autenticação local para contas não vinculadas e
 contingência administrativa. Cada cadastro poderá ser vinculado a uma conta do
@@ -83,13 +86,24 @@ A configuração técnica de LDAP e autenticação deverá:
   antes de ativar o login AD;
 - usar controle otimista e auditar alterações, upload e testes de conexão.
 
-### RF-002 — Perfis e permissões
+### RF-002 — Papéis funcionais e permissões
 
-O sistema deverá controlar permissões por papel e escopo organizacional.
+O catálogo funcional fixo conterá:
 
-Os escopos iniciais serão global, empresa e filial. Atribuições deverão possuir
-validade, revogação lógica, responsável e auditoria. Permissões provenientes de
-papéis deverão respeitar o escopo; permissões diretas serão globais.
+- `RESPONSAVEL_SETOR`: habilita a responsabilidade por tarefas somente quando
+  combinado com associação explícita ao setor e ao escopo;
+- `DP`: habilita iniciar, acompanhar, avaliar, liberar, cancelar e encerrar o
+  processo demissional dentro do escopo organizacional atribuído.
+
+Os dois papéis podem coexistir na mesma conta e não haverá criação ou edição
+dinâmica de outros papéis. A atribuição possui validade, revogação lógica,
+responsável, escopo e auditoria. `DP` recebe a permissão de consultar
+referências do Senior para selecionar o colaborador, mas não recebe
+administração de usuários, papéis ou setores.
+
+SuperAdmin é autoridade técnica definida por `IS_SUPERUSER`, não um papel
+funcional e não se torna `DP` implicitamente. Grupos AD e associações a setores
+não concedem `DP`.
 
 ### RF-003 — Cadastro de setores
 
@@ -109,26 +123,84 @@ Campos mínimos:
 - empresas atendidas;
 - filiais atendidas.
 
+Estado implementado na primeira fatia da Fase 3:
+
+- cadastro, consulta, alteração, ativação e inativação pela API e SPA;
+- código imutável e concorrência otimista;
+- cobertura explícita global, por empresa ou por filial, sem replicar
+  referências do Senior;
+- prevenção de escopo redundante e ciclo de escalada;
+- auditoria append-only com justificativa e correlation ID;
+- exclusão física indisponível.
+
+Catálogo informado pelo responsável funcional e cadastrado no Oracle DEV em
+2026-07-29:
+
+- Departamento Pessoal;
+- Benefícios;
+- Refeitório;
+- Medicina do Trabalho;
+- Segurança do Trabalho;
+- TI;
+- Almoxarifado BSA;
+- Almoxarifado TBL;
+- Financeiro.
+
+Todos iniciam com escopo global, prazo de 24 horas e regras padrão provisórias.
+Esses atributos deverão ser homologados antes de o catálogo ser consumido pelo
+workflow.
+
+Responsáveis de setor permanecem no RF-004 e não foram antecipados.
+
 ### RF-004 — Cadastro de responsáveis
 
 Cada setor poderá possuir um ou mais responsáveis.
 
-O responsável deverá referenciar um usuário cadastrado no SGPD. Nome e e-mail virão do perfil desse usuário.
+O responsável deverá referenciar um usuário cadastrado no SGPD com o papel
+`RESPONSAVEL_SETOR`. Nome e e-mail virão do perfil desse usuário.
 
 Campos mínimos:
 
 - usuário;
 - setor;
-- principal ou substituto;
 - data de início;
 - data de término;
 - escopo por empresa;
 - escopo por filial;
-- recebe notificações;
-- pode concluir;
-- pode lançar pendência;
-- pode lançar valores;
-- pode aprovar exceções.
+
+Todos os responsáveis ativos de um mesmo setor:
+
+- possuem a mesma autoridade, sem distinção de coordenador, principal ou
+  substituto;
+- recebem as mesmas notificações e mensagens de e-mail;
+- podem movimentar a tarefa e registrar as ações permitidas ao setor;
+- concorrem pela mesma ação: a primeira transação válida confirma a mudança;
+- ao agir depois da mudança, recebem o estado atualizado sem repetir eventos,
+  notificações ou efeitos financeiros.
+
+As capacidades sobre tarefas decorrem do setor associado e da regra do caso de
+uso. A coordenação do ciclo completo decorre separadamente do papel `DP`.
+Assim, uma pessoa pode ser responsável pelo setor Departamento Pessoal e
+também possuir `DP`, sem que uma atribuição implique automaticamente a outra.
+
+Estado implementado nesta fatia da Fase 3:
+
+- associação, consulta, atualização de validade, reativação e revogação
+  lógica pela API e SPA;
+- identidade imutável da associação por usuário, setor e escopo;
+- escopos `GLOBAL`, `COMPANY` e `BRANCH`, sempre contidos simultaneamente na
+  cobertura do setor e na atribuição de `RESPONSAVEL_SETOR`;
+- validade com término exclusivo, versão otimista e bloqueio pessimista nas
+  mutações;
+- igualdade de autoridade, sem campo de coordenador, principal, substituto ou
+  capacidade individual;
+- auditoria append-only com estado anterior/posterior, justificativa e
+  correlation ID;
+- exclusão física indisponível.
+
+O fan-out de notificações e a concorrência first-writer-wins das tarefas
+permanecem nos incrementos de workflow e notificações; o cadastro não antecipa
+esses efeitos.
 
 ### RF-005 — Integração de empresas
 
@@ -160,7 +232,8 @@ A consulta deverá:
 
 ### RF-009 — Abertura de processo
 
-O DP deverá abrir um processo informando:
+Um usuário com o papel `DP` vigente no escopo deverá abrir um processo
+informando:
 
 - empresa;
 - filial;
@@ -216,7 +289,8 @@ O sistema poderá sugerir grupos com base em:
 
 ### RF-013 — Alteração manual do grupo
 
-O DP poderá incluir ou remover setores, com justificativa obrigatória.
+Um usuário com o papel `DP` vigente no escopo poderá incluir ou remover
+setores, com justificativa obrigatória.
 
 ### RF-014 — Templates de checklist
 
@@ -328,7 +402,8 @@ O sistema deverá escalar tarefas próximas do vencimento ou vencidas.
 
 ### RF-029 — Liberação final
 
-Somente o DP poderá liberar o processo para rescisão.
+Somente usuário com o papel `DP` vigente no escopo poderá liberar o processo
+para rescisão.
 
 ### RF-030 — Condições de liberação
 
@@ -342,7 +417,8 @@ A liberação deverá verificar:
 
 ### RF-031 — Cancelamento
 
-O DP poderá cancelar um processo com justificativa.
+Usuário com o papel `DP` vigente no escopo poderá cancelar um processo com
+justificativa.
 
 ### RF-032 — Reabertura
 

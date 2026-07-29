@@ -12,7 +12,7 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R05 | Desconto indevido | Média | Muito alto | Pretensão, aprovação e segregação |
 | R06 | Acesso indevido a documentos médicos | Média | Muito alto | Autorização por classe e setor |
 | R07 | E-mails não enviados | Média | Médio | Fila, retry e painel de falhas |
-| R08 | Responsável ausente | Alta | Médio | Substituto, fila e escalada |
+| R08 | Responsável ausente | Alta | Médio | Múltiplos responsáveis de igual autoridade, validade explícita, fila e escalada |
 | R09 | Processo travado por regra mal configurada | Média | Alto | Simulação e validação de regras |
 | R10 | Duplicidade de processo | Média | Alto | Regra de unicidade e validação |
 | R11 | Indisponibilidade ou lentidão do Senior bloquear novas pesquisas | Média | Alto | Timeout, paginação, filtros, health check e erro explícito sem usar dados obsoletos |
@@ -50,6 +50,10 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R47 | Base ou filtro AD excessivamente amplo expor identidades ou permitir conta fora do público SGPD | Média | Muito alto | Base por OU, grupo obrigatório opcional, suporte a grupo aninhado, filtro fixo revisado, exclusão de conta desabilitada, paginação/limite e autorização administrativa |
 | R48 | LDAP simples expor a credencial técnica e a senha dos usuários na rede | Decisão administrativa explícita | Muito alto | Opção exclusiva de SuperAdmin; warning permanente no check e na SPA; conta técnica somente leitura; mesma escolha visível para descoberta e login; recomendar TLS; nunca registrar credenciais |
 | R49 | Configuração LDAP pela aplicação expor segredo, aceitar CA inválida ou ativar login sem contingência | Baixa | Muito alto | Acesso direto por `is_superuser`; senha Fernet nunca projetada; upload privado limitado e validado como CA X.509 vigente; hash; versão otimista; auditoria; ativação exige fingerprint de probe e SuperAdmin local utilizável; com TLS, exige CA válida |
+| R50 | Setor com escopo ou escalada incorretos gerar tarefa indevida ou bloquear o processo | Média | Alto | Escopo explícito e não redundante, global exclusivo, cadeia de escalada sem ciclos, versão otimista, bloqueio pessimista ordenado do catálogo, service transacional e auditoria antes/depois; os nove setores cadastrados em 2026-07-29 permanecem com atributos provisórios e não devem alimentar o workflow antes da homologação funcional |
+| R51 | Dois responsáveis do mesmo setor agirem simultaneamente e duplicarem transição, auditoria, e-mail ou efeito externo | Média | Alto | Mesma autoridade sem coordenador; transação atômica, lock ou versão no estado crítico, chave de idempotência, efeitos após commit e resposta com estado atualizado para quem perder a corrida |
+| R52 | Associação de responsável exceder o escopo, sobreviver à desativação do setor ou usuário ou exceder a validade do papel | Média | Muito alto | Service bloqueia e revalida setor, usuário, papel e associação; escopo deve ser coberto pelo setor e pelo papel, e o período deve caber na atribuição do papel; autorização operacional exige ambos vigentes; constraints, versão otimista, revogação lógica e auditoria antes/depois |
+| R53 | Confundir papel `DP` com responsabilidade pelo setor Departamento Pessoal e conceder abertura, liberação ou encerramento indevidos | Média | Muito alto | Conceitos independentes e cumulativos; `has_effective_role()` exige atribuição `DP` explícita, vigente e compatível com o escopo; SuperAdmin, grupo AD e associação de setor não concedem `DP`; cada transição revalida estado, prontidão e auditoria |
 
 ## Riscos encerrados
 

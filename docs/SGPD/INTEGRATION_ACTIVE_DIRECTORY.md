@@ -54,8 +54,10 @@ uv sync --dev
 ## 3. Fronteiras de segurança
 
 - o AD é somente provedor de descoberta e autenticação;
-- nome, e-mail local, situação, papéis, permissões e escopos pertencem ao SGPD;
-- grupos AD não criam papéis nem concedem permissões SGPD;
+- nome, e-mail local, situação, papéis funcionais, associações, permissões e
+  escopos pertencem ao SGPD;
+- grupos AD não concedem `DP` ou `RESPONSAVEL_SETOR` nem associam usuários a
+  setores;
 - credenciais AD válidas nunca criam uma conta implicitamente no login;
 - somente uma ação administrativa explícita cria ou vincula a conta;
 - `objectGUID`, convertido para UUID canônico, é a chave estável e única;

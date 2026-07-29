@@ -31,7 +31,7 @@ Estratégia:
 - não criar perfis ou permissões automaticamente a partir do Senior;
 - não criar conta implicitamente quando credenciais AD válidas forem
   apresentadas no login;
-- manter papéis e escopos no SGPD mesmo após a vinculação ao AD;
+- manter o papel funcional e escopos no SGPD mesmo após a vinculação ao AD;
 - bloquear o fallback para senha local de contas comuns vinculadas quando a
   autenticação AD estiver ativa;
 - aplicar o mesmo bloqueio à definição, redefinição e troca de senha, tanto no
@@ -50,7 +50,7 @@ Estratégia:
 - excluir contas desabilitadas no AD e, quando configurado, restringir
   elegibilidade por OU e grupo direto ou aninhado;
 - tratar grupos AD exclusivamente como filtro de elegibilidade, nunca como
-  fonte de papéis ou permissões;
+  fonte do papel, associação a setor ou permissão;
 - MFA quando a infraestrutura permitir.
 
 Descoberta e autenticação possuem chaves de ativação independentes. Isso
@@ -74,8 +74,8 @@ simples como transporte seguro.
 
 A central `/fe/configuracoes` e os endpoints `/api/v1/settings/` exigem
 diretamente uma conta ativa com `is_superuser=true`. Essa autoridade não é uma
-permissão delegável por papel: mesmo um administrador funcional com todas as
-permissões de contas recebe `403`.
+permissão do papel funcional: uma conta comum com permissões administrativas
+diretas continua recebendo `403`.
 
 Na configuração LDAP:
 
@@ -154,17 +154,46 @@ no build.
 A SPA não é uma barreira de autorização: toda requisição continua sendo
 validada pela API, e nenhuma listagem cadastral projeta CPF.
 
-As permissões delegáveis atuais são:
+As permissões administrativas existentes são:
 
 - `manage_users`;
 - `manage_roles`;
 - `link_ad_identity`;
 - `view_account_audit`;
-- `query_senior_references`.
+- `query_senior_references`;
+- `manage_sectors`.
 
-Permissões diretas são globais. Permissões provenientes de papéis respeitam o
-escopo e a validade da atribuição. Superusuário é reservado ao bootstrap e à
-contingência administrativa.
+Os papéis funcionais ativos são `DP` e `RESPONSAVEL_SETOR`. Nenhum concede
+administração técnica. `DP` recebe apenas `query_senior_references` neste
+incremento para selecionar o colaborador dentro do seu escopo; permissões
+diretas são globais e permanecem disponíveis para evolução controlada.
+SuperAdmin é reservado ao bootstrap e à contingência administrativa. Papéis e
+atribuições legados permanecem inativos ou revogados com auditoria, nunca
+excluídos.
+
+`manage_sectors` exige concessão global na configuração funcional, pois um
+setor e suas responsabilidades podem cobrir múltiplas empresas e filiais. A
+API, o service e a visibilidade da SPA usam o mesmo identificador, mas somente
+API e service autorizam a operação.
+
+Uma responsabilidade somente é configurada quando usuário e setor estão
+ativos e uma atribuição não revogada de `RESPONSAVEL_SETOR` cobre todo o mesmo
+escopo e período. A autoridade operacional exige novamente, no instante do
+caso de uso, tanto o papel quanto a associação vigente. SuperAdmin não se torna
+responsável funcional implicitamente. Escopo, validade e versão são
+reavaliados no backend; ocultar controles na SPA não substitui essa decisão.
+
+O papel `DP` é cumulativo e independente da responsabilidade de setor. A
+autorização de abertura, acompanhamento, análise final, liberação,
+cancelamento e encerramento deverá exigir uma atribuição `DP` ativa, vigente e
+compatível com a empresa/filial do processo. SuperAdmin e responsável pelo
+setor Departamento Pessoal não se tornam `DP` implicitamente.
+
+Em 2026-07-29, a primeira atribuição ativa após a ADR-036 foi registrada
+explicitamente para `victor.delgado`, no escopo global e sem validade final. A
+mesma conta mantém `RESPONSAVEL_SETOR` e responsabilidade pelo setor
+Departamento Pessoal, também globais. O evento `ROLE_ASSIGNED` preserva ator,
+alvo, escopo, vigência, motivo operacional e correlation ID.
 
 Os endpoints e os services administrativos validam autorização. A checagem no
 service preserva o limite de segurança quando o caso de uso for chamado por
@@ -172,14 +201,17 @@ outro endpoint ou comando. A desativação de contas bloqueia os
 superusuários ativos em ordem determinística e impede transacionalmente a
 remoção do último superusuário ativo.
 
-No cadastro manual, a designação de um papel inicial é opcional. Quando
-solicitada, o mesmo caso de uso exige `manage_users` e `manage_roles`, cria a
-conta e a atribuição na mesma transação e registra separadamente
+No cadastro manual, a designação inicial de `DP` ou `RESPONSAVEL_SETOR` é
+opcional.
+Quando solicitada, o mesmo caso de uso exige `manage_users` e `manage_roles`,
+cria a conta e a atribuição na mesma transação e registra separadamente
 `USER_CREATED` e `ROLE_ASSIGNED`. Falha de autorização, papel, escopo ou
 auditoria desfaz toda a criação; a SPA não exibe os campos de papel a quem não
 possui `manage_roles`.
 
-Criação, reativação e atualização de atribuições não recebem justificativa
+Criação e edição de outros papéis não possuem API nem interface, e o model
+impede outro código ativo. Criação, reativação e atualização de atribuições dos
+papéis fixos não recebem justificativa
 livre do cliente. O evento `ROLE_ASSIGNED` registra ator, usuário, papel,
 escopo, validade e o motivo operacional padronizado pelo servidor. A revogação
 permanece uma operação separada, com justificativa humana obrigatória e evento
@@ -190,13 +222,19 @@ da designação em log JSON. Somente IDs técnicos, escopo, resultado e correlat
 ID são permitidos; corpo da requisição, nomes, logins, e-mails e credenciais
 permanecem fora do log.
 
-Exemplo:
+Exemplos:
 
-- responsável do setor vê somente tarefas do próprio setor;
-- DP vê todos os processos no escopo autorizado;
-- auditor vê sem editar;
-- Financeiro vê valores, mas não acessa documentos médicos;
-- Medicina do Trabalho vê dados clínicos estritamente necessários.
+- responsável vê somente tarefas dos setores e escopos aos quais foi
+  explicitamente associado;
+- usuário com `DP` vigente executa as ações de coordenação do processo dentro
+  do escopo, independentemente de associação ao setor Departamento Pessoal;
+- responsável pelo setor Departamento Pessoal executa as tarefas desse setor,
+  mas só coordena o processo quando também possui `DP`;
+- responsáveis do Financeiro tratam valores conforme o caso de uso;
+- responsáveis de Medicina do Trabalho veem somente os dados clínicos
+  estritamente necessários;
+- múltiplos responsáveis de um setor têm a mesma autoridade; a primeira ação
+  válida vence e as demais não duplicam efeitos.
 
 ## 4. Segregação
 
@@ -317,6 +355,13 @@ admin expõe os registros apenas para diagnóstico; criação, alteração,
 revogação e vínculo AD passam por services transacionais que geram eventos.
 Os eventos rejeitam alteração e exclusão por instância e também
 `QuerySet.update()` e `QuerySet.delete()`.
+
+A auditoria funcional de setores e responsáveis segue a mesma propriedade
+append-only. Criação, alteração, ativação, inativação, associação, atualização
+de validade e revogação registram ator, justificativa, correlation ID e estados
+anterior/posterior. Setores e responsabilidades não possuem endpoint de
+exclusão; os models rejeitam exclusão física e a responsabilidade é revogada
+logicamente.
 
 Alternativas futuras:
 

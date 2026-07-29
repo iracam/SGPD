@@ -128,16 +128,16 @@ e as chaves de funcionalidade que governam a visibilidade do menu. A permissão
 | `POST` | `users/{id}/ad-link/` | `LinkAdIdentityService` |
 | `POST` | `users/{id}/ad-unlink/` | `UnlinkAdIdentityService` |
 | `POST` | `role-assignments/{id}/revoke/` | `RevokeRoleService` |
-| `GET`, `POST` | `roles/` | `CreateRoleService` |
-| `GET`, `PATCH` | `roles/{id}/` | `UpdateRoleService` |
-| `GET` | `permissions/` | catálogo de permissões delegáveis |
+| `GET` | `roles/` | catálogo fixo `DP` e `RESPONSAVEL_SETOR` |
+| `GET` | `roles/{id}/` | detalhe de papel do catálogo fixo |
 | `GET` | `audit/` | `AccountAuditEvent`, paginado |
 
 Nenhum endpoint implementa regra de negócio. Cada um valida entrada, invoca o
 service correspondente e traduz o resultado.
 
-No cadastro manual, `POST users/` pode receber `initial_role`. A SPA oferece
-papel e escopo somente a quem possui `manage_roles`; o backend repete essa
+No cadastro manual, `POST users/` pode receber `initial_role` para `DP` ou
+`RESPONSAVEL_SETOR`. A SPA oferece os papéis fixos e o escopo somente a quem
+possui `manage_roles`; o backend repete essa
 autorização e grava conta e designação atomicamente. Após a criação, a tela
 abre o detalhe do usuário, onde outras atribuições podem ser mantidas.
 Designações e reativações não exibem nem enviam justificativa livre; a
@@ -220,8 +220,9 @@ páginas usam `loadComponent` e declaram `title`.
 | `/fe/login` | autenticação local |
 | `/fe/painel` | painel inicial |
 | `/fe/colaboradores` | cascata Empresa → Filial → Tipo → Colaborador |
+| `/fe/setores` | cadastro de setores de validação |
+| `/fe/responsaveis` | associação de responsáveis por setor e escopo |
 | `/fe/usuarios`, `/fe/usuarios/:id` | administração de usuários |
-| `/fe/papeis` | papéis e permissões |
 | `/fe/auditoria` | auditoria de contas |
 | `/fe/configuracoes` | cards técnicos, somente SuperAdmin |
 | `/fe/configuracoes/autenticacao` | LDAP, CA e testes, somente SuperAdmin |
@@ -253,13 +254,19 @@ com `visibleNavItems` filtrando pelo contexto devolvido por
 | --- | --- | --- | --- |
 | Painel | `/fe/painel` | `pi pi-th-large` | — |
 | Colaboradores | `/fe/colaboradores` | `pi pi-id-card` | `query_senior_references` |
+| Setores | `/fe/setores` | `pi pi-building` | `manage_sectors` |
+| Responsáveis | `/fe/responsaveis` | `pi pi-user-plus` | `manage_sectors` |
 | Usuários | `/fe/usuarios` | `pi pi-users` | `manage_users` |
-| Papéis | `/fe/papeis` | `pi pi-shield` | `manage_roles` |
 | Auditoria | `/fe/auditoria` | `pi pi-history` | `view_account_audit` |
 | Configurações | `/fe/configuracoes` | `pi pi-cog` | `is_superuser` |
 
-Os módulos das Fases 3 a 6 — setores, processos, pendências, valores e
-liberação — entram nessa mesma lista conforme cada checkpoint avançar.
+O menu e a rota de manutenção de papéis foram removidos em 2026-07-29. O
+catálogo é fixo em `RESPONSAVEL_SETOR`; sua atribuição continua disponível no
+cadastro e detalhe do usuário para SuperAdmin, sem permitir criar variações.
+
+Os módulos ainda pendentes das Fases 3 a 6 — grupos, templates, processos,
+pendências, valores e liberação — entram nessa mesma lista conforme cada
+checkpoint avançar.
 
 A sidebar é colapsável com estado persistido, e o rodapé mantém o painel de
 sessão, o acesso à troca da própria senha, o alternador de tema claro/escuro e
@@ -296,7 +303,7 @@ vira topbar abaixo de 1024 px.
 A gaveta fecha ao navegar, fecha com `Escape`, prende o foco enquanto aberta e
 devolve o foco ao botão que a abriu.
 
-**Tabelas.** Usuários, papéis e auditoria são tabulares e uma `p-table` com
+**Tabelas.** Usuários e auditoria são tabulares e uma `p-table` com
 muitas colunas é inutilizável em telefone. Cada listagem tem duas
 representações a partir dos mesmos dados: lista de cartões no estado base, com
 os campos essenciais e as ações principais; tabela completa a partir de `md`.

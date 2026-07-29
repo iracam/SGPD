@@ -3,8 +3,8 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 ainda não iniciada
-- Estado: SPA cobre autenticação, contas, configuração técnica LDAP e cascata Senior; interface server-side removida
+- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis e o papel DP
+- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores e responsáveis; interface server-side removida
 - Banco: Oracle
 - Backend: Django API-only, com Django Admin somente leitura preservado
 - UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028
@@ -74,8 +74,19 @@
 ### Processo funcional
 
 - [ ] Validar fluxo atual.
-- [ ] Identificar setores.
-- [ ] Identificar responsáveis.
+- [x] Identificar setores.
+  - Departamento Pessoal.
+  - Benefícios.
+  - Refeitório.
+  - Medicina do Trabalho.
+  - Segurança do Trabalho.
+  - TI.
+  - Almoxarifado BSA.
+  - Almoxarifado TBL.
+  - Financeiro.
+- [x] Identificar responsáveis.
+  - Dez associações ativas cobrem os nove setores no Oracle DEV; Medicina do
+    Trabalho possui dois responsáveis e os demais setores possuem um.
 - [ ] Levantar checklists atuais.
 - [ ] Levantar prazos.
 - [ ] Levantar regras de bloqueio.
@@ -89,8 +100,9 @@
 
 ### Segurança
 
-- [x] Retirar grupos AD como fonte de papéis.
-  - Papéis e escopos serão mantidos exclusivamente no SGPD.
+- [x] Retirar grupos AD como fonte dos papéis funcionais.
+  - Papéis, associações de setor e escopos serão mantidos exclusivamente no
+    SGPD.
 - [x] Implementar fluxo administrativo de vínculo e desvínculo AD.
   - Identificador opaco, único e normalizado; confirmação, justificativa,
     responsável e auditoria.
@@ -99,11 +111,15 @@
 - [ ] Homologar URI, bind, cadeia TLS, bases e grupo/filtro no AD real com a
   Infraestrutura.
 - [x] Definir origem dos usuários.
-  - Todos os usuários, gestores, e-mails, papéis e escopos pertencem ao SGPD.
+  - Todos os usuários, e-mails, papéis funcionais, associações e escopos
+    pertencem ao SGPD.
   - Uma conta pode ser cadastrada localmente ou criada explicitamente a partir
     de uma identidade AD; o login nunca provisiona conta.
 - [x] Definir papéis.
-  - Catálogo inicial com nove papéis; permissões evoluem com os módulos.
+  - Catálogo funcional fixo em `DP` e `RESPONSAVEL_SETOR`.
+  - Os papéis podem coexistir na mesma conta, com escopo, validade e revogação
+    próprios.
+  - SuperAdmin é atributo técnico e não recebe papel funcional implicitamente.
 - [x] Definir escopo por empresa/filial.
   - Global, empresa e filial, com validade e revogação lógica.
 - [ ] Definir dados sensíveis.
@@ -141,10 +157,11 @@
   - Modo Thick obrigatório para o verificador atual da conta `SGPD`.
   - `CREATE TABLE` e `CREATE SEQUENCE`, ambos sem `ADMIN OPTION`, e quota de
     500 MB em `PIMS_DATA` concedidos ao mesmo usuário `SGPD`.
-  - 25 migrations aplicadas; constraints SGPD habilitadas e validadas.
+  - Baseline e migrations aditivas vigentes aplicados; constraints SGPD
+    habilitadas e validadas.
 - [x] Cadastro e manutenção auditada de usuários.
 - [x] Autenticação local e troca obrigatória de senha temporária.
-- [x] Papéis, permissões e escopos.
+- [x] Papéis funcionais fixos, permissões técnicas e escopos.
 - [x] Vínculo administrativo com o AD.
 - [x] Descoberta, importação explícita e autenticação AD em estágios.
   - Django 5.2.16, DRF 3.17.1, `django-auth-ldap` 5.3.0 e
@@ -152,8 +169,8 @@
   - Ativação no diretório real permanece pendente de configuração homologada.
 - [x] Auditoria de login, logout, falha e manutenção de contas.
 - [x] Primeira conta humana de administração.
-  - Criada pelo bootstrap interativo, com papel global
-    `ADMIN_IDENTIDADE` e dois eventos de auditoria.
+  - Criada pelo bootstrap interativo como SuperAdmin; a atribuição histórica
+    `ADMIN_IDENTIDADE` foi revogada em 2026-07-29.
 - [x] SMTP AUTH e `Send As`.
   - O Microsoft 365 aceitou uma mensagem de prova enviada ao próprio remetente
     configurado em 2026-07-28.
@@ -232,10 +249,11 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     digitada; a auditoria usa motivo padronizado e a revogação preserva
     justificativa obrigatória.
 - [x] Redefinição de senha.
-- [x] Papéis: listagem, criação, detalhe e atualização.
-- [x] Atribuição e revogação de papéis.
+- [x] Papéis fixos `DP` e `RESPONSAVEL_SETOR`: listagem, atribuição e
+  revogação.
+- [x] Criação e edição de papéis removidas pela ADR-034.
 - [x] Vínculo e desvínculo AD.
-- [x] Catálogo de permissões delegáveis.
+- [x] Catálogo editável de permissões removido pela ADR-034.
 - [x] Auditoria de contas paginada, com filtro por usuário e tipo de evento.
 - [x] Teste de permissão negada em cada endpoint.
   - Anônimo e autenticado sem permissão, para os 15 pares de rota e método.
@@ -266,7 +284,8 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - Listagem com busca, criação em diálogo e detalhe.
 - [x] Detalhe do usuário: edição, redefinição de senha, atribuição e revogação
   de papéis, vínculo e desvínculo AD.
-- [x] Papéis, com seleção das permissões delegáveis.
+- [x] Tela dinâmica de papéis removida; atribuição dos papéis fixos permanece
+  no cadastro e detalhe do usuário.
 - [x] Auditoria, com filtro por tipo de evento e paginação sem total.
 - [x] Troca da própria senha, entregue na Fase D.
 - [x] Conferência visual nos cinco pontos de quebra.
@@ -354,20 +373,40 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [x] Auditar atualização, upload e teste com correlation ID.
 - [x] Cobrir autorização, versão concorrente, segredo, certificado, probe,
   API, guarda, menu e tela com testes automatizados.
-- [ ] Aplicar no Oracle DEV a migration revisada que remove a coluna legada
+- [x] Aplicar no Oracle DEV a migration revisada que remove a coluna legada
   `ALLOW_INSECURE_DISCOVERY`.
 
 ## Checkpoint 3 — Configuração funcional
 
-- [ ] Setores.
-- [ ] Responsáveis.
+- [x] Setores.
+  - Cadastro, alteração, ativação e inativação por service, API e SPA.
+  - Escopos `GLOBAL`, `COMPANY` e `BRANCH`, sem redundância ou réplica Senior.
+  - Prazo, bloqueio, valor, evidência e escalada sem ciclos.
+  - Versão otimista, bloqueio ordenado do catálogo contra ciclos concorrentes,
+    auditoria append-only e ausência de exclusão.
+  - Migration `sectors.0001` aplicada e validada no Oracle DEV.
+  - Nove setores funcionais cadastrados e auditados no Oracle DEV em
+    2026-07-29; prazo, escopo e regras permanecem provisórios até homologação.
+- [x] Responsáveis.
+  - Associação explícita por usuário, setor e escopo, sem tipo ou flags.
+  - Validade, versão otimista, revogação lógica e auditoria append-only.
+  - Escopo contido simultaneamente no setor e em `RESPONSAVEL_SETOR`; período
+    contido na validade dessa atribuição.
+  - API e SPA em `/fe/responsaveis`, sem endpoint de exclusão.
+  - Migration `sectors.0002` aditiva, revisada, aplicada e validada no Oracle
+    DEV.
+  - Dez associações reais cobrem os nove setores no Oracle DEV; os vínculos
+    foram cadastrados pelo responsável funcional e não derivados do AD.
 - [ ] Grupos.
 - [ ] Regras.
 - [ ] Templates.
 - [ ] Versionamento.
 - [x] Permissões.
-  - Infraestrutura de papéis e escopos concluída; novas permissões serão
-    adicionadas conforme cada módulo funcional.
+  - SuperAdmin mantém a administração técnica fora do catálogo funcional.
+  - Os papéis ativos são `DP` e `RESPONSAVEL_SETOR`.
+  - Ações sobre tarefas decorrem da associação ao setor; abertura,
+    acompanhamento, análise, liberação e encerramento decorrerão de `DP`
+    vigente no escopo do processo.
 
 ## Checkpoint 4 — Workflow
 
@@ -1110,4 +1149,100 @@ Próximo passo: publicar o bundle e reiniciar o processo Django, repetir a desig
 Comandos executados: consultas Oracle somente leitura; reprodução do endpoint com rollback obrigatório; testes direcionados backend/frontend; Ruff e TypeScript; suítes completas, Mypy, Django check, migrations check, build Angular, diff check e validação do manifesto.
 Arquivos alterados: API de accounts; formatter de logs; diálogo e testes Angular de usuários; testes backend; ARCHITECTURE.md, REQUIREMENTS.md, SECURITY.md, MIGRATION_FRONTEND_SPA.md, CHECKPOINT.md e MANIFEST.json.
 Testes: 209 testes backend e 52 testes frontend passaram; o teste de interação reproduziu a ausência de chamada no clique antes da correção e confirmou o envio depois dela; Ruff, format, Mypy, TypeScript, Django check e migrations sem erros; build inicial de 496,12 kB dentro do orçamento. No Oracle, o endpoint respondeu 201, a atribuição e ROLE_ASSIGNED existiram dentro da transação, os logs account_role_assignment_requested/completed foram emitidos e o rollback preservou os contadores em zero.
+```
+
+### 2026-07-28 — Primeiro incremento da configuração funcional: setores
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 3 — Configuração funcional / Setores
+O que foi concluído: módulo sectors com setor, escopos e auditoria append-only; services transacionais de criação, alteração, ativação e inativação; escopo GLOBAL, COMPANY e BRANCH sem combinações redundantes; prazo, bloqueio, lançamento de valor, evidência e cadeia de escalada; API REST sem DELETE; tela Angular responsiva; permissão global sectors.manage_sectors; reconciliação aditiva e idempotente do ADMIN_FUNCIONAL; migration sectors.0001 aplicada e validada no Oracle DEV.
+Decisões: código de setor imutável; exclusão física proibida; inativação explícita e auditada; versão otimista rejeita edição obsoleta; bloqueio pessimista das linhas do pequeno catálogo em ordem determinística serializa mutações e impede ciclos concorrentes; o SGPD armazena somente os códigos organizacionais validados, sem replicar nem escrever no Senior; detalhes registrados na ADR-033.
+Riscos: o catálogo real de setores e códigos organizacionais ainda precisa de homologação funcional; o bloqueio integral do catálogo privilegia consistência e é adequado ao volume pequeno previsto, mas deverá ser reavaliado se o cadastro crescer materialmente; o owner SGPD permanece como conexão única apenas no DEV conforme ADR-022.
+Pendências: identificar e cadastrar os setores reais com o DP; implementar responsáveis, grupos, regras, templates e versionamento nos próximos incrementos; manter snapshot e workflow fora desta fase; homologar os códigos de empresa e filial contra a consulta Senior somente leitura antes de inserir dados reais.
+Próximo passo: levantar com o DP o catálogo real de setores e iniciar o incremento pequeno de responsáveis e seus escopos, reutilizando autorização, concorrência e auditoria sem antecipar o workflow.
+Comandos executados: testes direcionados e completos; Ruff check e format; Mypy; Django check; makemigrations check; sqlmigrate e migration Oracle previamente revisados; Vitest; build Angular; busca por media query max-width; diff check; inspeção visual em Chromium nos viewports 360, 390, 768, 1024 e 1440 px; smoke da API e consultas parametrizadas no Oracle DEV; showmigrations e migrate --plan.
+Arquivos alterados: novo módulo apps/sectors e migration 0001; catálogo, autorização e contexto de permissões de accounts; rotas e settings Django; nova feature frontend/src/app/features/setores e integrações de rota/menu/API; testes backend e frontend; README.md; ARCHITECTURE.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 234 testes backend e 57 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 496,30 kB e chunk lazy de Setores de 61,63 kB; nenhuma media query max-width foi introduzida; diff sem erros de whitespace. A inspeção visual confirmou cards móveis, tabela a partir de md, diálogo responsivo e ausência de overflow horizontal. No Oracle DEV, as três tabelas existem, nenhuma constraint está desabilitada, a migration está aplicada com plano final vazio, a permissão está atribuída ao ADMIN_FUNCIONAL e o smoke retornou 201 com setor, escopo e evento presentes dentro da transação e contagens zero após rollback obrigatório.
+```
+
+### 2026-07-29 — Cadastro do catálogo funcional de setores
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Configuração funcional / Catálogo de setores
+O que foi concluído: nove setores informados pelo responsável funcional foram cadastrados no Oracle DEV: Departamento Pessoal, Benefícios, Refeitório, Medicina do Trabalho, Segurança do Trabalho, TI, Almoxarifado BSA, Almoxarifado TBL e Financeiro. Cada criação passou pelo service transacional e gerou evento SECTOR_CREATED com o ator administrativo macari e correlation ID bootstrap-sectors-20260729.
+Decisões: os códigos imutáveis adotados são DEPARTAMENTO_PESSOAL, BENEFICIOS, REFEITORIO, MEDICINA_DO_TRABALHO, SEGURANCA_DO_TRABALHO, TI, ALMOXARIFADO_BSA, ALMOXARIFADO_TBL e FINANCEIRO. Como prazo, escopo e regras específicas ainda não foram levantados, todos iniciam ativos com o padrão explícito da tela: escopo GLOBAL, prazo provisório de 24 horas, bloqueante, sem lançamento de valor, sem exigência de evidência e sem setor de escalada.
+Riscos: a configuração operacional é provisória e não deve ser consumida pelo workflow antes da homologação de prazos, escopos, bloqueios, valores, evidências e escaladas. Almoxarifado BSA e Almoxarifado TBL exigem atenção especial na futura definição dos códigos de empresa/filial para não atender unidades indevidas.
+Pendências: identificar responsáveis e garantir que cada identidade do grupo AD BSA_SGPD seja importada ou vinculada explicitamente a uma conta SGPD; implementar a associação auditada de responsáveis; homologar os atributos operacionais dos nove setores antes da Fase 4.
+Próximo passo: implementar o menor incremento de responsáveis de setor e usar o grupo BSA_SGPD somente para descoberta das identidades, mantendo papéis, responsabilidade e escopos como decisões explícitas do SGPD.
+Comandos executados: inspeção do checkpoint e do catálogo Oracle; carga única dentro de transaction.atomic pelos services de domínio; validação direta das contagens; leitura autenticada pela API de setores; testes direcionados; Django check; validação do manifesto e diff check.
+Arquivos alterados: dados de SGPD_VALIDATION_SECTOR, SGPD_SECTOR_SCOPE e SGPD_SECTOR_AUDIT no Oracle DEV; README.md; REQUIREMENTS.md; RISK_REGISTER.md; ROADMAP.md; CHECKPOINT.md; MANIFEST.json.
+Testes: a transação confirmou 9 setores, 9 escopos e 9 eventos auditados; a API autenticada retornou status 200 e exatamente os nove registros ativos, todos na versão 1 e com escopo global; 24 testes direcionados passaram; Django check não apontou alertas; manifesto e diff permaneceram íntegros. Nenhuma tabela ou dado do Senior foi alterado.
+```
+
+### 2026-07-29 — Papel funcional único e responsabilidade compartilhada
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Simplificação definitiva de autorização funcional
+O que foi concluído: catálogo funcional fixado em RESPONSAVEL_SETOR; criação e edição dinâmica de papéis removidas da API; catálogo de permissões removido; menu, rota e tela /fe/papeis removidos; AssignRoleService limitado ao papel fixo; bootstrap administrativo deixou de atribuir papel funcional ao SuperAdmin; oito papéis legados inativados; atribuições ADMIN_IDENTIDADE de macari e DP de victor.delgado revogadas com auditoria; dez atribuições RESPONSAVEL_SETOR preservadas; migration accounts.0007 aplicada no Oracle DEV com a constraint SGPD_CK_ROLE_ACTIVE_CODE.
+Decisões: não existe coordenador, principal ou substituto. Um setor pode ter um ou mais responsáveis com a mesma autoridade; todos recebem notificações e e-mails; qualquer um pode movimentar a tarefa; a primeira transação válida confirma a ação e as seguintes observam o novo estado sem duplicar efeitos. SuperAdmin permanece autoridade técnica por is_superuser. Capacidades de DP, Financeiro, Medicina e demais áreas decorrerão do setor associado, nunca de novos papéis. ADR-034 registrada.
+Riscos: ações concorrentes de responsáveis podem duplicar transições ou efeitos se o workflow não aplicar lock ou versão, idempotência e emissão após commit; risco R51 registrado. A consulta Senior antes concedida pelo papel DP deixou de ser funcionalmente delegada e permanece acessível ao SuperAdmin até a associação ao setor Departamento Pessoal definir a autorização adequada.
+Pendências: implementar SETOR_RESPONSAVEL sem tipo ou flags individuais; associar os dez usuários aos nove setores e escopos; definir autorização por associação ao setor; implementar fan-out de notificações e a semântica first-writer-wins no futuro workflow; homologar prazos e escopos dos setores.
+Próximo passo: implementar o incremento vertical de responsáveis de setor, com associação explícita, validade, escopo, auditoria, múltiplos destinatários e igualdade de autoridade.
+Comandos executados: inventário de usos de papéis no código, documentação e Oracle; testes direcionados; Ruff; format; Mypy; Django check; makemigrations check; sqlmigrate e migrate --plan; revogação auditada pelos services; bootstrap_roles idempotente; migration accounts.0007; prova da constraint Oracle; suíte completa backend e frontend; build Angular; busca por media query max-width; diff check.
+Arquivos alterados: model, services, bootstrap, serializers, API, URLs e migration 0007 de accounts; rotas, menu, configuração e feature compartilhada de papéis na SPA; testes backend; README.md; ARCHITECTURE.md, DATA_MODEL.md, DECISIONS.md, GLOSSARY.md, INTEGRATION_ACTIVE_DIRECTORY.md, INTEGRATION_SENIOR_ORACLE.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, VISION.md, WORKFLOWS.md, CHECKPOINT.md e MANIFEST.json; dados de SGPD_ROLE, SGPD_ROLE_ASSIGN e SGPD_ACCOUNT_AUDIT no Oracle DEV.
+Testes: 231 testes backend e 57 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 496,25 kB; nenhuma media query max-width introduzida. No Oracle DEV, somente RESPONSAVEL_SETOR está ativo, existem dez atribuições ativas desse papel e nenhuma legada, a constraint está ENABLED e VALIDATED, tentativa de inserir outro papel ativo foi rejeitada, bootstrap repetido não gerou evento e o plano final de migrations está vazio. Nenhum objeto do Senior foi alterado.
+```
+
+### 2026-07-29 — Cadastro de responsáveis por setor
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Configuração funcional / Responsáveis
+O que foi concluído: associação explícita entre setor e usuário com escopo GLOBAL, COMPANY ou BRANCH, validade, versão otimista, revogação lógica e auditoria append-only; services transacionais de designação, alteração e revogação; autorização operacional que exige simultaneamente papel RESPONSAVEL_SETOR e associação efetiva; API REST sem DELETE e lista de candidatos elegíveis; tela Angular responsiva em /fe/responsaveis; migration sectors.0002 aplicada e validada no Oracle DEV.
+Decisões: todos os responsáveis de um setor continuam com a mesma autoridade, sem principal ou substituto; SuperAdmin técnico pode administrar o cadastro, mas não se torna responsável funcional implicitamente; o escopo da associação deve ser coberto pelo setor e pela atribuição do papel, cujo período também deve cobrir toda a responsabilidade; a identidade lógica setor, usuário e escopo é preservada por reativação idempotente da mesma linha; detalhes registrados na ADR-035.
+Riscos: uma atribuição de papel ou setor revogada ou expirada invalida imediatamente a responsabilidade operacional mesmo que a linha da associação ainda esteja ativa; R52 registra essa composição. O fan-out de notificações e a disputa first-writer-wins pertencem ao workflow futuro e ainda não geram efeitos externos.
+Pendências: levantar com o responsável funcional a matriz dos dez usuários para os nove setores e respectivos escopos e vigências; cadastrar somente os vínculos homologados; homologar os atributos provisórios dos setores; implementar grupos, regras, templates, notificações e workflow nos incrementos seguintes.
+Próximo passo: obter e registrar pela nova tela a matriz real de responsáveis, começando pelo Departamento Pessoal, sem inferir associações a partir do grupo AD ou do nome do usuário.
+Comandos executados: testes direcionados e completos; Ruff check e format; Mypy; Django check; makemigrations check; sqlmigrate, migrate, consultas de catálogo e migrate --plan no Oracle DEV; smokes autenticados de listagem e candidatos; Vitest; build Angular; busca por media query max-width; diff check; inspeção visual em Chromium nos viewports 360, 390, 768, 1024 e 1440 px.
+Arquivos alterados: models, authorization, services, serializers, API, URLs, admin e migration 0002 de sectors; rotas Django; nova feature frontend/src/app/features/responsaveis e integrações de rota, menu e API; testes backend e frontend; README.md; ARCHITECTURE.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 257 testes backend e 61 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 496,38 kB e chunk lazy de Responsáveis de 23,93 kB; nenhuma media query max-width foi introduzida. A inspeção visual confirmou cards móveis, tabela a partir de md, formulário responsivo, alvos de 44 px no móvel e ausência de overflow horizontal nos cinco pontos de quebra. No Oracle DEV, a tabela SGPD_SECTOR_RESPONSIBLE existe com 27 constraints habilitadas e validadas e 10 índices válidos, a migration está aplicada com plano final vazio, as APIs retornaram 200 e nenhuma associação real foi criada. Nenhum objeto ou dado do Senior foi alterado.
+```
+
+### 2026-07-29 — Papel DP cumulativo
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Autorização funcional para preparar o workflow
+O que foi concluído: catálogo funcional fixo ampliado para DP e RESPONSAVEL_SETOR; papéis acumuláveis na mesma conta; helper has_effective_role para validar código, vigência e escopo sem tornar SuperAdmin implicitamente funcional; AssignRoleService, API e bootstrap ajustados; DP recebe somente query_senior_references neste incremento; explicação dos dois papéis adicionada ao cadastro e detalhe de usuário; migration accounts.0008 aplicada no Oracle DEV; registro histórico DP reativado e auditado.
+Decisões: DP coordena abertura, acompanhamento, análise, liberação, cancelamento e encerramento do processo; RESPONSAVEL_SETOR continua habilitando tarefas somente junto da associação explícita ao setor. Ser responsável pelo setor Departamento Pessoal, pertencer a grupo AD ou ser SuperAdmin não concede DP. A mesma pessoa pode acumular os dois papéis, inclusive em escopos diferentes. As transições permanecem para o Checkpoint 4 e deverão revalidar DP, estado, prontidão, concorrência e auditoria. ADR-036 registrada e ADR-034 parcialmente substituída.
+Riscos: confundir DP com o setor Departamento Pessoal poderia ampliar autoridade; R53 registra a mitigação por atribuição explícita, escopo, validade e checagem no service. O papel DP está ativo, mas não possui atribuição ativa no Oracle DEV; nenhuma identidade foi inferida a partir das associações existentes.
+Pendências: designar explicitamente um ou mais usuários ao papel DP e seus escopos; implementar no Checkpoint 4 os services e endpoints de abertura, acompanhamento, análise, liberação, cancelamento e encerramento; homologar as demais regras do processo.
+Próximo passo: atribuir DP pela tela de detalhe ao usuário indicado pelo responsável funcional e iniciar o incremento vertical de abertura do processo, usando has_effective_role no limite do service.
+Comandos executados: leitura do estado documental, código e migrations; consultas Oracle somente leitura de papéis, atribuições e responsabilidades; testes direcionados; makemigrations check; sqlmigrate e revisão do DDL; migrate accounts 0008; bootstrap_roles e repetição idempotente; validação da constraint e do plano final; suíte backend e frontend; Ruff, format, Mypy e Django check; build Angular; inspeção visual em Chromium nos viewports 360 e 1440 px; validação do catálogo pela API.
+Arquivos alterados: models, authorization, services, API, bootstrap e migration 0008 de accounts; textos e teste das telas Angular de usuários; testes backend de catálogo, acumulação, escopo, autorização, API e responsabilidade de setor; README.md; ARCHITECTURE.md, DATA_MODEL.md, DECISIONS.md, GLOSSARY.md, INTEGRATION_ACTIVE_DIRECTORY.md, INTEGRATION_SENIOR_ORACLE.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, VISION.md, WORKFLOWS.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 258 testes backend e 61 testes frontend passaram; Mypy e Django check sem erros; models e migrations sem divergência; build de produção concluído com bundle inicial de 496,38 kB. A inspeção visual confirmou o texto de acumulação e o diálogo de atribuição sem overflow em 360 e 1440 px; a API retornou DP e RESPONSAVEL_SETOR. No Oracle DEV, ambos estão ativos, DP conserva exclusivamente accounts.query_senior_references, RESPONSAVEL_SETOR não possui permissão administrativa, a constraint SGPD_CK_ROLE_ACTIVE_CODE está ENABLED e VALIDATED e o plano final de migrations está vazio. As dez atribuições RESPONSAVEL_SETOR e as dez responsabilidades de setor permaneceram intactas; DP permanece sem atribuição ativa. O bootstrap repetido não alterou registros. Nenhum objeto ou dado do Senior foi alterado.
+```
+
+### 2026-07-29 — Designação operacional do DP
+
+```text
+Data: 2026-07-29
+Responsável: responsável funcional, via SPA
+Fase: Checkpoint 3 — Configuração da autoridade funcional
+O que foi concluído: papel DP atribuído explicitamente a victor.delgado no escopo GLOBAL, sem validade final; a mesma conta preserva RESPONSAVEL_SETOR global e a responsabilidade global pelo setor Departamento Pessoal; evento ROLE_ASSIGNED registrado com ator, alvo, escopo, vigência, motivo padronizado e correlation ID.
+Decisões: a designação confirma a acumulação prevista na ADR-036, mas não altera a separação entre papel e responsabilidade de setor; nenhum responsável de setor, membro de grupo AD ou SuperAdmin recebe DP automaticamente.
+Riscos: o escopo GLOBAL concede a autoridade DP futura sobre todas as empresas e filiais; cada service do workflow deverá revalidar a atribuição vigente, o estado do processo, prontidão, concorrência e auditoria antes de agir. O risco R53 permanece aberto até essas transições serem implementadas e testadas.
+Pendências: implementar no Checkpoint 4 os services e endpoints de abertura, acompanhamento, análise, liberação, cancelamento e encerramento; homologar as demais regras do processo.
+Próximo passo: iniciar o incremento vertical de abertura do processo demissional e usar has_effective_role no limite do service.
+Comandos executados: consultas Oracle somente leitura das atribuições, responsabilidades e eventos de auditoria; revisão documental; validação do manifesto e do diff.
+Arquivos alterados: README.md; DATA_MODEL.md; ROADMAP.md; SECURITY.md; CHECKPOINT.md; MANIFEST.json.
+Testes: o Oracle DEV confirmou uma atribuição DP ativa: usuário victor.delgado, escopo GLOBAL, sem término. A mesma conta possui RESPONSAVEL_SETOR GLOBAL e responsabilidade GLOBAL pelo setor DEPARTAMENTO_PESSOAL. Permanecem 10 responsabilidades de setor ativas. Nenhum objeto ou dado do Senior foi consultado ou alterado.
 ```

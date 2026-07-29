@@ -2,7 +2,10 @@
 
 ## DP
 
-Departamento Pessoal.
+Papel funcional do Departamento Pessoal que coordena o ciclo demissional:
+abertura, acompanhamento, análise, liberação e encerramento. Pode coexistir
+com `RESPONSAVEL_SETOR` e não é concedido automaticamente pela associação ao
+setor Departamento Pessoal.
 
 ## Processo demissional
 
@@ -54,7 +57,8 @@ Resultado da avaliação automática das condições de liberação.
 
 ## Liberação
 
-Ação explícita do DP autorizando o prosseguimento da rescisão.
+Ação explícita de usuário com o papel `DP` vigente no escopo autorizando o
+prosseguimento da rescisão.
 
 ## Encerramento
 

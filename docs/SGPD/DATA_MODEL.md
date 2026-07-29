@@ -2,11 +2,11 @@
 
 ## Estado do documento
 
-Este é o modelo conceitual do produto. Na implementação atual, contas, papéis,
-escopos, auditoria de contas e configuração técnica LDAP possuem models e
-migrations. Os
-demais domínios serão detalhados e implementados nos checkpoints das Fases 3 a
-9; seus nomes abaixo não autorizam criação antecipada de schema.
+Este é o modelo conceitual do produto. Na implementação atual, contas, o papel,
+escopos, auditoria de contas, configuração técnica LDAP, setores, escopos de
+setor, responsáveis e sua auditoria possuem models e migrations. Os demais
+domínios serão detalhados e implementados nos checkpoints das Fases 3 a 9;
+seus nomes abaixo não autorizam criação antecipada de schema.
 
 ## 1. Princípios
 
@@ -25,7 +25,8 @@ demais domínios serão detalhados e implementados nos checkpoints das Fases 3 a
 
 ### Usuários e identidade
 
-Usuários, gestores, e-mails, papéis e escopos pertencem ao SGPD e não são obtidos do Senior.
+Usuários, e-mails, papéis funcionais e escopos pertencem ao SGPD e não são
+obtidos do Senior.
 
 #### SGPD_USER
 
@@ -65,17 +66,17 @@ independente do vínculo.
 - `UPDATED_AT`
 - relação com permissões delegáveis do Django.
 
-Catálogo inicial:
+Catálogo funcional fixo:
 
-- `ADMIN_IDENTIDADE`;
-- `DP`;
 - `RESPONSAVEL_SETOR`;
-- `COORDENADOR_SETOR`;
-- `GESTOR_IMEDIATO`;
-- `FINANCEIRO`;
-- `JURIDICO`;
-- `AUDITOR`;
-- `ADMIN_FUNCIONAL`.
+- `DP`.
+
+Somente esses códigos podem permanecer ativos, conforme
+`SGPD_CK_ROLE_ACTIVE_CODE`. Os oito papéis que estavam fora da decisão de
+`RESPONSAVEL_SETOR` foram inativados em 2026-07-29; `DP` foi reativado pela
+decisão posterior, deixando sete papéis legados inativos e fisicamente
+preservados para rastreabilidade. SuperAdmin é o atributo técnico
+`SGPD_USER.IS_SUPERUSER`, não um papel.
 
 #### SGPD_ROLE_ASSIGN
 
@@ -94,9 +95,17 @@ Catálogo inicial:
 - `REVOKED_BY_ID`
 - `REVOKED_AT`
 
-A atribuição é única por usuário, papel e chave de escopo. Empresa é
-obrigatória no escopo de empresa; empresa e filial são obrigatórias no escopo
-de filial. A revogação é lógica, com data, responsável e auditoria.
+A atribuição é única por usuário, papel e chave de escopo. Como o catálogo é
+fixo, toda nova atribuição referencia `RESPONSAVEL_SETOR` ou `DP`; a mesma
+conta pode acumular ambos. Empresa é obrigatória no escopo de empresa; empresa
+e filial são obrigatórias no escopo de filial. A revogação é lógica, com data,
+responsável e auditoria.
+
+No Oracle DEV, em 2026-07-29, `victor.delgado` passou a acumular atribuições
+globais ativas de `DP` e `RESPONSAVEL_SETOR`. A conta também possui
+responsabilidade global pelo setor Departamento Pessoal. Esse registro
+comprova a coexistência prevista pelo modelo, mas não cria vínculo automático
+entre papel e setor.
 
 #### SGPD_ACCOUNT_AUDIT
 
@@ -161,23 +170,74 @@ Campos necessários para filtros e regras serão transportados como valores vind
 - `SETOR_ESCALADA_ID`
 - `CRIADO_EM`
 - `ATUALIZADO_EM`
+- `VERSAO`
+
+O código é normalizado em maiúsculas e imutável após a criação. O setor pode
+ser inativado, mas não excluído. `VERSAO` implementa concorrência otimista.
+Um setor de escalada deve estar ativo, não pode ser o próprio setor e a cadeia
+não pode formar ciclo.
+
+#### SETOR_ESCOPO
+
+- `ID`
+- `SETOR_ID`
+- `TIPO_ESCOPO`: `GLOBAL`, `COMPANY` ou `BRANCH`
+- `EMPRESA_CODIGO`
+- `FILIAL_CODIGO`
+- `CHAVE_ESCOPO`
+
+Existe ao menos um escopo por setor. Global não pode ser combinado com empresa
+ou filial. Empresa cobre todas as suas filiais e, portanto, não pode coexistir
+com uma filial redundante da mesma empresa. Os códigos são referências externas
+sem foreign key ou cópia de cadastro do Senior.
+
+#### SETOR_AUDITORIA
+
+- `ID`
+- `UUID`
+- `TIPO_EVENTO`
+- `ATOR_ID`
+- `SETOR_ID`
+- `OCORRIDO_EM`
+- `JUSTIFICATIVA`
+- `ALTERACOES_JSON`
+- `CORRELATION_ID`
+
+Registra criação, alteração, ativação e inativação. É append-only e preserva
+estado anterior e posterior, inclusive escopos.
 
 #### SETOR_RESPONSAVEL
 
 - `ID`
 - `SETOR_ID`
 - `USUARIO_ID`
-- `TIPO_RESPONSABILIDADE`
+- `TIPO_ESCOPO`: `GLOBAL`, `COMPANY` ou `BRANCH`
 - `EMPRESA_CODIGO`
 - `FILIAL_CODIGO`
-- `DATA_INICIO`
-- `DATA_FIM`
-- `RECEBE_NOTIFICACAO`
-- `PODE_CONCLUIR`
-- `PODE_LANCAR_PENDENCIA`
-- `PODE_LANCAR_VALOR`
-- `PODE_APROVAR_EXCECAO`
+- `CHAVE_ESCOPO`
+- `VALIDO_DE`
+- `VALIDO_ATE`
 - `ATIVO`
+- `ATRIBUIDO_POR_ID`
+- `ATRIBUIDO_EM`
+- `ATUALIZADO_POR_ID`
+- `ATUALIZADO_EM`
+- `REVOGADO_POR_ID`
+- `REVOGADO_EM`
+- `VERSAO`
+
+Não existe tipo de responsabilidade. Todos os responsáveis ativos do mesmo
+setor possuem a mesma autoridade, recebem as mesmas notificações e podem
+movimentar a tarefa. As capacidades decorrem do setor e do estado do processo,
+sem flags individuais.
+
+A associação é única por usuário, setor e chave de escopo, usa validade com
+término exclusivo, versão otimista e revogação lógica. Seu escopo deve caber
+simultaneamente na cobertura do setor e em uma atribuição vigente do papel
+`RESPONSAVEL_SETOR`; essa atribuição também deve cobrir todo o período da
+responsabilidade. Setor, usuário, papel e associação são bloqueados em ordem
+pelo service antes da mutação. Eventos de associação, atualização e revogação
+reutilizam `SETOR_AUDITORIA`, com IDs técnicos e estado anterior/posterior.
 
 ### Grupos de validação
 
