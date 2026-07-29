@@ -10,13 +10,16 @@ export const apiConfig = {
 
     accountsUsers: '/api/v1/accounts/users/',
     accountsRoles: '/api/v1/accounts/roles/',
-    accountsPermissions: '/api/v1/accounts/permissions/',
     accountsAudit: '/api/v1/accounts/audit/',
     accountsRoleAssignments: '/api/v1/accounts/role-assignments/',
     accountsDirectoryStatus: '/api/v1/accounts/directory/status/',
     accountsDirectoryUsers: '/api/v1/accounts/directory/users/',
     accountsDirectoryGroups: '/api/v1/accounts/directory/groups/',
     accountsDirectoryUserCreate: '/api/v1/accounts/directory/users/create/',
+
+    sectors: '/api/v1/sectors/',
+    sectorResponsibilities: '/api/v1/sector-responsibilities/',
+    sectorResponsibilityCandidates: '/api/v1/sector-responsibilities/candidates/',
 
     settingsLdap: '/api/v1/settings/ldap/',
     settingsLdapValidate: '/api/v1/settings/ldap/validate/',

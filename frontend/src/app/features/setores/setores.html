@@ -1,0 +1,377 @@
+<header class="pagina-cabecalho">
+  <div>
+    <h1 class="page-title">Setores</h1>
+    <p class="page-lead">
+      Áreas responsáveis pelas validações, seus prazos e escopos de atendimento.
+    </p>
+  </div>
+  <div class="pagina-acoes">
+    <p-button
+      type="button"
+      icon="pi pi-plus"
+      label="Novo setor"
+      (onClick)="abrir()"
+    ></p-button>
+  </div>
+</header>
+
+@if (erroPagina()) {
+  <p-message severity="error" [text]="erroPagina()"></p-message>
+}
+
+@if (vazio()) {
+  <p class="vazio">Nenhum setor cadastrado.</p>
+}
+
+<div class="lista-cartoes">
+  @for (setor of setores(); track setor.id) {
+    <article class="cartao">
+      <div class="cartao__topo">
+        <span class="cartao__titulo">{{ setor.code }} — {{ setor.name }}</span>
+        <span
+          class="selo"
+          [class.selo--ativo]="setor.is_active"
+          [class.selo--inativo]="!setor.is_active"
+        >
+          {{ setor.is_active ? 'Ativo' : 'Inativo' }}
+        </span>
+      </div>
+      <dl class="cartao__campo">
+        <dt>Prazo</dt>
+        <dd>{{ setor.default_due_hours }} horas</dd>
+      </dl>
+      <div class="selos">
+        @if (setor.blocks_process) {
+          <span class="selo selo--atencao">Bloqueante</span>
+        }
+        @if (setor.allows_amount) {
+          <span class="selo selo--info">Permite valores</span>
+        }
+        @if (setor.requires_evidence) {
+          <span class="selo selo--info">Exige evidência</span>
+        }
+      </div>
+      <div class="escopos">
+        @for (scope of setor.scopes; track scope.scope_key) {
+          <span>{{ rotuloEscopo(scope) }}</span>
+        }
+      </div>
+      <div class="cartao__acoes">
+        <p-button
+          type="button"
+          size="small"
+          [outlined]="true"
+          icon="pi pi-pencil"
+          label="Editar"
+          (onClick)="abrir(setor)"
+        ></p-button>
+      </div>
+    </article>
+  }
+</div>
+
+<div class="lista-tabela">
+  <table class="tabela">
+    <caption class="sr-only">Setores de validação do SGPD</caption>
+    <thead>
+      <tr>
+        <th scope="col">Código</th>
+        <th scope="col">Nome</th>
+        <th scope="col">Prazo</th>
+        <th scope="col">Escopo</th>
+        <th scope="col">Regras</th>
+        <th scope="col">Situação</th>
+        <th scope="col"><span class="sr-only">Ações</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (setor of setores(); track setor.id) {
+        <tr>
+          <td><strong>{{ setor.code }}</strong></td>
+          <td>{{ setor.name }}</td>
+          <td>{{ setor.default_due_hours }} h</td>
+          <td>
+            <div class="escopos">
+              @for (scope of setor.scopes; track scope.scope_key) {
+                <span>{{ rotuloEscopo(scope) }}</span>
+              }
+            </div>
+          </td>
+          <td>
+            <div class="selos">
+              @if (setor.blocks_process) {
+                <span class="selo selo--atencao">Bloqueante</span>
+              }
+              @if (setor.allows_amount) {
+                <span class="selo selo--info">Valores</span>
+              }
+              @if (setor.requires_evidence) {
+                <span class="selo selo--info">Evidência</span>
+              }
+            </div>
+          </td>
+          <td>
+            <span
+              class="selo"
+              [class.selo--ativo]="setor.is_active"
+              [class.selo--inativo]="!setor.is_active"
+            >
+              {{ setor.is_active ? 'Ativo' : 'Inativo' }}
+            </span>
+          </td>
+          <td class="tabela__acoes">
+            <p-button
+              type="button"
+              size="small"
+              [text]="true"
+              icon="pi pi-pencil"
+              [ariaLabel]="'Editar ' + setor.code"
+              (onClick)="abrir(setor)"
+            ></p-button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<p-dialog
+  [header]="titulo()"
+  [visible]="dialogoAberto()"
+  (visibleChange)="dialogoAberto.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '95vw', maxWidth: '50rem' }"
+>
+  <form class="formulario" [formGroup]="formulario" (ngSubmit)="salvar()">
+    @if (erroFormulario()) {
+      <p-message severity="error" [text]="erroFormulario()"></p-message>
+    }
+
+    <div class="campo-duplo">
+      <div class="campo">
+        <label for="sector_code">Código</label>
+        <input
+          pInputText
+          id="sector_code"
+          formControlName="code"
+          autocapitalize="characters"
+          spellcheck="false"
+        />
+        @if (emEdicao()) {
+          <small class="campo__ajuda">O código não muda após a criação.</small>
+        }
+        @for (erro of erros('code'); track erro) {
+          <small class="campo__erro">{{ erro }}</small>
+        }
+      </div>
+      <div class="campo">
+        <label for="sector_name">Nome</label>
+        <input pInputText id="sector_name" formControlName="name" />
+        @for (erro of erros('name'); track erro) {
+          <small class="campo__erro">{{ erro }}</small>
+        }
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="sector_description">Descrição</label>
+      <textarea
+        pTextarea
+        id="sector_description"
+        formControlName="description"
+        rows="2"
+      ></textarea>
+      @for (erro of erros('description'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </div>
+
+    <div class="campo-duplo">
+      <div class="campo">
+        <label for="default_due_hours">Prazo padrão em horas</label>
+        <p-inputnumber
+          inputId="default_due_hours"
+          formControlName="default_due_hours"
+          [useGrouping]="false"
+          [min]="1"
+          [max]="8760"
+        ></p-inputnumber>
+        @for (erro of erros('default_due_hours'); track erro) {
+          <small class="campo__erro">{{ erro }}</small>
+        }
+      </div>
+      <div class="campo">
+        <label for="escalation_sector_id">Setor de escalada</label>
+        <p-select
+          inputId="escalation_sector_id"
+          formControlName="escalation_sector_id"
+          [options]="setoresEscalada()"
+          optionValue="id"
+          optionLabel="name"
+          placeholder="Sem escalada"
+          [showClear]="true"
+          appendTo="body"
+        >
+          <ng-template #item let-sector>
+            {{ sector.code }} — {{ sector.name }}
+          </ng-template>
+          <ng-template #selectedItem let-sector>
+            {{ sector.code }} — {{ sector.name }}
+          </ng-template>
+        </p-select>
+        @for (erro of erros('escalation_sector_id'); track erro) {
+          <small class="campo__erro">{{ erro }}</small>
+        }
+      </div>
+    </div>
+
+    <fieldset class="regras">
+      <legend>Comportamento padrão</legend>
+      <div class="regras__grade">
+        <div class="campo campo--checkbox">
+          <p-checkbox
+            inputId="blocks_process"
+            formControlName="blocks_process"
+            [binary]="true"
+          ></p-checkbox>
+          <label for="blocks_process">Bloqueia o processo</label>
+        </div>
+        <div class="campo campo--checkbox">
+          <p-checkbox
+            inputId="allows_amount"
+            formControlName="allows_amount"
+            [binary]="true"
+          ></p-checkbox>
+          <label for="allows_amount">Permite lançar valores</label>
+        </div>
+        <div class="campo campo--checkbox">
+          <p-checkbox
+            inputId="requires_evidence"
+            formControlName="requires_evidence"
+            [binary]="true"
+          ></p-checkbox>
+          <label for="requires_evidence">Exige evidência</label>
+        </div>
+        @if (emEdicao()) {
+          <div class="campo campo--checkbox">
+            <p-checkbox
+              inputId="sector_is_active"
+              formControlName="is_active"
+              [binary]="true"
+            ></p-checkbox>
+            <label for="sector_is_active">Setor ativo</label>
+          </div>
+        }
+      </div>
+    </fieldset>
+
+    <fieldset class="escopos-form" formArrayName="scopes">
+      <legend>Empresas e filiais atendidas</legend>
+      <p>
+        Use os códigos oficiais do Senior. “Todas as empresas” não pode ser
+        combinado com escopos específicos.
+      </p>
+      @for (
+        scopeGroup of formulario.controls.scopes.controls;
+        track scopeGroup;
+        let index = $index
+      ) {
+        <div class="escopo-form" [formGroupName]="index">
+          <div class="campo">
+            <label [for]="'scope_type_' + index">Abrangência</label>
+            <p-select
+              [inputId]="'scope_type_' + index"
+              formControlName="scope_type"
+              [options]="tiposEscopo"
+              optionLabel="label"
+              optionValue="value"
+              (onChange)="alterarTipoEscopo(index)"
+            ></p-select>
+            @for (erro of errosEscopo(index, 'scope_type'); track erro) {
+              <small class="campo__erro">{{ erro }}</small>
+            }
+          </div>
+          <div class="campo">
+            <label [for]="'company_code_' + index">Empresa</label>
+            <p-inputnumber
+              [inputId]="'company_code_' + index"
+              formControlName="company_code"
+              [useGrouping]="false"
+              [min]="1"
+            ></p-inputnumber>
+            @for (erro of errosEscopo(index, 'company_code'); track erro) {
+              <small class="campo__erro">{{ erro }}</small>
+            }
+          </div>
+          <div class="campo">
+            <label [for]="'branch_code_' + index">Filial</label>
+            <p-inputnumber
+              [inputId]="'branch_code_' + index"
+              formControlName="branch_code"
+              [useGrouping]="false"
+              [min]="1"
+            ></p-inputnumber>
+            @for (erro of errosEscopo(index, 'branch_code'); track erro) {
+              <small class="campo__erro">{{ erro }}</small>
+            }
+          </div>
+          <p-button
+            type="button"
+            severity="danger"
+            [text]="true"
+            icon="pi pi-trash"
+            [ariaLabel]="'Remover escopo ' + (index + 1)"
+            [disabled]="formulario.controls.scopes.length === 1"
+            (onClick)="removerEscopo(index)"
+          ></p-button>
+        </div>
+      }
+      <div>
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-plus"
+          label="Adicionar escopo"
+          [disabled]="possuiEscopoGlobal()"
+          (onClick)="adicionarEscopo()"
+        ></p-button>
+      </div>
+      @for (erro of erros('scopes'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </fieldset>
+
+    <div class="campo">
+      <label for="sector_reason">Justificativa</label>
+      <textarea
+        pTextarea
+        id="sector_reason"
+        formControlName="reason"
+        rows="3"
+      ></textarea>
+      @for (erro of erros('reason'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
+    </div>
+
+    <div class="dialogo-acoes">
+      <p-button
+        type="button"
+        severity="secondary"
+        [text]="true"
+        label="Cancelar"
+        (onClick)="dialogoAberto.set(false)"
+      ></p-button>
+      <p-button
+        type="submit"
+        icon="pi pi-check"
+        label="Salvar setor"
+        [loading]="salvando()"
+        (onClick)="salvar()"
+      ></p-button>
+    </div>
+  </form>
+</p-dialog>

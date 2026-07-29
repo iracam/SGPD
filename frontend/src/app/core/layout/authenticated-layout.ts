@@ -40,18 +40,25 @@ export class AuthenticatedLayout {
       feature: 'query_senior_references',
     },
     {
+      label: 'Setores',
+      route: '/fe/setores',
+      icon: 'pi pi-building',
+      description: 'Setores de validação, prazos e escopos de atendimento',
+      feature: 'manage_sectors',
+    },
+    {
+      label: 'Responsáveis',
+      route: '/fe/responsaveis',
+      icon: 'pi pi-user-plus',
+      description: 'Usuários, setores, escopos e validade das responsabilidades',
+      feature: 'manage_sectors',
+    },
+    {
       label: 'Usuários',
       route: '/fe/usuarios',
       icon: 'pi pi-users',
       description: 'Contas, senhas e vínculo com o Active Directory',
       feature: 'manage_users',
-    },
-    {
-      label: 'Papéis',
-      route: '/fe/papeis',
-      icon: 'pi pi-shield',
-      description: 'Papéis, permissões e escopos de empresa e filial',
-      feature: 'manage_roles',
     },
     {
       label: 'Auditoria',

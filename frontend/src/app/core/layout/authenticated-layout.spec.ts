@@ -64,6 +64,7 @@ describe('AuthenticatedLayout', () => {
         manage_roles: { can_view: false },
         view_account_audit: { can_view: false },
         query_senior_references: { can_view: false },
+        manage_sectors: { can_view: false },
       }),
     );
     await fixture.whenStable();
@@ -80,12 +81,20 @@ describe('AuthenticatedLayout', () => {
         manage_roles: { can_view: false },
         view_account_audit: { can_view: true },
         query_senior_references: { can_view: true },
+        manage_sectors: { can_view: true },
       }),
     );
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(labels()).toEqual(['Painel', 'Colaboradores', 'Usuários', 'Auditoria']);
+    expect(labels()).toEqual([
+      'Painel',
+      'Colaboradores',
+      'Setores',
+      'Responsáveis',
+      'Usuários',
+      'Auditoria',
+    ]);
   });
 
   it('mostra a seção Configurações somente para SuperAdmin', async () => {
@@ -97,6 +106,7 @@ describe('AuthenticatedLayout', () => {
           manage_roles: { can_view: true },
           view_account_audit: { can_view: true },
           query_senior_references: { can_view: true },
+          manage_sectors: { can_view: true },
         },
         true,
       ),

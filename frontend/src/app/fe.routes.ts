@@ -33,6 +33,20 @@ export const FE_ROUTES: Routes = [
             title: 'Colaboradores | SGPD',
           },
           {
+            path: 'setores',
+            loadComponent: () =>
+              import('./features/setores/setores').then((m) => m.SetoresPage),
+            title: 'Setores | SGPD',
+          },
+          {
+            path: 'responsaveis',
+            loadComponent: () =>
+              import('./features/responsaveis/responsaveis').then(
+                (m) => m.ResponsaveisPage,
+              ),
+            title: 'Responsáveis por setor | SGPD',
+          },
+          {
             path: 'usuarios',
             loadComponent: () => import('./features/usuarios/usuarios').then((m) => m.UsuariosPage),
             title: 'Usuários | SGPD',
@@ -42,11 +56,6 @@ export const FE_ROUTES: Routes = [
             loadComponent: () =>
               import('./features/usuarios/usuario-detalhe').then((m) => m.UsuarioDetalhePage),
             title: 'Usuário | SGPD',
-          },
-          {
-            path: 'papeis',
-            loadComponent: () => import('./features/papeis/papeis').then((m) => m.PapeisPage),
-            title: 'Papéis | SGPD',
           },
           {
             path: 'auditoria',

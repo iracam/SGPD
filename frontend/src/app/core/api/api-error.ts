@@ -26,7 +26,11 @@ export function fieldErrors(error: unknown): FieldErrors {
       return;
     }
     if (Array.isArray(detail)) {
-      normalized[prefix] = detail.map(String);
+      if (detail.every((item) => item === null || typeof item !== 'object')) {
+        normalized[prefix] = detail.map(String);
+        return;
+      }
+      detail.forEach((nested, index) => visit(`${prefix}.${index}`, nested));
       return;
     }
     if (detail !== null && typeof detail === 'object') {

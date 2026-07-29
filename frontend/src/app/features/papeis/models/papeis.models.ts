@@ -13,20 +13,3 @@ export interface Papel {
   version: number;
   permissions: Permissao[];
 }
-
-export interface NovoPapel {
-  code: string;
-  name: string;
-  description: string;
-  permission_ids: number[];
-  reason: string;
-}
-
-export interface EdicaoPapel {
-  version: number;
-  name: string;
-  description: string;
-  is_active: boolean;
-  permission_ids: number[];
-  reason: string;
-}

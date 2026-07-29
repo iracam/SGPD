@@ -1,0 +1,81 @@
+@use 'listagem';
+@use 'breakpoints' as bp;
+
+.escopos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.82rem;
+}
+
+.campo__ajuda,
+.escopos-form > p {
+  color: var(--p-text-muted-color);
+  font-size: 0.82rem;
+}
+
+.regras,
+.escopos-form {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.75rem;
+
+  legend {
+    padding: 0 0.35rem;
+    font-weight: 700;
+  }
+}
+
+.regras__grade {
+  display: grid;
+  gap: 0.55rem;
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.escopos-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  > p {
+    margin: 0;
+  }
+}
+
+.escopo-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--p-content-border-color);
+
+  .campo {
+    grid-column: 1;
+  }
+
+  > p-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+
+    .campo,
+    > p-button {
+      grid-column: auto;
+      grid-row: auto;
+    }
+  }
+}
+
+p-inputnumber,
+p-select {
+  width: 100%;
+}

@@ -1,0 +1,70 @@
+@use 'listagem';
+@use 'breakpoints' as bp;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.lista-tabela {
+  contain: paint;
+  max-width: 100%;
+}
+
+.identidade,
+td small {
+  display: block;
+  margin: 0.15rem 0 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.82rem;
+}
+
+.campo__ajuda,
+.escopo > p {
+  color: var(--p-text-muted-color);
+  font-size: 0.82rem;
+}
+
+.escopo {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.75rem;
+
+  legend {
+    padding: 0 0.35rem;
+    font-weight: 700;
+  }
+
+  > p {
+    margin: 0 0 0.75rem;
+  }
+}
+
+.escopo__grade {
+  display: grid;
+  gap: 0.75rem;
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.opcao-usuario {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  small {
+    color: var(--p-text-muted-color);
+  }
+}
+
+p-inputnumber,
+p-select {
+  width: 100%;
+}
+
+.tabela__acoes {
+  white-space: nowrap;
+}

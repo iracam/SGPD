@@ -107,6 +107,9 @@ describe('UsuarioDetalhePage', () => {
 
   it('atribui papel sem solicitar ou enviar justificativa manual', async () => {
     await render();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Os dois papéis podem coexistir nesta conta.',
+    );
     fixture.componentInstance.abrir('papel');
     fixture.componentInstance.formPapel.setValue({
       role_id: 7,

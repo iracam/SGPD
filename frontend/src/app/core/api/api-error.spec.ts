@@ -43,6 +43,20 @@ describe('api-error', () => {
     });
   });
 
+  it('preserva o índice de erros em listas de formulários aninhados', () => {
+    const erro = resposta({
+      code: 'validation_error',
+      message: 'Os dados enviados são inválidos.',
+      details: {
+        scopes: [{ branch_code: ['Informe empresa e filial.'] }],
+      },
+    });
+
+    expect(fieldErrors(erro)).toEqual({
+      'scopes.0.branch_code': ['Informe empresa e filial.'],
+    });
+  });
+
   it('devolve objeto vazio quando não há details', () => {
     expect(fieldErrors(resposta({ code: 'permission_denied', message: 'Negado.' }))).toEqual({});
   });
