@@ -1,9 +1,8 @@
 <header class="pagina-cabecalho">
   <div>
-    <h1 class="page-title">Colaboradores</h1>
+    <h1 class="page-title">Abrir processo</h1>
     <p class="page-lead">
-      Consulte Empresa → Filial → Tipo de colaborador → Colaborador diretamente no Senior
-      HCM.
+      Selecione o colaborador no Senior HCM e registre o rascunho do processo demissional.
     </p>
   </div>
 </header>
@@ -13,8 +12,8 @@
     <div>
       <h2 id="titulo-consulta">Seleção cadastral</h2>
       <p>
-        As opções respeitam seu escopo no SGPD. Esta tela não altera o Senior nem cria
-        snapshot.
+        As opções respeitam seu escopo de DP. O Senior nunca é alterado; o snapshot é
+        criado somente ao confirmar a abertura.
       </p>
     </div>
     @if (consultando()) {
@@ -246,4 +245,152 @@
       </div>
     </dl>
   </section>
+
+  <section class="abertura" aria-labelledby="titulo-abertura">
+    <div class="abertura__cabecalho">
+      <div>
+        <span class="resumo__rotulo">Dados do processo</span>
+        <h2 id="titulo-abertura">Abertura do rascunho</h2>
+      </div>
+      <p>
+        O service consultará novamente o Senior e revalidará o papel DP no escopo antes
+        de gravar.
+      </p>
+    </div>
+
+    <form
+      class="formulario-abertura"
+      [formGroup]="formularioAbertura"
+      (ngSubmit)="abrirProcesso()"
+    >
+      <div class="campo campo--largo">
+        <label for="gestor">Gestor imediato</label>
+        <p-select
+          inputId="gestor"
+          formControlName="manager_user_id"
+          [options]="gestores()"
+          optionLabel="label"
+          optionValue="id"
+          placeholder="Selecione o gestor cadastrado no SGPD"
+          emptyMessage="Nenhum gestor disponível"
+          [loading]="carregandoGestores()"
+          [disabled]="carregandoGestores() || gestores().length === 0"
+          [filter]="true"
+          filterBy="display_name,email,username"
+          ariaLabel="Gestor imediato"
+        ></p-select>
+        @for (erro of erros('manager_user_id'); track erro) {
+          <small class="erro-campo">{{ erro }}</small>
+        }
+        @if (erroGestores()) {
+          <div class="erro-nivel">
+            <p-message severity="error" [text]="erroGestores()"></p-message>
+            <p-button
+              type="button"
+              size="small"
+              [outlined]="true"
+              label="Tentar novamente"
+              (onClick)="tentarGestores()"
+            ></p-button>
+          </div>
+        }
+      </div>
+
+      <div class="campo">
+        <label for="data-prevista">Data prevista de desligamento</label>
+        <input
+          pInputText
+          id="data-prevista"
+          type="date"
+          formControlName="planned_termination_date"
+        />
+        @for (erro of erros('planned_termination_date'); track erro) {
+          <small class="erro-campo">{{ erro }}</small>
+        }
+      </div>
+
+      <div class="campo">
+        <label for="data-limite">Data limite</label>
+        <input pInputText id="data-limite" type="date" formControlName="due_date" />
+        @for (erro of erros('due_date'); track erro) {
+          <small class="erro-campo">{{ erro }}</small>
+        }
+      </div>
+
+      <div class="campo">
+        <label for="prioridade">Prioridade</label>
+        <input
+          pInputText
+          id="prioridade"
+          type="text"
+          maxlength="50"
+          formControlName="priority"
+          placeholder="Informe a prioridade"
+        />
+        @for (erro of erros('priority'); track erro) {
+          <small class="erro-campo">{{ erro }}</small>
+        }
+      </div>
+
+      <div class="campo campo--largo">
+        <label for="motivo">Motivo</label>
+        <textarea
+          pTextarea
+          id="motivo"
+          rows="3"
+          maxlength="2000"
+          formControlName="reason"
+        ></textarea>
+        @for (erro of erros('reason'); track erro) {
+          <small class="erro-campo">{{ erro }}</small>
+        }
+        @for (erro of erros('employee_registration'); track erro) {
+          <small class="erro-campo">{{ erro }}</small>
+        }
+      </div>
+
+      <div class="campo campo--largo">
+        <label for="observacoes">Observações</label>
+        <textarea
+          pTextarea
+          id="observacoes"
+          rows="3"
+          maxlength="4000"
+          formControlName="notes"
+        ></textarea>
+      </div>
+
+      @if (erroAbertura()) {
+        <p-message
+          class="campo--largo"
+          severity="error"
+          [text]="erroAbertura()"
+        ></p-message>
+      }
+
+      <div class="acoes campo--largo">
+        <p-button
+          type="submit"
+          icon="pi pi-folder-plus"
+          label="Abrir processo"
+          [loading]="salvandoProcesso()"
+          [disabled]="salvandoProcesso() || processoAberto() !== null"
+          (onClick)="abrirProcesso()"
+        ></p-button>
+      </div>
+    </form>
+  </section>
+
+  @if (processoAberto(); as processo) {
+    <section class="sucesso" aria-live="polite">
+      <i class="pi pi-check-circle" aria-hidden="true"></i>
+      <div>
+        <h2>Processo aberto em rascunho</h2>
+        <p>
+          Identificador {{ processo.uuid }} · gestor {{ processo.manager.name }} · prazo
+          {{ processo.due_date | date: 'dd/MM/yyyy' }}
+        </p>
+      </div>
+    </section>
+  }
 }

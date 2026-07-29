@@ -9,6 +9,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("apps.accounts.api_urls")),
     path("api/v1/accounts/", include("apps.accounts.api_accounts_urls")),
+    path("api/v1/processes/", include("apps.offboarding.urls")),
     path("api/v1/sectors/", include("apps.sectors.urls")),
     path("api/v1/settings/", include("apps.system_settings.urls")),
     path(

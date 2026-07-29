@@ -90,6 +90,28 @@ describe('ColaboradoresPage', () => {
     component.tipoColaborador.setValue(1);
   }
 
+  function responderGestores(): void {
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url === apiConfig.routes.processManagerCandidates &&
+          req.params.get('company') === '1' &&
+          req.params.get('branch') === '2' &&
+          req.params.get('limit') === '100',
+      )
+      .flush({
+        limit: 100,
+        results: [
+          {
+            id: 50,
+            username: 'gestor.imediato',
+            display_name: 'Gestor Imediato',
+            email: 'gestor.imediato@example.invalid',
+          },
+        ],
+      });
+  }
+
   it('consulta os quatro níveis com os limites homologados', () => {
     responderCascataAteColaborador();
 
@@ -114,9 +136,13 @@ describe('ColaboradoresPage', () => {
       .expectOne((req) => req.url === apiConfig.routes.referenceEmployees)
       .flush({ offset: 0, limit: 20, results: [COLABORADOR] });
     component.colaborador.setValue(123);
+    const gestores = httpMock.expectOne(
+      (req) => req.url === apiConfig.routes.processManagerCandidates,
+    );
 
     component.empresa.setValue(2);
 
+    expect(gestores.cancelled).toBe(true);
     expect(component.filial.value).toBeNull();
     expect(component.tipoColaborador.value).toBeNull();
     expect(component.colaborador.value).toBeNull();
@@ -242,6 +268,7 @@ describe('ColaboradoresPage', () => {
         ],
       });
     component.colaborador.setValue(123);
+    responderGestores();
     fixture.detectChanges();
 
     const content = fixture.nativeElement.textContent as string;
@@ -250,5 +277,71 @@ describe('ColaboradoresPage', () => {
     expect(content).not.toContain('123.456.789-00');
     expect(content).not.toContain('***.456.***-**');
     expect(content.toLowerCase()).not.toContain('cpf');
+  });
+
+  it('abre o rascunho com gestor, datas e snapshot somente após confirmação', () => {
+    responderCascataAteColaborador();
+    httpMock
+      .expectOne((req) => req.url === apiConfig.routes.referenceEmployees)
+      .flush({ offset: 0, limit: 20, results: [COLABORADOR] });
+    component.colaborador.setValue(123);
+    responderGestores();
+    component.formularioAbertura.setValue({
+      manager_user_id: 50,
+      planned_termination_date: '2026-08-15',
+      due_date: '2026-08-14',
+      reason: 'Reorganização da área.',
+      priority: 'Alta',
+      notes: 'Abertura controlada.',
+    });
+
+    component.abrirProcesso();
+
+    const request = httpMock.expectOne(apiConfig.routes.processes);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      company_code: 1,
+      branch_code: 2,
+      employee_type_code: 1,
+      employee_registration: 123,
+      manager_user_id: 50,
+      planned_termination_date: '2026-08-15',
+      due_date: '2026-08-14',
+      reason: 'Reorganização da área.',
+      priority: 'Alta',
+      notes: 'Abertura controlada.',
+    });
+    request.flush({
+      uuid: '3ca25d06-ca5d-4a49-a9df-d42d74a1d6b2',
+      status: 'RASCUNHO',
+      company_code: 1,
+      branch_code: 2,
+      employee_type_code: 1,
+      employee_registration: 123,
+      manager: {
+        id: 50,
+        name: 'Gestor Imediato',
+        email: 'gestor.imediato@example.invalid',
+      },
+      opened_by: { id: 10, username: 'dp.operador' },
+      opened_at: '2026-07-29T12:00:00-03:00',
+      planned_termination_date: '2026-08-15',
+      due_date: '2026-08-14',
+      reason: 'Reorganização da área.',
+      priority: 'Alta',
+      notes: 'Abertura controlada.',
+      version: 1,
+      employee_snapshot: {
+        employee_name: 'Pessoa de Teste',
+        registration: 123,
+        source_queried_at: '2026-07-29T12:00:00-03:00',
+      },
+    });
+    fixture.detectChanges();
+
+    expect(component.processoAberto()?.status).toBe('RASCUNHO');
+    const content = fixture.nativeElement.textContent as string;
+    expect(content).toContain('Processo aberto em rascunho');
+    expect(content).toContain('3ca25d06-ca5d-4a49-a9df-d42d74a1d6b2');
   });
 });
