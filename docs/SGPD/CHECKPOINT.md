@@ -223,6 +223,14 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 ### Fase C — API de contas
 
 - [x] Usuários: listagem com busca, criação, detalhe e atualização.
+  - Criação local sem justificativa digitada, com motivo operacional
+    padronizado pelo servidor na auditoria.
+  - Papel inicial e escopo podem ser designados no mesmo cadastro manual;
+    conta, atribuição e auditoria são atômicas e exigem `manage_users` e
+    `manage_roles`.
+  - Criação, reativação e atualização de atribuições não exigem justificativa
+    digitada; a auditoria usa motivo padronizado e a revogação preserva
+    justificativa obrigatória.
 - [x] Redefinição de senha.
 - [x] Papéis: listagem, criação, detalhe e atualização.
 - [x] Atribuição e revogação de papéis.
@@ -339,7 +347,8 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   importação.
 - [x] Permitir buscar o grupo obrigatório em modal na central de Configurações,
   aberto pelo botão ao lado do campo de DN e com mínimo de dois caracteres.
-- [x] Manter campos com alvo de 44 px no móvel e densidade compacta no desktop.
+- [x] Manter campos e botões com alvo de 44 px no móvel e a mesma densidade
+  compacta no desktop, pelo token global `--control-height`.
   - Servidor LDAP, conta técnica e senha dividem a mesma linha a partir de
     `lg`, permanecendo empilhados no móvel.
 - [x] Auditar atualização, upload e teste com correlation ID.
@@ -1021,4 +1030,84 @@ Próximo passo: aplicar a migration revisada e homologar busca, descoberta e log
 Comandos executados: npm test -- --watch=false; npm run build; git diff --check; busca por media query max-width; conferência em Chromium 150 a 390 e 1440 px com SQLite efêmero.
 Arquivos alterados: componente, template, SCSS e teste da configuração LDAP; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
 Testes: 46 testes frontend passaram; build de produção concluído com bundle inicial de 496,08 kB; modal abriu com busca desabilitada antes de dois caracteres e habilitada a partir de dois; em 1440 px os três campos mediram 347,41 px e tiveram o mesmo alinhamento vertical; em 390 px permaneceram empilhados; não houve overflow horizontal nem media query max-width.
+```
+
+### 2026-07-28 — Altura global de campos e botões
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Refinamento visual global
+O que foi concluído: botões PrimeNG alinhados à altura já adotada pelos campos de edição; padrão centralizado no token global --control-height para ser herdado por todo o frontend.
+Decisões: preservar 44 px para campos e botões no estado base móvel; aplicar a mesma altura compacta de 2,25 rem a ambos a partir de lg; manter o ajuste no stylesheet global, sem sobrescritas por feature.
+Riscos: o padrão pressupõe botões de uma linha; novos rótulos extensos devem manter largura responsiva suficiente para não exigir quebra. Nenhum backend, regra de autorização, API, dependência, migration, schema Oracle ou integração Senior foi alterado.
+Pendências: nenhuma no escopo deste refinamento; permanecem as pendências funcionais e operacionais dos checkpoints vigentes.
+Próximo passo: seguir o checkpoint vigente, sem ajustes locais de altura em novas features.
+Comandos executados: suíte Vitest; build Angular de produção; medição em Chromium nos viewports 390 e 1440 px; busca por media query max-width; revisão do diff e validação do manifesto.
+Arquivos alterados: frontend/src/styles.scss; docs/SGPD/MIGRATION_FRONTEND_SPA.md; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
+Testes: 46 testes frontend passaram; build de produção concluído com bundle inicial de 496,12 kB; em 390 px, campo e botão mediram 44 px; em 1440 px, ambos mediram 31,5 px (2,25 rem); não houve overflow horizontal.
+```
+
+### 2026-07-28 — Criação local de usuário sem justificativa
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Refinamento da administração de contas
+O que foi concluído: remoção da justificativa digitada no cadastro de usuário local; campo retirado da SPA e do contrato de entrada da API; CreateUserCommand simplificado; auditoria preservada com motivo operacional padronizado pelo backend.
+Decisões: registrar “Criação explícita de conta local no SGPD.” em todo evento USER_CREATED originado pelo cadastro manual; manter ator, usuário-alvo, alterações permitidas e correlation ID; preservar justificativa obrigatória nas operações de edição, redefinição de senha, papéis, vínculo e desvínculo AD.
+Riscos: a criação local deixa de receber contexto livre do operador por decisão explícita, mas continua integralmente atribuída ao ator autenticado e auditada. Nenhuma autorização, transação, senha, dependência, migration, schema Oracle ou integração Senior foi alterada.
+Pendências: nenhuma no escopo deste refinamento; permanecem as pendências funcionais e operacionais dos checkpoints vigentes.
+Próximo passo: seguir o checkpoint vigente e manter o motivo padronizado no servidor em novas superfícies de criação local.
+Comandos executados: testes direcionados de services, API e tela de usuários; suíte backend completa; Ruff; format; Mypy; Django check; migrations check; suíte Vitest; build Angular; revisão do diff e validação do manifesto.
+Arquivos alterados: services, serializer e API de accounts; formulário, models e testes da tela de usuários; testes backend; REQUIREMENTS.md; SECURITY.md; CHECKPOINT.md; MANIFEST.json.
+Testes: 203 testes backend e 47 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 496,12 kB.
+```
+
+### 2026-07-28 — Designação inicial de papel no cadastro de usuário
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Correção da administração de contas
+O que foi concluído: diagnóstico do cadastro no frontend, API, services e Oracle DEV; papel e escopo iniciais adicionados como opção do cadastro manual; criação da conta e atribuição compostas na mesma transação; navegação ao detalhe após sucesso; erros aninhados do contrato projetados junto ao campo correto.
+Decisões: preservar a criação sem papel para atores com apenas manage_users; exibir a designação inicial somente a quem possui manage_roles; ao selecionar papel, revalidar manage_users e manage_roles no backend; exigir justificativa específica da designação; registrar USER_CREATED e ROLE_ASSIGNED separadamente e desfazer ambos em qualquer falha; manter a importação AD sem papel automático.
+Riscos: a operação composta poderia deixar uma conta órfã se não fosse atômica ou permitir escalonamento por um gestor apenas de usuários; ambos foram cobertos por rollback e autorização no service. Nenhuma migration, schema, dado, dependência ou integração Senior foi alterada.
+Pendências: nenhuma no escopo da correção; atribuições adicionais e revogações continuam na tela de detalhe.
+Próximo passo: usar o cadastro manual com um papel inicial e confirmar no detalhe; seguir depois o checkpoint vigente da Fase 3.
+Comandos executados: leitura integral da documentação obrigatória; inspeção do diff local; testes direcionados e completos; consultas Oracle somente leitura por contagem; Ruff; format; Mypy; Django check; makemigrations check; Vitest; build Angular; busca por media query max-width; diff check.
+Arquivos alterados: API, serializers, services e testes de accounts; contrato, formulário, estilos, serviço de erros e testes Angular de usuários; ARCHITECTURE.md, REQUIREMENTS.md, SECURITY.md, MIGRATION_FRONTEND_SPA.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 208 testes backend e 49 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build inicial de 496,12 kB dentro do orçamento; nenhuma media query max-width introduzida; diff sem erros de whitespace. O Oracle DEV foi consultado somente por contagens e confirmou duas contas para uma única atribuição prévia, evidenciando a lacuna sem executar DML ou DDL.
+```
+
+### 2026-07-28 — Atribuição de papel sem justificativa digitada
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Refinamento da administração de contas
+O que foi concluído: justificativa livre removida da designação inicial no cadastro e da atribuição/reativação na tela de detalhe; contrato da API e comandos de service simplificados; auditoria preservada com motivo operacional padronizado pelo servidor.
+Decisões: criação, reativação e atualização de atribuições registram “Designação explícita de papel no SGPD.” sem receber texto livre do cliente; ator, usuário, papel, escopo e validade continuam no evento ROLE_ASSIGNED; revogação permanece separada e exige justificativa humana.
+Riscos: remover o campo do cliente não pode reduzir a rastreabilidade; o evento padronizado e seus dados estruturados foram mantidos e testados. Nenhuma autorização, transação, migration, schema, dado, dependência, integração Senior ou regra de revogação foi alterada.
+Pendências: nenhuma no escopo desta alteração.
+Próximo passo: validar visualmente o cadastro e o detalhe sem o campo de justificativa e seguir o checkpoint vigente da Fase 3.
+Comandos executados: inspeção do fluxo compartilhado; testes direcionados e completos; Ruff; format; Mypy; Django check; makemigrations check; Vitest; build Angular; busca por media query max-width; diff check; validação do manifesto.
+Arquivos alterados: API, serializer, services e testes de accounts; models, formulários e testes Angular de usuários e detalhe; ARCHITECTURE.md, REQUIREMENTS.md, SECURITY.md, MIGRATION_FRONTEND_SPA.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 208 testes backend e 50 testes frontend passaram; criação, reativação, autorização, rollback, auditoria padronizada e revogação foram cobertos; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build inicial de 496,12 kB dentro do orçamento; nenhuma media query max-width introduzida; diff sem erros de whitespace.
+```
+
+### 2026-07-28 — Correção do envio da designação e observabilidade
+
+```text
+Data: 2026-07-28
+Responsável: Codex
+Fase: Checkpoint 2.7 — Correção da administração de contas
+O que foi concluído: estado de usuários, atribuições e auditoria conferido no Oracle DEV; endpoint real reproduzido no schema SGPD dentro de transação revertida; causa localizada no botão PrimeNG do diálogo, cujo clique não disparava o submit; confirmação ligada explicitamente aos métodos Angular no cadastro e no detalhe; bloqueios de validação e falha do catálogo deixaram de ser silenciosos; logs JSON adicionados no recebimento e na conclusão da criação/designação.
+Decisões: manter ngSubmit para teclado e onClick explícito para o botão PrimeNG; não criar evento de auditoria para operação que não chegou ao backend; usar logs operacionais para distinguir ausência de POST de falha transacional; projetar somente IDs técnicos, escopo, resultado e correlation ID, sem payload nem dados pessoais.
+Riscos: o usuário ID 25 permanece sem atribuição porque o papel pretendido não pode ser inferido com segurança; nenhuma correção de dado foi aplicada. As reproduções Oracle consumiram somente valores de sequence dentro das transações revertidas, sem linha ou evento persistido. Nenhum objeto do Senior foi consultado ou alterado.
+Pendências: o operador deve repetir a designação desejada para o usuário existente após publicar/reiniciar o código atualizado; a atribuição então deverá aparecer no detalhe, na auditoria ROLE_ASSIGNED e nos logs correlacionados.
+Próximo passo: publicar o bundle e reiniciar o processo Django, repetir a designação do usuário ID 25 e confirmar a linha em SGPD_ROLE_ASSIGN e o evento ROLE_ASSIGNED.
+Comandos executados: consultas Oracle somente leitura; reprodução do endpoint com rollback obrigatório; testes direcionados backend/frontend; Ruff e TypeScript; suítes completas, Mypy, Django check, migrations check, build Angular, diff check e validação do manifesto.
+Arquivos alterados: API de accounts; formatter de logs; diálogo e testes Angular de usuários; testes backend; ARCHITECTURE.md, REQUIREMENTS.md, SECURITY.md, MIGRATION_FRONTEND_SPA.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 209 testes backend e 52 testes frontend passaram; o teste de interação reproduziu a ausência de chamada no clique antes da correção e confirmou o envio depois dela; Ruff, format, Mypy, TypeScript, Django check e migrations sem erros; build inicial de 496,12 kB dentro do orçamento. No Oracle, o endpoint respondeu 201, a atribuição e ROLE_ASSIGNED existiram dentro da transação, os logs account_role_assignment_requested/completed foram emitidos e o rollback preservou os contadores em zero.
 ```

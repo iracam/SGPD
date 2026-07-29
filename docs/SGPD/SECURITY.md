@@ -22,6 +22,8 @@ Estratégia:
 - manter e-mail único e identificador AD único e anulável;
 - permitir vínculo auditado de uma conta SGPD existente ou criação local
   explícita a partir de uma identidade pesquisada no Active Directory;
+- não exigir justificativa digitada na criação manual de conta local, mantendo
+  o ator e um motivo operacional padronizado no evento append-only;
 - usar `objectGUID`, convertido para UUID canônico, como identificador
   corporativo estável e único para a vinculação;
 - exigir confirmação humana e justificativa para vínculo e desvínculo;
@@ -169,6 +171,24 @@ service preserva o limite de segurança quando o caso de uso for chamado por
 outro endpoint ou comando. A desativação de contas bloqueia os
 superusuários ativos em ordem determinística e impede transacionalmente a
 remoção do último superusuário ativo.
+
+No cadastro manual, a designação de um papel inicial é opcional. Quando
+solicitada, o mesmo caso de uso exige `manage_users` e `manage_roles`, cria a
+conta e a atribuição na mesma transação e registra separadamente
+`USER_CREATED` e `ROLE_ASSIGNED`. Falha de autorização, papel, escopo ou
+auditoria desfaz toda a criação; a SPA não exibe os campos de papel a quem não
+possui `manage_roles`.
+
+Criação, reativação e atualização de atribuições não recebem justificativa
+livre do cliente. O evento `ROLE_ASSIGNED` registra ator, usuário, papel,
+escopo, validade e o motivo operacional padronizado pelo servidor. A revogação
+permanece uma operação separada, com justificativa humana obrigatória e evento
+`ROLE_REVOKED`.
+
+Além da auditoria de sucesso, a borda HTTP registra o recebimento e a conclusão
+da designação em log JSON. Somente IDs técnicos, escopo, resultado e correlation
+ID são permitidos; corpo da requisição, nomes, logins, e-mails e credenciais
+permanecem fora do log.
 
 Exemplo:
 
@@ -337,6 +357,10 @@ Não registrar em log:
 - dados médicos;
 - segredos;
 - strings de conexão.
+
+Nos eventos operacionais de contas, a projeção permitida limita-se a tipo do
+evento, IDs do ator, usuário, papel e atribuição, escopo, resultado e indicação
+booleana de papel inicial.
 
 ## 12. Banco
 

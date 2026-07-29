@@ -136,6 +136,21 @@ e as chaves de funcionalidade que governam a visibilidade do menu. A permissão
 Nenhum endpoint implementa regra de negócio. Cada um valida entrada, invoca o
 service correspondente e traduz o resultado.
 
+No cadastro manual, `POST users/` pode receber `initial_role`. A SPA oferece
+papel e escopo somente a quem possui `manage_roles`; o backend repete essa
+autorização e grava conta e designação atomicamente. Após a criação, a tela
+abre o detalhe do usuário, onde outras atribuições podem ser mantidas.
+Designações e reativações não exibem nem enviam justificativa livre; a
+auditoria usa motivo operacional do servidor. A revogação mantém seu campo de
+justificativa.
+
+Os botões de confirmação dos diálogos chamam explicitamente a ação Angular por
+`onClick`; o `ngSubmit` é mantido para envio por teclado. Essa redundância evita
+que a encapsulação do botão PrimeNG suprima silenciosamente o submit. Formulário
+inválido e falha no catálogo de papéis sempre exibem uma mensagem e não simulam
+sucesso. A API registra o recebimento e a conclusão da designação em log JSON
+correlacionado, sem dados pessoais.
+
 ### 4.3 Requisitos transversais
 
 **Envelope de erro.** Todas as respostas de erro seguem
@@ -307,8 +322,9 @@ automático ao foco e desloca o layout.
 estado base, incluindo ações dentro de listas e cartões. Os padrões do PrimeNG
 ficam abaixo disso e são ajustados por token.
 
-Em `lg`, campos de edição de uma linha usam altura compacta de `2.25rem`,
-preservando os 44 px no estado base para telas de toque.
+Em `lg`, campos de edição e botões de uma linha usam a mesma altura compacta de
+`2.25rem`, centralizada no token global `--control-height`. No estado base,
+ambos preservam os 44 px exigidos para telas de toque.
 
 **Peso.** O orçamento de build permanece em 600 kB de aviso e 1 MB de erro para
 o bundle inicial, agora com justificativa de rede móvel. Toda página é

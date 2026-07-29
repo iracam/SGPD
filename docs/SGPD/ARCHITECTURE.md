@@ -320,6 +320,25 @@ o caminho privado não aparecem em payloads nem em eventos.
 Cada endpoint valida entrada, invoca o service correspondente e traduz o
 resultado. Nenhum implementa regra de negócio.
 
+`POST /api/v1/accounts/users/` aceita uma designação inicial opcional em
+`initial_role`, com papel e escopo organizacional. O
+`CreateUserService` compõe a criação com o `AssignRoleService` dentro da mesma
+transação: a operação simples continua exigindo `manage_users`; ao incluir o
+papel, `manage_roles` também é revalidada no service. Conta, atribuição e seus
+dois eventos de auditoria são confirmados ou desfeitos em conjunto.
+
+O `AssignRoleService` também atende criação, reativação e atualização de
+validade da atribuição. Esses fluxos não recebem justificativa digitada e
+auditam um motivo operacional padronizado. A revogação continua isolada no
+`RevokeRoleService` e exige justificativa.
+
+A API emite `account_role_assignment_requested` ao receber a operação e
+`account_role_assignment_completed` após o commit do service. O cadastro
+composto emite `account_user_creation_requested` e
+`account_user_creation_completed`, incluindo o indicador técnico de papel
+inicial. Esses logs carregam correlation ID e somente IDs, escopo e resultado;
+payload, login, e-mail e senha não são projetados.
+
 A autorização é declarada por endpoint e reavaliada a cada requisição:
 `manage_users` para usuários e senha, `manage_roles` para papéis, atribuições e
 o catálogo de permissões, `link_ad_identity` para o vínculo com o AD e
@@ -408,6 +427,9 @@ Implementado:
   devolvido na resposta;
 - health checks separados em liveness e readiness;
 - registro de duração, quantidade de linhas e falhas das consultas ao Senior.
+- recebimento e conclusão da criação de conta e da designação de papel, com
+  metadados técnicos seguros para diferenciar ausência de requisição de falha
+  transacional.
 
 Planejado com os módulos de workflow e processamento assíncrono:
 

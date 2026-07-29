@@ -21,6 +21,16 @@ O Senior HCM não será fonte de usuários, gestores, e-mails, papéis ou permis
 A manutenção deverá:
 
 - exigir nome, sobrenome, login e e-mail únicos quando aplicável;
+- permitir criação manual de conta local sem justificativa digitada, mantendo
+  ator, origem e motivo operacional padronizado na auditoria;
+- permitir designar um papel inicial e seu escopo no mesmo cadastro manual;
+  quando informado, conta e atribuição deverão ser gravadas atomicamente,
+  exigindo simultaneamente as permissões de manter usuários e papéis;
+- não exigir justificativa digitada para criar, reativar ou atualizar uma
+  atribuição de papel, preservando ator, escopo e motivo operacional
+  padronizado na auditoria; a revogação continuará exigindo justificativa;
+- emitir logs estruturados no recebimento e na conclusão da designação, usando
+  somente IDs técnicos, escopo, resultado e correlation ID;
 - permitir ativação e desativação sem exclusão física;
 - exigir senha temporária forte e troca no próximo acesso quando configurado;
 - impedir que o administrador desative a própria conta;

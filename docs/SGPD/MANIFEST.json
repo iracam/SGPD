@@ -9,13 +9,13 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "649bbbc821fcccac288f9dc49b94fa78375b5af594f657f374c993546b4b9c32",
-      "bytes": 17241
+      "sha256": "12da8c43b89b17540f159f6ae033e51fae3441e8f70026f026c0d19f9a1757de",
+      "bytes": 18549
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "08c5320bdb92421f86ee534c6229adb609ecb6e90d2a71a263b99a901653c02a",
-      "bytes": 98693
+      "sha256": "320a25d2cb2702ce82a0625a9163037fae9ce93a4e347644c98945cbc160cff7",
+      "bytes": 110016
     },
     {
       "file": "DATA_MODEL.md",
@@ -49,8 +49,8 @@
     },
     {
       "file": "MIGRATION_FRONTEND_SPA.md",
-      "sha256": "62acf59344bd2d5aa726a1470eda7d0eaf98ed97cef44bda430221d19e79a78c",
-      "bytes": 20218
+      "sha256": "4e4ff157ede5034d3f87647a6cde8b4e81e5d8e34dc714ed5d6003d7812a9ede",
+      "bytes": 21236
     },
     {
       "file": "PROMPT.md",
@@ -64,8 +64,8 @@
     },
     {
       "file": "REQUIREMENTS.md",
-      "sha256": "3e140158a60aa3b18b9aabe193d5ed28bf25c369fb9a67235b768ed0e8ab5c67",
-      "bytes": 13026
+      "sha256": "97d9c21e6f63487cf3df9b45cb76c22a5150b6a5d273337276931902a0251953",
+      "bytes": 13761
     },
     {
       "file": "RISK_REGISTER.md",
@@ -79,8 +79,8 @@
     },
     {
       "file": "SECURITY.md",
-      "sha256": "ed23ac3d591891b3b65b42ff8320b164a10fcf0af49656d3044b97ce8f3fd710",
-      "bytes": 14774
+      "sha256": "9c9f5c6546cf0aaffca77a3b70b5518ee451546ae33bdad78a9fcb3b66d3db84",
+      "bytes": 16130
     },
     {
       "file": "VISION.md",
