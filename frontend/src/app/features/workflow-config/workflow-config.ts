@@ -19,21 +19,23 @@ import { finalize, forkJoin } from 'rxjs';
 
 import { errorMessage } from '../../core/api/api-error';
 import {
+  AtualizacaoRascunhoGrupo,
   AtualizacaoRascunhoTemplate,
   GrupoValidacao,
   ItemTemplate,
   NovoGrupo,
   NovoTemplate,
   NovaVersaoTemplate,
+  RegraGrupo,
   SetorWorkflow,
   TemplateChecklist,
   TipoRespostaChecklist,
+  VersaoGrupo,
   VersaoTemplate,
 } from './models/workflow-config.models';
 import { WorkflowConfigService } from './workflow-config.service';
 
 type PerguntaForm = FormGroup<{
-  code: FormControl<string>;
   question: FormControl<string>;
   response_type: FormControl<TipoRespostaChecklist>;
   is_required: FormControl<boolean>;
@@ -84,6 +86,7 @@ export class WorkflowConfigPage {
   readonly exibirGrupo = signal(false);
   readonly buscaTemplate = signal('');
   readonly templateEmEdicao = signal<TemplateChecklist | null>(null);
+  readonly grupoEmEdicao = signal<GrupoValidacao | null>(null);
 
   readonly tiposResposta: Array<{ label: string; value: TipoRespostaChecklist }> = [
     { label: 'Sim / não', value: 'BOOLEAN' },
@@ -115,7 +118,6 @@ export class WorkflowConfigPage {
   });
 
   readonly formularioGrupo = this.formBuilder.group({
-    code: this.formBuilder.nonNullable.control('', Validators.required),
     name: this.formBuilder.nonNullable.control('', Validators.required),
     description: this.formBuilder.nonNullable.control(''),
     sectors: this.formBuilder.array<RegraForm>([this.criarRegra()]),
@@ -175,6 +177,37 @@ export class WorkflowConfigPage {
     this.exibirTemplate.set(false);
     this.templateEmEdicao.set(null);
     this.resetarTemplate();
+  }
+
+  abrirNovoGrupo(): void {
+    this.grupoEmEdicao.set(null);
+    this.resetarGrupo();
+    this.exibirGrupo.set(true);
+    this.limparMensagens();
+  }
+
+  editarRascunhoGrupo(grupo: GrupoValidacao): void {
+    const draft = this.rascunhoGrupo(grupo);
+    if (!draft) {
+      return;
+    }
+    this.grupoEmEdicao.set(grupo);
+    this.formularioGrupo.reset({
+      name: grupo.name,
+      description: grupo.description,
+    });
+    this.formularioGrupo.controls.sectors.clear();
+    for (const regra of draft.sectors) {
+      this.formularioGrupo.controls.sectors.push(this.criarRegra(regra));
+    }
+    this.exibirGrupo.set(true);
+    this.limparMensagens();
+  }
+
+  cancelarEditorGrupo(): void {
+    this.exibirGrupo.set(false);
+    this.grupoEmEdicao.set(null);
+    this.resetarGrupo();
   }
 
   salvarTemplate(): void {
@@ -302,7 +335,6 @@ export class WorkflowConfigPage {
     }
     const value = this.formularioGrupo.getRawValue();
     const payload: NovoGrupo = {
-      code: value.code,
       name: value.name,
       description: value.description,
       sectors: value.sectors.map((rule, index) => ({
@@ -314,23 +346,36 @@ export class WorkflowConfigPage {
         display_order: index + 1,
       })),
     };
+    const grupo = this.grupoEmEdicao();
+    const draft = grupo ? this.rascunhoGrupo(grupo) : undefined;
+    const request =
+      grupo && draft
+        ? this.service.atualizarRascunhoGrupo(draft.id, {
+            ...payload,
+            expected_version: grupo.version,
+          } satisfies AtualizacaoRascunhoGrupo)
+        : this.service.criarGrupo(payload);
     this.salvandoGrupo.set(true);
     this.limparMensagens();
-    this.service
-      .criarGrupo(payload)
+    request
       .pipe(
         finalize(() => this.salvandoGrupo.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: () => {
-          this.aviso.set('Grupo criado em rascunho. Publique-o após a revisão.');
+        next: (savedGroup) => {
+          this.aviso.set(
+            grupo
+              ? `Rascunho do grupo #${savedGroup.code} atualizado.`
+              : `Grupo #${savedGroup.code} criado em rascunho.`,
+          );
           this.exibirGrupo.set(false);
+          this.grupoEmEdicao.set(null);
           this.resetarGrupo();
           this.carregar();
         },
         error: (error) =>
-          this.erro.set(errorMessage(error, 'Não foi possível criar o grupo.')),
+          this.erro.set(errorMessage(error, 'Não foi possível salvar o grupo.')),
       });
   }
 
@@ -345,7 +390,7 @@ export class WorkflowConfigPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aviso.set(`Grupo ${grupo.code} publicado.`);
+          this.aviso.set(`Grupo #${grupo.code} publicado.`);
           this.carregar();
         },
         error: (error) =>
@@ -371,6 +416,10 @@ export class WorkflowConfigPage {
 
   rascunhoTemplate(template: TemplateChecklist): VersaoTemplate | undefined {
     return template.versions.find((version) => version.status === 'DRAFT');
+  }
+
+  rascunhoGrupo(grupo: GrupoValidacao): VersaoGrupo | undefined {
+    return grupo.versions.find((version) => version.status === 'DRAFT');
   }
 
   private carregar(): void {
@@ -400,7 +449,6 @@ export class WorkflowConfigPage {
 
   private criarPergunta(item?: ItemTemplate): PerguntaForm {
     return this.formBuilder.group({
-      code: this.formBuilder.nonNullable.control(item?.code ?? '', Validators.required),
       question: this.formBuilder.nonNullable.control(
         item?.question ?? '',
         Validators.required,
@@ -417,19 +465,23 @@ export class WorkflowConfigPage {
     });
   }
 
-  private criarRegra(): RegraForm {
+  private criarRegra(regra?: RegraGrupo): RegraForm {
     return this.formBuilder.group({
       sector_id: this.formBuilder.control<number | null>(
-        null,
+        regra?.sector.id ?? null,
         Validators.required,
       ),
       template_version_id: this.formBuilder.control<number | null>(
-        null,
+        regra?.template_version.id ?? null,
         Validators.required,
       ),
-      is_required: this.formBuilder.nonNullable.control(true),
-      blocks_process: this.formBuilder.nonNullable.control(true),
-      due_hours_override: this.formBuilder.control<number | null>(null),
+      is_required: this.formBuilder.nonNullable.control(regra?.is_required ?? true),
+      blocks_process: this.formBuilder.nonNullable.control(
+        regra?.blocks_process ?? true,
+      ),
+      due_hours_override: this.formBuilder.control<number | null>(
+        regra?.due_hours_override ?? null,
+      ),
     });
   }
 
@@ -445,12 +497,12 @@ export class WorkflowConfigPage {
 
   private itensParaPayload(
     items: ItemTemplate[],
-  ): Array<Omit<ItemTemplate, 'id'>> {
-    return items.map(({ id: _id, ...item }) => item);
+  ): Array<Omit<ItemTemplate, 'id' | 'code'>> {
+    return items.map(({ id: _id, code: _code, ...item }) => item);
   }
 
   private resetarGrupo(): void {
-    this.formularioGrupo.reset({ code: '', name: '', description: '' });
+    this.formularioGrupo.reset({ name: '', description: '' });
     this.formularioGrupo.controls.sectors.clear();
     this.formularioGrupo.controls.sectors.push(this.criarRegra());
   }

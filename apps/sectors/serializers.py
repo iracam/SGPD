@@ -78,7 +78,7 @@ class SectorBaseSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class SectorCreateSerializer(SectorBaseSerializer):
-    code = serializers.CharField(max_length=50, trim_whitespace=True)
+    pass
 
 
 class SectorUpdateSerializer(SectorBaseSerializer):

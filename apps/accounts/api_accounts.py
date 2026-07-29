@@ -146,7 +146,7 @@ def _user_queryset(*, with_sector_links: bool = False) -> QuerySet[User]:
                     SectorResponsible.objects.filter(is_active=True)
                     .select_related("sector")
                     .prefetch_related("sector__scopes")
-                    .order_by("sector__code")
+                    .order_by("sector__name", "sector_id")
                 ),
                 to_attr="active_sector_links",
             )

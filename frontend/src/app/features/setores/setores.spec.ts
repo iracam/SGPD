@@ -113,7 +113,6 @@ describe('SetoresPage', () => {
     scope.controls.company_code.setValue(7);
     scope.controls.branch_code.setValue(2);
     fixture.componentInstance.formulario.patchValue({
-      code: 'patrimonio',
       name: 'Patrimônio',
       description: 'Valida bens e equipamentos.',
       default_due_hours: 24,
@@ -141,7 +140,6 @@ describe('SetoresPage', () => {
         current.url === apiConfig.routes.sectors && current.method === 'POST',
     );
     expect(request.request.body).toEqual({
-      code: 'patrimonio',
       name: 'Patrimônio',
       description: 'Valida bens e equipamentos.',
       default_due_hours: 24,
@@ -168,14 +166,13 @@ describe('SetoresPage', () => {
     responderRecarga([SETOR]);
   });
 
-  it('edita por versão sem permitir alteração do código', () => {
+  it('edita por versão sem enviar o código automático', () => {
     responder([SETOR]);
     fixture.componentInstance.abrir(SETOR);
     fixture.componentInstance.formulario.patchValue({
       name: 'Patrimônio corporativo',
     });
 
-    expect(fixture.componentInstance.formulario.controls.code.disabled).toBe(true);
     fixture.componentInstance.salvar();
 
     const request = httpMock.expectOne(

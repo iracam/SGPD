@@ -22,7 +22,14 @@ class ValidationSectorQuerySet(models.QuerySet["ValidationSector"]):
 
 
 class ValidationSector(models.Model):
-    code = models.CharField("código", max_length=50, unique=True)
+    # O PK só existe após o primeiro INSERT; o service preenche o código na mesma transação.
+    code = models.CharField(  # noqa: DJ001
+        "código técnico",
+        max_length=50,
+        unique=True,
+        null=True,
+        editable=False,
+    )
     name = models.CharField("nome", max_length=120)
     description = models.TextField("descrição", blank=True)
     is_active = models.BooleanField("ativo", default=True)
@@ -46,7 +53,7 @@ class ValidationSector(models.Model):
 
     class Meta:
         db_table = "SGPD_VALIDATION_SECTOR"
-        ordering = ("code",)
+        ordering = ("name", "pk")
         verbose_name = "setor de validação"
         verbose_name_plural = "setores de validação"
         permissions = [
@@ -55,7 +62,6 @@ class ValidationSector(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(
-                    code__isnull=False,
                     name__isnull=False,
                     default_due_hours__gt=0,
                 ),
@@ -78,11 +84,8 @@ class ValidationSector(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        self.code = self.code.strip().upper()
         self.name = self.name.strip()
         self.description = self.description.strip()
-        if not self.code:
-            raise ValidationError({"code": "O código do setor é obrigatório."})
         if not self.name:
             raise ValidationError({"name": "O nome do setor é obrigatório."})
         if self.default_due_hours <= 0:
@@ -231,7 +234,7 @@ class SectorResponsible(models.Model):
 
     class Meta:
         db_table = "SGPD_SECTOR_RESPONSIBLE"
-        ordering = ("sector__code", "user__username")
+        ordering = ("sector__name", "sector_id", "user__username")
         verbose_name = "responsável de setor"
         verbose_name_plural = "responsáveis de setores"
         constraints = [

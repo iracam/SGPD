@@ -27,7 +27,7 @@
   @for (setor of setores(); track setor.id) {
     <article class="cartao">
       <div class="cartao__topo">
-        <span class="cartao__titulo">{{ setor.code }} — {{ setor.name }}</span>
+        <span class="cartao__titulo">#{{ setor.code }} — {{ setor.name }}</span>
         <span
           class="selo"
           [class.selo--ativo]="setor.is_active"
@@ -104,7 +104,7 @@
     <tbody>
       @for (setor of setores(); track setor.id) {
         <tr>
-          <td><strong>{{ setor.code }}</strong></td>
+          <td><strong>#{{ setor.code }}</strong></td>
           <td>{{ setor.name }}</td>
           <td>{{ setor.default_due_hours }} h</td>
           <td>
@@ -180,30 +180,16 @@
       <p-message severity="error" [text]="erroFormulario()"></p-message>
     }
 
-    <div class="campo-duplo">
-      <div class="campo">
-        <label for="sector_code">Código</label>
-        <input
-          pInputText
-          id="sector_code"
-          formControlName="code"
-          autocapitalize="characters"
-          spellcheck="false"
-        />
-        @if (emEdicao()) {
-          <small class="campo__ajuda">O código não muda após a criação.</small>
-        }
-        @for (erro of erros('code'); track erro) {
-          <small class="campo__erro">{{ erro }}</small>
-        }
-      </div>
-      <div class="campo">
-        <label for="sector_name">Nome</label>
-        <input pInputText id="sector_name" formControlName="name" />
-        @for (erro of erros('name'); track erro) {
-          <small class="campo__erro">{{ erro }}</small>
-        }
-      </div>
+    <p class="campo__ajuda">
+      O código numérico do setor é gerado automaticamente após salvar.
+    </p>
+
+    <div class="campo">
+      <label for="sector_name">Nome</label>
+      <input pInputText id="sector_name" formControlName="name" />
+      @for (erro of erros('name'); track erro) {
+        <small class="campo__erro">{{ erro }}</small>
+      }
     </div>
 
     <div class="campo">
@@ -246,10 +232,10 @@
           appendTo="body"
         >
           <ng-template #item let-sector>
-            {{ sector.code }} — {{ sector.name }}
+            #{{ sector.code }} — {{ sector.name }}
           </ng-template>
           <ng-template #selectedItem let-sector>
-            {{ sector.code }} — {{ sector.name }}
+            #{{ sector.code }} — {{ sector.name }}
           </ng-template>
         </p-select>
         @for (erro of erros('escalation_sector_id'); track erro) {

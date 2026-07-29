@@ -57,7 +57,6 @@ describe('WorkflowConfigPage', () => {
       default_due_hours: 12,
     });
     component.formularioTemplate.controls.items.at(0).patchValue({
-      code: 'ACESSOS',
       question: 'Os acessos foram encerrados?',
       response_type: 'BOOLEAN',
     });
@@ -69,7 +68,6 @@ describe('WorkflowConfigPage', () => {
     expect(create.request.body.sector_id).toBeUndefined();
     expect(create.request.body.items).toEqual([
       {
-        code: 'ACESSOS',
         question: 'Os acessos foram encerrados?',
         response_type: 'BOOLEAN',
         is_required: true,
@@ -114,10 +112,7 @@ describe('WorkflowConfigPage', () => {
         ],
       },
     ]);
-    component.formularioGrupo.patchValue({
-      code: 'PADRAO',
-      name: 'Desligamento padrão',
-    });
+    component.formularioGrupo.patchValue({ name: 'Desligamento padrão' });
     component.formularioGrupo.controls.sectors.at(0).patchValue({
       sector_id: 7,
       template_version_id: 12,
@@ -128,6 +123,7 @@ describe('WorkflowConfigPage', () => {
 
     const create = httpMock.expectOne(apiConfig.routes.workflowGroups);
     expect(create.request.method).toBe('POST');
+    expect(create.request.body.code).toBeUndefined();
     expect(create.request.body.sectors).toEqual([
       {
         sector_id: 7,
@@ -210,6 +206,81 @@ describe('WorkflowConfigPage', () => {
       .flush({ results: [] });
   });
 
+  it('edita o grupo em rascunho antes da publicação', () => {
+    const grupo = {
+      id: 9,
+      code: '9',
+      name: 'Grupo inicial',
+      description: '',
+      is_active: true,
+      current_version_id: null,
+      version: 1,
+      versions: [
+        {
+          id: 31,
+          version_number: 1,
+          status: 'DRAFT' as const,
+          created_at: '2026-07-29T12:00:00-03:00',
+          published_at: null,
+          sectors: [
+            {
+              id: 41,
+              sector: { id: 7, code: '7', name: 'Tecnologia' },
+              template_version: {
+                id: 12,
+                template_id: 3,
+                template_code: 3,
+                version_number: 1,
+                status: 'PUBLISHED' as const,
+              },
+              is_required: true,
+              blocks_process: true,
+              due_hours_override: null,
+              display_order: 1,
+            },
+          ],
+        },
+      ],
+    };
+    component.grupos.set([grupo]);
+    component.editarRascunhoGrupo(grupo);
+    component.formularioGrupo.patchValue({
+      name: 'Grupo revisado',
+      description: 'Revisado antes da publicação.',
+    });
+    component.formularioGrupo.controls.sectors
+      .at(0)
+      .patchValue({ blocks_process: false, due_hours_override: 8 });
+
+    component.criarGrupo();
+
+    const update = httpMock.expectOne(
+      '/api/v1/workflow-config/group-versions/31/',
+    );
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body.expected_version).toBe(1);
+    expect(update.request.body.name).toBe('Grupo revisado');
+    expect(update.request.body.sectors).toEqual([
+      {
+        sector_id: 7,
+        template_version_id: 12,
+        is_required: true,
+        blocks_process: false,
+        due_hours_override: 8,
+        display_order: 1,
+      },
+    ]);
+    update.flush({ ...grupo, name: 'Grupo revisado', version: 2 });
+
+    httpMock.expectOne(apiConfig.routes.workflowSectors).flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowTemplates)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+  });
+
   it('clona a versão publicada antes de abrir a edição', () => {
     const template = {
       id: 3,
@@ -267,8 +338,8 @@ describe('WorkflowConfigPage', () => {
     expect(component.formularioTemplate.controls.name.value).toBe(
       'Checklist publicado',
     );
-    expect(component.formularioTemplate.controls.items.at(0).controls.code.value).toBe(
-      'ACESSOS',
+    expect(component.formularioTemplate.controls.items.at(0).controls.question.value).toBe(
+      'Os acessos foram encerrados?',
     );
   });
 

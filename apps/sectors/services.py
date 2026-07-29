@@ -424,7 +424,6 @@ def _sync_responsibles(
 @dataclass(frozen=True, slots=True)
 class CreateSectorCommand:
     actor: User
-    code: str
     name: str
     description: str
     default_due_hours: int
@@ -448,7 +447,6 @@ class CreateSectorService:
             sectors_by_id=sectors_by_id,
         )
         sector = ValidationSector(
-            code=command.code,
             name=command.name,
             description=command.description,
             default_due_hours=command.default_due_hours,
@@ -458,10 +456,10 @@ class CreateSectorService:
             escalation_sector=escalation,
         )
         sector.full_clean()
-        try:
-            sector.save()
-        except IntegrityError as exc:
-            raise ValidationError({"code": "Já existe um setor com este código."}) from exc
+        sector.save()
+        sector.code = str(sector.pk)
+        sector.full_clean()
+        sector.save(update_fields=("code",))
         _write_scopes(sector, scopes)
         _sync_responsibles(
             sector=sector,

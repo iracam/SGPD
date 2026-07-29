@@ -186,7 +186,6 @@ def create_published_template(
             default_due_hours=12,
             items=(
                 ChecklistItemValue(
-                    code="CONFIRMAR",
                     question="A validação foi concluída?",
                     response_type=ChecklistResponseType.BOOLEAN,
                     is_required=True,
@@ -225,7 +224,6 @@ def create_published_group(
     group = CreateValidationGroupService().execute(
         CreateValidationGroupCommand(
             actor=actor,
-            code=code,
             name=f"Grupo {code}",
             description="",
             sectors=(
@@ -315,14 +313,14 @@ def test_start_generates_sector_task_and_historical_questions_once(
     assert process.version == 3
     task = ProcessSectorTask.objects.get()
     assert task.sector == sector
-    assert task.sector_code_snapshot == "TECNOLOGIA"
+    assert task.sector_code_snapshot == str(sector.pk)
     assert task.template_code_snapshot == str(task.template_version.template_id)
     assert task.template_version_snapshot == 1
     assert task.sla_hours_snapshot == 6
     assert task.is_required
     assert task.group_sources.count() == 1
     snapshot = ProcessChecklistItem.objects.get()
-    assert snapshot.code_snapshot == "CONFIRMAR"
+    assert snapshot.code_snapshot == str(snapshot.source_item_id)
     assert snapshot.question_snapshot == "A validação foi concluída?"
     assert ProcessActionIdempotency.objects.count() == 1
     assert (
@@ -342,7 +340,6 @@ def test_start_reuses_template_with_independent_snapshots_for_each_sector(
     group = CreateValidationGroupService().execute(
         CreateValidationGroupCommand(
             actor=actor,
-            code="MULTISSETOR",
             name="Validação multissetor",
             description="",
             sectors=(

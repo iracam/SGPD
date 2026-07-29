@@ -676,7 +676,7 @@ def _selected_configuration(
             "group_version__sector_rules__sector__scopes",
             "group_version__sector_rules__template_version__template",
         )
-        .order_by("group_version__group__code", "pk")
+        .order_by("group_version__group_id", "pk")
     )
     overrides = ProcessSectorOverride.objects.filter(process=process)
     if lock:
@@ -685,7 +685,7 @@ def _selected_configuration(
         overrides.select_related(
             "sector",
             "template_version__template",
-        ).order_by("sector__code", "pk")
+        ).order_by("sector_id", "pk")
     )
     return selected, adjusted
 
@@ -783,7 +783,7 @@ def resolve_draft_sector_plans(
             group_selections=(),
             override=override,
         )
-    return tuple(sorted(plans.values(), key=lambda plan: plan.sector.code))
+    return tuple(sorted(plans.values(), key=lambda plan: plan.sector.pk or 0))
 
 
 def _effective_responsible_sector_ids(
@@ -964,7 +964,7 @@ class StartOffboardingProcessService:
                 status=SectorTaskStatus.PENDING,
                 is_required=plan.is_required,
                 blocks_process=plan.blocks_process,
-                sector_code_snapshot=plan.sector.code,
+                sector_code_snapshot=str(plan.sector.pk),
                 sector_name_snapshot=plan.sector.name,
                 template_code_snapshot=str(plan.template_version.template_id),
                 template_version_snapshot=plan.template_version.version_number,

@@ -29,6 +29,7 @@ from .serializers import (
     ChecklistVersionSerializer,
     PublishVersionSerializer,
     ValidationGroupCreateSerializer,
+    ValidationGroupDraftUpdateSerializer,
     ValidationGroupVersionSerializer,
 )
 from .services import (
@@ -49,6 +50,8 @@ from .services import (
     PublishValidationGroupVersionService,
     UpdateChecklistTemplateDraftCommand,
     UpdateChecklistTemplateDraftService,
+    UpdateValidationGroupDraftCommand,
+    UpdateValidationGroupDraftService,
 )
 
 DEFAULT_PAGE_SIZE = 50
@@ -173,14 +176,13 @@ def group_queryset() -> QuerySet[ValidationGroup]:
             "versions__sector_rules__sector",
             "versions__sector_rules__template_version__template",
         )
-        .order_by("code")
+        .order_by("name", "pk")
     )
 
 
 def _items(data: list[dict[str, Any]]) -> tuple[ChecklistItemValue, ...]:
     return tuple(
         ChecklistItemValue(
-            code=item["code"],
             question=item["question"],
             response_type=item["response_type"],
             is_required=item["is_required"],
@@ -234,7 +236,7 @@ class WorkflowConfigurationAPIView(APIView):
 
 class WorkflowSectorListView(WorkflowConfigurationAPIView):
     def get(self, request: Request) -> Response:
-        sectors = ValidationSector.objects.filter(is_active=True).order_by("code")
+        sectors = ValidationSector.objects.filter(is_active=True).order_by("name", "pk")
         return Response(
             {
                 "results": [
@@ -363,7 +365,6 @@ class ValidationGroupListCreateView(WorkflowConfigurationAPIView):
         group = CreateValidationGroupService().execute(
             CreateValidationGroupCommand(
                 actor=self.actor(request),
-                code=data["code"],
                 name=data["name"],
                 description=data["description"],
                 sectors=_group_sectors(data["sectors"]),
@@ -391,6 +392,27 @@ class ValidationGroupVersionCreateView(WorkflowConfigurationAPIView):
             )
         )
         return Response(group_version_payload(version), status=201)
+
+
+class ValidationGroupDraftUpdateView(WorkflowConfigurationAPIView):
+    def put(self, request: Request, version_id: int) -> Response:
+        get_object_or_404(ValidationGroupVersion, pk=version_id)
+        serializer = ValidationGroupDraftUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        version = UpdateValidationGroupDraftService().execute(
+            UpdateValidationGroupDraftCommand(
+                actor=self.actor(request),
+                version_id=version_id,
+                expected_group_version=data["expected_version"],
+                name=data["name"],
+                description=data["description"],
+                sectors=_group_sectors(data["sectors"]),
+            )
+        )
+        return Response(
+            group_payload(group_queryset().get(pk=version.group_id)),
+        )
 
 
 class ValidationGroupPublishView(WorkflowConfigurationAPIView):

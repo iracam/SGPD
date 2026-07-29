@@ -69,7 +69,6 @@ export interface ResponsavelSetorEntrada {
 }
 
 export interface NovoSetor {
-  code: string;
   name: string;
   description: string;
   default_due_hours: number;
@@ -81,7 +80,7 @@ export interface NovoSetor {
   responsibles: ResponsavelSetorEntrada[];
 }
 
-export interface EdicaoSetor extends Omit<NovoSetor, 'code'> {
+export interface EdicaoSetor extends NovoSetor {
   version: number;
   is_active: boolean;
 }

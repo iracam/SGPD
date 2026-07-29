@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { apiConfig } from '../../core/config/api.config';
 import {
+  AtualizacaoRascunhoGrupo,
   AtualizacaoRascunhoTemplate,
   GrupoValidacao,
   NovoGrupo,
@@ -84,6 +85,16 @@ export class WorkflowConfigService {
   criarGrupo(payload: NovoGrupo): Observable<GrupoValidacao> {
     return this.http.post<GrupoValidacao>(
       apiConfig.routes.workflowGroups,
+      payload,
+    );
+  }
+
+  atualizarRascunhoGrupo(
+    versionId: number,
+    payload: AtualizacaoRascunhoGrupo,
+  ): Observable<GrupoValidacao> {
+    return this.http.put<GrupoValidacao>(
+      `/api/v1/workflow-config/group-versions/${versionId}/`,
       payload,
     );
   }

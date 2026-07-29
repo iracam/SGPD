@@ -7,7 +7,8 @@ from typing import Any
 import pytest
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
+from django.db.migrations.executor import MigrationExecutor
 from django.test import Client
 from django.urls import reverse
 
@@ -75,14 +76,12 @@ def scope(
 def create_command(
     actor: User,
     *,
-    code: str = "patrimonio",
     name: str = "Patrimônio",
     scopes: tuple[SectorScopeValue, ...] | None = None,
     escalation_sector_id: int | None = None,
 ) -> CreateSectorCommand:
     return CreateSectorCommand(
         actor=actor,
-        code=code,
         name=name,
         description="Valida bens e equipamentos.",
         default_due_hours=24,
@@ -119,9 +118,8 @@ def update_command(
     return UpdateSectorCommand(**values)
 
 
-def api_payload(*, code: str = "patrimonio") -> dict[str, Any]:
+def api_payload() -> dict[str, Any]:
     return {
-        "code": code,
         "name": "Patrimônio",
         "description": "Valida bens e equipamentos.",
         "default_due_hours": 24,
@@ -167,7 +165,7 @@ def test_create_sector_normalizes_scopes_and_audits(actor: User) -> None:
         )
     )
 
-    assert sector.code == "PATRIMONIO"
+    assert sector.code == str(sector.pk)
     assert sector.version == 1
     assert list(sector.scopes.values_list("scope_key", flat=True)) == ["E:8", "F:7:2"]
     event = SectorAuditEvent.objects.get()
@@ -209,9 +207,7 @@ def test_sector_service_requires_global_manage_permission(plain_user: User) -> N
         CreateSectorService().execute(create_command(plain_user))
 
     plain_user.user_permissions.add(permission)
-    sector = CreateSectorService().execute(
-        create_command(plain_user, code="seguranca", name="Segurança")
-    )
+    sector = CreateSectorService().execute(create_command(plain_user, name="Segurança"))
     assert sector.pk is not None
 
 
@@ -300,13 +296,10 @@ def test_deactivation_is_audited_and_physical_delete_is_blocked(actor: User) -> 
 
 
 def test_cannot_deactivate_an_active_escalation_target(actor: User) -> None:
-    escalation = CreateSectorService().execute(
-        create_command(actor, code="coordenacao", name="Coordenação")
-    )
+    escalation = CreateSectorService().execute(create_command(actor, name="Coordenação"))
     CreateSectorService().execute(
         create_command(
             actor,
-            code="patrimonio",
             name="Patrimônio",
             escalation_sector_id=escalation.pk,
         )
@@ -317,11 +310,10 @@ def test_cannot_deactivate_an_active_escalation_target(actor: User) -> None:
 
 
 def test_escalation_cycle_is_rejected(actor: User) -> None:
-    first = CreateSectorService().execute(create_command(actor, code="primeiro", name="Primeiro"))
+    first = CreateSectorService().execute(create_command(actor, name="Primeiro"))
     second = CreateSectorService().execute(
         create_command(
             actor,
-            code="segundo",
             name="Segundo",
             escalation_sector_id=first.pk,
         )
@@ -427,7 +419,7 @@ def test_sector_api_create_list_detail_and_update(client_actor: Client) -> None:
 
     assert create_response.status_code == 201
     created = create_response.json()
-    assert created["code"] == "PATRIMONIO"
+    assert created["code"] == str(created["id"])
     assert created["scopes"][0]["scope_key"] == "E:7"
 
     query_params: dict[str, str | int] = {"q": "patri", "limit": 200}
@@ -456,7 +448,6 @@ def test_sector_api_create_list_detail_and_update(client_actor: Client) -> None:
             }
         ],
     }
-    update_payload.pop("code")
     update_response = patch_json(
         client_actor,
         "sectors-api:sector-detail",
@@ -502,3 +493,33 @@ def test_sector_api_rejects_method_without_delete_surface(
 
     assert response.status_code == 405
     assert ValidationSector.objects.filter(pk=sector.pk).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_automatic_sector_code_migration_preserves_forward_and_rollback() -> None:
+    previous = [("sectors", "0003_responsibility_inherits_sector_scope")]
+    current = [("sectors", "0004_use_automatic_sector_code")]
+    executor = MigrationExecutor(connection)
+    executor.migrate(previous)
+    old_apps = executor.loader.project_state(previous).apps
+    old_sector_model = old_apps.get_model("sectors", "ValidationSector")
+    legacy = old_sector_model.objects.create(
+        code="SETOR_MANUAL",
+        name="Setor existente",
+        default_due_hours=24,
+    )
+
+    try:
+        executor = MigrationExecutor(connection)
+        executor.migrate(current)
+        current_apps = executor.loader.project_state(current).apps
+        current_sector_model = current_apps.get_model("sectors", "ValidationSector")
+        assert current_sector_model.objects.get(pk=legacy.pk).code == str(legacy.pk)
+
+        executor = MigrationExecutor(connection)
+        executor.migrate(previous)
+        rollback_apps = executor.loader.project_state(previous).apps
+        rollback_sector_model = rollback_apps.get_model("sectors", "ValidationSector")
+        assert rollback_sector_model.objects.get(pk=legacy.pk).code == str(legacy.pk)
+    finally:
+        MigrationExecutor(connection).migrate(current)

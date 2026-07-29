@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.authorization import has_permission
@@ -62,7 +62,6 @@ def _audit(
 
 @dataclass(frozen=True, slots=True)
 class ChecklistItemValue:
-    code: str
     question: str
     response_type: ChecklistResponseType
     is_required: bool
@@ -78,29 +77,21 @@ def _normalize_items(
 ) -> tuple[ChecklistItemValue, ...]:
     if not items:
         raise ValidationError({"items": "Informe ao menos uma pergunta."})
-    codes: set[str] = set()
     orders: set[int] = set()
     normalized: list[ChecklistItemValue] = []
     for index, item in enumerate(items):
-        code = item.code.strip().upper()
         question = item.question.strip()
-        if not code:
-            raise ValidationError({f"items.{index}.code": "O código da pergunta é obrigatório."})
         if not question:
             raise ValidationError({f"items.{index}.question": "A pergunta é obrigatória."})
-        if code in codes:
-            raise ValidationError({"items": f"O código {code} foi repetido."})
         if item.display_order <= 0:
             raise ValidationError(
                 {f"items.{index}.display_order": "A ordem deve ser maior que zero."}
             )
         if item.display_order in orders:
             raise ValidationError({"items": f"A ordem {item.display_order} foi repetida."})
-        codes.add(code)
         orders.add(item.display_order)
         normalized.append(
             ChecklistItemValue(
-                code=code,
                 question=question,
                 response_type=item.response_type,
                 is_required=item.is_required,
@@ -123,11 +114,11 @@ def _create_template_items(
     *,
     version: ChecklistTemplateVersion,
     items: tuple[ChecklistItemValue, ...],
-) -> None:
+) -> tuple[ChecklistTemplateItem, ...]:
+    created: list[ChecklistTemplateItem] = []
     for value in items:
         item = ChecklistTemplateItem(
             template_version=version,
-            code=value.code,
             question=value.question,
             response_type=value.response_type,
             is_required=value.is_required,
@@ -139,6 +130,11 @@ def _create_template_items(
         )
         item.full_clean()
         item.save()
+        item.code = str(item.pk)
+        item.full_clean()
+        item.save(update_fields=("code",))
+        created.append(item)
+    return tuple(created)
 
 
 def _create_template_version(
@@ -291,7 +287,7 @@ class UpdateChecklistTemplateDraftService:
         version.default_due_hours = command.default_due_hours
         version.full_clean()
         version.save(update_fields=("default_due_hours",))
-        _create_template_items(version=version, items=normalized_items)
+        created_items = _create_template_items(version=version, items=normalized_items)
 
         template.name = name
         template.description = description
@@ -312,7 +308,7 @@ class UpdateChecklistTemplateDraftService:
                 "previous_default_due_hours": previous_due_hours,
                 "default_due_hours": version.default_due_hours,
                 "previous_item_codes": previous_codes,
-                "item_codes": [item.code for item in normalized_items],
+                "item_codes": [item.code for item in created_items],
                 "item_count": len(normalized_items),
                 "template_version": template.version,
             },
@@ -544,7 +540,6 @@ def _create_group_version(
 @dataclass(frozen=True, slots=True)
 class CreateValidationGroupCommand:
     actor: User
-    code: str
     name: str
     description: str
     sectors: tuple[GroupSectorValue, ...]
@@ -554,26 +549,20 @@ class CreateValidationGroupService:
     @transaction.atomic
     def execute(self, command: CreateValidationGroupCommand) -> ValidationGroup:
         _require_permission(command.actor)
-        code = _required_text(
-            command.code,
-            "code",
-            "O código do grupo é obrigatório.",
-        ).upper()
         name = _required_text(
             command.name,
             "name",
             "O nome do grupo é obrigatório.",
         )
         group = ValidationGroup(
-            code=code,
             name=name,
             description=command.description.strip(),
         )
         group.full_clean()
-        try:
-            group.save()
-        except IntegrityError as exc:
-            raise ValidationError({"code": "Já existe um grupo com este código."}) from exc
+        group.save()
+        group.code = str(group.pk)
+        group.full_clean()
+        group.save(update_fields=("code",))
         version = _create_group_version(
             group=group,
             actor=command.actor,
@@ -587,6 +576,145 @@ class CreateValidationGroupService:
             data={"group_id": group.pk, "initial_version_id": version.pk},
         )
         return group
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateValidationGroupDraftCommand:
+    actor: User
+    version_id: int
+    expected_group_version: int
+    name: str
+    description: str
+    sectors: tuple[GroupSectorValue, ...]
+
+
+class UpdateValidationGroupDraftService:
+    @transaction.atomic
+    def execute(
+        self,
+        command: UpdateValidationGroupDraftCommand,
+    ) -> ValidationGroupVersion:
+        _require_permission(command.actor)
+        name = _required_text(command.name, "name", "O nome do grupo é obrigatório.")
+        description = command.description.strip()
+        normalized_sectors = _normalize_group_sectors(command.sectors)
+        try:
+            group_id = ValidationGroupVersion.objects.values_list(
+                "group_id",
+                flat=True,
+            ).get(pk=command.version_id)
+        except ValidationGroupVersion.DoesNotExist as exc:
+            raise ValidationGroupVersion.DoesNotExist from exc
+
+        group = ValidationGroup.objects.select_for_update().get(pk=group_id)
+        versions: list[ValidationGroupVersion] = list(
+            ValidationGroupVersion.objects.select_for_update().filter(group=group).order_by("pk")
+        )
+        version = next(
+            (row for row in versions if row.pk == command.version_id),
+            None,
+        )
+        if version is None:
+            raise ValidationGroupVersion.DoesNotExist
+        if group.version != command.expected_group_version:
+            raise ValidationError("O grupo foi alterado por outra sessão. Recarregue a página.")
+        if not group.is_active:
+            raise ValidationError("O grupo precisa estar ativo.")
+        if version.status != VersionStatus.DRAFT:
+            raise ValidationError(
+                "Somente uma versão de grupo em rascunho pode ser editada; crie uma nova versão."
+            )
+
+        persisted_rules = list(
+            ValidationGroupSector.objects.select_for_update()
+            .filter(group_version=version)
+            .select_related("sector", "template_version__template")
+            .order_by("display_order", "pk")
+        )
+        sector_ids = {value.sector_id for value in normalized_sectors}
+        template_version_ids = {value.template_version_id for value in normalized_sectors}
+        locked_sectors = {
+            sector.pk: sector
+            for sector in ValidationSector.objects.select_for_update()
+            .filter(pk__in=sector_ids)
+            .order_by("pk")
+        }
+        template_versions = {
+            template_version.pk: template_version
+            for template_version in ChecklistTemplateVersion.objects.select_for_update()
+            .filter(pk__in=template_version_ids)
+            .select_related("template")
+            .order_by("pk")
+        }
+        if locked_sectors.keys() != sector_ids:
+            raise ValidationError({"sectors": "Um dos setores informados não existe."})
+        if template_versions.keys() != template_version_ids:
+            raise ValidationError({"sectors": "Uma das versões de template não existe."})
+
+        previous_name = group.name
+        previous_description = group.description
+        previous_rules = [
+            {
+                "sector_id": rule.sector_id,
+                "template_version_id": rule.template_version_id,
+                "is_required": rule.is_required,
+                "blocks_process": rule.blocks_process,
+                "due_hours_override": rule.due_hours_override,
+                "display_order": rule.display_order,
+            }
+            for rule in persisted_rules
+        ]
+        for persisted_rule in persisted_rules:
+            persisted_rule.delete()
+        for value in normalized_sectors:
+            sector = locked_sectors[value.sector_id]
+            template_version = template_versions[value.template_version_id]
+            if not sector.is_active:
+                raise ValidationError({"sectors": f"O setor {sector.code} está inativo."})
+            rule = ValidationGroupSector(
+                group_version=version,
+                sector=sector,
+                template_version=template_version,
+                is_required=value.is_required,
+                blocks_process=value.blocks_process,
+                due_hours_override=value.due_hours_override,
+                display_order=value.display_order,
+            )
+            rule.full_clean()
+            rule.save()
+
+        group.name = name
+        group.description = description
+        group.version += 1
+        group.full_clean()
+        group.save(update_fields=("name", "description", "version", "updated_at"))
+        _audit(
+            event_type=WorkflowConfigurationEventType.GROUP_DRAFT_UPDATED,
+            actor=command.actor,
+            entity_type="VALIDATION_GROUP_VERSION",
+            entity_id=version.pk,
+            data={
+                "group_id": group.pk,
+                "version_number": version.version_number,
+                "previous_name": previous_name,
+                "name": group.name,
+                "description_changed": previous_description != group.description,
+                "previous_rules": previous_rules,
+                "rules": [
+                    {
+                        "sector_id": value.sector_id,
+                        "template_version_id": value.template_version_id,
+                        "is_required": value.is_required,
+                        "blocks_process": value.blocks_process,
+                        "due_hours_override": value.due_hours_override,
+                        "display_order": value.display_order,
+                    }
+                    for value in normalized_sectors
+                ],
+                "group_version": group.version,
+            },
+        )
+        return version
 
 
 @dataclass(frozen=True, slots=True)

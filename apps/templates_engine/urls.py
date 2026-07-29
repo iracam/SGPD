@@ -45,4 +45,9 @@ urlpatterns = [
         api.ValidationGroupPublishView.as_view(),
         name="group-version-publish",
     ),
+    path(
+        "group-versions/<int:version_id>/",
+        api.ValidationGroupDraftUpdateView.as_view(),
+        name="group-version-update",
+    ),
 ]

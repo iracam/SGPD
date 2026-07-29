@@ -202,7 +202,7 @@ def _available_groups(process: OffboardingProcess) -> list[dict[str, Any]]:
             "sector_rules__template_version__template",
         )
         .distinct()
-        .order_by("group__code")
+        .order_by("group_id")
     )
     return [_available_group_payload(version, process) for version in versions]
 
@@ -211,12 +211,12 @@ def _draft_payload(actor: User, process_uuid: str) -> dict[str, Any]:
     context = GetDraftProcessContextService().execute(actor, process_uuid)
     process = context.process
     selected = process.selected_groups.select_related("group_version__group").order_by(
-        "group_version__group__code"
+        "group_version__group_id"
     )
     overrides = process.sector_overrides.select_related(
         "sector",
         "template_version__template",
-    ).order_by("sector__code")
+    ).order_by("sector_id")
     tasks = process.sector_tasks.select_related(
         "sector",
         "template_version",

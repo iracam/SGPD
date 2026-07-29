@@ -104,7 +104,6 @@ def create_command(
 ) -> CreateSectorCommand:
     return CreateSectorCommand(
         actor=actor,
-        code="tecnologia",
         name="Tecnologia",
         description="Valida acessos e equipamentos.",
         default_due_hours=24,
@@ -143,7 +142,6 @@ def update_command(
 
 def api_payload(*users: User) -> dict[str, Any]:
     return {
-        "code": "tecnologia",
         "name": "Tecnologia",
         "description": "Valida acessos e equipamentos.",
         "default_due_hours": 24,
@@ -187,8 +185,10 @@ def test_sector_create_designates_multiple_users_without_assignable_role(
     assert [link.user_id for link in links] == sorted([plain_user.pk, second_user.pk])
     assert all(link.is_active for link in links)
     assert not plain_user.role_assignments.exists()
-    assert has_sector_responsibility(plain_user, sector.code, company_code=7)
-    assert not has_sector_responsibility(plain_user, sector.code, company_code=8)
+    sector_code = sector.code
+    assert sector_code is not None
+    assert has_sector_responsibility(plain_user, sector_code, company_code=7)
+    assert not has_sector_responsibility(plain_user, sector_code, company_code=8)
     assert (
         SectorAuditEvent.objects.filter(event_type=SectorEventType.RESPONSIBLE_ASSIGNED).count()
         == 2
@@ -207,10 +207,12 @@ def test_future_link_is_scheduled_but_not_effective(
         )
     )
 
-    assert not has_sector_responsibility(plain_user, sector.code)
+    sector_code = sector.code
+    assert sector_code is not None
+    assert not has_sector_responsibility(plain_user, sector_code)
     assert has_sector_responsibility(
         plain_user,
-        sector.code,
+        sector_code,
         at=future + timedelta(seconds=1),
     )
 
@@ -365,7 +367,6 @@ def test_sector_api_persists_nested_links_and_exposes_indicators(
     assert {plain_user.pk, second_user.pk} <= candidate_ids
 
     update_payload = api_payload(plain_user)
-    update_payload.pop("code")
     update_payload.update(
         {
             "version": created["version"],

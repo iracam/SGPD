@@ -81,7 +81,7 @@ export class SetoresPage {
   ];
 
   readonly titulo = computed(() =>
-    this.emEdicao() ? `Editar setor: ${this.emEdicao()?.code}` : 'Novo setor',
+    this.emEdicao() ? `Editar setor #${this.emEdicao()?.code}` : 'Novo setor',
   );
   readonly setoresEscalada = computed(() =>
     this.setores().filter(
@@ -90,7 +90,6 @@ export class SetoresPage {
   );
 
   readonly formulario = this.formBuilder.group({
-    code: this.formBuilder.nonNullable.control('', Validators.required),
     name: this.formBuilder.nonNullable.control('', Validators.required),
     description: this.formBuilder.nonNullable.control(''),
     default_due_hours: this.formBuilder.nonNullable.control(24, [
@@ -124,7 +123,6 @@ export class SetoresPage {
     this.errosCampo.set({});
     this.erroFormulario.set('');
     this.formulario.patchValue({
-      code: setor?.code ?? '',
       name: setor?.name ?? '',
       description: setor?.description ?? '',
       default_due_hours: setor?.default_due_hours ?? 24,
@@ -155,11 +153,6 @@ export class SetoresPage {
           this.paraDataHoraLocal(current.valid_until),
         ),
       );
-    }
-    if (setor) {
-      this.formulario.controls.code.disable();
-    } else {
-      this.formulario.controls.code.enable();
     }
     this.dialogoAberto.set(true);
   }
@@ -251,10 +244,7 @@ export class SetoresPage {
           version: sector.version,
           is_active: value.is_active,
         } satisfies EdicaoSetor)
-      : this.service.criar({
-          ...common,
-          code: value.code,
-        } satisfies NovoSetor);
+      : this.service.criar(common satisfies NovoSetor);
 
     this.salvando.set(true);
     this.erroFormulario.set('');

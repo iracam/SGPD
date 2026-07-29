@@ -10,7 +10,6 @@ from .models import ChecklistResponseType
 
 
 class ChecklistItemSerializer(serializers.Serializer[dict[str, Any]]):
-    code = serializers.CharField(max_length=50, trim_whitespace=True)
     question = serializers.CharField(max_length=2000, trim_whitespace=True)
     response_type = serializers.ChoiceField(choices=ChecklistResponseType.choices)
     is_required = serializers.BooleanField(default=True)
@@ -79,7 +78,6 @@ class ValidationGroupVersionSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class ValidationGroupCreateSerializer(ValidationGroupVersionSerializer):
-    code = serializers.CharField(max_length=50, trim_whitespace=True)
     name = serializers.CharField(max_length=120, trim_whitespace=True)
     description = serializers.CharField(
         max_length=2000,
@@ -88,3 +86,7 @@ class ValidationGroupCreateSerializer(ValidationGroupVersionSerializer):
         default="",
         trim_whitespace=True,
     )
+
+
+class ValidationGroupDraftUpdateSerializer(ValidationGroupCreateSerializer):
+    expected_version = serializers.IntegerField(min_value=1)

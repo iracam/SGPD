@@ -34,6 +34,7 @@ class WorkflowConfigurationEventType(models.TextChoices):
     TEMPLATE_PUBLISHED = "TEMPLATE_PUBLISHED", "Template publicado"
     GROUP_CREATED = "GROUP_CREATED", "Grupo criado"
     GROUP_VERSION_CREATED = "GROUP_VERSION_CREATED", "Versão de grupo criada"
+    GROUP_DRAFT_UPDATED = "GROUP_DRAFT_UPDATED", "Rascunho de grupo alterado"
     GROUP_PUBLISHED = "GROUP_PUBLISHED", "Grupo publicado"
 
 
@@ -204,7 +205,13 @@ class ChecklistTemplateItem(models.Model):
         on_delete=models.PROTECT,
         related_name="items",
     )
-    code = models.CharField("código", max_length=50)
+    # O PK só existe após o primeiro INSERT; o service preenche o código na mesma transação.
+    code = models.CharField(  # noqa: DJ001
+        "código técnico",
+        max_length=50,
+        null=True,
+        editable=False,
+    )
     question = models.TextField("pergunta")
     response_type = models.CharField(
         "tipo de resposta",
@@ -236,7 +243,6 @@ class ChecklistTemplateItem(models.Model):
             ),
             models.CheckConstraint(
                 condition=models.Q(
-                    code__isnull=False,
                     question__isnull=False,
                     response_type__isnull=False,
                     display_order__gt=0,
@@ -247,18 +253,24 @@ class ChecklistTemplateItem(models.Model):
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self.pk is not None:
-            raise ValidationError(
-                "Perguntas versionadas são imutáveis por alteração direta; "
-                "use o service do rascunho."
+            persisted = type(self).objects.only("code").get(pk=self.pk)
+            update_fields = kwargs.get("update_fields")
+            is_automatic_code_fill = (
+                persisted.code in (None, "")
+                and self.code == str(self.pk)
+                and update_fields is not None
+                and set(update_fields) == {"code"}
             )
+            if not is_automatic_code_fill:
+                raise ValidationError(
+                    "Perguntas versionadas são imutáveis por alteração direta; "
+                    "use o service do rascunho."
+                )
         super().save(*args, **kwargs)
 
     def clean(self) -> None:
         super().clean()
-        self.code = self.code.strip().upper()
         self.question = self.question.strip()
-        if not self.code:
-            raise ValidationError({"code": "O código da pergunta é obrigatório."})
         if not self.question:
             raise ValidationError({"question": "A pergunta é obrigatória."})
         if self.template_version.status != VersionStatus.DRAFT:
@@ -287,7 +299,14 @@ class ChecklistTemplateItem(models.Model):
 
 
 class ValidationGroup(models.Model):
-    code = models.CharField("código", max_length=50, unique=True)
+    # O PK só existe após o primeiro INSERT; o service preenche o código na mesma transação.
+    code = models.CharField(  # noqa: DJ001
+        "código técnico",
+        max_length=50,
+        unique=True,
+        null=True,
+        editable=False,
+    )
     name = models.CharField("nome", max_length=120)
     description = models.TextField("descrição", blank=True)
     is_active = models.BooleanField("ativo", default=True)
@@ -307,7 +326,7 @@ class ValidationGroup(models.Model):
 
     class Meta:
         db_table = "SGPD_VALIDATION_GROUP"
-        ordering = ("code",)
+        ordering = ("name", "pk")
         verbose_name = "grupo de validação"
         verbose_name_plural = "grupos de validação"
         permissions = [
@@ -318,18 +337,15 @@ class ValidationGroup(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(code__isnull=False, name__isnull=False, version__gt=0),
+                condition=models.Q(name__isnull=False, version__gt=0),
                 name="SGPD_CK_GROUP_REQUIRED",
             ),
         ]
 
     def clean(self) -> None:
         super().clean()
-        self.code = self.code.strip().upper()
         self.name = self.name.strip()
         self.description = self.description.strip()
-        if not self.code:
-            raise ValidationError({"code": "O código do grupo é obrigatório."})
         if not self.name:
             raise ValidationError({"name": "O nome do grupo é obrigatório."})
         if self.current_version_id is not None:
@@ -379,7 +395,7 @@ class ValidationGroupVersion(models.Model):
 
     class Meta:
         db_table = "SGPD_VALIDATION_GROUP_VER"
-        ordering = ("group__code", "-version_number")
+        ordering = ("group_id", "-version_number")
         verbose_name = "versão de grupo"
         verbose_name_plural = "versões de grupos"
         constraints = [
@@ -496,7 +512,10 @@ class ValidationGroupSector(models.Model):
             )
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
-        raise ValidationError("Relações versionadas de grupo não podem ser excluídas.")
+        status = ValidationGroupVersion.objects.only("status").get(pk=self.group_version_id).status
+        if status != VersionStatus.DRAFT:
+            raise ValidationError("Relações de grupos publicados não podem ser excluídas.")
+        return super().delete(*args, **kwargs)
 
 
 class WorkflowConfigurationAuditEvent(models.Model):

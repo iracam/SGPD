@@ -160,7 +160,7 @@ def _sector_queryset() -> QuerySet[ValidationSector]:
                 to_attr="active_responsibilities",
             ),
         )
-        .order_by("code")
+        .order_by("name", "pk")
     )
 
 
@@ -219,7 +219,6 @@ class SectorListCreateView(SectorsAPIView):
         sector = CreateSectorService().execute(
             CreateSectorCommand(
                 actor=self.actor(request),
-                code=data["code"],
                 name=data["name"],
                 description=data["description"],
                 default_due_hours=data["default_due_hours"],

@@ -22,7 +22,7 @@
       icon="pi pi-sitemap"
       label="Novo grupo"
       [disabled]="versoesTemplatePublicadas().length === 0"
-      (onClick)="exibirGrupo.set(!exibirGrupo())"
+      (onClick)="abrirNovoGrupo()"
     ></p-button>
   </div>
 </header>
@@ -45,7 +45,8 @@
       }
     </h2>
     <p class="editor__nota">
-      O código numérico é gerado automaticamente após salvar.
+      Os códigos numéricos do template e de cada pergunta são gerados
+      automaticamente após salvar.
     </p>
     <form [formGroup]="formularioTemplate" (ngSubmit)="salvarTemplate()">
       <div class="grade-campos">
@@ -89,10 +90,6 @@
           <fieldset [formGroupName]="i" class="linha">
             <legend>Pergunta {{ i + 1 }}</legend>
             <div class="grade-campos">
-              <div class="campo">
-                <label [for]="'pergunta-code-' + i">Código</label>
-                <input [id]="'pergunta-code-' + i" pInputText formControlName="code" />
-              </div>
               <div class="campo">
                 <label [for]="'pergunta-type-' + i">Tipo de resposta</label>
                 <p-select
@@ -152,14 +149,20 @@
 }
 
 @if (exibirGrupo()) {
-  <section class="cartao editor" aria-labelledby="novo-grupo">
-    <h2 id="novo-grupo">Novo grupo — versão 1</h2>
+  <section class="cartao editor" aria-labelledby="editor-grupo">
+    <h2 id="editor-grupo">
+      @if (grupoEmEdicao(); as grupo) {
+        Editar grupo #{{ grupo.code }} — versão
+        {{ rascunhoGrupo(grupo)?.version_number }} em rascunho
+      } @else {
+        Novo grupo — versão 1
+      }
+    </h2>
+    <p class="editor__nota">
+      O código numérico do grupo é gerado automaticamente após salvar.
+    </p>
     <form [formGroup]="formularioGrupo" (ngSubmit)="criarGrupo()">
       <div class="grade-campos">
-        <div class="campo">
-          <label for="grupo-code">Código</label>
-          <input id="grupo-code" pInputText formControlName="code" />
-        </div>
         <div class="campo">
           <label for="grupo-name">Nome</label>
           <input id="grupo-name" pInputText formControlName="name" />
@@ -242,9 +245,16 @@
       </div>
       <div class="acoes">
         <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          label="Cancelar"
+          (onClick)="cancelarEditorGrupo()"
+        ></p-button>
+        <p-button
           type="submit"
           icon="pi pi-save"
-          label="Criar grupo em rascunho"
+          [label]="grupoEmEdicao() ? 'Salvar rascunho' : 'Criar em rascunho'"
           [loading]="salvandoGrupo()"
         ></p-button>
       </div>
@@ -334,7 +344,7 @@
     @for (grupo of grupos(); track grupo.id) {
       <div class="registro">
         <div>
-          <strong>{{ grupo.code }} — {{ grupo.name }}</strong>
+          <strong>#{{ grupo.code }} — {{ grupo.name }}</strong>
           <small>
             {{ grupo.versions[0]?.sectors?.length || 0 }} setor(es) · versão de concorrência
             {{ grupo.version }}
@@ -347,7 +357,15 @@
               [value]="'v' + version.version_number + ' · ' + version.status"
             ></p-tag>
           }
-          @if (grupo.versions[0]?.status === 'DRAFT') {
+          @if (rascunhoGrupo(grupo)) {
+            <p-button
+              type="button"
+              size="small"
+              [outlined]="true"
+              icon="pi pi-pencil"
+              label="Editar rascunho"
+              (onClick)="editarRascunhoGrupo(grupo)"
+            ></p-button>
             <p-button
               type="button"
               size="small"

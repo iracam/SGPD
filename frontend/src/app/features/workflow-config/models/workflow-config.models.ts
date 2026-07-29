@@ -93,13 +93,13 @@ export interface NovoTemplate {
   name: string;
   description: string;
   default_due_hours: number | null;
-  items: Array<Omit<ItemTemplate, 'id'>>;
+  items: Array<Omit<ItemTemplate, 'id' | 'code'>>;
 }
 
 export interface NovaVersaoTemplate {
   expected_version: number;
   default_due_hours: number | null;
-  items: Array<Omit<ItemTemplate, 'id'>>;
+  items: Array<Omit<ItemTemplate, 'id' | 'code'>>;
 }
 
 export interface AtualizacaoRascunhoTemplate extends NovaVersaoTemplate {
@@ -108,7 +108,6 @@ export interface AtualizacaoRascunhoTemplate extends NovaVersaoTemplate {
 }
 
 export interface NovoGrupo {
-  code: string;
   name: string;
   description: string;
   sectors: Array<{
@@ -119,4 +118,8 @@ export interface NovoGrupo {
     due_hours_override: number | null;
     display_order: number;
   }>;
+}
+
+export interface AtualizacaoRascunhoGrupo extends NovoGrupo {
+  expected_version: number;
 }
