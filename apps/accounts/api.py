@@ -44,6 +44,7 @@ DELEGABLE_PERMISSIONS: tuple[str, ...] = (
     "accounts.view_account_audit",
     SENIOR_REFERENCE_PERMISSION,
     "sectors.manage_sectors",
+    "templates_engine.manage_workflow_configuration",
 )
 
 

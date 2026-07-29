@@ -13,6 +13,10 @@ urlpatterns = [
     path("api/v1/sectors/", include("apps.sectors.urls")),
     path("api/v1/settings/", include("apps.system_settings.urls")),
     path(
+        "api/v1/workflow-config/",
+        include("apps.templates_engine.urls"),
+    ),
+    path(
         "api/v1/references/",
         include("apps.integrations.senior.urls"),
     ),

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.offboarding",
     "apps.sectors",
     "apps.system_settings",
+    "apps.templates_engine",
 ]
 
 MIDDLEWARE = [
