@@ -283,7 +283,6 @@ A regra poderá usar expressão declarativa em fase posterior.
 #### TEMPLATE_CHECKLIST
 
 - `ID`
-- `SETOR_ID`
 - `NOME`
 - `CODIGO`
 - `VERSAO_LOCK`
@@ -292,7 +291,9 @@ A regra poderá usar expressão declarativa em fase posterior.
 
 O cabeçalho está em `SGPD_CHECKLIST_TEMPLATE`; conteúdo e SLA ficam em
 `SGPD_CHECKLIST_TEMPLATE_VER`. Publicar uma versão não altera perguntas
-históricas e aposenta a vigente anterior.
+históricas e aposenta a vigente anterior. O template não pertence a um setor:
+`SGPD_VALIDATION_GROUP_SECTOR` é a associação versionada entre setor e versão
+de template, permitindo reutilizar o mesmo questionário em vários setores.
 
 #### TEMPLATE_CHECKLIST_ITEM
 
@@ -408,8 +409,9 @@ Estado implementado em `SGPD_EMPLOYEE_SNAPSHOT`:
 
 `SGPD_PROCESS_GROUP` fixa as versões de grupo confirmadas pelo DP.
 `SGPD_PROCESS_SECTOR_OVERRIDE` representa inclusão ou remoção manual por setor,
-sempre com justificativa. Inclusão exige a versão vigente publicada de um
-template do mesmo setor; remoção só pode atingir setor fornecido por grupo.
+sempre com justificativa. Inclusão exige uma versão vigente publicada de
+template, escolhida independentemente do setor; remoção só pode atingir setor
+fornecido por grupo.
 Enquanto o processo estiver em `RASCUNHO`, a seleção é substituída
 atomicamente e incrementa `VERSAO_LOCK`; após o início, torna-se histórica.
 

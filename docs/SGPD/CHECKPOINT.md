@@ -403,7 +403,8 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     foram cadastrados pelo responsável funcional e não derivados do AD.
 - [x] Grupos.
   - Cabeçalho estável e versões `DRAFT`, `PUBLISHED` e `RETIRED`.
-  - Cada setor fixa a versão publicada de template usada no grupo.
+  - Cada regra fixa setor e versão publicada de template separadamente.
+  - A mesma versão de template pode ser reutilizada em múltiplos setores.
 - [ ] Regras.
   - Aplicabilidade por escopo do setor, sobreposição conservadora e ajustes
     manuais com motivo estão implementados; condições por cargo, centro de
@@ -411,11 +412,12 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [x] Templates.
   - Perguntas tipadas, obrigatoriedade, bloqueio, evidência, pendência,
     ordenação, configuração e prazo padrão.
+  - Cabeçalho e versões são neutros quanto a setor.
   - Nenhum template, grupo ou pergunta funcional foi semeado sem homologação.
 - [x] Versionamento.
   - Publicação substitui a versão vigente sem alterar versões históricas.
-  - Migrations `templates_engine.0001` e `offboarding.0002` estão revisadas,
-    mas aguardam aplicação no Oracle DEV após correção do `ORA-12560`.
+  - Migrations `templates_engine.0001`, `templates_engine.0002` e
+    `offboarding.0002` aplicadas e validadas no Oracle DEV.
 - [x] Permissões.
   - SuperAdmin mantém a administração técnica fora do catálogo funcional.
   - O único papel funcional atribuível ativo é `DP`.
@@ -1358,4 +1360,22 @@ Comandos executados: leitura integral da documentação obrigatória; diagnósti
 Arquivos alterados: novo módulo apps/templates_engine; models, services, API, admin e migration 0002 de apps/offboarding; settings e rotas; testes backend; features Angular workflow-config e processo-rascunho, rotas, menu e integração da abertura; README.md e documentação SGPD.
 Commits: b543b62 (grupos/templates), f3f0319 (início idempotente), 040ddec (SPA), d18a440 (tipagem dos testes); documentação final em commit próprio.
 Testes: 289 testes backend e 61 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,13 kB, chunk lazy de configuração de 20,29 kB e chunk de rascunho de 85,17 kB. Nenhum objeto ou dado do Senior foi escrito ou consultado neste incremento. As migrations foram validadas fora do Oracle, mas não constam como aplicadas no DEV devido ao ORA-12560.
+```
+
+### 2026-07-29 — Templates reutilizáveis entre setores
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Templates
+O que foi concluído: remoção da cardinalidade exclusiva entre ChecklistTemplate e ValidationSector; templates e suas versões passaram a ser neutros quanto a setor; ValidationGroupSector permaneceu como única associação versionada entre setor e template; SPA de templates deixou de solicitar setor e a composição mínima do grupo passou a escolher setor e versão publicada separadamente; inclusão manual e início foram adaptados sem alterar snapshots históricos.
+Diagnóstico: templates_engine.0001 e offboarding.0002 estavam aplicadas no Oracle DEV, e as tabelas de templates, versões, grupos e regras continham zero registros. A duplicação Template → Setor e Grupo/Setor → Template não possuía dado funcional a migrar, tornando este o ponto seguro para corrigir a cardinalidade.
+Decisões: ADR-040 aceita; não criar relação muitos-para-muitos de setores permitidos no template; permitir a mesma versão em múltiplos setores; preservar tarefa, checklist e respostas independentes por setor; manter conflito quando versões diferentes alcançam o mesmo setor; manter SLA específico, obrigatoriedade e bloqueio na regra do grupo.
+Riscos: templates_engine.0002 remove FK, índice e coluna e não possui rollback automático seguro depois que templates genéricos forem cadastrados. Antes da aplicação foram confirmados zero templates e regras. Qualquer retorno futuro exigirá migração evolutiva com decisão explícita, sem inferir um setor único.
+Pendências: homologar e cadastrar templates funcionais; completar na SPA o editor de versões posteriores e as opções dos tipos SINGLE_CHOICE e MULTIPLE_CHOICE; manter evoluções de grupo fora deste recorte, salvo compatibilidade necessária com templates reutilizáveis.
+Próximo passo: homologar um primeiro template reutilizável e suas perguntas; depois implementar o editor de nova versão do template sem ampliar as regras de grupo.
+Comandos executados: diagnóstico de models, services, API, SPA e migrations; consultas somente ao catálogo e às tabelas SGPD; sqlmigrate direto e reverso; migrate templates_engine 0002; validação de colunas, constraints, índices e plano; smoke real de criação/publicação com rollback obrigatório; pytest; Ruff check/format; Mypy; Django check; makemigrations check; Vitest; build Angular; diff check.
+Arquivos alterados: models, services, serializers, API e migration 0002 de templates_engine; validações mínimas de offboarding; feature Angular workflow-config; testes backend/frontend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md e MANIFEST.json.
+Commits: 78af8f6 (template neutro, compatibilidade mínima, migration, SPA e testes); documentação final em commit próprio.
+Testes: 290 testes backend e 62 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build inicial de 497,13 kB e chunk lazy workflow-config de 20,10 kB. No Oracle DEV, templates_engine.0002 está aplicada, SECTOR_ID e seus objetos dependentes estão ausentes, constraints restantes estão ENABLED/VALIDATED, índices estão VALID e o plano está vazio. O smoke publicou um template sem atributo de setor e confirmou templates=0 e eventos=0 após rollback. Nenhum objeto ou dado do Senior foi consultado ou alterado.
 ```

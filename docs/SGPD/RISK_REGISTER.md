@@ -16,7 +16,7 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R09 | Processo travado por regra mal configurada | Média | Alto | Prévia do rascunho; exigência de versões publicadas, setor ativo e ao menos um setor obrigatório; conflito explícito quando grupos apontam templates diferentes; regras automáticas adicionais dependem de homologação |
 | R10 | Duplicidade de processo | Mitigado na abertura em 2026-07-29 | Alto | Validação sob lock e `ACTIVE_EMPLOYEE_KEY` única no Oracle enquanto o processo não estiver encerrado; cancelamento e encerramento futuros liberarão a chave somente por service auditado |
 | R11 | Indisponibilidade ou lentidão do Senior bloquear novas pesquisas | Média | Alto | Timeout, paginação, filtros, health check e erro explícito sem usar dados obsoletos |
-| R12 | Migration com lock no Oracle | Média | Alto | Migrations aditivas, revisão do SQL e dos identificadores Oracle, janela de mudança e validação de constraints/índices após aplicação |
+| R12 | Migration com lock no Oracle | Média | Alto | Revisão do SQL e dos identificadores Oracle, janela de mudança e validação de constraints/índices; `templates_engine.0002` removeu FK/coluna somente após confirmar zero templates e regras no DEV |
 | R13 | Auditoria incompleta | Média | Alto | Service de auditoria e testes |
 | R14 | Upload malicioso | Média | Alto | Validação de tipo e tamanho, nomes aleatórios e storage privado |
 | R15 | Escopo crescer antes do MVP | Alta | Alto | Roadmap e checkpoints |
@@ -56,7 +56,8 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R53 | Confundir papel `DP` com responsabilidade pelo setor Departamento Pessoal e conceder abertura, liberação ou encerramento indevidos | Média | Muito alto | Conceitos independentes e cumulativos; `has_effective_role()` exige atribuição `DP` explícita, vigente e compatível com o escopo; SuperAdmin, grupo AD e associação de setor não concedem `DP`; cada transição revalida estado, prontidão e auditoria |
 | R54 | Retry ou concorrência no início duplicar tarefas, checklist ou auditoria | Mitigado em 2026-07-29 | Alto | Lock do processo, versão otimista, chave idempotente vinculada a ator/payload, unicidade por setor e transação única com rollback |
 | R55 | Grupos sobrepostos ou configuração alterada gerarem histórico ambíguo | Mitigado no recorte atual em 2026-07-29 | Alto | Mesma versão de template exigida por setor, combinação conservadora de bloqueio/obrigatoriedade, menor prazo e snapshots de grupo, template, setor e perguntas |
-| R56 | Código do Checkpoint 4 divergir do schema Oracle enquanto migrations novas não forem aplicadas | Alta até regularização | Alto | Não liberar uso operacional; aplicar `templates_engine.0001` e `offboarding.0002` em janela controlada assim que a conexão for restaurada e validar migrations, constraints e índices; falha atual `ORA-12560` registrada explicitamente |
+| R56 | Código do Checkpoint 4 divergir do schema Oracle enquanto migrations novas não forem aplicadas | Mitigado em 2026-07-29 | Alto | `templates_engine.0001`, `templates_engine.0002` e `offboarding.0002` aplicadas; plano vazio, colunas, constraints e índices validados no Oracle DEV |
+| R57 | Vincular template a um único setor causar duplicação de questionários e versões divergentes | Mitigado em 2026-07-29 | Médio | Template neutro quanto a setor; associação mantida somente na regra versionada do grupo; mesma versão testada em múltiplos setores e snapshots independentes por tarefa |
 
 ## Riscos encerrados
 

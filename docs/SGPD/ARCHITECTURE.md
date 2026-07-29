@@ -198,8 +198,9 @@ global/empresa/filial, validade, versão otimista, revogação lógica, bloqueio
 pessimista nas mutações críticas, auditoria append-only, services, API e
 administração técnica somente leitura.
 `templates_engine` contém cabeçalhos estáveis e versões imutáveis de templates,
-perguntas e grupos, com publicação auditada e referência exata de template por
-setor. `offboarding` contém abertura, seleção versionada do rascunho e início
+perguntas e grupos, com publicação auditada. Templates são neutros quanto a
+setor; cada regra de grupo associa separadamente um setor a uma versão exata de
+template. `offboarding` contém abertura, seleção versionada do rascunho e início
 idempotente: snapshots do colaborador, gestor, setor, template e perguntas,
 tarefas pertencentes ao setor, auditoria append-only, services, API e
 administração técnica somente leitura.
@@ -510,7 +511,8 @@ coordenador ou substituto.
 Os contratos `workflow-config` exigem
 `templates_engine.manage_workflow_configuration`. Publicar aposenta a versão
 vigente anterior sem alterar seu conteúdo; cada versão de grupo fixa uma
-versão exata de template por setor.
+versão exata de template por setor. A mesma versão pode ser reutilizada por
+quantos setores forem necessários, sem duplicar seu conteúdo.
 
 Todos os responsáveis efetivos do setor receberão a mesma notificação e terão
 a mesma autoridade. No workflow futuro, mutações de tarefa deverão bloquear ou

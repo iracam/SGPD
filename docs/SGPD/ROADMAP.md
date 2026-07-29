@@ -209,8 +209,9 @@ o setor sincroniza seus vínculos atomicamente e as listas de setores/usuários
 exibem indicadores. `DP` permanece como único papel atribuível, cumulativo e
 independente da responsabilidade de setor. Templates e grupos versionados
 também estão implementados com publicação auditada e SPA; nenhuma pergunta ou
-composição funcional foi semeada. Regras automáticas de aplicabilidade
-continuam pendentes.
+composição funcional foi semeada. Templates são neutros quanto a setor e podem
+ser reutilizados por diferentes regras de grupo. Regras automáticas de
+aplicabilidade continuam pendentes.
 
 ## Fase 4 — Processo demissional
 
@@ -244,8 +245,8 @@ vigente em setor obrigatório bloqueia e desfaz a transição. A SPA cobre
 confirmação de grupos e início; ajustes manuais existem na API e ainda não
 possuem editor visual. Regras automáticas de sugestão, estados posteriores e
 painéis operacionais permanecem pendentes. As migrations
-`templates_engine.0001` e `offboarding.0002` tiveram o SQL Oracle revisado e
-aguardam restauração da conexão para aplicação e validação no DEV.
+`templates_engine.0001`, `templates_engine.0002` e `offboarding.0002` estão
+aplicadas e validadas no Oracle DEV.
 
 ## Fase 5 — Pendências e evidências
 

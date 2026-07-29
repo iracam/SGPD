@@ -1153,9 +1153,10 @@ copiado é exatamente igual ao escopo do setor antes de remover as colunas.
 
 ### Estado
 
-Aceita e implementada em 2026-07-29. A aplicação das migrations
-`templates_engine.0001` e `offboarding.0002` no Oracle DEV permanece pendente
-por indisponibilidade da conexão (`ORA-12560`).
+Aceita e implementada em 2026-07-29. As migrations
+`templates_engine.0001` e `offboarding.0002` foram aplicadas posteriormente no
+Oracle DEV. A cardinalidade entre template e setor foi substituída pela
+ADR-040.
 
 ### Contexto
 
@@ -1174,7 +1175,8 @@ poderia misturar versões cadastrais.
 - permitir edição somente pela criação de nova versão em `DRAFT`; publicar uma
   versão substitui a vigente anterior sem alterar seu conteúdo;
 - associar cada setor de uma versão de grupo a uma versão exata e publicada de
-  template do mesmo setor;
+  template; pela ADR-040, o template não pertence ao setor e pode ser
+  reutilizado;
 - permitir que `DP` vigente no escopo do processo selecione somente versões
   atualmente publicadas; o processo preserva as versões selecionadas;
 - restringir a aplicabilidade automática deste incremento ao escopo
@@ -1218,7 +1220,7 @@ posterior.
 ### Controles e compatibilidade
 
 - constraints e nomes de objetos respeitam os limites do Oracle 19c;
-- as migrations são aditivas e não escrevem em objetos do Senior;
+- as migrations deste incremento não escrevem em objetos do Senior;
 - o registro idempotente é persistido na mesma transação do processo, tarefas
   e auditoria;
 - conflitos de versão, chave idempotente ou configuração são explícitos e não
@@ -1238,3 +1240,65 @@ posterior.
 - rollback de código antes de uso permite reverter as migrations aditivas;
   depois de dados reais, a correção deve ser evolutiva e precedida de backup,
   sem apagar histórico.
+
+## ADR-040 — Template neutro quanto a setor
+
+### Estado
+
+Aceita e implementada em 2026-07-29 por homologação funcional. Substitui a
+cardinalidade exclusiva `ChecklistTemplate → ValidationSector` da ADR-039.
+
+### Contexto
+
+Um template representa um questionário versionado e pode ser útil para um ou
+mais setores. Vinculá-lo diretamente a um único setor obrigaria duplicar
+perguntas, SLAs e histórico de versões para reutilizar o mesmo conteúdo.
+
+A versão de grupo já contém a relação entre setor e versão de template. Manter
+também o setor no cabeçalho do template duplicava a informação e permitia
+divergência entre as duas relações.
+
+### Decisão
+
+- remover `SECTOR_ID` de `SGPD_CHECKLIST_TEMPLATE`;
+- manter código, nome, descrição, situação e versão vigente no cabeçalho;
+- manter perguntas e SLA padrão nas versões imutáveis do template;
+- associar setor e versão publicada exclusivamente em
+  `SGPD_VALIDATION_GROUP_SECTOR`;
+- permitir que a mesma versão seja usada por múltiplos setores no mesmo grupo
+  ou em grupos distintos;
+- preservar uma tarefa e um conjunto independente de respostas por setor,
+  mesmo quando as tarefas compartilham a mesma versão de template;
+- selecionar setor e template separadamente na SPA de grupos;
+- permitir que inclusão manual de setor escolha qualquer versão vigente
+  publicada de template;
+- manter o conflito explícito quando dois grupos aplicáveis usam versões
+  diferentes para o mesmo setor.
+
+Não será criada uma relação muitos-para-muitos de “setores permitidos” no
+template. Ela repetiria a associação do grupo e precisaria de versionamento
+próprio para não alterar historicamente a aplicabilidade.
+
+### Migration e rollback
+
+`templates_engine.0002_make_templates_sector_neutral` remove o índice
+`SGPD_IX_TPL_SECTOR`, a FK e a coluna `SECTOR_ID`. Antes da aplicação no Oracle
+DEV foram confirmados zero templates, versões, grupos e regras de setor.
+
+O SQL foi revisado e a migration aplicada com plano final vazio. A tabela
+resultante preserva todas as constraints e índices restantes habilitados,
+validados e válidos.
+
+O rollback automático só é seguro enquanto não houver templates genéricos.
+Depois de cadastrar dados, não existe um único setor que possa preencher a
+coluna antiga; eventual retorno exigiria uma nova modelagem e migração de dados,
+sem apagar versões históricas.
+
+### Consequências
+
+- o catálogo de templates deixa de carregar contexto organizacional;
+- composição, obrigatoriedade, bloqueio e SLA específico continuam pertencendo
+  à regra setor/template do grupo;
+- uma publicação nova permanece única e reaproveitável, reduzindo duplicação;
+- auditoria de criação de template não registra mais `sector_id`;
+- nenhuma tabela ou dado do Senior HCM é consultado ou alterado.

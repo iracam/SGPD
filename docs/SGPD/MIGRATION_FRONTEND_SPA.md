@@ -286,7 +286,9 @@ confirma grupos, projeta bloqueios e chama o início com chave idempotente
 preservada durante retries. `/fe/workflow-config` cria e publica a primeira
 versão de templates/grupos; versões posteriores já possuem API, mas ainda não
 editor dedicado. Ajustes manuais de setor também permanecem somente na API.
-O backend continua sendo o limite real de autorização e regras.
+Templates são cadastrados sem setor e podem ser reutilizados; na composição do
+grupo, setor e versão publicada são seletores independentes. O backend continua
+sendo o limite real de autorização e regras.
 
 A sidebar é colapsável com estado persistido, e o rodapé mantém o painel de
 sessão, o acesso à troca da própria senha, o alternador de tema claro/escuro e

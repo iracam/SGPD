@@ -346,10 +346,13 @@ já existentes; a edição visual dos ajustes manuais permanece pendente.
 
 ### RF-014 — Templates de checklist
 
-Cada setor poderá ter um ou mais templates de checklist.
+Templates de checklist serão catálogos reutilizáveis e independentes de setor.
+Cada regra versionada de grupo associará um setor a uma versão publicada, e a
+mesma versão poderá ser usada por um ou mais setores.
 
 O cadastro e a publicação estão disponíveis na API e na SPA sem carga
-automática de perguntas funcionais.
+automática de perguntas funcionais. O cadastro do template não solicita setor;
+setor e template são escolhidos separadamente ao compor o grupo.
 
 ### RF-015 — Versionamento
 

@@ -253,11 +253,11 @@ observações e criar o processo em `RASCUNHO`. O backend revalida
 `has_effective_role()` após bloquear a autoridade funcional, relê a chave
 completa no Senior, preserva os snapshots do colaborador e do gestor e registra
 auditoria append-only. Templates e grupos possuem versões publicadas imutáveis;
-o rascunho fixa as versões escolhidas e o início idempotente gera tarefas e
-snapshots de perguntas em `INICIADO`. As migrations `templates_engine.0001` e
-`offboarding.0002` são aditivas e foram revisadas, mas permanecem pendentes de
-aplicação no Oracle DEV porque a conexão retornou `ORA-12560` durante este
-incremento.
+um mesmo template pode ser associado a diferentes setores nos grupos. O
+rascunho fixa as versões escolhidas e o início idempotente gera tarefas e
+snapshots de perguntas em `INICIADO`. As migrations `templates_engine.0001`,
+`templates_engine.0002` e `offboarding.0002` foram aplicadas e validadas no
+Oracle DEV.
 
 SMTP AUTH e o uso do remetente configurado foram validados no Microsoft 365
 via TLS/STARTTLS em 2026-07-28. Uma mensagem de prova foi aceita pelo serviço.
@@ -270,9 +270,10 @@ de setores, seus escopos e responsáveis. O Oracle DEV contém os nove setores
 informados pelo responsável funcional, ainda com prazo, escopo e regras
 provisórios. O cadastro de responsáveis está implementado e o Oracle DEV
 contém 10 associações ativas cobrindo os nove setores. Grupos, regras e
-templates agora são configuráveis, sem carga funcional automática: perguntas,
-SLAs e composição precisam ser homologados e cadastrados. O papel `DP` possui uma atribuição
-global ativa para `victor.delgado`; qualquer capacidade
+templates agora são configuráveis, sem carga funcional automática: templates
+são neutros quanto a setor, enquanto perguntas, SLAs e composição precisam ser
+homologados e cadastrados. O papel `DP` possui uma atribuição global ativa para
+`victor.delgado`; qualquer capacidade
 `RESPONSAVEL_SETOR` é derivada de seus vínculos vigentes.
 
 A migração da interface foi concluída. A API de autenticação, contexto,
