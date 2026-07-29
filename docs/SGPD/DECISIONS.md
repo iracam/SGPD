@@ -1172,8 +1172,9 @@ poderia misturar versões cadastrais.
 ### Decisão
 
 - separar cabeçalhos estáveis de template e grupo de suas versões;
-- permitir edição somente pela criação de nova versão em `DRAFT`; publicar uma
-  versão substitui a vigente anterior sem alterar seu conteúdo;
+- permitir correções auditadas enquanto a versão estiver em `DRAFT`; depois da
+  publicação, qualquer mudança exige a criação de nova versão em `DRAFT`, e a
+  versão vigente anterior não é alterada;
 - associar cada setor de uma versão de grupo a uma versão exata e publicada de
   template; pela ADR-040, o template não pertence ao setor e pode ser
   reutilizado;
@@ -1212,10 +1213,10 @@ Os endpoints mínimos são:
 - catálogo, criação, versionamento e publicação em
   `/api/v1/workflow-config/`.
 
-A SPA oferece a criação/publicação da primeira versão de templates e grupos e
-a tela de rascunho para seleção, prévia e início. A API já suporta versões
-posteriores e ajustes manuais, mas esses dois editores ficam para incremento
-posterior.
+A SPA oferece criação, correção do `DRAFT` e publicação da primeira versão de
+templates e grupos, além da tela de rascunho para seleção, prévia e início. A
+API já suporta versões posteriores e ajustes manuais do processo, mas esses
+dois editores ficam para incremento posterior.
 
 ### Controles e compatibilidade
 
@@ -1383,3 +1384,60 @@ foram validados; um smoke de edição com auditoria confirmou rollback integral.
   não persistir a coluna técnica no estado transitório;
 - a busca atual respeita a paginação máxima da API, sem regra de negócio no
   cliente.
+
+## ADR-042 — Código automático para cadastros configuráveis locais
+
+### Estado
+
+Aceita e implementada em 2026-07-29 por decisão explícita do responsável
+funcional. Generaliza a convenção da ADR-041.
+
+### Contexto
+
+Setores, grupos e perguntas ainda exigiam códigos textuais arbitrários, embora
+templates já usassem o identificador gerado pelo banco. Esses valores não
+possuíam regra funcional, duplicavam o `ID`, aumentavam o risco de colisão e
+obrigavam o operador a inventar uma chave técnica.
+
+Nem todo campo chamado código é local: empresa, filial, tipo de colaborador e
+demais chaves do Senior são referências externas; `DP` e outros códigos
+declarados pelo domínio são contratos fixos.
+
+### Decisão
+
+- usar o `ID` como código público numérico de setor, template, grupo e pergunta;
+- remover `code` dos comandos, serializers, payloads e formulários de criação;
+- persistir a representação decimal do `ID` na coluna técnica `CODE`, na mesma
+  transação que cria o agregado;
+- não copiar o código de uma pergunta ao clonar ou substituir itens: cada novo
+  registro recebe seu novo `ID`;
+- manter versões publicadas/aposentadas e snapshots de processo imutáveis;
+- ordenar catálogos por nome e/ou chave numérica, nunca pela representação
+  textual do número;
+- não aplicar a convenção a referências externas do Senior, papéis funcionais,
+  tipos de evento, estados, chaves de escopo ou códigos de erro da API.
+
+### Migration e rollback
+
+`sectors.0004_use_automatic_sector_code` e
+`templates_engine.0004_use_automatic_group_and_question_codes` tornam as
+colunas técnicas anuláveis somente para o `INSERT` transitório. Cada migration
+normaliza valores legados em duas etapas: primeiro `NULL`, depois o `ID`
+decimal. Isso evita colisões temporárias sob as constraints únicas.
+
+O rollback recompõe o schema anterior mantendo os valores numéricos válidos;
+ele não tenta reconstruir códigos arbitrários antigos, porque eles deixam de
+ter semântica funcional. As migrations alteram somente tabelas do owner `SGPD`
+e não consultam nem escrevem no Senior HCM.
+
+### Consequências
+
+- o operador informa nomes, perguntas e regras, sem inventar chaves técnicas;
+- APIs continuam devolvendo `code` como referência compatível, agora numérica;
+- acesso de escrita direto ao ORM continua proibido, pois a coluna permanece
+  nula durante o primeiro `INSERT` e deve ser completada pelo service;
+- snapshots históricos preservam os códigos capturados no início do processo;
+- os números são estáveis, mas não necessariamente contíguos, pois sequências
+  Oracle não são revertidas junto com transações;
+- qualquer novo cadastro configurável local que proponha código manual deve
+  justificar a exceção em ADR.

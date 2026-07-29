@@ -59,6 +59,7 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R56 | Código do Checkpoint 4 divergir do schema Oracle enquanto migrations novas não forem aplicadas | Mitigado em 2026-07-29 | Alto | `templates_engine.0001`, `templates_engine.0002`, `templates_engine.0003` e `offboarding.0002` aplicadas; plano vazio, código técnico consistente com o ID, constraints habilitadas/validadas e índice único válido no Oracle DEV |
 | R57 | Vincular template a um único setor causar duplicação de questionários e versões divergentes | Mitigado em 2026-07-29 | Médio | Template neutro quanto a setor; associação mantida somente na regra versionada do grupo; mesma versão testada em múltiplos setores e snapshots independentes por tarefa |
 | R58 | Edição concorrente de rascunho perder perguntas ou alterar conteúdo histórico | Mitigado em 2026-07-29 | Alto | Somente `DRAFT` é editável; um rascunho por template; lock ordenado do cabeçalho, versões e itens; versão otimista; substituição e auditoria na mesma transação; publicados/aposentados e snapshots permanecem imutáveis |
+| R59 | Normalização dos códigos locais colidir, quebrar ordenação ou alterar snapshots históricos | Mitigado no código em 2026-07-29 | Alto | Migrations em duas etapas (`NULL` e depois `ID` decimal), criação transacional pelos services, ordenação por nome/PK em vez de texto numérico, testes de avanço/rollback e nenhuma alteração em snapshots de processos; aplicar no Oracle somente após preflight e revisão do SQL |
 
 ## Riscos encerrados
 

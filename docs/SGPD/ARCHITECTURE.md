@@ -197,13 +197,19 @@ X.509, services auditados e a API exclusiva de SuperAdmin.
 global/empresa/filial, validade, versão otimista, revogação lógica, bloqueio
 pessimista nas mutações críticas, auditoria append-only, services, API e
 administração técnica somente leitura.
-`templates_engine` contém cabeçalhos estáveis e versões imutáveis de templates,
-perguntas e grupos, com publicação auditada. Templates são neutros quanto a
-setor; cada regra de grupo associa separadamente um setor a uma versão exata de
-template. `offboarding` contém abertura, seleção versionada do rascunho e início
-idempotente: snapshots do colaborador, gestor, setor, template e perguntas,
-tarefas pertencentes ao setor, auditoria append-only, services, API e
-administração técnica somente leitura.
+`templates_engine` contém cabeçalhos estáveis e versões de templates, perguntas
+e grupos, com edição auditada do `DRAFT` e publicação imutável. Templates são
+neutros quanto a setor; cada regra de grupo associa separadamente um setor a
+uma versão exata de template. `offboarding` contém abertura, seleção versionada
+do rascunho e início idempotente: snapshots do colaborador, gestor, setor,
+template e perguntas, tarefas pertencentes ao setor, auditoria append-only,
+services, API e administração técnica somente leitura.
+
+Setores, templates, grupos e perguntas são entidades configuráveis locais e
+usam o próprio `ID` como código público numérico. O service cria o registro,
+obtém o identificador do banco e preenche a coluna técnica `CODE` na mesma
+transação. A SPA e os serializers não aceitam código manual. Essa convenção não
+altera referências externas do Senior nem os códigos funcionais fixos.
 
 A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
 
@@ -497,6 +503,7 @@ PUT         /api/v1/workflow-config/template-versions/{id}/
 POST        /api/v1/workflow-config/template-versions/{id}/publish/
 GET  POST   /api/v1/workflow-config/groups/
 POST        /api/v1/workflow-config/groups/{id}/versions/
+PUT         /api/v1/workflow-config/group-versions/{id}/
 POST        /api/v1/workflow-config/group-versions/{id}/publish/
 ```
 
@@ -515,12 +522,13 @@ vigente anterior sem alterar seu conteúdo; cada versão de grupo fixa uma
 versão exata de template por setor. A mesma versão pode ser reutilizada por
 quantos setores forem necessários, sem duplicar seu conteúdo.
 
-Templates usam o próprio `ID` como código público numérico e aceitam busca
-parcial por nome no parâmetro `q`. A versão `DRAFT` pode ser editada
-atomicamente; o service bloqueia cabeçalho, versões e itens em ordem
-determinística, exige a versão otimista, limita o agregado a um rascunho e
-audita a substituição do conteúdo. Uma versão publicada permanece imutável e a
-SPA cria um novo rascunho clonado antes de editá-la.
+Setores, templates, grupos e perguntas usam o próprio `ID` como código público
+numérico, sem campo correspondente nos payloads de criação. Templates aceitam
+busca parcial por nome no parâmetro `q`. Versões `DRAFT` de template e grupo
+podem ser editadas atomicamente; os services bloqueiam cabeçalho, versões e
+itens/regras, exigem a versão otimista e auditam a substituição do conteúdo.
+Uma versão publicada permanece imutável. Para templates publicados, a SPA cria
+um novo rascunho clonado antes de editá-lo.
 
 Todos os responsáveis efetivos do setor receberão a mesma notificação e terão
 a mesma autoridade. No workflow futuro, mutações de tarefa deverão bloquear ou

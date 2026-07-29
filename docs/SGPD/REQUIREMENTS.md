@@ -114,7 +114,7 @@ O sistema deverá permitir cadastro de setores responsáveis por validações.
 
 Campos mínimos:
 
-- código;
+- código numérico automático, igual ao `ID` e sem entrada manual;
 - nome;
 - descrição;
 - situação;
@@ -130,7 +130,7 @@ Campos mínimos:
 Estado implementado na primeira fatia da Fase 3:
 
 - cadastro, consulta, alteração, ativação e inativação pela API e SPA;
-- código imutável e concorrência otimista;
+- código automático e imutável, igual ao `ID`, e concorrência otimista;
 - cobertura explícita global, por empresa ou por filial, sem replicar
   referências do Senior;
 - prevenção de escopo redundante e ciclo de escalada;
@@ -317,8 +317,11 @@ O sistema deverá permitir cadastrar grupos de validação compostos por setores
 Estado implementado:
 
 - cabeçalho estável, versões `DRAFT`, `PUBLISHED` e `RETIRED`;
+- código numérico automático, igual ao `ID` e sem entrada manual;
 - cada setor da versão fixa um template publicado, obrigatoriedade, bloqueio,
   ordem e SLA opcional;
+- nome, descrição e composição podem ser corrigidos atomicamente enquanto a
+  versão estiver em `DRAFT`, com concorrência otimista e auditoria;
 - publicação auditada aposenta a versão vigente anterior;
 - grupos novos só podem selecionar versões vigentes publicadas.
 
@@ -359,14 +362,22 @@ informado pelo usuário. O catálogo pode ser pesquisado pelo nome. Nome,
 descrição, SLA e perguntas podem ser corrigidos na versão `DRAFT`, com versão
 otimista e auditoria; conteúdo publicado exige nova versão.
 
+Cada pergunta recebe automaticamente como código público o próprio `ID`; o
+payload informa o texto, o tipo e as regras da pergunta, mas nunca um código
+arbitrário. A mesma convenção vale para setores e grupos locais. Códigos
+organizacionais e cadastrais vindos do Senior, assim como códigos funcionais
+fixos do SGPD, preservam seus contratos próprios.
+
 ### RF-015 — Versionamento
 
 Templates e itens deverão ser versionados.
 
 Versões publicadas/aposentadas, suas perguntas e relações de grupo são
-imutáveis. Um template mantém no máximo um rascunho editável; publicar ou criar
-uma nova versão usa locks ordenados e versão otimista. Processos fixam a versão
-exata e copiam snapshots no início.
+imutáveis. Rascunhos de template e grupo podem ser corrigidos por services
+auditados; conteúdo publicado exige uma nova versão. Um template mantém no
+máximo um rascunho editável; publicar ou criar uma nova versão usa locks
+ordenados e versão otimista. Processos fixam a versão exata e copiam snapshots
+no início.
 
 ### RF-016 — Geração de tarefas
 

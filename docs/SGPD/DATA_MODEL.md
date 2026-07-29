@@ -165,8 +165,9 @@ Campos necessários para filtros e regras serão transportados como valores vind
 - `ATUALIZADO_EM`
 - `VERSAO`
 
-O código é normalizado em maiúsculas e imutável após a criação. O setor pode
-ser inativado, mas não excluído. `VERSAO` implementa concorrência otimista.
+`CODIGO` é a representação decimal do `ID`, gerada pelo service na mesma
+transação e nunca informada pelo usuário. O setor pode ser inativado, mas não
+excluído. `VERSAO` implementa concorrência otimista.
 Um setor de escalada deve estar ativo, não pode ser o próprio setor e a cadeia
 não pode formar ciclo.
 
@@ -241,8 +242,13 @@ técnicos, estado anterior/posterior e motivo padronizado pelo servidor.
 
 Estado implementado em `SGPD_VALIDATION_GROUP`, com versões em
 `SGPD_VALIDATION_GROUP_VER`. A versão nasce `DRAFT`, pode ser publicada uma
-única vez e a publicação aposenta a vigente anterior. Versões publicadas ou
+única vez e a publicação aposenta a vigente anterior. Enquanto estiver em
+`DRAFT`, nome, descrição e relações de setor podem ser substituídos
+atomicamente por service auditado e versão otimista. Versões publicadas ou
 aposentadas não são editadas nem excluídas.
+
+`CODIGO` é a representação decimal do `ID`, preenchida automaticamente na
+criação e sem semântica funcional independente.
 
 #### GRUPO_VALIDACAO_SETOR
 
@@ -302,7 +308,7 @@ service na mesma transação, sem semântica funcional própria.
 
 - `ID`
 - `TEMPLATE_VERSAO_ID`
-- `CODIGO`
+- `CODIGO_TECNICO` — representação decimal do `ID`, sem entrada manual
 - `PERGUNTA`
 - `TIPO_RESPOSTA`
 - `OBRIGATORIO`
@@ -316,7 +322,14 @@ Itens podem ser substituídos atomicamente enquanto sua versão estiver em
 `DRAFT`. Depois da publicação, `SGPD_CHECKLIST_TEMPLATE_ITEM` rejeita
 alteração/exclusão; uma nova pergunta ou mudança de texto exige outra versão
 do template. Cada cabeçalho possui no máximo um rascunho em manutenção pelo
-service.
+service. O `ID` da pergunta é também seu código público; a coluna técnica é
+preenchida na mesma transação da criação e não é copiada de versões anteriores.
+
+Esta convenção de código automático vale somente para cadastros configuráveis
+locais: setor, template, grupo e pergunta. Campos como `EMPRESA_CODIGO`,
+`FILIAL_CODIGO`, matrícula e demais referências do Senior continuam sendo
+valores externos homologados, sem renumeração pelo SGPD. Códigos funcionais
+fixos, como `DP`, também preservam o contrato declarado.
 
 ### Processo
 

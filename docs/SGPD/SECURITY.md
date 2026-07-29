@@ -183,6 +183,11 @@ API e service autorizam a operação.
 templates e grupos, mas não iniciar nem liberar processo. A SPA usa a permissão
 somente para visibilidade; services e endpoints repetem a autorização.
 
+Os códigos técnicos de setor, template, grupo e pergunta não são campos de
+entrada. O backend os deriva do `ID` na transação de criação, evitando
+mass assignment e colisões escolhidas pelo cliente. Essa regra não transforma
+nem substitui códigos oficiais recebidos do Senior.
+
 Uma responsabilidade pode ser cadastrada para qualquer usuário ativo e herda
 integralmente o escopo organizacional do setor. A autoridade operacional exige,
 no instante do caso de uso, usuário, setor e vínculo ativos e dentro da
@@ -391,6 +396,8 @@ responsabilidade é revogada logicamente.
 Configurações de workflow publicadas e perguntas rejeitam mutação/exclusão; a
 auditoria `SGPD_WORKFLOW_CONFIG_AUDIT` também é append-only. Os snapshots de
 tarefa preservam pergunta e configuração sem depender da versão vigente.
+Rascunhos de template e grupo só podem ser substituídos pelos services
+autorizados, sob lock, versão otimista e evento de auditoria na mesma transação.
 
 Alternativas futuras:
 

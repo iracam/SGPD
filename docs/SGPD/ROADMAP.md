@@ -218,6 +218,15 @@ permite corrigir o único rascunho do cabeçalho. Para conteúdo publicado, a SP
 cria uma nova versão clonada antes da edição; versões históricas permanecem
 imutáveis e auditadas.
 
+O editor de grupos também permite corrigir nome, descrição, setores, templates,
+SLA, obrigatoriedade e bloqueio enquanto a versão estiver em `DRAFT`, com
+concorrência otimista e auditoria. A publicação mantém a versão imutável.
+
+A convenção foi uniformizada para os cadastros configuráveis locais: setor,
+template, grupo e pergunta recebem código numérico automático igual ao `ID`;
+API e SPA não solicitam código manual. Referências do Senior e códigos
+funcionais fixos permanecem fora dessa regra.
+
 ## Fase 4 — Processo demissional
 
 ### Entregas

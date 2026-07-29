@@ -257,8 +257,12 @@ um mesmo template pode ser associado a diferentes setores nos grupos. O
 rascunho fixa as versões escolhidas e o início idempotente gera tarefas e
 snapshots de perguntas em `INICIADO`. As migrations `templates_engine.0001`,
 `templates_engine.0002` e `offboarding.0002` foram aplicadas e validadas no
-Oracle DEV. Templates usam código numérico automático igual ao `ID`, são
-pesquisados pelo nome e permitem editar somente a versão em rascunho; conteúdo
+Oracle DEV. Entidades configuráveis locais usam código numérico automático
+igual ao `ID`: setores, templates, grupos e perguntas não solicitam código do
+usuário. Elas são localizadas funcionalmente pelo nome ou texto da pergunta;
+o número serve como referência estável. Códigos oficiais do Senior e códigos
+funcionais fixos não pertencem a essa regra. Templates e grupos permitem editar
+somente a versão em rascunho, com concorrência otimista e auditoria; conteúdo
 publicado exige uma nova versão. A migration `templates_engine.0003` foi
 aplicada e validada no Oracle DEV.
 

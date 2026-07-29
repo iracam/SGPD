@@ -4,7 +4,7 @@
 
 - Projeto: SGPD / DesligaFlow
 - Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis, papel DP e configuração versionada; Fase 4 cobre abertura, seleção e início do rascunho
-- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores, responsáveis, abertura, grupos/templates mínimos e início do processo; interface server-side removida
+- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores, responsáveis, abertura, edição de rascunhos de grupos/templates e início do processo; interface server-side removida
 - Banco: Oracle
 - Backend: Django API-only, com Django Admin somente leitura preservado
 - UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028
@@ -388,6 +388,9 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - Versão otimista, bloqueio ordenado do catálogo contra ciclos concorrentes,
     auditoria append-only e ausência de exclusão.
   - Migration `sectors.0001` aplicada e validada no Oracle DEV.
+  - Código numérico automático igual ao `ID`; `sectors.0004` aplicada no
+    Oracle DEV e os nove códigos legados normalizados sem alterar vínculos ou
+    auditoria histórica.
   - Nove setores funcionais cadastrados e auditados no Oracle DEV em
     2026-07-29; prazo, escopo e regras permanecem provisórios até homologação.
 - [x] Responsáveis.
@@ -403,8 +406,11 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     foram cadastrados pelo responsável funcional e não derivados do AD.
 - [x] Grupos.
   - Cabeçalho estável e versões `DRAFT`, `PUBLISHED` e `RETIRED`.
+  - Código numérico automático igual ao `ID`, sem entrada na API ou SPA.
   - Cada regra fixa setor e versão publicada de template separadamente.
   - A mesma versão de template pode ser reutilizada em múltiplos setores.
+  - Nome, descrição e composição do `DRAFT` podem ser corrigidos pela SPA e
+    API com lock, versão otimista, auditoria e rollback integral.
 - [ ] Regras.
   - Aplicabilidade por escopo do setor, sobreposição conservadora e ajustes
     manuais com motivo estão implementados; condições por cargo, centro de
@@ -415,6 +421,7 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - Cabeçalho e versões são neutros quanto a setor.
   - Código público numérico igual ao `ID`, busca por nome, edição auditada do
     único rascunho e criação de nova versão a partir do conteúdo publicado.
+  - Cada pergunta recebe o próprio `ID` como código e não aceita código manual.
   - Nenhum template, grupo ou pergunta funcional foi semeado sem homologação.
 - [x] Versionamento.
   - Publicação substitui a versão vigente sem alterar versões históricas;
@@ -424,6 +431,8 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - `templates_engine.0003` aplicada e validada no Oracle DEV, com código
     técnico normalizado, constraint habilitada/validada, índice único válido e
     plano final vazio.
+  - `templates_engine.0004` aplicada no Oracle DEV; grupo e pergunta passaram
+    à mesma convenção automática, sem alterar versões ou snapshots históricos.
 - [x] Permissões.
   - SuperAdmin mantém a administração técnica fora do catálogo funcional.
   - O único papel funcional atribuível ativo é `DP`.
@@ -1401,4 +1410,38 @@ Próximo passo: editar e revisar o template #2 pelo novo fluxo; depois continuar
 Comandos executados: testes direcionados e completos; migration de avanço e rollback com dado legado no banco de testes; Ruff check/format; Mypy; Django makemigrations check; Vitest; build Angular; plano e aplicação da migration 0003; validação Oracle de dados, constraint, índice e plano; smoke transacional de edição/auditoria com rollback obrigatório; revisão documental e diff check.
 Arquivos alterados: models, services, serializers, API, URLs e migration 0003 de templates_engine; snapshots técnicos de offboarding; tela, models, service e testes Angular de workflow-config; tipos do rascunho; testes backend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md e MANIFEST.json.
 Testes: 298 testes backend e 65 testes frontend passaram; Ruff, format e Mypy sem erros; Django não detectou divergência de migrations; avanço e rollback da 0003 preservaram um template com código manual e um registro posterior; build de produção concluído com bundle inicial de 497,13 kB e chunk lazy workflow-config de 24,69 kB. No Oracle DEV, o template #2 permaneceu DRAFT com SLA 12 e uma pergunta, o código técnico passou de GEN_01 para 2, a constraint está ENABLED/VALIDATED, o índice está UNIQUE/VALID e o plano está vazio. O smoke alterou nome, versão, itens e auditoria dentro da transação e confirmou restauração integral após rollback. Nenhum objeto ou dado do Senior HCM foi consultado ou alterado.
+```
+
+### 2026-07-29 — Código automático em setores, grupos e perguntas
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Configuração funcional
+O que foi concluído: a convenção do template foi generalizada para todos os cadastros configuráveis locais com coluna CODE; setor, template, grupo e pergunta usam o próprio ID como código público numérico; comandos, serializers, payloads e formulários de setor, grupo e pergunta deixaram de solicitar código; services preenchem a coluna técnica na mesma transação; listas deixaram de ordenar números pela representação textual; a SPA informa que o código é automático e continua exibindo a referência; perguntas clonadas ou substituídas recebem novo ID; snapshots históricos permanecem intocados.
+Diagnóstico: o template já seguia a ADR-041, mas setores, grupos e perguntas ainda exigiam chaves arbitrárias sem semântica funcional. No preflight do Oracle DEV existiam nove setores com códigos textuais, nenhum grupo, uma pergunta de ID 2 com código TC_01 e zero tarefas/snapshots de pergunta. Códigos do Senior, papéis funcionais, estados, eventos, escopos e erros de API foram identificados como contratos distintos e ficaram fora do recorte.
+Decisões: ADR-042 aceita; código automático significa representação decimal do ID, gerada exclusivamente no backend; a coluna CODE permanece para compatibilidade; a API continua projetando code, mas não o recebe como entrada; sequências podem possuir lacunas; códigos externos e constantes de domínio não são renumerados; acesso direto de escrita ao ORM permanece proibido.
+Riscos: R59 registrado. A normalização em duas etapas não restaura códigos arbitrários no rollback, embora preserve schema e valores numéricos válidos. A coluna é anulável somente durante o primeiro INSERT e precisa ser preenchida na mesma transação. O smoke Oracle revelou que NULL de CharField é lido como string vazia pelo backend; a guarda de imutabilidade agora aceita exclusivamente vazio/NULL para a transição automática até o ID e possui teste de regressão.
+Pendências: validar visualmente os textos da SPA após nova publicação dos assets; homologar perguntas, grupos, prazos e demais regras funcionais. Não há pendência técnica de migration no Oracle DEV.
+Próximo passo: revisar e homologar o conteúdo do template #2 e então compor o primeiro grupo funcional, agora sem códigos manuais.
+Comandos executados: leitura integral da documentação obrigatória e diagnóstico do checkpoint; buscas de todos os campos e usos de code; testes direcionados; testes de avanço/rollback das migrations; makemigrations check; sqlmigrate direto e reverso; preflight somente leitura no Oracle; aplicação de sectors.0004 e templates_engine.0004; validação de dados, constraints e plano final; smoke transacional dos quatro códigos com rollback; suíte completa; Ruff check/format; Mypy; Django check; Vitest; build Angular; revisão documental e de diff.
+Arquivos alterados: models, services, serializers, APIs e migrations 0004 de sectors/templates_engine; ordenações de accounts/offboarding; formulários, models e testes Angular de setores/workflow-config; testes backend de setores, responsáveis, configuração e snapshots; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md e MANIFEST.json.
+Testes: 301 testes backend e 65 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas e models/migrations sem divergência; build de produção concluído com bundle inicial de 497,13 kB e chunk lazy workflow-config de 24,38 kB. No Oracle DEV, setores 21 a 29 e pergunta 2 foram normalizados para seus IDs, grupos permaneceram vazios, os três check constraints estão ENABLED/VALIDATED e o plano de migrations está vazio. O smoke criou setor, template, grupo e pergunta com códigos iguais aos IDs e confirmou rollback integral das linhas; sequências Oracle avançaram normalmente. Nenhum objeto ou dado do Senior HCM foi consultado ou alterado.
+```
+
+### 2026-07-29 — Edição de grupo antes da publicação
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3 — Configuração funcional / Grupos
+O que foi concluído: diagnóstico da lacuna entre criação e publicação; service transacional, endpoint PUT e editor Angular implementados para corrigir nome, descrição e composição da versão de grupo em DRAFT; botão Editar rascunho adicionado à lista; evento GROUP_DRAFT_UPDATED registrado na mesma transação.
+Diagnóstico: o grupo nascia em DRAFT, mas a API oferecia somente criação de versão e publicação e a SPA exibia apenas Publicar. O model também impedia remover as relações do próprio rascunho, embora a imutabilidade devesse valer depois da publicação.
+Decisões: preservar o ID e o número da versão do rascunho; substituir suas regras atomicamente sob locks; exigir versão otimista do cabeçalho; permitir exclusão de relações somente em DRAFT; manter versões PUBLISHED e RETIRED imutáveis; não alterar snapshots ou processos existentes.
+Riscos: a edição substitui toda a composição enviada e uma sessão desatualizada recebe erro explícito sem mutação parcial. A criação visual de nova versão de grupo depois da publicação continua fora deste recorte; a API de versionamento existente permanece disponível.
+Pendências: homologar o conteúdo funcional dos grupos e, quando necessário, entregar o editor visual de nova versão após publicação.
+Próximo passo: recarregar a SPA no navegador e validar a edição do grupo já criado antes de publicá-lo.
+Comandos executados: leitura integral da documentação obrigatória; diagnóstico de API, services, models e SPA; testes direcionados e completos; Ruff; format; Mypy; Django check; makemigrations check; revisão do sqlmigrate Oracle; Vitest; build Angular; aplicação da migration state-only templates_engine.0005; validação do plano final de migrations e diff check.
+Arquivos alterados: models, service, serializer, API, URLs e migration 0005 de templates_engine; editor, contrato, service e testes Angular de workflow-config; testes backend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, ROADMAP.md, SECURITY.md e MANIFEST.json.
+Testes: 306 testes backend e 66 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,13 kB e chunk lazy workflow-config de 25,74 kB. O sqlmigrate confirmou que templates_engine.0005 não executa DDL; a migration foi registrada no Oracle DEV e o plano final ficou vazio. Nenhum objeto ou dado do Senior HCM foi consultado ou alterado.
 ```

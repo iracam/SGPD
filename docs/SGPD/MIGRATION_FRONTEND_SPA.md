@@ -283,14 +283,16 @@ A rota `/fe/colaboradores` foi promovida na Fase 4: preserva a cascata e
 acrescenta gestor, datas, motivo, prioridade, observações e confirmação da
 abertura; após sucesso navega ao rascunho. `/fe/processos/:uuid/rascunho`
 confirma grupos, projeta bloqueios e chama o início com chave idempotente
-preservada durante retries. `/fe/workflow-config` cria, pesquisa pelo nome e
-edita a versão em rascunho de templates, sem solicitar código manual. O
-identificador exibido é o `ID` numérico. Para conteúdo já publicado, “Nova
-versão” clona a versão vigente em um novo rascunho antes da edição. A
-criação/publicação de grupos permanece no recorte mínimo e ajustes manuais de
-setor continuam somente na API. Templates são cadastrados sem setor e podem ser
-reutilizados; na composição do grupo, setor e versão publicada são seletores
-independentes. O backend continua sendo o limite real de autorização e regras.
+preservada durante retries. `/fe/workflow-config` cria e edita versões em
+rascunho de templates e grupos. Setores, templates, grupos e perguntas não
+possuem campo de código nos formulários: o backend gera o identificador
+numérico a partir do `ID` e a SPA apenas o exibe. Para template já publicado,
+“Nova versão” clona a versão vigente em um novo rascunho antes da edição, mas
+as perguntas clonadas recebem novos IDs ao serem persistidas. Ajustes manuais
+de setor no rascunho do processo continuam somente na API. Templates são
+cadastrados sem setor e podem ser reutilizados; na composição do grupo, setor
+e versão publicada são seletores independentes. O backend continua sendo o
+limite real de autorização e regras.
 
 A sidebar é colapsável com estado persistido, e o rodapé mantém o painel de
 sessão, o acesso à troca da própria senha, o alternador de tema claro/escuro e
