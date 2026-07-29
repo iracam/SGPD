@@ -36,6 +36,7 @@ from apps.offboarding.services import (
     DraftSectorOverrideValue,
     IdempotencyConflict,
     StartOffboardingProcessCommand,
+    StartOffboardingProcessResult,
     StartOffboardingProcessService,
     UpdateDraftSelectionCommand,
     UpdateDraftSelectionService,
@@ -44,6 +45,7 @@ from apps.sectors.models import SectorResponsible, SectorScope, ValidationSector
 from apps.templates_engine.models import (
     ChecklistResponseType,
     ChecklistTemplate,
+    ValidationGroupVersion,
     VersionStatus,
 )
 from apps.templates_engine.services import (
@@ -221,7 +223,7 @@ def create_published_group(
     code: str = "PADRAO",
     required: bool = True,
     blocks: bool = True,
-):
+) -> ValidationGroupVersion:
     template_version = template.current_version
     assert template_version is not None
     group = CreateValidationGroupService().execute(
@@ -278,7 +280,7 @@ def start(
     *,
     key: str = "start-321",
     expected_version: int | None = None,
-):
+) -> StartOffboardingProcessResult:
     return StartOffboardingProcessService().execute(
         StartOffboardingProcessCommand(
             actor=actor,
