@@ -128,21 +128,21 @@ e as chaves de funcionalidade que governam a visibilidade do menu. A permissão
 | `POST` | `users/{id}/ad-link/` | `LinkAdIdentityService` |
 | `POST` | `users/{id}/ad-unlink/` | `UnlinkAdIdentityService` |
 | `POST` | `role-assignments/{id}/revoke/` | `RevokeRoleService` |
-| `GET` | `roles/` | catálogo fixo `DP` e `RESPONSAVEL_SETOR` |
+| `GET` | `roles/` | catálogo fixo atribuível somente `DP` |
 | `GET` | `roles/{id}/` | detalhe de papel do catálogo fixo |
 | `GET` | `audit/` | `AccountAuditEvent`, paginado |
 
 Nenhum endpoint implementa regra de negócio. Cada um valida entrada, invoca o
 service correspondente e traduz o resultado.
 
-No cadastro manual, `POST users/` pode receber `initial_role` para `DP` ou
-`RESPONSAVEL_SETOR`. A SPA oferece os papéis fixos e o escopo somente a quem
+No cadastro manual, `POST users/` pode receber `initial_role` para `DP`. A SPA
+oferece o papel e o escopo somente a quem
 possui `manage_roles`; o backend repete essa
 autorização e grava conta e designação atomicamente. Após a criação, a tela
 abre o detalhe do usuário, onde outras atribuições podem ser mantidas.
-Designações e reativações não exibem nem enviam justificativa livre; a
-auditoria usa motivo operacional do servidor. A revogação mantém seu campo de
-justificativa.
+Inclusões e alterações cadastrais, inclusive designações, revogações, senha e
+vínculo AD, não exibem nem enviam justificativa livre; a auditoria usa motivo
+operacional e dados estruturados do servidor.
 
 Os botões de confirmação dos diálogos chamam explicitamente a ação Angular por
 `onClick`; o `ngSubmit` é mantido para envio por teclado. Essa redundância evita
@@ -150,6 +150,19 @@ que a encapsulação do botão PrimeNG suprima silenciosamente o submit. Formul�
 inválido e falha no catálogo de papéis sempre exibem uma mensagem e não simulam
 sucesso. A API registra o recebimento e a conclusão da designação em log JSON
 correlacionado, sem dados pessoais.
+
+### 4.2.1 Setores — `/api/v1/sectors/`
+
+| Método | Rota | Contrato |
+| --- | --- | --- |
+| `GET`, `POST` | `/api/v1/sectors/` | setor com escopos e lista completa de responsáveis |
+| `GET`, `PATCH` | `/api/v1/sectors/{id}/` | detalhe e sincronização atômica do agregado |
+| `GET` | `/api/v1/sectors/responsible-candidates/` | usuários ativos elegíveis |
+
+O formulário contém um card repetível de responsáveis com usuário, início e
+fim da validade. Não há escopo no card: cada vínculo herda os escopos do setor.
+A lista indica responsável vigente e agendamentos futuros. A manutenção
+independente `/fe/responsaveis` e sua API foram removidas.
 
 ### 4.3 Requisitos transversais
 
@@ -220,8 +233,7 @@ páginas usam `loadComponent` e declaram `title`.
 | `/fe/login` | autenticação local |
 | `/fe/painel` | painel inicial |
 | `/fe/colaboradores` | cascata Empresa → Filial → Tipo → Colaborador |
-| `/fe/setores` | cadastro de setores de validação |
-| `/fe/responsaveis` | associação de responsáveis por setor e escopo |
+| `/fe/setores` | cadastro de setores, escopos e múltiplos responsáveis |
 | `/fe/usuarios`, `/fe/usuarios/:id` | administração de usuários |
 | `/fe/auditoria` | auditoria de contas |
 | `/fe/configuracoes` | cards técnicos, somente SuperAdmin |
@@ -246,27 +258,29 @@ estado colapsado da navegação e tema.
 
 ### 5.4 Menu
 
-O contrato `NavItem[]` usa `label`, `route`, `icon`, `description` e `feature`,
-com `visibleNavItems` filtrando pelo contexto devolvido por
-`GET /auth/context/`.
+O contrato `NavItem[]` usa `label`, `route`, `icon`, `description`, `feature`
+e, quando necessário, `role`, com `visibleNavItems` filtrando pelo contexto
+devolvido por `GET /auth/context/`.
 
 | Item | Rota | Ícone | Permissão |
 | --- | --- | --- | --- |
 | Painel | `/fe/painel` | `pi pi-th-large` | — |
-| Colaboradores | `/fe/colaboradores` | `pi pi-id-card` | `query_senior_references` |
+| Abrir processo | `/fe/colaboradores` | `pi pi-folder-plus` | `query_senior_references` + papel `DP` |
 | Setores | `/fe/setores` | `pi pi-building` | `manage_sectors` |
-| Responsáveis | `/fe/responsaveis` | `pi pi-user-plus` | `manage_sectors` |
 | Usuários | `/fe/usuarios` | `pi pi-users` | `manage_users` |
 | Auditoria | `/fe/auditoria` | `pi pi-history` | `view_account_audit` |
 | Configurações | `/fe/configuracoes` | `pi pi-cog` | `is_superuser` |
 
 O menu e a rota de manutenção de papéis foram removidos em 2026-07-29. O
-catálogo é fixo em `RESPONSAVEL_SETOR`; sua atribuição continua disponível no
-cadastro e detalhe do usuário para SuperAdmin, sem permitir criar variações.
+catálogo atribuível é fixo em `DP`; `RESPONSAVEL_SETOR` é derivado do vínculo
+mantido no card de responsáveis do setor. A rota independente
+`/fe/responsaveis` também foi removida.
 
-Os módulos ainda pendentes das Fases 3 a 6 — grupos, templates, processos,
-pendências, valores e liberação — entram nessa mesma lista conforme cada
-checkpoint avançar.
+A rota `/fe/colaboradores` foi promovida na Fase 4: preserva a cascata e
+acrescenta gestor, datas, motivo, prioridade, observações e confirmação da
+abertura. O papel `DP` orienta a visibilidade do menu; o service continua sendo
+o limite real de autorização. Grupos, templates, listagem de processos,
+pendências, valores e liberação entram conforme os próximos checkpoints.
 
 A sidebar é colapsável com estado persistido, e o rodapé mantém o painel de
 sessão, o acesso à troca da própria senha, o alternador de tema claro/escuro e

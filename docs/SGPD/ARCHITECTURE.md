@@ -107,9 +107,9 @@ O cadastro funcional de usuários pertence ao SGPD:
   `/api/v1/accounts/` e consumidos pela SPA;
 - os services administrativos repetem a autorização no limite do caso de uso,
   independentemente da proteção aplicada pelos endpoints;
-- o catálogo funcional é fixo em `DP` e `RESPONSAVEL_SETOR`; os papéis podem
-  coexistir e suas atribuições possuem escopo global, por empresa ou por
-  filial, validade e revogação lógica;
+- o catálogo de papéis atribuíveis é fixo em `DP`; `RESPONSAVEL_SETOR` é
+  derivado do vínculo vigente com o setor e herda o escopo organizacional
+  desse setor;
 - SuperAdmin é autoridade técnica por `is_superuser`, fora do catálogo
   funcional;
 - senha temporária pode exigir troca no primeiro acesso;
@@ -170,6 +170,7 @@ Estrutura incremental adotada:
 apps/
 ├── accounts/
 ├── core/
+├── offboarding/
 ├── sectors/
 ├── system_settings/
 └── integrations/
@@ -195,6 +196,9 @@ X.509, services auditados e a API exclusiva de SuperAdmin.
 global/empresa/filial, validade, versão otimista, revogação lógica, bloqueio
 pessimista nas mutações críticas, auditoria append-only, services, API e
 administração técnica somente leitura.
+`offboarding` contém o primeiro incremento da Fase 4: processo em rascunho,
+snapshot imutável do colaborador, snapshot do gestor, prevenção de duplicidade,
+auditoria append-only, service, API e administração técnica somente leitura.
 
 A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
 
@@ -213,12 +217,14 @@ Serviços administrativos implementados:
 - `CreateUserFromDirectoryService`
 - `UnlinkAdIdentityService`
 
-Serviços de workflow planejados para as fases 3 a 9:
+Serviço de workflow implementado na Fase 4:
 
-- `OpenOffboardingProcessService`
+- `OpenOffboardingProcessService`.
+
+Serviços de workflow planejados para as fases 4 a 9:
+
 - `ResolveValidationGroupsService`
 - `GenerateSectorTasksService`
-- `CreateEmployeeSnapshotService`
 - `RegisterPendingItemService`
 - `EvaluateProcessReadinessService`
 - `ReleaseForTerminationService`
@@ -228,16 +234,23 @@ Serviços de workflow planejados para as fases 3 a 9:
 Serviços funcionais implementados na Fase 3:
 
 - `CreateSectorService`;
-- `UpdateSectorService`;
-- `AssignSectorResponsibleService`;
-- `UpdateSectorResponsibleService`;
-- `RevokeSectorResponsibleService`.
+- `UpdateSectorService`.
 
-Todos exigem `sectors.manage_sectors` com concessão global e executam em
-transação. Os services de setor rejeitam ciclos de escalada. Os services de
-responsabilidade bloqueiam setor, usuário, atribuição de papel e associação,
-exigem que escopo e validade sejam cobertos simultaneamente pelo setor e pelo
-papel `RESPONSAVEL_SETOR`, e registram antes/depois na auditoria append-only.
+Ambos exigem `sectors.manage_sectors` com concessão global e executam em
+transação. Rejeitam ciclos de escalada e sincronizam zero ou mais responsáveis
+como filhos do agregado. Setor, usuários e associações são bloqueados em ordem;
+o vínculo persiste somente usuário e validade, herda o escopo do setor e
+registra antes/depois na auditoria append-only com motivo padronizado pelo
+servidor. Não existe service ou endpoint independente para manter a
+responsabilidade.
+
+`OpenOffboardingProcessService` consulta o Senior antes de iniciar a transação
+de escrita e nunca persiste referência retornada pela listagem. Depois da
+releitura da chave completa, bloqueia ator, gestor e atribuições `DP`, repete
+`has_effective_role()` no escopo, impede outro processo não encerrado para a
+mesma identidade e confirma processo, snapshot e `PROCESS_OPENED` na mesma
+transação. Revogação de `DP` e abertura concorrentes têm vencedor
+determinístico; falha da auditoria desfaz toda a abertura.
 
 ### Consulta ao Senior
 
@@ -340,16 +353,17 @@ Cada endpoint valida entrada, invoca o service correspondente e traduz o
 resultado. Nenhum implementa regra de negócio.
 
 `POST /api/v1/accounts/users/` aceita uma designação inicial opcional em
-`initial_role`, para `DP` ou `RESPONSAVEL_SETOR`, com escopo organizacional. O
+`initial_role`, somente para `DP`, com escopo organizacional. O
 `CreateUserService` compõe a criação com o `AssignRoleService` dentro da mesma
 transação: a operação simples continua exigindo `manage_users`; ao incluir o
 papel, `manage_roles` também é revalidada no service. Conta, atribuição e seus
 dois eventos de auditoria são confirmados ou desfeitos em conjunto.
 
-O `AssignRoleService` aceita somente `DP` e `RESPONSAVEL_SETOR` e também atende
+O `AssignRoleService` aceita somente `DP` e também atende
 criação, reativação e atualização de validade da atribuição. Esses fluxos não
 recebem justificativa digitada e auditam um motivo operacional padronizado. A
-revogação continua isolada no `RevokeRoleService` e exige justificativa.
+revogação continua isolada no `RevokeRoleService`, sem justificativa digitada
+e com motivo padronizado.
 Criação e edição dinâmica de papéis, o catálogo de permissões e a tela
 `/fe/papeis` não possuem superfície ativa.
 
@@ -420,10 +434,21 @@ Requisição sem sessão recebe `401`, e não o `403` que o DRF produziria por
 permite à SPA rotear para o login em vez de exibir erro, e separa "autentique-se"
 de "você não pode".
 
-Endpoints de domínio planejados:
+Endpoints de abertura implementados:
 
 ```text
 POST /api/v1/processes/
+GET  /api/v1/processes/manager-candidates/?company=&branch=&q=
+```
+
+O primeiro cria somente `RASCUNHO`; não existe `GET` de processos nem
+`DELETE` neste incremento. O segundo lista contas SGPD ativas apenas depois de
+validar `DP` vigente no escopo informado. A resposta da abertura omite CPF e a
+chave técnica usada para prevenir duplicidade.
+
+Endpoints de domínio planejados:
+
+```text
 GET  /api/v1/processes/
 GET  /api/v1/processes/{uuid}/
 POST /api/v1/processes/{uuid}/start/
@@ -446,20 +471,17 @@ Endpoints de configuração funcional implementados:
 ```text
 GET  POST  /api/v1/sectors/
 GET  PATCH /api/v1/sectors/{id}/
-GET  POST  /api/v1/sector-responsibilities/
-GET  PATCH /api/v1/sector-responsibilities/{id}/
-POST        /api/v1/sector-responsibilities/{id}/revoke/
-GET         /api/v1/sector-responsibilities/candidates/
+GET         /api/v1/sectors/responsible-candidates/
 ```
 
 Não existe `DELETE`: a desativação é uma alteração explícita, versionada e
 auditada. A cobertura usa escopos `GLOBAL`, `COMPANY` e `BRANCH`; um escopo
 global não pode coexistir com escopos específicos e uma filial não é repetida
-quando toda a empresa já está coberta. Responsabilidades são únicas por
-usuário, setor e chave de escopo, possuem validade e versão, são revogadas sem
-exclusão e só se tornam autoridade operacional quando `RESPONSAVEL_SETOR`
-também está vigente e cobre o mesmo contexto. Não existe coordenador ou
-substituto.
+quando toda a empresa já está coberta. O payload de criação/alteração do setor
+contém a lista completa de responsáveis. Cada vínculo é único por usuário e
+setor, possui validade e versão, é revogado sem exclusão, herda o escopo do
+setor e deriva `RESPONSAVEL_SETOR` enquanto estiver efetivo. Não existe
+coordenador ou substituto.
 
 Todos os responsáveis efetivos do setor receberão a mesma notificação e terão
 a mesma autoridade. No workflow futuro, mutações de tarefa deverão bloquear ou

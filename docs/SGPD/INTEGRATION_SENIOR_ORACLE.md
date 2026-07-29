@@ -267,16 +267,22 @@ uv run python scripts/oracle/benchmark_senior_concurrency.py
 
 ## 7. Snapshot
 
-No início do processo:
+Na abertura do processo, implementada na Fase 4:
 
-1. executar novamente a consulta pela chave completa;
-2. validar que existe exatamente um colaborador elegível;
-3. validar permissão do usuário solicitante;
-4. copiar os dados necessários para o snapshot do SGPD na mesma transação da abertura;
-5. registrar data da consulta e identidade externa;
-6. impedir atualização automática do snapshot.
+1. validar `DP` no escopo antes de consultar dados pessoais;
+2. executar novamente `obter_colaborador` pela chave completa;
+3. validar que existe exatamente um colaborador elegível e que a chave
+   retornada é idêntica à solicitada;
+4. iniciar a transação SGPD, bloquear ator, gestor e atribuições `DP` e repetir
+   `has_effective_role()`;
+5. impedir duplicidade de processo não encerrado pela identidade externa;
+6. copiar os dados necessários para o snapshot na mesma transação da abertura;
+7. registrar instante da consulta, identidade externa e `PROCESS_OPENED`;
+8. impedir atualização ou exclusão do snapshot.
 
 O snapshot é persistência de domínio do SGPD. Ele não é cache nem réplica cadastral do Senior.
+O CPF mascarado permanece somente na tabela de snapshot e não é devolvido pelo
+endpoint de abertura.
 
 ## 8. Segurança e segregação
 

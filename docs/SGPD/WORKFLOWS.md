@@ -2,10 +2,9 @@
 
 ## Estado do documento
 
-Este documento define o fluxo funcional alvo. O workflow demissional ainda não
-está implementado; estados e transições deverão ser confirmados e testados nos
-checkpoints das Fases 4 a 8. A consulta cadastral e a base de autorização já
-implementadas não antecipam a criação de processo ou snapshot.
+Este documento define o fluxo funcional alvo. A abertura em `RASCUNHO` e o
+snapshot estão implementados; as demais transições deverão ser confirmadas e
+testadas nos checkpoints das Fases 4 a 8.
 
 ## 1. Fluxo principal
 
@@ -60,6 +59,10 @@ Pendências / evidências         Pendências / evidências
 ### RASCUNHO
 
 Processo criado, mas ainda não iniciado.
+
+Implementado: usuário com `DP` vigente seleciona o colaborador, o service relê
+o Senior, revalida a autoridade dentro da transação e grava processo, snapshot
+e `PROCESS_OPENED`. Grupos e tarefas ainda não são criados.
 
 Permitido:
 

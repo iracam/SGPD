@@ -110,9 +110,8 @@ Administração funcional de contas:
 
 - `/fe/login`: autenticação local ou AD, conforme ativação e vínculo da conta;
 - `/fe/usuarios`: criação e manutenção auditada de usuários;
-- os papéis funcionais fixos `DP` e `RESPONSAVEL_SETOR` são atribuídos no
-  cadastro ou detalhe do usuário e podem coexistir na mesma conta; não existe
-  catálogo editável;
+- `DP` é o único papel funcional atribuível; `RESPONSAVEL_SETOR` é derivado do
+  vínculo vigente mantido no cadastro do setor e pode coexistir na mesma conta;
 - `/fe/auditoria`: auditoria de contas;
 - `uv run manage.py bootstrap_roles`: reconciliação idempotente dos papéis
   funcionais fixos;
@@ -146,21 +145,26 @@ Integração Active Directory:
 
 Configuração funcional:
 
-- `/fe/setores`: cadastro auditado de setores de validação;
-- `/fe/responsaveis`: associação auditada de usuários aos setores e escopos;
+- `/fe/setores`: cadastro auditado de setores, escopos e múltiplos
+  responsáveis;
 - escopos globais, por empresa ou por filial, usando somente os códigos do
   Senior e sem replicar referências;
 - prazos, bloqueio, valores, evidência e destino de escalada configuráveis;
 - setores são inativados, nunca excluídos;
-- responsáveis possuem a mesma autoridade, validade explícita, versão
-  otimista e revogação lógica, sem coordenador ou substituto.
+- responsáveis possuem a mesma autoridade, validade explícita, escopo herdado
+  do setor e revogação lógica, sem coordenador ou substituto.
 
-Consulta cadastral Senior:
+Processo demissional:
 
 - `/fe/colaboradores`: seleção Empresa → Filial → Tipo de colaborador
-  → Colaborador na SPA;
-- exige autenticação, permissão `query_senior_references` e escopo compatível;
-- consulta o Senior somente por `SELECT` e não cria snapshot nesta etapa.
+  → Colaborador e abertura do rascunho;
+- exige uma atribuição `DP` explícita, ativa, vigente e compatível com empresa
+  e filial; SuperAdmin e responsabilidade pelo setor Departamento Pessoal não
+  substituem o papel;
+- o service consulta novamente o Senior somente por `SELECT`, grava processo,
+  snapshot imutável e evento `PROCESS_OPENED` na mesma transação;
+- duplicidade de processo não encerrado para a mesma chave do colaborador é
+  impedida por validação e unicidade no Oracle.
 
 ## Escopo técnico atual
 
@@ -217,9 +221,9 @@ A descoberta do ambiente e o contrato SQL do Senior estão concluídos. A
 fundação Django está criada e validada localmente; a aplicação conecta ao
 Oracle com `python-oracledb` em modo Thick. A base de autenticação, usuários,
 papéis funcionais, escopos, vínculo administrativo com o AD e auditoria foi
-aplicada no Oracle DEV. O catálogo funcional fixo contém `DP` e
-`RESPONSAVEL_SETOR`; os demais papéis legados permanecem inativos sem apagar
-histórico.
+aplicada no Oracle DEV. O catálogo atribuível contém somente `DP`;
+`RESPONSAVEL_SETOR` é derivado dos vínculos de setor e os papéis legados
+permanecem inativos sem apagar histórico.
 A descoberta LDAP, a importação/vinculação verificada e o backend
 de autenticação foram implementados com Django 5.2.16 LTS,
 `django-auth-ldap` 5.3.0 e `python-ldap` 3.4.7. Bind, bases e grupo foram
@@ -235,6 +239,14 @@ mesma autorização por escopo dos endpoints JSON. O `LEFT JOIN` de centro de
 custo foi homologado no Oracle DEV e a consulta de colaboradores concluiu a
 medição controlada com até dez conexões concorrentes sem erros ou timeouts.
 
+A Fase 4 foi iniciada pelo incremento vertical de abertura. A SPA permite ao
+`DP` selecionar colaborador e gestor, informar datas, motivo, prioridade e
+observações e criar o processo em `RASCUNHO`. O backend revalida
+`has_effective_role()` após bloquear a autoridade funcional, relê a chave
+completa no Senior, preserva os snapshots do colaborador e do gestor e registra
+auditoria append-only. A migration `offboarding.0001` foi revisada, aplicada e
+validada no Oracle DEV. Grupos, tarefas e início permanecem pendentes.
+
 SMTP AUTH e o uso do remetente configurado foram validados no Microsoft 365
 via TLS/STARTTLS em 2026-07-28. Uma mensagem de prova foi aceita pelo serviço.
 
@@ -247,15 +259,13 @@ informados pelo responsável funcional, ainda com prazo, escopo e regras
 provisórios. O cadastro de responsáveis está implementado e o Oracle DEV
 contém 10 associações ativas cobrindo os nove setores. Grupos, regras e
 templates ainda não foram implementados. O papel `DP` possui uma atribuição
-global ativa para `victor.delgado`, que também acumula
-`RESPONSAVEL_SETOR` global e a responsabilidade global pelo setor Departamento
-Pessoal. Essa é uma designação operacional explícita, não uma derivação
-automática da responsabilidade de setor.
+global ativa para `victor.delgado`; qualquer capacidade
+`RESPONSAVEL_SETOR` é derivada de seus vínculos vigentes.
 
-A migração da interface foi concluída. A API de autenticação, contexto e
-administração de contas está publicada em `/api/v1/`, e a SPA autentica, aplica
-o tema, filtra o menu pelo contexto do servidor, administra contas e consulta a
-cascata Senior. O Django Admin somente leitura permanece como ferramenta
-técnica de diagnóstico.
+A migração da interface foi concluída. A API de autenticação, contexto,
+administração de contas e abertura está publicada em `/api/v1/`, e a SPA
+autentica, aplica o tema, filtra o menu pelo contexto do servidor, administra
+contas e abre o rascunho sobre a cascata Senior. O Django Admin somente leitura
+permanece como ferramenta técnica de diagnóstico.
 
 Consulte `PROMPT.md` para o procedimento completo.

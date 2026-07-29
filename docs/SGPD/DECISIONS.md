@@ -1022,3 +1022,126 @@ de cada transição.
 - responsável pelo setor Departamento Pessoal e `DP` são conceitos
   independentes;
 - a implementação concreta das transições permanece no Checkpoint 4.
+
+## ADR-037 — Abertura transacional do processo em rascunho
+
+### Estado
+
+Aceita em 2026-07-29 no primeiro incremento vertical da Fase 4.
+
+### Contexto
+
+A abertura precisa autorizar o coordenador funcional no escopo exato do
+colaborador, consultar o Senior somente para leitura, congelar os dados
+cadastrais usados pelo processo e registrar a ação de forma atômica. Grupos,
+templates, tarefas e as demais transições ainda não estão homologados e não
+devem ser antecipados por este incremento.
+
+A consulta ao Senior não deve permanecer dentro de uma transação Oracle do
+SGPD. Ao mesmo tempo, uma revogação concorrente do papel `DP` não pode ser
+ignorada entre a leitura cadastral e a gravação do processo.
+
+### Decisão
+
+Implementar a abertura exclusivamente pelo
+`OpenOffboardingProcessService.execute()`:
+
+- exigir `has_effective_role(actor, "DP", company_code, branch_code)` antes de
+  consultar dados pessoais no Senior;
+- consultar o colaborador pela chave completa empresa, filial, tipo e
+  matrícula e rejeitar chave divergente ou contrato inelegível;
+- abrir a transação SGPD somente depois da consulta externa;
+- bloquear o ator, o gestor e as atribuições `DP` relevantes em ordem
+  determinística e repetir `has_effective_role()` dentro da transação;
+- criar processo `RASCUNHO`, snapshot imutável e evento
+  `PROCESS_OPENED` na mesma transação;
+- aceitar somente gestor local ativo e congelar nome e e-mail do gestor no
+  processo;
+- impedir dois processos não encerrados para a mesma chave cadastral com a
+  coluna técnica única e anulável `active_employee_key`;
+- não incluir CPF, nome, e-mail ou outros dados pessoais no payload da
+  auditoria;
+- usar UUID como identificador público enquanto a numeração funcional não
+  estiver homologada;
+- manter prioridade como texto controlado pelo tamanho neste incremento,
+  adiando um catálogo para a homologação funcional;
+- não expor listagem, detalhe, alteração ou exclusão de processo enquanto suas
+  regras de acesso e transição não estiverem implementadas.
+
+O endpoint `POST /api/v1/processes/` autentica a sessão, mas a autorização
+funcional permanece no service. A SPA pode ocultar a entrada de menu para quem
+não possui `DP`; isso não substitui a verificação do backend.
+
+### Consequências
+
+- o primeiro estado persistido é somente `RASCUNHO`;
+- grupos, versões de template, tarefas, prazos derivados, início, cancelamento,
+  reabertura e encerramento permanecem em incrementos posteriores;
+- a leitura do Senior continua sem DML e sem tabela local de referência;
+- falha ao criar snapshot ou auditoria desfaz toda a abertura;
+- o snapshot não acompanha futuras alterações do Senior;
+- a chave ativa deverá ser liberada somente por uma futura transição auditada
+  de cancelamento ou encerramento;
+- a janela entre consulta cadastral e persistência não permite que a revogação
+  concorrente de `DP` autorize uma abertura nova.
+
+## ADR-038 — Responsabilidade derivada e contida no agregado Setor
+
+### Estado
+
+Aceita em 2026-07-29 por decisão explícita do responsável funcional.
+
+### Contexto
+
+A primeira implementação exigia duas designações para a mesma capacidade:
+atribuição do papel `RESPONSAVEL_SETOR` e associação do usuário ao setor. O
+vínculo também copiava escopo organizacional já existente no setor e possuía
+uma tela/API separada. Isso criava estados divergentes possíveis, operação
+duplicada e justificativas livres que não acrescentavam evidência à auditoria.
+
+### Decisão
+
+- manter `DP` como único papel funcional atribuível;
+- derivar `RESPONSAVEL_SETOR` de ao menos um vínculo efetivo entre usuário e
+  setor, sem torná-lo permissão administrativa nem autoridade implícita de
+  SuperAdmin;
+- incluir zero ou mais responsáveis no payload de criação/alteração do setor e
+  sincronizar setor, escopos e vínculos na mesma transação;
+- identificar o vínculo por `(setor, usuário)`, persistindo início inclusivo,
+  fim exclusivo, estado e trilha de atribuição/revogação;
+- remover do vínculo as colunas de tipo, empresa, filial e chave de escopo; a
+  autoridade herda integralmente os escopos atuais do setor;
+- considerar “sem responsável” quando não houver vínculo efetivo no instante
+  consultado; vínculos futuros continuam visíveis como agendados;
+- permitir qualquer usuário ativo como candidato, sem papel prévio;
+- remover a manutenção independente `/fe/responsaveis` e
+  `/api/v1/sector-responsibilities/`;
+- listar no detalhe do usuário os setores vinculados e indicar vínculos nas
+  listas de usuários e de setores;
+- retirar justificativa digitada de inclusões e alterações cadastrais,
+  inclusive ativação/inativação, redefinição administrativa de senha,
+  atribuição/revogação de `DP` e vínculo/desvínculo AD;
+- preservar motivos próprios do domínio, como o motivo da abertura/cancelamento
+  do processo demissional;
+- manter as colunas de motivo da auditoria e preenchê-las com descrição
+  operacional padronizada, ator, alvo, antes/depois e correlation ID.
+
+As migrations revogam atribuições ativas redundantes de
+`RESPONSAVEL_SETOR`, inativam o papel e validam previamente se cada escopo
+copiado é exatamente igual ao escopo do setor antes de remover as colunas.
+
+### Consequências
+
+- esta ADR substitui a composição setor + papel da ADR-035 e as partes das
+  ADR-034 e ADR-036 que tratavam `RESPONSAVEL_SETOR` como atribuível;
+- `DP` continua separado e explícito; ser responsável pelo setor Departamento
+  Pessoal não concede coordenação do processo;
+- mudanças futuras no escopo do setor passam a valer para todos os seus
+  responsáveis sem atualização redundante;
+- a lista enviada no `PATCH` é o estado desejado completo: omitir vínculo ativo
+  causa revogação lógica auditada;
+- processos não deverão iniciar quando um setor necessário estiver sem
+  responsável efetivo; essa validação pertence ao futuro service de início;
+- a migração é deliberadamente bloqueante quando encontra duplicidade
+  `(setor, usuário)` ou divergência entre escopo copiado e escopo do setor,
+  evitando ampliação silenciosa de autoridade.

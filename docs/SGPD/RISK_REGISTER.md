@@ -7,14 +7,14 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 |---|---|---:|---:|---|
 | R01 | Acoplamento às tabelas internas do Senior | Alta | Alto | Contrato SQL homologado, objetos qualificados, testes de contrato e revisão a cada upgrade |
 | R02 | Uso do owner `SGPD` pela aplicação ampliar impacto de falha ou credencial comprometida | Decisão aceita no DEV | Muito alto | `.env` 600, SQL centralizado, sem DDL no runtime, migrations revisadas, auditoria e reavaliação antes de outro ambiente |
-| R03 | Dados de colaborador alterados após abertura | Alta | Alto | Snapshot imutável |
+| R03 | Dados de colaborador alterados após abertura | Mitigado em 2026-07-29 | Alto | Releitura da chave completa e snapshot imutável criado atomicamente com a abertura; atualização e exclusão rejeitadas |
 | R04 | Checklist alterado afetar histórico | Alta | Alto | Versionamento |
 | R05 | Desconto indevido | Média | Muito alto | Pretensão, aprovação e segregação |
 | R06 | Acesso indevido a documentos médicos | Média | Muito alto | Autorização por classe e setor |
 | R07 | E-mails não enviados | Média | Médio | Fila, retry e painel de falhas |
 | R08 | Responsável ausente | Alta | Médio | Múltiplos responsáveis de igual autoridade, validade explícita, fila e escalada |
 | R09 | Processo travado por regra mal configurada | Média | Alto | Simulação e validação de regras |
-| R10 | Duplicidade de processo | Média | Alto | Regra de unicidade e validação |
+| R10 | Duplicidade de processo | Mitigado na abertura em 2026-07-29 | Alto | Validação sob lock e `ACTIVE_EMPLOYEE_KEY` única no Oracle enquanto o processo não estiver encerrado; cancelamento e encerramento futuros liberarão a chave somente por service auditado |
 | R11 | Indisponibilidade ou lentidão do Senior bloquear novas pesquisas | Média | Alto | Timeout, paginação, filtros, health check e erro explícito sem usar dados obsoletos |
 | R12 | Migration com lock no Oracle | Média | Alto | Revisão de SQL e janela de mudança |
 | R13 | Auditoria incompleta | Média | Alto | Service de auditoria e testes |
@@ -24,7 +24,7 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R18 | Criação futura de HML ou PRD sem paridade com DEV | Baixa | Alto | Exigir nova decisão e inventário antes de ampliar ambientes |
 | R19 | Exposição do `.env` local com credenciais | Média | Muito alto | Ignorar no Git, restringir permissões e nunca registrar valores em logs |
 | R20 | Ferramentas Python globais com versões divergentes | Alta | Médio | Usar ambiente virtual e lockfile do projeto |
-| R21 | Vinculação ao AD associar a identidade errada ou duplicada | Mitigado em 2026-07-28 | Muito alto | Identidade pesquisada e revalidada por `objectGUID`, constraint única, confirmação administrativa, justificativa, auditoria e testes de duplicidade/conflito |
+| R21 | Vinculação ao AD associar a identidade errada ou duplicada | Mitigado em 2026-07-28 | Muito alto | Identidade pesquisada e revalidada por `objectGUID`, constraint única, confirmação administrativa, motivo operacional padronizado, auditoria e testes de duplicidade/conflito |
 | R22 | Uso indevido do WhiteNoise para evidências ou uploads | Média | Muito alto | Restringir WhiteNoise a estáticos e usar storage privado para evidências |
 | R23 | Ausência de CI/CD permitir validações locais inconsistentes | Média | Médio | Padronizar comandos locais e registrar evidências de testes |
 | R25 | SMTP AUTH ou permissão de remetente bloquearem notificações | Mitigado em 2026-07-28 | Alto | SMTP AUTH e `Send As` validados com mensagem de prova aceita pelo Microsoft 365 |
@@ -52,7 +52,7 @@ ativo. Riscos que deixaram de existir são movidos para a seção de encerrados.
 | R49 | Configuração LDAP pela aplicação expor segredo, aceitar CA inválida ou ativar login sem contingência | Baixa | Muito alto | Acesso direto por `is_superuser`; senha Fernet nunca projetada; upload privado limitado e validado como CA X.509 vigente; hash; versão otimista; auditoria; ativação exige fingerprint de probe e SuperAdmin local utilizável; com TLS, exige CA válida |
 | R50 | Setor com escopo ou escalada incorretos gerar tarefa indevida ou bloquear o processo | Média | Alto | Escopo explícito e não redundante, global exclusivo, cadeia de escalada sem ciclos, versão otimista, bloqueio pessimista ordenado do catálogo, service transacional e auditoria antes/depois; os nove setores cadastrados em 2026-07-29 permanecem com atributos provisórios e não devem alimentar o workflow antes da homologação funcional |
 | R51 | Dois responsáveis do mesmo setor agirem simultaneamente e duplicarem transição, auditoria, e-mail ou efeito externo | Média | Alto | Mesma autoridade sem coordenador; transação atômica, lock ou versão no estado crítico, chave de idempotência, efeitos após commit e resposta com estado atualizado para quem perder a corrida |
-| R52 | Associação de responsável exceder o escopo, sobreviver à desativação do setor ou usuário ou exceder a validade do papel | Média | Muito alto | Service bloqueia e revalida setor, usuário, papel e associação; escopo deve ser coberto pelo setor e pelo papel, e o período deve caber na atribuição do papel; autorização operacional exige ambos vigentes; constraints, versão otimista, revogação lógica e auditoria antes/depois |
+| R52 | Associação de responsável manter cópia divergente do escopo ou sobreviver à desativação/validade do setor ou usuário | Baixa | Muito alto | Colunas duplicadas de escopo removidas; vínculo herda o setor; autorização revalida usuário, setor, associação e vigência; agregação transacional, constraints, revogação lógica e auditoria antes/depois |
 | R53 | Confundir papel `DP` com responsabilidade pelo setor Departamento Pessoal e conceder abertura, liberação ou encerramento indevidos | Média | Muito alto | Conceitos independentes e cumulativos; `has_effective_role()` exige atribuição `DP` explícita, vigente e compatível com o escopo; SuperAdmin, grupo AD e associação de setor não concedem `DP`; cada transição revalida estado, prontidão e auditoria |
 
 ## Riscos encerrados

@@ -26,7 +26,8 @@ Estratégia:
   o ator e um motivo operacional padronizado no evento append-only;
 - usar `objectGUID`, convertido para UUID canônico, como identificador
   corporativo estável e único para a vinculação;
-- exigir confirmação humana e justificativa para vínculo e desvínculo;
+- exigir confirmação humana para vínculo e desvínculo, registrando identidade,
+  ator e motivo operacional padronizado sem texto livre;
 - exigir troca da senha temporária no próximo acesso quando configurado;
 - não criar perfis ou permissões automaticamente a partir do Senior;
 - não criar conta implicitamente quando credenciais AD válidas forem
@@ -163,8 +164,9 @@ As permissões administrativas existentes são:
 - `query_senior_references`;
 - `manage_sectors`.
 
-Os papéis funcionais ativos são `DP` e `RESPONSAVEL_SETOR`. Nenhum concede
-administração técnica. `DP` recebe apenas `query_senior_references` neste
+O único papel funcional atribuível ativo é `DP`. `RESPONSAVEL_SETOR` é
+derivado de vínculo efetivo com o setor e não concede administração técnica.
+`DP` recebe apenas `query_senior_references` neste
 incremento para selecionar o colaborador dentro do seu escopo; permissões
 diretas são globais e permanecem disponíveis para evolução controlada.
 SuperAdmin é reservado ao bootstrap e à contingência administrativa. Papéis e
@@ -176,24 +178,29 @@ setor e suas responsabilidades podem cobrir múltiplas empresas e filiais. A
 API, o service e a visibilidade da SPA usam o mesmo identificador, mas somente
 API e service autorizam a operação.
 
-Uma responsabilidade somente é configurada quando usuário e setor estão
-ativos e uma atribuição não revogada de `RESPONSAVEL_SETOR` cobre todo o mesmo
-escopo e período. A autoridade operacional exige novamente, no instante do
-caso de uso, tanto o papel quanto a associação vigente. SuperAdmin não se torna
-responsável funcional implicitamente. Escopo, validade e versão são
-reavaliados no backend; ocultar controles na SPA não substitui essa decisão.
+Uma responsabilidade pode ser cadastrada para qualquer usuário ativo e herda
+integralmente o escopo organizacional do setor. A autoridade operacional exige,
+no instante do caso de uso, usuário, setor e vínculo ativos e dentro da
+validade. SuperAdmin não se torna responsável funcional implicitamente.
+Escopo e validade são reavaliados no backend; ocultar controles na SPA não
+substitui essa decisão.
 
 O papel `DP` é cumulativo e independente da responsabilidade de setor. A
-autorização de abertura, acompanhamento, análise final, liberação,
-cancelamento e encerramento deverá exigir uma atribuição `DP` ativa, vigente e
-compatível com a empresa/filial do processo. SuperAdmin e responsável pelo
+abertura já exige uma atribuição `DP` ativa, vigente e compatível com a
+empresa/filial; acompanhamento, análise final, liberação, cancelamento e
+encerramento deverão repetir o mesmo limite. SuperAdmin e responsável pelo
 setor Departamento Pessoal não se tornam `DP` implicitamente.
 
-Em 2026-07-29, a primeira atribuição ativa após a ADR-036 foi registrada
-explicitamente para `victor.delgado`, no escopo global e sem validade final. A
-mesma conta mantém `RESPONSAVEL_SETOR` e responsabilidade pelo setor
-Departamento Pessoal, também globais. O evento `ROLE_ASSIGNED` preserva ator,
-alvo, escopo, vigência, motivo operacional e correlation ID.
+Na abertura, a API exige sessão, mas a decisão funcional permanece no service.
+O service chama `has_effective_role()` antes da consulta ao Senior e novamente
+dentro da transação, após lock da conta e das atribuições `DP`. Assim,
+revogação e abertura concorrentes não produzem autoridade implícita. A SPA
+oculta o item de menu sem o papel `DP`, mas isso é somente orientação de
+navegação.
+
+Em 2026-07-29, a atribuição `DP` de `victor.delgado` foi preservada no escopo
+global e sem validade final. A capacidade `RESPONSAVEL_SETOR` da conta passa a
+ser derivada dos vínculos vigentes, sem atribuição redundante.
 
 Os endpoints e os services administrativos validam autorização. A checagem no
 service preserva o limite de segurança quando o caso de uso for chamado por
@@ -201,8 +208,7 @@ outro endpoint ou comando. A desativação de contas bloqueia os
 superusuários ativos em ordem determinística e impede transacionalmente a
 remoção do último superusuário ativo.
 
-No cadastro manual, a designação inicial de `DP` ou `RESPONSAVEL_SETOR` é
-opcional.
+No cadastro manual, a designação inicial de `DP` é opcional.
 Quando solicitada, o mesmo caso de uso exige `manage_users` e `manage_roles`,
 cria a conta e a atribuição na mesma transação e registra separadamente
 `USER_CREATED` e `ROLE_ASSIGNED`. Falha de autorização, papel, escopo ou
@@ -210,12 +216,10 @@ auditoria desfaz toda a criação; a SPA não exibe os campos de papel a quem n�
 possui `manage_roles`.
 
 Criação e edição de outros papéis não possuem API nem interface, e o model
-impede outro código ativo. Criação, reativação e atualização de atribuições dos
-papéis fixos não recebem justificativa
-livre do cliente. O evento `ROLE_ASSIGNED` registra ator, usuário, papel,
-escopo, validade e o motivo operacional padronizado pelo servidor. A revogação
-permanece uma operação separada, com justificativa humana obrigatória e evento
-`ROLE_REVOKED`.
+impede outro código ativo. Criação, reativação, atualização e revogação de
+atribuições de `DP` não recebem justificativa livre do cliente. Os eventos
+registram ator, usuário, papel, escopo, validade e motivo operacional
+padronizado pelo servidor.
 
 Além da auditoria de sucesso, a borda HTTP registra o recebimento e a conclusão
 da designação em log JSON. Somente IDs técnicos, escopo, resultado e correlation
@@ -346,6 +350,11 @@ Eventos mínimos:
 - integração;
 - alteração de permissões.
 
+A abertura implementada gera `PROCESS_OPENED` na mesma transação do processo e
+do snapshot. O evento contém IDs técnicos, chaves organizacionais, datas,
+prioridade, estado e correlation ID; nome, e-mail e CPF não são copiados para
+o JSON de auditoria.
+
 ## 9. Imutabilidade
 
 A auditoria deve ser append-only para usuários comuns.
@@ -358,10 +367,10 @@ Os eventos rejeitam alteração e exclusão por instância e também
 
 A auditoria funcional de setores e responsáveis segue a mesma propriedade
 append-only. Criação, alteração, ativação, inativação, associação, atualização
-de validade e revogação registram ator, justificativa, correlation ID e estados
-anterior/posterior. Setores e responsabilidades não possuem endpoint de
-exclusão; os models rejeitam exclusão física e a responsabilidade é revogada
-logicamente.
+de validade e revogação registram ator, motivo operacional padronizado,
+correlation ID e estados anterior/posterior. Setores e responsabilidades não
+possuem endpoint de exclusão; os models rejeitam exclusão física e a
+responsabilidade é revogada logicamente.
 
 Alternativas futuras:
 

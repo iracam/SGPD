@@ -4,9 +4,10 @@
 
 Este é o modelo conceitual do produto. Na implementação atual, contas, o papel,
 escopos, auditoria de contas, configuração técnica LDAP, setores, escopos de
-setor, responsáveis e sua auditoria possuem models e migrations. Os demais
-domínios serão detalhados e implementados nos checkpoints das Fases 3 a 9;
-seus nomes abaixo não autorizam criação antecipada de schema.
+setor, responsáveis, processo em rascunho, snapshot do colaborador e auditoria
+da abertura possuem models e migrations. Os demais domínios serão detalhados e
+implementados nos checkpoints das Fases 3 a 9; seus nomes abaixo não autorizam
+criação antecipada de schema.
 
 ## 1. Princípios
 
@@ -68,13 +69,11 @@ independente do vínculo.
 
 Catálogo funcional fixo:
 
-- `RESPONSAVEL_SETOR`;
 - `DP`.
 
-Somente esses códigos podem permanecer ativos, conforme
-`SGPD_CK_ROLE_ACTIVE_CODE`. Os oito papéis que estavam fora da decisão de
-`RESPONSAVEL_SETOR` foram inativados em 2026-07-29; `DP` foi reativado pela
-decisão posterior, deixando sete papéis legados inativos e fisicamente
+Somente `DP` pode permanecer ativo, conforme `SGPD_CK_ROLE_ACTIVE_CODE`.
+`RESPONSAVEL_SETOR` é um marcador derivado de vínculo vigente e não uma linha
+atribuível do catálogo. Papéis legados permanecem inativos e fisicamente
 preservados para rastreabilidade. SuperAdmin é o atributo técnico
 `SGPD_USER.IS_SUPERUSER`, não um papel.
 
@@ -95,17 +94,10 @@ preservados para rastreabilidade. SuperAdmin é o atributo técnico
 - `REVOKED_BY_ID`
 - `REVOKED_AT`
 
-A atribuição é única por usuário, papel e chave de escopo. Como o catálogo é
-fixo, toda nova atribuição referencia `RESPONSAVEL_SETOR` ou `DP`; a mesma
-conta pode acumular ambos. Empresa é obrigatória no escopo de empresa; empresa
-e filial são obrigatórias no escopo de filial. A revogação é lógica, com data,
-responsável e auditoria.
-
-No Oracle DEV, em 2026-07-29, `victor.delgado` passou a acumular atribuições
-globais ativas de `DP` e `RESPONSAVEL_SETOR`. A conta também possui
-responsabilidade global pelo setor Departamento Pessoal. Esse registro
-comprova a coexistência prevista pelo modelo, mas não cria vínculo automático
-entre papel e setor.
+A atribuição é única por usuário, papel e chave de escopo. Toda nova
+atribuição referencia `DP`. Empresa é obrigatória no escopo de empresa;
+empresa e filial são obrigatórias no escopo de filial. A revogação é lógica,
+com data, responsável e auditoria.
 
 #### SGPD_ACCOUNT_AUDIT
 
@@ -211,10 +203,6 @@ estado anterior e posterior, inclusive escopos.
 - `ID`
 - `SETOR_ID`
 - `USUARIO_ID`
-- `TIPO_ESCOPO`: `GLOBAL`, `COMPANY` ou `BRANCH`
-- `EMPRESA_CODIGO`
-- `FILIAL_CODIGO`
-- `CHAVE_ESCOPO`
 - `VALIDO_DE`
 - `VALIDO_ATE`
 - `ATIVO`
@@ -231,13 +219,12 @@ setor possuem a mesma autoridade, recebem as mesmas notificações e podem
 movimentar a tarefa. As capacidades decorrem do setor e do estado do processo,
 sem flags individuais.
 
-A associação é única por usuário, setor e chave de escopo, usa validade com
-término exclusivo, versão otimista e revogação lógica. Seu escopo deve caber
-simultaneamente na cobertura do setor e em uma atribuição vigente do papel
-`RESPONSAVEL_SETOR`; essa atribuição também deve cobrir todo o período da
-responsabilidade. Setor, usuário, papel e associação são bloqueados em ordem
-pelo service antes da mutação. Eventos de associação, atualização e revogação
-reutilizam `SETOR_AUDITORIA`, com IDs técnicos e estado anterior/posterior.
+A associação é única por usuário e setor, usa validade com término exclusivo,
+versão e revogação lógica. Não repete colunas organizacionais: herda todos os
+escopos vigentes do próprio setor. Setor, usuários e associações são
+bloqueados em ordem pelos services do agregado antes da mutação. Eventos de
+associação, atualização e revogação reutilizam `SETOR_AUDITORIA`, com IDs
+técnicos, estado anterior/posterior e motivo padronizado pelo servidor.
 
 ### Grupos de validação
 
@@ -336,6 +323,19 @@ A regra poderá usar expressão declarativa em fase posterior.
 - `ENCERRADO_POR_ID`
 - `VERSAO_LOCK`
 
+Estado implementado em `SGPD_OFFBOARDING_PROCESS`:
+
+- usa `UUID` como identificador público; o formato do número funcional ainda
+  não foi homologado e, portanto, `NUMERO` não foi antecipado;
+- cria somente o estado `RASCUNHO`;
+- `ACTIVE_EMPLOYEE_KEY` é anulável e única, formada pela identidade Senior; é
+  preenchida enquanto o processo não estiver encerrado e será liberada apenas
+  por transição futura auditada de cancelamento ou encerramento;
+- preserva usuário, nome e e-mail históricos do gestor;
+- possui versão, índices por estado/prazo, identidade/abertura e ator;
+- rejeita `QuerySet.update()` e exclusão física; as futuras transições deverão
+  alterar instâncias somente por services auditados.
+
 #### PROCESSO_COLABORADOR_SNAPSHOT
 
 - `ID`
@@ -362,6 +362,31 @@ A regra poderá usar expressão declarativa em fase posterior.
 - `SITUACAO`
 - `DADOS_EXTRAS_JSON`
 - `CRIADO_EM`
+
+Estado implementado em `SGPD_EMPLOYEE_SNAPSHOT`:
+
+- relação um-para-um protegida com o processo;
+- `FILIAL_NOME` corresponde à razão social retornada pelo contrato atual; o
+  Senior não fornece um nome de empresa separado;
+- registra `SOURCE_QUERIED_AT` além de `ORIGEM_ATUALIZADA_EM`;
+- mantém CPF somente mascarado e não o projeta na API de abertura;
+- rejeita alteração e exclusão por instância ou em lote.
+
+#### PROCESSO_AUDITORIA
+
+- `ID`
+- `UUID`
+- `PROCESSO_ID`
+- `TIPO_EVENTO`
+- `ATOR_ID`
+- `OCORRIDO_EM`
+- `DESCRICAO`
+- `DADOS_JSON`
+- `CORRELATION_ID`
+
+`SGPD_PROCESS_AUDIT` é append-only. Neste incremento aceita
+`PROCESS_OPENED` e registra apenas IDs técnicos, escopo, datas, prioridade e
+estado, sem nome, e-mail ou CPF.
 
 #### PROCESSO_SETOR
 

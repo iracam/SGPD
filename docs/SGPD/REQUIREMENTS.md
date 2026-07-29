@@ -11,9 +11,10 @@ atual e a fase autorizada estão em `CHECKPOINT.md`.
 ### RF-001 — Autenticação
 
 Todos os usuários deverão ser cadastrados no SGPD com nome, e-mail e situação.
-Usuários que executam validações recebem `RESPONSAVEL_SETOR` e são associados
-explicitamente aos setores atendidos. Usuários que coordenam o ciclo
-demissional recebem `DP`. Os papéis podem coexistir na mesma conta.
+Usuários que executam validações são vinculados explicitamente aos setores
+atendidos; desse vínculo vigente deriva `RESPONSAVEL_SETOR`. Usuários que
+coordenam o ciclo demissional recebem o papel atribuível `DP`. As duas
+capacidades podem coexistir na mesma conta.
 
 O SGPD deverá preservar autenticação local para contas não vinculadas e
 contingência administrativa. Cada cadastro poderá ser vinculado a uma conta do
@@ -26,12 +27,13 @@ A manutenção deverá:
 - exigir nome, sobrenome, login e e-mail únicos quando aplicável;
 - permitir criação manual de conta local sem justificativa digitada, mantendo
   ator, origem e motivo operacional padronizado na auditoria;
-- permitir designar um papel inicial e seu escopo no mesmo cadastro manual;
+- permitir designar `DP` e seu escopo no mesmo cadastro manual;
   quando informado, conta e atribuição deverão ser gravadas atomicamente,
   exigindo simultaneamente as permissões de manter usuários e papéis;
-- não exigir justificativa digitada para criar, reativar ou atualizar uma
-  atribuição de papel, preservando ator, escopo e motivo operacional
-  padronizado na auditoria; a revogação continuará exigindo justificativa;
+- não exigir justificativa digitada em inclusões ou alterações cadastrais,
+  inclusive ativação, inativação, senha administrativa, atribuição/revogação
+  de `DP` e vínculo/desvínculo AD; preservar ator, alvo, antes/depois,
+  correlation ID e motivo operacional padronizado na auditoria;
 - emitir logs estruturados no recebimento e na conclusão da designação, usando
   somente IDs técnicos, escopo, resultado e correlation ID;
 - permitir ativação e desativação sem exclusão física;
@@ -41,7 +43,8 @@ A manutenção deverá:
 - auditar login, logout, falha, criação, alteração e redefinição de senha.
 
 O vínculo administrativo com o AD deverá usar identificador opaco único,
-usuário do diretório, data, administrador responsável e justificativa. O
+usuário do diretório, data, administrador responsável e motivo operacional
+padronizado pelo servidor. O
 `objectGUID` será a chave estável; e-mail não poderá ser usado como chave.
 
 A administração deverá permitir:
@@ -88,16 +91,16 @@ A configuração técnica de LDAP e autenticação deverá:
 
 ### RF-002 — Papéis funcionais e permissões
 
-O catálogo funcional fixo conterá:
+O catálogo de papéis atribuíveis conterá somente `DP`, que habilita iniciar,
+acompanhar, avaliar, liberar, cancelar e encerrar o processo demissional
+dentro do escopo organizacional atribuído.
 
-- `RESPONSAVEL_SETOR`: habilita a responsabilidade por tarefas somente quando
-  combinado com associação explícita ao setor e ao escopo;
-- `DP`: habilita iniciar, acompanhar, avaliar, liberar, cancelar e encerrar o
-  processo demissional dentro do escopo organizacional atribuído.
-
-Os dois papéis podem coexistir na mesma conta e não haverá criação ou edição
-dinâmica de outros papéis. A atribuição possui validade, revogação lógica,
-responsável, escopo e auditoria. `DP` recebe a permissão de consultar
+`RESPONSAVEL_SETOR` não é atribuível: é uma capacidade derivada de ao menos um
+vínculo vigente entre usuário e setor. O vínculo herda integralmente o escopo
+organizacional do setor. `DP` e a capacidade derivada podem coexistir na mesma
+conta. Não haverá criação ou edição dinâmica de outros papéis. A atribuição
+`DP` possui validade, revogação lógica, responsável, escopo e auditoria. `DP`
+recebe a permissão de consultar
 referências do Senior para selecionar o colaborador, mas não recebe
 administração de usuários, papéis ou setores.
 
@@ -122,6 +125,7 @@ Campos mínimos:
 - responsável de escalada;
 - empresas atendidas;
 - filiais atendidas.
+- zero ou mais responsáveis, com início e fim de validade.
 
 Estado implementado na primeira fatia da Fase 3:
 
@@ -130,7 +134,7 @@ Estado implementado na primeira fatia da Fase 3:
 - cobertura explícita global, por empresa ou por filial, sem replicar
   referências do Senior;
 - prevenção de escopo redundante e ciclo de escalada;
-- auditoria append-only com justificativa e correlation ID;
+- auditoria append-only com motivo padronizado e correlation ID;
 - exclusão física indisponível.
 
 Catálogo informado pelo responsável funcional e cadastrado no Oracle DEV em
@@ -150,14 +154,17 @@ Todos iniciam com escopo global, prazo de 24 horas e regras padrão provisórias
 Esses atributos deverão ser homologados antes de o catálogo ser consumido pelo
 workflow.
 
-Responsáveis de setor permanecem no RF-004 e não foram antecipados.
+Inclusão e alteração do setor sincronizam seus responsáveis na mesma
+transação. A lista identifica se existe responsável vigente e separa vínculos
+agendados.
 
 ### RF-004 — Cadastro de responsáveis
 
 Cada setor poderá possuir um ou mais responsáveis.
 
-O responsável deverá referenciar um usuário cadastrado no SGPD com o papel
-`RESPONSAVEL_SETOR`. Nome e e-mail virão do perfil desse usuário.
+O responsável deverá referenciar qualquer usuário ativo cadastrado no SGPD.
+Nome e e-mail virão do perfil desse usuário. Nenhuma atribuição adicional de
+papel é necessária.
 
 Campos mínimos:
 
@@ -165,8 +172,7 @@ Campos mínimos:
 - setor;
 - data de início;
 - data de término;
-- escopo por empresa;
-- escopo por filial;
+- escopo organizacional herdado do cadastro do setor.
 
 Todos os responsáveis ativos de um mesmo setor:
 
@@ -185,17 +191,20 @@ também possuir `DP`, sem que uma atribuição implique automaticamente a outra.
 
 Estado implementado nesta fatia da Fase 3:
 
-- associação, consulta, atualização de validade, reativação e revogação
-  lógica pela API e SPA;
-- identidade imutável da associação por usuário, setor e escopo;
-- escopos `GLOBAL`, `COMPANY` e `BRANCH`, sempre contidos simultaneamente na
-  cobertura do setor e na atribuição de `RESPONSAVEL_SETOR`;
+- associação, atualização de validade, reativação e revogação lógica como
+  parte do agregado transacional do setor;
+- identidade imutável da associação por usuário e setor;
+- herança integral dos escopos `GLOBAL`, `COMPANY` e `BRANCH` do setor, sem
+  cópia redundante no vínculo;
 - validade com término exclusivo, versão otimista e bloqueio pessimista nas
   mutações;
+- qualquer usuário ativo pode ser selecionado como candidato;
+- detalhe do usuário lista os setores vinculados, e as listas de usuários e
+  setores expõem indicadores de vínculo e responsabilidade vigente;
 - igualdade de autoridade, sem campo de coordenador, principal, substituto ou
   capacidade individual;
-- auditoria append-only com estado anterior/posterior, justificativa e
-  correlation ID;
+- auditoria append-only com estado anterior/posterior, motivo operacional
+  padronizado e correlation ID;
 - exclusão física indisponível.
 
 O fan-out de notificações e a concorrência first-writer-wins das tarefas
@@ -248,6 +257,27 @@ informando:
 - grupos de validação;
 - observações.
 
+Estado implementado no primeiro incremento da Fase 4:
+
+- abertura em `RASCUNHO` pela API e pela SPA, sem iniciar tarefas;
+- autorização obrigatória no limite do service por `has_effective_role()` para
+  o papel `DP`, empresa e filial;
+- repetição da autorização dentro da transação, após lock da conta e das
+  atribuições `DP`, para serializar abertura e revogação concorrentes;
+- gestor ativo selecionado entre contas SGPD, com nome e e-mail copiados para
+  o processo;
+- releitura da chave completa no Senior imediatamente antes da gravação;
+- processo, snapshot e evento `PROCESS_OPENED` confirmados ou revertidos em
+  conjunto;
+- unicidade de processo não encerrado por empresa, filial, tipo e matrícula,
+  protegida também por constraint Oracle;
+- prioridade preservada como texto informado pelo DP até a homologação de um
+  catálogo funcional.
+
+Grupos de validação não são aceitos nem inferidos neste incremento porque o
+RF-011 ainda não foi implementado. Eles serão obrigatórios para a transição de
+rascunho para iniciado, sem alterar retroativamente a abertura.
+
 ### RF-010 — Snapshot do colaborador
 
 No momento da abertura, o sistema deverá copiar para o processo:
@@ -269,6 +299,16 @@ Alterações posteriores no Senior não deverão alterar o snapshot.
 O snapshot é uma entidade do SGPD e não contradiz a ausência de models para referências do Senior.
 
 O gestor é uma atribuição do processo, selecionada entre usuários cadastrados no SGPD. Nome e e-mail do gestor deverão ser preservados historicamente na abertura sem consultar o Senior.
+
+Estado implementado no primeiro incremento da Fase 4:
+
+- snapshot próprio e imutável, sem model para objetos `VETORH`;
+- identificadores, razão social da filial, tipo, matrícula, nome, situação,
+  cargo, centro de custo, admissão, afastamento e `USU_DATALT` preservados;
+- instante da consulta ao Senior registrado;
+- CPF mascarado mantido apenas no snapshot interno e omitido da resposta da
+  API;
+- atualização e exclusão em lote rejeitadas pelo model.
 
 ### RF-011 — Grupos de validação
 

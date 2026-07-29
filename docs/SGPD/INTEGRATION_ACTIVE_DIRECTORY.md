@@ -56,8 +56,8 @@ uv sync --dev
 - o AD é somente provedor de descoberta e autenticação;
 - nome, e-mail local, situação, papéis funcionais, associações, permissões e
   escopos pertencem ao SGPD;
-- grupos AD não concedem `DP` ou `RESPONSAVEL_SETOR` nem associam usuários a
-  setores;
+- grupos AD não concedem `DP` nem associam usuários a setores;
+  `RESPONSAVEL_SETOR` deriva exclusivamente do vínculo local vigente;
 - credenciais AD válidas nunca criam uma conta implicitamente no login;
 - somente uma ação administrativa explícita cria ou vincula a conta;
 - `objectGUID`, convertido para UUID canônico, é a chave estável e única;

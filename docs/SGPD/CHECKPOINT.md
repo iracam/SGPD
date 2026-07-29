@@ -3,8 +3,8 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis e o papel DP
-- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores e responsáveis; interface server-side removida
+- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis e o papel DP; Fase 4 iniciada pela abertura em rascunho
+- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores, responsáveis e abertura do processo; interface server-side removida
 - Banco: Oracle
 - Backend: Django API-only, com Django Admin somente leitura preservado
 - UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028
@@ -410,14 +410,30 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 
 ## Checkpoint 4 — Workflow
 
-- [ ] Abertura.
-- [ ] Snapshot histórico.
+- [x] Abertura.
+  - `POST /api/v1/processes/` e formulário SPA reutilizam a cascata Senior
+    homologada e criam somente o estado `RASCUNHO`.
+  - O service exige `has_effective_role()` para `DP` no escopo do colaborador
+    antes da consulta pessoal e repete a verificação sob lock antes da
+    persistência.
+  - Gestor ativo, elegibilidade cadastral, chave devolvida pelo Senior e
+    duplicidade de processo ativo são validados no backend.
+  - A migration aditiva `offboarding.0001` foi revisada, aplicada e validada
+    no Oracle DEV.
+- [x] Snapshot histórico.
+  - Colaborador e gestor são congelados na abertura; o snapshot rejeita
+    atualização e exclusão física.
 - [ ] Início.
 - [ ] Tarefas.
 - [ ] Estados.
+  - `RASCUNHO` está implementado; as demais transições continuam pendentes.
 - [ ] Prazos.
+  - Datas informadas são armazenadas, mas cálculo e distribuição de prazos por
+    tarefa aguardam homologação.
 - [ ] Painéis.
-- [ ] Auditoria.
+- [x] Auditoria.
+  - `PROCESS_OPENED` é append-only e integra a mesma transação de processo e
+    snapshot, sem dados pessoais no payload técnico.
 
 ## Checkpoint 5 — Pendências
 
@@ -1245,4 +1261,37 @@ Próximo passo: iniciar o incremento vertical de abertura do processo demissiona
 Comandos executados: consultas Oracle somente leitura das atribuições, responsabilidades e eventos de auditoria; revisão documental; validação do manifesto e do diff.
 Arquivos alterados: README.md; DATA_MODEL.md; ROADMAP.md; SECURITY.md; CHECKPOINT.md; MANIFEST.json.
 Testes: o Oracle DEV confirmou uma atribuição DP ativa: usuário victor.delgado, escopo GLOBAL, sem término. A mesma conta possui RESPONSAVEL_SETOR GLOBAL e responsabilidade GLOBAL pelo setor DEPARTAMENTO_PESSOAL. Permanecem 10 responsabilidades de setor ativas. Nenhum objeto ou dado do Senior foi consultado ou alterado.
+```
+
+### 2026-07-29 — Abertura do processo demissional em rascunho
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 4 — Workflow / Abertura
+O que foi concluído: primeiro incremento vertical da abertura com processo RASCUNHO, snapshot histórico imutável do colaborador, snapshot do gestor local e evento append-only PROCESS_OPENED; service transacional como único limite funcional; POST /api/v1/processes/ e candidatos a gestor; formulário responsivo na rota existente /fe/colaboradores; proteção contra processo ativo duplicado; migration offboarding.0001 aplicada e validada no Oracle DEV.
+Decisões: o service exige has_effective_role para DP no escopo do colaborador antes da consulta pessoal ao Senior e repete a autorização sob locks do ator, gestor e atribuições DP antes de gravar. A consulta Senior ocorre fora da transação SGPD e usa a chave cadastral completa. Processo, snapshot e auditoria são atômicos. A chave técnica ativa é única e anulável para futura liberação auditada no cancelamento ou encerramento. UUID é o identificador público enquanto a numeração funcional não estiver homologada; prioridade permanece texto limitado. Grupos, templates, tarefas e início não foram antecipados. ADR-037 registrada.
+Riscos: regras funcionais de grupos, templates, prioridades, prazos e transições ainda precisam de homologação; nenhum GET de processo foi exposto antes da matriz de visibilidade; a conexão Oracle DEV permanece no owner SGPD conforme a exceção ADR-022; a futura liberação da chave ativa deverá ocorrer somente em service auditado.
+Pendências: homologar grupos e templates versionados; implementar início e geração de tarefas; definir a visibilidade de acompanhamento; implementar cancelamento, reabertura, prontidão, liberação e encerramento; homologar catálogo de prioridade e regras de prazo.
+Próximo passo: homologar grupos e templates mínimos e implementar o início idempotente do rascunho, gerando tarefas versionadas sem alterar o snapshot histórico.
+Comandos executados: suítes backend e frontend; Ruff check e format; Mypy; Django check; makemigrations check; sqlmigrate e revisão do DDL Oracle; migrate offboarding 0001 e migrate --plan; consultas Oracle somente leitura; smoke real do service com rollback obrigatório; build Angular; busca por media query max-width; diff check; inspeção visual em Chromium nos viewports 360, 390, 768, 1024 e 1440 px.
+Arquivos alterados: novo módulo apps/offboarding com models, service, API, serializers, admin, URLs e migration 0001; settings e rotas Django; testes backend; feature Angular de colaboradores promovida a abertura e integrações de API, rota e menu; testes frontend; README.md; ARCHITECTURE.md, DATA_MODEL.md, DECISIONS.md, INTEGRATION_SENIOR_ORACLE.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, WORKFLOWS.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 275 testes backend e 62 testes frontend passaram; build de produção concluído com bundle inicial de 496,48 kB e chunk lazy de abertura de 25,92 kB. A inspeção visual confirmou ausência de overflow horizontal nos cinco pontos de quebra, controles móveis de 44 px e densidade compacta no desktop. No Oracle DEV, as três tabelas novas existem, as 57 constraints estão habilitadas e validadas, os 18 índices estão válidos e o plano final de migrations está vazio. O smoke consultou um colaborador elegível no Senior somente por SELECT, criou processo, snapshot e evento dentro da transação e confirmou contagens zero depois do rollback obrigatório; nenhum processo de prova foi persistido e nenhum objeto do Senior foi alterado.
+```
+
+### 2026-07-29 — Responsáveis incorporados ao cadastro de Setor
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoint 3/4 — Ajuste do modelo funcional antes do próximo incremento
+O que foi concluído: CreateSectorService e UpdateSectorService passaram a sincronizar atomicamente zero ou mais responsáveis com início/fim de validade; o vínculo deixou de duplicar tipo, empresa, filial e chave de escopo e passou a herdar integralmente os escopos do setor; RESPONSAVEL_SETOR deixou de ser papel atribuível e passou a ser derivado do vínculo efetivo; a manutenção independente e a rota /fe/responsaveis foram removidas; a tela de Setores recebeu card repetível e indicadores de responsável vigente/agendado; a lista de usuários recebeu indicador de vínculos e o detalhe passou a listar os setores e escopos herdados; justificativas digitadas foram removidas das inclusões/alterações cadastrais de setor e contas, mantendo motivos operacionais padronizados na auditoria.
+Diagnóstico: antes da alteração, o Oracle DEV possuía 9 setores, 10 vínculos ativos, 10 atribuições ativas redundantes de RESPONSAVEL_SETOR, nenhum par setor/usuário duplicado e todos os escopos do setor e do vínculo eram GLOBAL. A migração pôde ser executada sem consolidação ou ampliação silenciosa de escopo.
+Decisões: ADR-038 aceita e substitui a composição de papel + vínculo da ADR-035 e as partes conflitantes das ADR-034/036; DP permanece como único papel atribuível e separado do setor Departamento Pessoal; “sem responsável” significa nenhum vínculo efetivo no instante, enquanto início futuro é agendamento; a lista enviada no PATCH representa o estado desejado completo e a omissão revoga logicamente; motivos próprios do workflow, como motivo da abertura ou cancelamento, permanecem requisitos de negócio.
+Riscos: a remoção das quatro colunas redundantes é DDL destrutivo e não possui rollback automático de dados; a migration executa preflight e aborta diante de duplicidade ou divergência de escopo. O futuro início do processo ainda precisa bloquear setor obrigatório sem responsável efetivo. Alterar o escopo de um setor altera imediatamente a cobertura de todos os seus responsáveis por decisão explícita.
+Pendências: homologar grupos/templates e implementar no service de início a verificação de responsável efetivo por setor; confirmar com o responsável funcional o alinhamento desktop corrigido no card de responsáveis; não reintroduzir atribuição de RESPONSAVEL_SETOR nem endpoint independente.
+Próximo passo: seguir o Checkpoint 4 com grupos/templates mínimos e início idempotente, consumindo has_sector_responsibility() derivado e bloqueando setores sem responsável vigente.
+Comandos executados: leitura integral da documentação obrigatória; diagnóstico de código e Oracle somente leitura; testes baseline; revisão de sqlmigrate e migrate --plan; migrations accounts.0009 e sectors.0003; validação pós-migração de colunas, constraints, duplicidades, papéis e eventos; smokes de listagem/detalhe via APIRequestFactory; suíte backend; Ruff; Mypy; Django check; makemigrations check; Vitest; build Angular; diff check.
+Arquivos alterados: models, services, autorização, serializers, APIs, admin, URLs, bootstrap e migrations de accounts/sectors; tela, models e serviços Angular de setores/usuários; remoção da feature independente de responsáveis; testes backend/frontend; README.md; ARCHITECTURE.md, DATA_MODEL.md, DECISIONS.md, GLOSSARY.md, INTEGRATION_ACTIVE_DIRECTORY.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, VISION.md, CHECKPOINT.md e MANIFEST.json.
+Testes: 261 testes backend e 58 testes frontend passaram; Ruff e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build Angular concluído. Após retorno da homologação, o alinhamento desktop dos campos de responsável foi corrigido sem alterar o layout móvel; os 58 testes frontend e o build Angular passaram novamente. No Oracle DEV, somente DP permanece ativo, 1 atribuição DP permanece vigente, as 10 atribuições redundantes RESPONSAVEL_SETOR foram revogadas com 10 eventos auditados, os 10 vínculos de setor foram preservados sem duplicidade, as novas constraints estão ENABLED/VALIDATED e o plano final de migrations está vazio. As APIs retornaram 9 setores, todos com responsável vigente, 10 usuários vinculados e o detalhe com seus setores. Nenhum objeto ou dado do Senior foi consultado ou alterado.
 ```

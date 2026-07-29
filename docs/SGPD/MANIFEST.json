@@ -9,23 +9,23 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "sha256": "b7c551f89496bb2f4c218c4504d7a74a53b53b0957cd6d9cb967cb5e6107d735",
-      "bytes": 21285
+      "sha256": "62f5c7d794d240f6c1aa03b417070abb4a4bf95e15ccfe6715770bc3d92c9ebc",
+      "bytes": 22290
     },
     {
       "file": "CHECKPOINT.md",
-      "sha256": "e0714ab562288f841bc7b4d3c2a87818f26840be98b652e9d0bccff3ef2e2e8e",
-      "bytes": 131590
+      "sha256": "827669a5d6e95a8e466fa467ffbeee4aec6e12330846c4c570a504e81fa4f2b3",
+      "bytes": 140879
     },
     {
       "file": "DATA_MODEL.md",
-      "sha256": "d005862f29abc921aa17327f04322d8944ffeb093a727883f5cd559875fa7c07",
-      "bytes": 12545
+      "sha256": "9a1a2ed56ce47964e0c389fc2d3e7fbb5bd233b1d14ddcc099fd81fb7f328061",
+      "bytes": 13402
     },
     {
       "file": "DECISIONS.md",
-      "sha256": "6ad3914243f419b223bf3ff333c2bec454d12c465f1f16e961688936392d8211",
-      "bytes": 39142
+      "sha256": "a6b4100aaf33145e6f0026e4ffb2ec638281375be07856fbcf9658f413e07f6b",
+      "bytes": 45344
     },
     {
       "file": "ENVIRONMENT.md",
@@ -34,23 +34,23 @@
     },
     {
       "file": "GLOSSARY.md",
-      "sha256": "dc79c150043a72cde3adfcfa688bb02020f2f383382ddc6adea3343c7e64cade",
-      "bytes": 1553
+      "sha256": "3b02567e2cec56a7d690e857d6bdc298b04ecb9d9392cba15ef26e5b778cc10b",
+      "bytes": 1749
     },
     {
       "file": "INTEGRATION_ACTIVE_DIRECTORY.md",
-      "sha256": "b3012f2a90014689b629b2e7d8e31b2b8c766782f3d516a2bf075e255160e802",
-      "bytes": 14805
+      "sha256": "a851647ab55251b9c67f80fc6ac9c7cabecd42a116e86664839ba4800008628c",
+      "bytes": 14851
     },
     {
       "file": "INTEGRATION_SENIOR_ORACLE.md",
-      "sha256": "2c52294a0fbe95043ad2ab7c97a6297bb23f3e7d028342237b49fbafaece2c07",
-      "bytes": 12226
+      "sha256": "e4a377e4844cbfbb0af589c62bac477557338b6221d6c3e5932f80b3a07af627",
+      "bytes": 12632
     },
     {
       "file": "MIGRATION_FRONTEND_SPA.md",
-      "sha256": "fa92c2edcb55ad599e3351825d2805d440e143d5bd59bd4971d2bb0dc6803a43",
-      "bytes": 21664
+      "sha256": "4a58599b0bba5f511e524954394a6b4a6dea2111611af397fd54ae5283090e6a",
+      "bytes": 22479
     },
     {
       "file": "PROMPT.md",
@@ -59,38 +59,38 @@
     },
     {
       "file": "README.md",
-      "sha256": "bdee742c53698ee8b520f26314243a7188d97ffd99a5487bcb7b46b117ff8a50",
-      "bytes": 12040
+      "sha256": "ba9553ed4ff4a5bcb68632665c818daa24d92e6758fbe01c68532e9274abfc20",
+      "bytes": 12729
     },
     {
       "file": "REQUIREMENTS.md",
-      "sha256": "eb9bc53be71b5c86e30ad3c021836a2316c9c80375417eeecbb5fe979f95b608",
-      "bytes": 17116
+      "sha256": "9196b8f6a65b9bdbf4f7c9ae1ffa9bb7141bce4d6f7e884d48d6e9c2cbbc31a6",
+      "bytes": 19331
     },
     {
       "file": "RISK_REGISTER.md",
-      "sha256": "d146fff0c1a0e7378e505c6b18572325e4dcbb149274b604806a4dd844ea4236",
-      "bytes": 11325
+      "sha256": "6773dc1415de2d5d26453dc8bd5d75e9753880bbc648fbbf7b830de6b96c1772",
+      "bytes": 11569
     },
     {
       "file": "ROADMAP.md",
-      "sha256": "5f7515df101b31f20c9345d322d26c9533269ffab49197f14aea69aad539c9f4",
-      "bytes": 10335
+      "sha256": "d7ab332033cc7f8d9f1664136271997bc028fc66753a5e414d7a2102d3bf7be3",
+      "bytes": 10817
     },
     {
       "file": "SECURITY.md",
-      "sha256": "f5fa3d30fbfdd5b64216cecd6a9cdd213adddb99ed02a106ff944d5f206a2275",
-      "bytes": 18932
+      "sha256": "9b75a73c87acf0f3c30ab0f2ee53027c6fd4055723571823df633c8843937555",
+      "bytes": 19384
     },
     {
       "file": "VISION.md",
-      "sha256": "45336db9ac3eecca7f3da10e68974f0f54dcce7eaeb63988d30de96aeb295f0a",
-      "bytes": 4723
+      "sha256": "44a743ff84ad321d3838b2b4978294b4650413307715325c47d9c4addda9a31f",
+      "bytes": 4705
     },
     {
       "file": "WORKFLOWS.md",
-      "sha256": "a58080a454013b4572cf988f7eeaa85f38175afecd80d9afda5ef08d7d506524",
-      "bytes": 4989
+      "sha256": "fc63dfddfd64df8fdf6436c7ed925666949068f4fd53d7d7316a807ea1f852d7",
+      "bytes": 5103
     },
     {
       "file": "sql/senior_reference_queries.sql",

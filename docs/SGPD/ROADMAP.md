@@ -77,7 +77,9 @@ Em 2026-07-29, o catálogo funcional foi inicialmente simplificado para
 `RESPONSAVEL_SETOR`; a decisão posterior ADR-036 o fixou em `DP` e
 `RESPONSAVEL_SETOR`, cumulativos e independentes. SuperAdmin permaneceu como
 atributo técnico e os demais papéis legados foram preservados apenas como
-histórico inativo.
+histórico inativo. A ADR-038 então eliminou a atribuição redundante:
+`RESPONSAVEL_SETOR` tornou-se derivado do vínculo de setor e somente `DP`
+permaneceu atribuível.
 
 Em 2026-07-28, a integração AD foi antecipada da Fase 10 e implementada com
 `django-auth-ldap` e `python-ldap`: pesquisa por OU/grupo, criação local
@@ -199,18 +201,16 @@ globais/empresa/filial, prazos, indicadores de bloqueio/valor/evidência,
 escalada sem ciclos, autorização, auditoria, API e SPA mobile first. O catálogo
 de nove setores informado pelo responsável funcional está cadastrado no Oracle
 DEV; seus prazos, escopos e regras permanecem provisórios até homologação.
-O desenho de responsáveis foi fechado: somente `RESPONSAVEL_SETOR`, um ou mais
-por setor, todos com a mesma autoridade, notificações em conjunto e
-concorrência em que a primeira ação válida prevalece. O cadastro de
-responsáveis está implementado com setor, escopo, validade, versão, revogação
-lógica, auditoria, API e SPA; 10 associações ativas cobrem os nove setores no
-Oracle DEV. O catálogo funcional também contém `DP`, cumulativo e independente
-da responsabilidade de setor, para abertura, acompanhamento, análise,
-liberação e encerramento do processo dentro do escopo. As transições ainda
-pertencem à Fase 4. `victor.delgado` possui atribuições globais ativas de `DP`
-e `RESPONSAVEL_SETOR` e responsabilidade global pelo setor Departamento
-Pessoal, confirmando a acumulação sem derivação automática. Grupos, regras de
-aplicabilidade, templates e versionamento de templates permanecem pendentes.
+O desenho de responsáveis foi consolidado no agregado Setor: um ou mais
+usuários, todos com a mesma autoridade, validade própria e escopo herdado do
+setor. `RESPONSAVEL_SETOR` deixou de ser atribuível e passa a ser derivado do
+vínculo vigente. A SPA e a API independentes de responsáveis foram removidas;
+o setor sincroniza seus vínculos atomicamente e as listas de setores/usuários
+exibem indicadores. `DP` permanece como único papel atribuível, cumulativo e
+independente da responsabilidade de setor, para abertura, acompanhamento,
+análise, liberação e encerramento do processo dentro do escopo. As transições
+ainda pertencem à Fase 4. Grupos, regras de aplicabilidade, templates e
+versionamento de templates permanecem pendentes.
 
 ## Fase 4 — Processo demissional
 
@@ -230,6 +230,16 @@ aplicabilidade, templates e versionamento de templates permanecem pendentes.
 ### Saída esperada
 
 Processo completo sem pendências avançadas.
+
+### Estado em 2026-07-29
+
+Iniciada pelo incremento vertical de abertura. A SPA reaproveita a cascata
+Senior, lista gestores ativos e cria `RASCUNHO`; o service relê o colaborador,
+usa `has_effective_role()` antes da consulta e após lock transacional, impede
+duplicidade e grava processo, snapshot e `PROCESS_OPENED` atomicamente. A
+migration `offboarding.0001` está aplicada no Oracle DEV. Sugestão e ajuste de
+grupos, início, tarefas, estados posteriores, prazos derivados e painéis
+permanecem pendentes.
 
 ## Fase 5 — Pendências e evidências
 

@@ -4,8 +4,13 @@
 
 Papel funcional do Departamento Pessoal que coordena o ciclo demissional:
 abertura, acompanhamento, análise, liberação e encerramento. Pode coexistir
-com `RESPONSAVEL_SETOR` e não é concedido automaticamente pela associação ao
-setor Departamento Pessoal.
+com a capacidade derivada `RESPONSAVEL_SETOR` e não é concedido
+automaticamente pela associação ao setor Departamento Pessoal.
+
+## RESPONSAVEL_SETOR
+
+Capacidade funcional derivada de vínculo vigente entre usuário e setor. Não é
+papel atribuível e herda o escopo organizacional do próprio setor.
 
 ## Processo demissional
 
