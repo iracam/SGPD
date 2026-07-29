@@ -2,9 +2,10 @@
 
 ## Estado do documento
 
-Este documento define o fluxo funcional alvo. A abertura em `RASCUNHO` e o
-snapshot estão implementados; as demais transições deverão ser confirmadas e
-testadas nos checkpoints das Fases 4 a 8.
+Este documento define o fluxo funcional alvo. A abertura em `RASCUNHO`, a
+seleção versionada e a transição idempotente para `INICIADO` estão
+implementadas; as demais transições deverão ser confirmadas e testadas nos
+checkpoints das Fases 4 a 8.
 
 ## 1. Fluxo principal
 
@@ -62,7 +63,8 @@ Processo criado, mas ainda não iniciado.
 
 Implementado: usuário com `DP` vigente seleciona o colaborador, o service relê
 o Senior, revalida a autoridade dentro da transação e grava processo, snapshot
-e `PROCESS_OPENED`. Grupos e tarefas ainda não são criados.
+e `PROCESS_OPENED`. Depois, o DP fixa versões publicadas de grupos e pode usar
+ajustes manuais justificados pela API.
 
 Permitido:
 
@@ -74,6 +76,10 @@ Permitido:
 ### INICIADO
 
 Processo formalmente iniciado e tarefas geradas.
+
+Implementado: o início revalida autoridade e configuração sem reler o Senior,
+trava o agregado e cria tarefas/perguntas históricas, auditoria e idempotência
+na mesma transação.
 
 ### EM_VALIDACAO
 
@@ -151,6 +157,10 @@ Pré-condições:
 - ao menos um vínculo de responsável efetivo para cada setor obrigatório no
   instante do início.
 
+Grupos sobrepostos para o mesmo setor são consolidados somente quando fixam o
+mesmo template: obrigatoriedade e bloqueio usam `OR`, e prevalece o menor SLA.
+Templates diferentes para o mesmo setor bloqueiam o início.
+
 O início não escolhe um responsável individual. A tarefa pertence ao setor e
 todos os seus responsáveis efetivos, de igual autoridade, podem agir conforme
 o escopo vigente.
@@ -183,20 +193,28 @@ Pré-condições:
 
 ## 6. Prazos
 
-Cada tarefa poderá herdar prazo de:
+Cada tarefa herda prazo de:
 
-1. regra específica;
-2. template;
-3. setor;
-4. parâmetro global.
+1. ajuste manual do rascunho;
+2. sobrescrita do grupo;
+3. template;
+4. setor.
 
-Cálculo sugerido:
+Cálculo implementado neste incremento:
 
 ```text
-prazo_tarefa = menor(data_limite_processo, data_abertura + SLA_setor)
+prazo_tarefa = menor(fim_da_data_limite_processo, data_inicio + SLA_resolvido)
 ```
 
-O sistema deverá considerar calendário útil configurável em fase posterior.
+O sistema ainda não considera calendário útil; essa evolução exige nova
+homologação e não deve recalcular tarefas já criadas.
+
+### Idempotência do início
+
+A chave é única por processo e ação `START`. Repetir a mesma chave, corpo e
+ator devolve a transição anterior sem novo efeito. Reutilizar a chave com corpo
+ou ator diferente retorna conflito. Qualquer falha remove tarefas, auditoria e
+registro idempotente pelo rollback da mesma transação.
 
 ## 7. Escalada
 

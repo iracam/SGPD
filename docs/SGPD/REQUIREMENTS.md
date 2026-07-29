@@ -314,6 +314,14 @@ Estado implementado no primeiro incremento da Fase 4:
 
 O sistema deverá permitir cadastrar grupos de validação compostos por setores.
 
+Estado implementado:
+
+- cabeçalho estável, versões `DRAFT`, `PUBLISHED` e `RETIRED`;
+- cada setor da versão fixa um template publicado, obrigatoriedade, bloqueio,
+  ordem e SLA opcional;
+- publicação auditada aposenta a versão vigente anterior;
+- grupos novos só podem selecionar versões vigentes publicadas.
+
 ### RF-012 — Aplicabilidade automática
 
 O sistema poderá sugerir grupos com base em:
@@ -332,17 +340,38 @@ O sistema poderá sugerir grupos com base em:
 Um usuário com o papel `DP` vigente no escopo poderá incluir ou remover
 setores, com justificativa obrigatória.
 
+O contrato da API implementa inclusão/remoção manual e preserva a justificativa
+na auditoria. A SPA mínima deste incremento confirma grupos e preserva ajustes
+já existentes; a edição visual dos ajustes manuais permanece pendente.
+
 ### RF-014 — Templates de checklist
 
 Cada setor poderá ter um ou mais templates de checklist.
+
+O cadastro e a publicação estão disponíveis na API e na SPA sem carga
+automática de perguntas funcionais.
 
 ### RF-015 — Versionamento
 
 Templates e itens deverão ser versionados.
 
+Versões publicadas/aposentadas, perguntas e relações de grupo são imutáveis.
+Processos fixam a versão exata e copiam snapshots no início.
+
 ### RF-016 — Geração de tarefas
 
 Ao iniciar o processo, o sistema deverá criar uma tarefa para cada setor aplicável.
+
+Estado implementado:
+
+- início exclusivo de `RASCUNHO` por `DP` vigente no escopo;
+- nenhuma releitura do Senior; o snapshot da abertura é a referência;
+- ao menos um grupo e um setor obrigatório;
+- setor ativo e compatível com empresa/filial;
+- bloqueio quando setor obrigatório não possuir responsável efetivo;
+- uma tarefa por setor e perguntas copiadas da versão fixada;
+- `Idempotency-Key`, lock pessimista, versão otimista, auditoria e rollback
+  único para toda a transição.
 
 ### RF-017 — Processamento paralelo
 

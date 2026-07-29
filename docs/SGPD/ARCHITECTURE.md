@@ -173,6 +173,7 @@ apps/
 ├── offboarding/
 ├── sectors/
 ├── system_settings/
+├── templates_engine/
 └── integrations/
     ├── active_directory/
     └── senior/
@@ -196,9 +197,12 @@ X.509, services auditados e a API exclusiva de SuperAdmin.
 global/empresa/filial, validade, versão otimista, revogação lógica, bloqueio
 pessimista nas mutações críticas, auditoria append-only, services, API e
 administração técnica somente leitura.
-`offboarding` contém o primeiro incremento da Fase 4: processo em rascunho,
-snapshot imutável do colaborador, snapshot do gestor, prevenção de duplicidade,
-auditoria append-only, service, API e administração técnica somente leitura.
+`templates_engine` contém cabeçalhos estáveis e versões imutáveis de templates,
+perguntas e grupos, com publicação auditada e referência exata de template por
+setor. `offboarding` contém abertura, seleção versionada do rascunho e início
+idempotente: snapshots do colaborador, gestor, setor, template e perguntas,
+tarefas pertencentes ao setor, auditoria append-only, services, API e
+administração técnica somente leitura.
 
 A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
 
@@ -217,14 +221,15 @@ Serviços administrativos implementados:
 - `CreateUserFromDirectoryService`
 - `UnlinkAdIdentityService`
 
-Serviço de workflow implementado na Fase 4:
+Serviços de workflow implementados na Fase 4:
 
-- `OpenOffboardingProcessService`.
+- `OpenOffboardingProcessService`;
+- `UpdateDraftSelectionService`;
+- `GetDraftProcessContextService`;
+- `StartOffboardingProcessService`.
 
 Serviços de workflow planejados para as fases 4 a 9:
 
-- `ResolveValidationGroupsService`
-- `GenerateSectorTasksService`
 - `RegisterPendingItemService`
 - `EvaluateProcessReadinessService`
 - `ReleaseForTerminationService`
@@ -251,6 +256,14 @@ releitura da chave completa, bloqueia ator, gestor e atribuições `DP`, repete
 mesma identidade e confirma processo, snapshot e `PROCESS_OPENED` na mesma
 transação. Revogação de `DP` e abertura concorrentes têm vencedor
 determinístico; falha da auditoria desfaz toda a abertura.
+
+`UpdateDraftSelectionService` substitui grupos e ajustes manuais sob lock e
+versão otimista, fixando as versões publicadas. `StartOffboardingProcessService`
+não consulta o Senior: trava o agregado, resolve o escopo, revalida `DP` e
+responsáveis vigentes, cria tarefas/perguntas históricas e registra
+`PROCESS_STARTED` e a chave idempotente na mesma transação. A ordenação de
+locks acompanha Setor → responsabilidades → usuários para evitar inversão com
+a manutenção do catálogo.
 
 ### Consulta ao Senior
 
@@ -439,19 +452,23 @@ Endpoints de abertura implementados:
 ```text
 POST /api/v1/processes/
 GET  /api/v1/processes/manager-candidates/?company=&branch=&q=
+GET  /api/v1/processes/{uuid}/draft/
+PUT  /api/v1/processes/{uuid}/draft/selection/
+POST /api/v1/processes/{uuid}/start/
 ```
 
-O primeiro cria somente `RASCUNHO`; não existe `GET` de processos nem
-`DELETE` neste incremento. O segundo lista contas SGPD ativas apenas depois de
-validar `DP` vigente no escopo informado. A resposta da abertura omite CPF e a
-chave técnica usada para prevenir duplicidade.
+O primeiro cria somente `RASCUNHO`; não existe listagem geral nem `DELETE`
+neste incremento. O segundo lista contas SGPD ativas apenas depois de validar
+`DP` vigente no escopo. Os endpoints por UUID consultam/substituem a seleção e
+iniciam o processo. O início exige `Idempotency-Key`: repetição pelo mesmo ator
+e corpo recupera o resultado; reutilização divergente responde
+`409 Conflict` com o código `idempotency_conflict`.
 
 Endpoints de domínio planejados:
 
 ```text
 GET  /api/v1/processes/
 GET  /api/v1/processes/{uuid}/
-POST /api/v1/processes/{uuid}/start/
 POST /api/v1/processes/{uuid}/release/
 POST /api/v1/processes/{uuid}/cancel/
 
@@ -472,6 +489,13 @@ Endpoints de configuração funcional implementados:
 GET  POST  /api/v1/sectors/
 GET  PATCH /api/v1/sectors/{id}/
 GET         /api/v1/sectors/responsible-candidates/
+GET         /api/v1/workflow-config/sectors/
+GET  POST   /api/v1/workflow-config/templates/
+POST        /api/v1/workflow-config/templates/{id}/versions/
+POST        /api/v1/workflow-config/template-versions/{id}/publish/
+GET  POST   /api/v1/workflow-config/groups/
+POST        /api/v1/workflow-config/groups/{id}/versions/
+POST        /api/v1/workflow-config/group-versions/{id}/publish/
 ```
 
 Não existe `DELETE`: a desativação é uma alteração explícita, versionada e
@@ -482,6 +506,11 @@ contém a lista completa de responsáveis. Cada vínculo é único por usuário 
 setor, possui validade e versão, é revogado sem exclusão, herda o escopo do
 setor e deriva `RESPONSAVEL_SETOR` enquanto estiver efetivo. Não existe
 coordenador ou substituto.
+
+Os contratos `workflow-config` exigem
+`templates_engine.manage_workflow_configuration`. Publicar aposenta a versão
+vigente anterior sem alterar seu conteúdo; cada versão de grupo fixa uma
+versão exata de template por setor.
 
 Todos os responsáveis efetivos do setor receberão a mesma notificação e terão
 a mesma autoridade. No workflow futuro, mutações de tarefa deverão bloquear ou

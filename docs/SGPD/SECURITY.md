@@ -162,7 +162,8 @@ As permissões administrativas existentes são:
 - `link_ad_identity`;
 - `view_account_audit`;
 - `query_senior_references`;
-- `manage_sectors`.
+- `manage_sectors`;
+- `manage_workflow_configuration`.
 
 O único papel funcional atribuível ativo é `DP`. `RESPONSAVEL_SETOR` é
 derivado de vínculo efetivo com o setor e não concede administração técnica.
@@ -177,6 +178,10 @@ excluídos.
 setor e suas responsabilidades podem cobrir múltiplas empresas e filiais. A
 API, o service e a visibilidade da SPA usam o mesmo identificador, mas somente
 API e service autorizam a operação.
+
+`manage_workflow_configuration` é segregada de `DP`: permite criar/publicar
+templates e grupos, mas não iniciar nem liberar processo. A SPA usa a permissão
+somente para visibilidade; services e endpoints repetem a autorização.
 
 Uma responsabilidade pode ser cadastrada para qualquer usuário ativo e herda
 integralmente o escopo organizacional do setor. A autoridade operacional exige,
@@ -197,6 +202,12 @@ dentro da transação, após lock da conta e das atribuições `DP`. Assim,
 revogação e abertura concorrentes não produzem autoridade implícita. A SPA
 oculta o item de menu sem o papel `DP`, mas isso é somente orientação de
 navegação.
+
+Na seleção e no início, o service revalida `DP` no escopo do processo. O início
+bloqueia configuração, setores, responsabilidades e usuários em ordem
+determinística, repete a autoridade sob lock e exige responsável efetivo para
+cada setor obrigatório. Tarefas não copiam proprietário individual: a futura
+atuação continua derivada do setor, vigência e escopo.
 
 Em 2026-07-29, a atribuição `DP` de `victor.delgado` foi preservada no escopo
 global e sem validade final. A capacidade `RESPONSAVEL_SETOR` da conta passa a
@@ -355,6 +366,11 @@ do snapshot. O evento contém IDs técnicos, chaves organizacionais, datas,
 prioridade, estado e correlation ID; nome, e-mail e CPF não são copiados para
 o JSON de auditoria.
 
+A seleção gera `DRAFT_SELECTION_UPDATED`, incluindo IDs de versões e
+justificativas de ajuste. O início gera `PROCESS_STARTED` com contagens, IDs de
+versões e hash da chave idempotente, nunca a chave original. Falha de qualquer
+evento desfaz a operação funcional correspondente.
+
 ## 9. Imutabilidade
 
 A auditoria deve ser append-only para usuários comuns.
@@ -371,6 +387,10 @@ de validade e revogação registram ator, motivo operacional padronizado,
 correlation ID e estados anterior/posterior. Setores e responsabilidades não
 possuem endpoint de exclusão; os models rejeitam exclusão física e a
 responsabilidade é revogada logicamente.
+
+Configurações de workflow publicadas e perguntas rejeitam mutação/exclusão; a
+auditoria `SGPD_WORKFLOW_CONFIG_AUDIT` também é append-only. Os snapshots de
+tarefa preservam pergunta e configuração sem depender da versão vigente.
 
 Alternativas futuras:
 

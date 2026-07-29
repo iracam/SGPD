@@ -1027,7 +1027,8 @@ de cada transição.
 
 ### Estado
 
-Aceita em 2026-07-29 no primeiro incremento vertical da Fase 4.
+Aceita em 2026-07-29 no primeiro incremento vertical da Fase 4. Complementada
+pela ADR-039 quanto à configuração do workflow e à transição de início.
 
 ### Contexto
 
@@ -1075,8 +1076,9 @@ não possui `DP`; isso não substitui a verificação do backend.
 ### Consequências
 
 - o primeiro estado persistido é somente `RASCUNHO`;
-- grupos, versões de template, tarefas, prazos derivados, início, cancelamento,
-  reabertura e encerramento permanecem em incrementos posteriores;
+- grupos, versões de template, tarefas, prazos derivados e início foram
+  definidos posteriormente pela ADR-039; cancelamento, reabertura e
+  encerramento permanecem em incrementos futuros;
 - a leitura do Senior continua sem DML e sem tabela local de referência;
 - falha ao criar snapshot ou auditoria desfaz toda a abertura;
 - o snapshot não acompanha futuras alterações do Senior;
@@ -1090,6 +1092,7 @@ não possui `DP`; isso não substitui a verificação do backend.
 ### Estado
 
 Aceita em 2026-07-29 por decisão explícita do responsável funcional.
+Complementada pela ADR-039 quanto ao bloqueio efetivo no início.
 
 ### Contexto
 
@@ -1140,8 +1143,98 @@ copiado é exatamente igual ao escopo do setor antes de remover as colunas.
   responsáveis sem atualização redundante;
 - a lista enviada no `PATCH` é o estado desejado completo: omitir vínculo ativo
   causa revogação lógica auditada;
-- processos não deverão iniciar quando um setor necessário estiver sem
-  responsável efetivo; essa validação pertence ao futuro service de início;
+- processos não iniciam quando um setor obrigatório estiver sem responsável
+  efetivo; a validação foi implementada pelo service de início da ADR-039;
 - a migração é deliberadamente bloqueante quando encontra duplicidade
   `(setor, usuário)` ou divergência entre escopo copiado e escopo do setor,
   evitando ampliação silenciosa de autoridade.
+
+## ADR-039 — Configuração versionada e início idempotente do rascunho
+
+### Estado
+
+Aceita e implementada em 2026-07-29. A aplicação das migrations
+`templates_engine.0001` e `offboarding.0002` no Oracle DEV permanece pendente
+por indisponibilidade da conexão (`ORA-12560`).
+
+### Contexto
+
+O processo em `RASCUNHO` precisa selecionar conjuntos funcionais revisáveis,
+resolver os setores participantes e gerar tarefas sem depender de configuração
+mutável. O início também precisa resistir a retry HTTP, dupla submissão,
+alteração concorrente do rascunho e revogação concorrente da autoridade `DP`.
+
+O Senior HCM já foi consultado na abertura e o snapshot resultante é a fonte
+histórica do processo. Reconsultá-lo no início ampliaria a janela de falha e
+poderia misturar versões cadastrais.
+
+### Decisão
+
+- separar cabeçalhos estáveis de template e grupo de suas versões;
+- permitir edição somente pela criação de nova versão em `DRAFT`; publicar uma
+  versão substitui a vigente anterior sem alterar seu conteúdo;
+- associar cada setor de uma versão de grupo a uma versão exata e publicada de
+  template do mesmo setor;
+- permitir que `DP` vigente no escopo do processo selecione somente versões
+  atualmente publicadas; o processo preserva as versões selecionadas;
+- restringir a aplicabilidade automática deste incremento ao escopo
+  organizacional do setor; regras por cargo, centro de custo ou outros campos
+  do snapshot permanecem fora do recorte;
+- aceitar inclusões e exclusões manuais de setor pela API, sempre com motivo;
+- quando grupos se sobrepõem no mesmo setor, exigir a mesma versão de template,
+  combinar obrigatoriedade e bloqueio por `OR` e usar o menor prazo;
+- bloquear a resolução quando grupos aplicáveis apontarem versões de template
+  diferentes para o mesmo setor;
+- exigir no início ao menos um grupo selecionado e ao menos um setor
+  obrigatório;
+- exigir setor, grupo e template ativos e válidos, além de responsável vigente
+  para cada setor obrigatório no escopo do processo;
+- criar uma tarefa por setor, sem proprietário individual; autorização de
+  execução será derivada do vínculo vigente com o setor e de seu escopo;
+- congelar na tarefa o setor, a versão do template, seus itens e as origens de
+  grupo, preservando perguntas e parâmetros históricos;
+- calcular o prazo inicial por `override do rascunho > grupo > template >
+  setor`, a partir do instante de início, limitado pela data final do processo;
+- executar seleção e início exclusivamente por services transacionais, com
+  versão otimista do processo, locks ordenados, revalidação de `DP`, auditoria
+  append-only e rollback integral;
+- exigir `Idempotency-Key` no início. A mesma chave, ator e payload devolvem o
+  resultado anterior; reutilização divergente devolve conflito;
+- não consultar nem escrever no Senior durante seleção ou início.
+
+Os endpoints mínimos são:
+
+- `GET /api/v1/processes/{uuid}/draft/`;
+- `PUT /api/v1/processes/{uuid}/draft/selection/`;
+- `POST /api/v1/processes/{uuid}/start/`;
+- catálogo, criação, versionamento e publicação em
+  `/api/v1/workflow-config/`.
+
+A SPA oferece a criação/publicação da primeira versão de templates e grupos e
+a tela de rascunho para seleção, prévia e início. A API já suporta versões
+posteriores e ajustes manuais, mas esses dois editores ficam para incremento
+posterior.
+
+### Controles e compatibilidade
+
+- constraints e nomes de objetos respeitam os limites do Oracle 19c;
+- as migrations são aditivas e não escrevem em objetos do Senior;
+- o registro idempotente é persistido na mesma transação do processo, tarefas
+  e auditoria;
+- conflitos de versão, chave idempotente ou configuração são explícitos e não
+  produzem mutação parcial;
+- nenhum grupo, template ou pergunta funcional é semeado sem homologação.
+
+### Consequências
+
+- processos iniciados preservam sua configuração, mesmo após novas
+  publicações;
+- uma alteração de responsável posterior não troca o conteúdo da tarefa, mas
+  afeta quem pode atuar conforme a responsabilidade vigente;
+- o início depende somente do snapshot e da configuração SGPD já persistidos;
+- regras automáticas além do escopo de setor, edição manual na SPA, editor de
+  versões posteriores, execução/conclusão de tarefas e demais transições
+  continuam pendentes;
+- rollback de código antes de uso permite reverter as migrations aditivas;
+  depois de dados reais, a correção deve ser evolutiva e precedida de backup,
+  sem apagar histórico.

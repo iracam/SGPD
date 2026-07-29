@@ -284,6 +284,12 @@ O snapshot é persistência de domínio do SGPD. Ele não é cache nem réplica 
 O CPF mascarado permanece somente na tabela de snapshot e não é devolvido pelo
 endpoint de abertura.
 
+Na seleção de grupos e no início do processo, o SGPD usa exclusivamente esse
+snapshot e a configuração versionada persistida em seu próprio schema. Não há
+nova consulta ao Senior, atualização do snapshot nem DML em objetos do Senior.
+Assim, indisponibilidade posterior do Senior não impede iniciar um rascunho já
+aberto.
+
 ## 8. Segurança e segregação
 
 - nunca usar o owner `VETORH` na aplicação;

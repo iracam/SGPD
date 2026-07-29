@@ -233,6 +233,8 @@ páginas usam `loadComponent` e declaram `title`.
 | `/fe/login` | autenticação local |
 | `/fe/painel` | painel inicial |
 | `/fe/colaboradores` | cascata Empresa → Filial → Tipo → Colaborador |
+| `/fe/processos/:uuid/rascunho` | grupos, bloqueios, prévia e início idempotente |
+| `/fe/workflow-config` | templates, perguntas e grupos versionados |
 | `/fe/setores` | cadastro de setores, escopos e múltiplos responsáveis |
 | `/fe/usuarios`, `/fe/usuarios/:id` | administração de usuários |
 | `/fe/auditoria` | auditoria de contas |
@@ -267,6 +269,7 @@ devolvido por `GET /auth/context/`.
 | Painel | `/fe/painel` | `pi pi-th-large` | — |
 | Abrir processo | `/fe/colaboradores` | `pi pi-folder-plus` | `query_senior_references` + papel `DP` |
 | Setores | `/fe/setores` | `pi pi-building` | `manage_sectors` |
+| Grupos e templates | `/fe/workflow-config` | `pi pi-list-check` | `manage_workflow_configuration` |
 | Usuários | `/fe/usuarios` | `pi pi-users` | `manage_users` |
 | Auditoria | `/fe/auditoria` | `pi pi-history` | `view_account_audit` |
 | Configurações | `/fe/configuracoes` | `pi pi-cog` | `is_superuser` |
@@ -278,9 +281,12 @@ mantido no card de responsáveis do setor. A rota independente
 
 A rota `/fe/colaboradores` foi promovida na Fase 4: preserva a cascata e
 acrescenta gestor, datas, motivo, prioridade, observações e confirmação da
-abertura. O papel `DP` orienta a visibilidade do menu; o service continua sendo
-o limite real de autorização. Grupos, templates, listagem de processos,
-pendências, valores e liberação entram conforme os próximos checkpoints.
+abertura; após sucesso navega ao rascunho. `/fe/processos/:uuid/rascunho`
+confirma grupos, projeta bloqueios e chama o início com chave idempotente
+preservada durante retries. `/fe/workflow-config` cria e publica a primeira
+versão de templates/grupos; versões posteriores já possuem API, mas ainda não
+editor dedicado. Ajustes manuais de setor também permanecem somente na API.
+O backend continua sendo o limite real de autorização e regras.
 
 A sidebar é colapsável com estado persistido, e o rodapé mantém o painel de
 sessão, o acesso à troca da própria senha, o alternador de tema claro/escuro e

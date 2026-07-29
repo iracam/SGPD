@@ -147,6 +147,8 @@ Configuração funcional:
 
 - `/fe/setores`: cadastro auditado de setores, escopos e múltiplos
   responsáveis;
+- `/fe/workflow-config`: cadastro e publicação auditada de templates,
+  perguntas e grupos versionados;
 - escopos globais, por empresa ou por filial, usando somente os códigos do
   Senior e sem replicar referências;
 - prazos, bloqueio, valores, evidência e destino de escalada configuráveis;
@@ -165,6 +167,12 @@ Processo demissional:
   snapshot imutável e evento `PROCESS_OPENED` na mesma transação;
 - duplicidade de processo não encerrado para a mesma chave do colaborador é
   impedida por validação e unicidade no Oracle.
+- `/fe/processos/:uuid/rascunho`: seleção explícita de grupos, prévia dos
+  setores e bloqueios e início idempotente;
+- o início não relê o Senior, revalida `DP`, escopo, estado e responsáveis
+  vigentes, gera uma tarefa por setor e congela template e perguntas;
+- a ausência de responsável vigente em setor obrigatório bloqueia toda a
+  transação, sem criar tarefa, auditoria parcial ou chave idempotente.
 
 ## Escopo técnico atual
 
@@ -239,13 +247,17 @@ mesma autorização por escopo dos endpoints JSON. O `LEFT JOIN` de centro de
 custo foi homologado no Oracle DEV e a consulta de colaboradores concluiu a
 medição controlada com até dez conexões concorrentes sem erros ou timeouts.
 
-A Fase 4 foi iniciada pelo incremento vertical de abertura. A SPA permite ao
+A Fase 4 possui abertura e início implementados. A SPA permite ao
 `DP` selecionar colaborador e gestor, informar datas, motivo, prioridade e
 observações e criar o processo em `RASCUNHO`. O backend revalida
 `has_effective_role()` após bloquear a autoridade funcional, relê a chave
 completa no Senior, preserva os snapshots do colaborador e do gestor e registra
-auditoria append-only. A migration `offboarding.0001` foi revisada, aplicada e
-validada no Oracle DEV. Grupos, tarefas e início permanecem pendentes.
+auditoria append-only. Templates e grupos possuem versões publicadas imutáveis;
+o rascunho fixa as versões escolhidas e o início idempotente gera tarefas e
+snapshots de perguntas em `INICIADO`. As migrations `templates_engine.0001` e
+`offboarding.0002` são aditivas e foram revisadas, mas permanecem pendentes de
+aplicação no Oracle DEV porque a conexão retornou `ORA-12560` durante este
+incremento.
 
 SMTP AUTH e o uso do remetente configurado foram validados no Microsoft 365
 via TLS/STARTTLS em 2026-07-28. Uma mensagem de prova foi aceita pelo serviço.
@@ -258,14 +270,15 @@ de setores, seus escopos e responsáveis. O Oracle DEV contém os nove setores
 informados pelo responsável funcional, ainda com prazo, escopo e regras
 provisórios. O cadastro de responsáveis está implementado e o Oracle DEV
 contém 10 associações ativas cobrindo os nove setores. Grupos, regras e
-templates ainda não foram implementados. O papel `DP` possui uma atribuição
+templates agora são configuráveis, sem carga funcional automática: perguntas,
+SLAs e composição precisam ser homologados e cadastrados. O papel `DP` possui uma atribuição
 global ativa para `victor.delgado`; qualquer capacidade
 `RESPONSAVEL_SETOR` é derivada de seus vínculos vigentes.
 
 A migração da interface foi concluída. A API de autenticação, contexto,
-administração de contas e abertura está publicada em `/api/v1/`, e a SPA
+administração de contas e workflow está publicada em `/api/v1/`, e a SPA
 autentica, aplica o tema, filtra o menu pelo contexto do servidor, administra
-contas e abre o rascunho sobre a cascata Senior. O Django Admin somente leitura
+contas, configura grupos/templates, abre e inicia o rascunho. O Django Admin somente leitura
 permanece como ferramenta técnica de diagnóstico.
 
 Consulte `PROMPT.md` para o procedimento completo.

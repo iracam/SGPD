@@ -4,8 +4,9 @@
 
 Este é o modelo conceitual do produto. Na implementação atual, contas, o papel,
 escopos, auditoria de contas, configuração técnica LDAP, setores, escopos de
-setor, responsáveis, processo em rascunho, snapshot do colaborador e auditoria
-da abertura possuem models e migrations. Os demais domínios serão detalhados e
+setor, responsáveis, templates/grupos versionados, processo em rascunho ou
+iniciado, snapshots, tarefas e auditoria possuem models e migrations. Os
+demais domínios serão detalhados e
 implementados nos checkpoints das Fases 3 a 9; seus nomes abaixo não autorizam
 criação antecipada de schema.
 
@@ -234,20 +235,28 @@ técnicos, estado anterior/posterior e motivo padronizado pelo servidor.
 - `CODIGO`
 - `NOME`
 - `DESCRICAO`
-- `VERSAO`
+- `VERSAO_LOCK`
 - `ATIVO`
-- `VALIDO_DE`
-- `VALIDO_ATE`
+- `VERSAO_VIGENTE_ID`
+
+Estado implementado em `SGPD_VALIDATION_GROUP`, com versões em
+`SGPD_VALIDATION_GROUP_VER`. A versão nasce `DRAFT`, pode ser publicada uma
+única vez e a publicação aposenta a vigente anterior. Versões publicadas ou
+aposentadas não são editadas nem excluídas.
 
 #### GRUPO_VALIDACAO_SETOR
 
 - `ID`
-- `GRUPO_ID`
+- `GRUPO_VERSAO_ID`
 - `SETOR_ID`
+- `TEMPLATE_VERSAO_ID`
 - `OBRIGATORIO`
 - `ORDEM_EXIBICAO`
 - `PRAZO_ESPECIFICO_HORAS`
 - `BLOQUEIO_PADRAO`
+
+`SGPD_VALIDATION_GROUP_SECTOR` fixa a versão exata de template usada pelo
+setor. Um grupo exige pelo menos um setor obrigatório.
 
 ### Regras de aplicabilidade
 
@@ -276,15 +285,19 @@ A regra poderá usar expressão declarativa em fase posterior.
 - `ID`
 - `SETOR_ID`
 - `NOME`
-- `VERSAO`
+- `CODIGO`
+- `VERSAO_LOCK`
 - `ATIVO`
-- `VALIDO_DE`
-- `VALIDO_ATE`
+- `VERSAO_VIGENTE_ID`
+
+O cabeçalho está em `SGPD_CHECKLIST_TEMPLATE`; conteúdo e SLA ficam em
+`SGPD_CHECKLIST_TEMPLATE_VER`. Publicar uma versão não altera perguntas
+históricas e aposenta a vigente anterior.
 
 #### TEMPLATE_CHECKLIST_ITEM
 
 - `ID`
-- `TEMPLATE_ID`
+- `TEMPLATE_VERSAO_ID`
 - `CODIGO`
 - `PERGUNTA`
 - `TIPO_RESPOSTA`
@@ -294,6 +307,9 @@ A regra poderá usar expressão declarativa em fase posterior.
 - `PERMITE_PENDENCIA`
 - `ORDEM_EXIBICAO`
 - `CONFIG_JSON`
+
+`SGPD_CHECKLIST_TEMPLATE_ITEM` rejeita alteração/exclusão; uma nova pergunta
+ou mudança de texto exige outra versão do template.
 
 ### Processo
 
@@ -327,7 +343,8 @@ Estado implementado em `SGPD_OFFBOARDING_PROCESS`:
 
 - usa `UUID` como identificador público; o formato do número funcional ainda
   não foi homologado e, portanto, `NUMERO` não foi antecipado;
-- cria somente o estado `RASCUNHO`;
+- cria em `RASCUNHO` e pode transicionar uma vez para `INICIADO`, com
+  `STARTED_AT` e `STARTED_BY_ID`;
 - `ACTIVE_EMPLOYEE_KEY` é anulável e única, formada pela identidade Senior; é
   preenchida enquanto o processo não estiver encerrado e será liberada apenas
   por transição futura auditada de cancelamento ou encerramento;
@@ -384,9 +401,17 @@ Estado implementado em `SGPD_EMPLOYEE_SNAPSHOT`:
 - `DADOS_JSON`
 - `CORRELATION_ID`
 
-`SGPD_PROCESS_AUDIT` é append-only. Neste incremento aceita
-`PROCESS_OPENED` e registra apenas IDs técnicos, escopo, datas, prioridade e
-estado, sem nome, e-mail ou CPF.
+`SGPD_PROCESS_AUDIT` é append-only. Aceita `PROCESS_OPENED`,
+`DRAFT_SELECTION_UPDATED` e `PROCESS_STARTED`, sem nome, e-mail ou CPF.
+
+#### PROCESSO_GRUPO E AJUSTE_MANUAL
+
+`SGPD_PROCESS_GROUP` fixa as versões de grupo confirmadas pelo DP.
+`SGPD_PROCESS_SECTOR_OVERRIDE` representa inclusão ou remoção manual por setor,
+sempre com justificativa. Inclusão exige a versão vigente publicada de um
+template do mesmo setor; remoção só pode atingir setor fornecido por grupo.
+Enquanto o processo estiver em `RASCUNHO`, a seleção é substituída
+atomicamente e incrementa `VERSAO_LOCK`; após o início, torna-se histórica.
 
 #### PROCESSO_SETOR
 
@@ -399,6 +424,9 @@ estado, sem nome, e-mail ou CPF.
 - `SETOR_CODIGO_SNAPSHOT`
 - `SETOR_NOME_SNAPSHOT`
 - `TEMPLATE_VERSAO_ID`
+- `TEMPLATE_CODIGO_SNAPSHOT`
+- `TEMPLATE_VERSAO_SNAPSHOT`
+- `SLA_HORAS_SNAPSHOT`
 - `DATA_LIMITE`
 - `INICIADO_EM`
 - `CONCLUIDO_EM`
@@ -413,19 +441,36 @@ responsáveis. Os identificadores dos destinatários de uma futura notificação
 quando necessários, deverão ser registrados separadamente como resultado do
 fan-out, sem se tornarem propriedade da tarefa.
 
+Estado implementado em `SGPD_PROCESS_SECTOR_TASK`, com unicidade por processo e
+setor. `SGPD_TASK_GROUP_SOURCE` preserva todos os grupos que originaram uma
+tarefa sobreposta.
+
 #### PROCESSO_CHECKLIST_ITEM
 
 - `ID`
 - `PROCESSO_SETOR_ID`
 - `TEMPLATE_ITEM_ID`
+- `CODIGO_SNAPSHOT`
 - `PERGUNTA_SNAPSHOT`
 - `TIPO_RESPOSTA`
 - `OBRIGATORIO`
 - `BLOQUEIO`
 - `EXIGE_EVIDENCIA`
+- `PERMITE_PENDENCIA`
+- `ORDEM_EXIBICAO`
+- `CONFIG_SNAPSHOT`
 - `RESPOSTA_JSON`
 - `RESPONDIDO_POR_ID`
 - `RESPONDIDO_EM`
+
+`SGPD_PROCESS_CHECKLIST_ITEM` copia integralmente o contrato da pergunta no
+início; referências a versões antigas continuam protegidas.
+
+#### PROCESSO_IDEMPOTENCIA
+
+`SGPD_PROCESS_IDEMPOTENCY` é único por processo, ação e chave. Registra hash do
+corpo canônico, ator, resposta mínima e conclusão. O registro de `START` é
+gravado na mesma transação das tarefas, do novo estado e da auditoria.
 
 ### Pendências
 

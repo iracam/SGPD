@@ -3,8 +3,8 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis e o papel DP; Fase 4 iniciada pela abertura em rascunho
-- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores, responsáveis e abertura do processo; interface server-side removida
+- Fase atual: Fases 1 e 2 estabilizadas; Fases 2.5 e 2.7 concluídas; Fase 3 cobre setores, responsáveis, papel DP e configuração versionada; Fase 4 cobre abertura, seleção e início do rascunho
+- Estado: SPA cobre autenticação, contas, configuração técnica LDAP, cascata Senior, setores, responsáveis, abertura, grupos/templates mínimos e início do processo; interface server-side removida
 - Banco: Oracle
 - Backend: Django API-only, com Django Admin somente leitura preservado
 - UI: SPA Angular 21 + PrimeNG 21, mobile first, decidida nas ADR-025 a ADR-028
@@ -401,10 +401,21 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     aplicadas e validadas no Oracle DEV.
   - Dez associações reais cobrem os nove setores no Oracle DEV; os vínculos
     foram cadastrados pelo responsável funcional e não derivados do AD.
-- [ ] Grupos.
+- [x] Grupos.
+  - Cabeçalho estável e versões `DRAFT`, `PUBLISHED` e `RETIRED`.
+  - Cada setor fixa a versão publicada de template usada no grupo.
 - [ ] Regras.
-- [ ] Templates.
-- [ ] Versionamento.
+  - Aplicabilidade por escopo do setor, sobreposição conservadora e ajustes
+    manuais com motivo estão implementados; condições por cargo, centro de
+    custo ou outros atributos aguardam homologação.
+- [x] Templates.
+  - Perguntas tipadas, obrigatoriedade, bloqueio, evidência, pendência,
+    ordenação, configuração e prazo padrão.
+  - Nenhum template, grupo ou pergunta funcional foi semeado sem homologação.
+- [x] Versionamento.
+  - Publicação substitui a versão vigente sem alterar versões históricas.
+  - Migrations `templates_engine.0001` e `offboarding.0002` estão revisadas,
+    mas aguardam aplicação no Oracle DEV após correção do `ORA-12560`.
 - [x] Permissões.
   - SuperAdmin mantém a administração técnica fora do catálogo funcional.
   - O único papel funcional atribuível ativo é `DP`.
@@ -428,17 +439,31 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
 - [x] Snapshot histórico.
   - Colaborador e gestor são congelados na abertura; o snapshot rejeita
     atualização e exclusão física.
-- [ ] Início.
-- [ ] Tarefas.
+- [x] Início.
+  - Seleção de grupos e ajustes manuais usam versão otimista e auditoria.
+  - `POST /api/v1/processes/{uuid}/start/` exige `Idempotency-Key`, revalida
+    `DP` sob lock e não consulta o Senior.
+  - O início exige ao menos um grupo e um setor obrigatório e bloqueia setor
+    obrigatório sem responsável vigente no escopo.
+- [x] Geração inicial de tarefas.
+  - Uma tarefa por setor, sem proprietário individual, com origens de grupo,
+    setor, versão do template e perguntas congelados.
+  - Retry idêntico devolve o resultado persistido; chave divergente responde
+    conflito sem mutação parcial.
 - [ ] Estados.
-  - `RASCUNHO` está implementado; as demais transições continuam pendentes.
+  - `RASCUNHO` e `INICIADO` estão implementados; execução/conclusão de tarefas,
+    cancelamento, reabertura, prontidão, liberação e encerramento continuam
+    pendentes.
 - [ ] Prazos.
-  - Datas informadas são armazenadas, mas cálculo e distribuição de prazos por
-    tarefa aguardam homologação.
+  - Prazo inicial da tarefa usa `override > grupo > template > setor`, contado
+    do início e limitado pela data final do processo.
+  - Recalendário, escalada e tratamento de atraso aguardam homologação.
 - [ ] Painéis.
 - [x] Auditoria.
   - `PROCESS_OPENED` é append-only e integra a mesma transação de processo e
     snapshot, sem dados pessoais no payload técnico.
+  - `DRAFT_SELECTION_UPDATED` e `PROCESS_STARTED` integram as transações de
+    seleção e início; falha de auditoria provoca rollback integral.
 
 ## Checkpoint 5 — Pendências
 
@@ -1315,4 +1340,22 @@ Próximo passo: criar o incremento vertical de grupos/templates configuráveis e
 Comandos executados: leitura integral da documentação obrigatória; buscas cruzadas por papéis, responsabilidade, escopo e propriedade da tarefa; validação de JSON, hashes, links e diff.
 Arquivos alterados: CHECKPOINT.md, DATA_MODEL.md, WORKFLOWS.md, RISK_REGISTER.md e MANIFEST.json.
 Testes: alteração exclusivamente documental; integridade documental e manifesto validados; nenhuma consulta ou escrita no Senior HCM.
+```
+
+### 2026-07-29 — Configuração versionada e início idempotente
+
+```text
+Data: 2026-07-29
+Responsável: Codex
+Fase: Checkpoints 3 e 4 — Grupos/templates e início do rascunho
+O que foi concluído: módulo templates_engine com cabeçalhos estáveis, versões de template e grupo, perguntas tipadas, publicação/substituição auditada e associação de setor a versão exata; seleção de grupos e ajustes manuais no rascunho; resolução por escopo do setor; geração idempotente de uma tarefa por setor com checklist e origens congelados; transição RASCUNHO → INICIADO; APIs mínimas e telas Angular de configuração e rascunho.
+Diagnóstico: o início usa somente snapshot e configuração SGPD, não relê o Senior. Grupos sobrepostos no mesmo setor são aceitos apenas com a mesma versão de template; obrigatoriedade e bloqueio são combinados por OR e prevalece o menor prazo. Setor obrigatório sem responsável vigente no escopo bloqueia toda a transação. A aplicação das migrations novas no Oracle DEV não pôde ser concluída porque todas as tentativas de conexão retornaram ORA-12560.
+Decisões: ADR-039 aceita; conteúdo publicado é imutável e processos preservam versões e perguntas históricas; regras automáticas deste recorte consideram apenas o escopo do setor; inclusão/exclusão manual exige motivo; tarefa pertence ao setor, sem responsável individual; prazo inicial segue override do rascunho, grupo, template e setor, nessa ordem, contado do início e limitado pela data final; Idempotency-Key vincula ator e payload e conflito retorna 409; seleção e início revalidam DP no escopo sob locks e auditoria participa do rollback.
+Riscos: uso operacional permanece bloqueado até aplicar templates_engine.0001 e offboarding.0002 no Oracle DEV e validar constraints/índices; os nove setores e seus parâmetros continuam sujeitos à homologação funcional; editor SPA de versões posteriores, ajustes manuais e opções dos tipos de seleção ainda não existe; regras por cargo, centro de custo e outros atributos foram deliberadamente adiadas.
+Pendências: restaurar a conexão Oracle e aplicar/validar as migrations; cadastrar e publicar somente grupos, templates e perguntas homologados; completar a SPA de versões e ajustes manuais; implementar execução/conclusão das tarefas, pendências, prontidão, cancelamento, reabertura, liberação e encerramento.
+Próximo passo: homologar um único grupo e template piloto, aplicar as migrations no Oracle DEV em janela controlada e executar um smoke do fluxo abrir → selecionar → iniciar com rollback obrigatório, antes de liberar dados funcionais.
+Comandos executados: leitura integral da documentação obrigatória; diagnóstico de código, migrations e dados SGPD; testes baseline; sqlmigrate e inspeção de identificadores Oracle; tentativas de conexão sem DML; pytest; Ruff check/format; Mypy; Django check; makemigrations check; Vitest; build Angular; validação documental, JSON, links, manifesto e diff.
+Arquivos alterados: novo módulo apps/templates_engine; models, services, API, admin e migration 0002 de apps/offboarding; settings e rotas; testes backend; features Angular workflow-config e processo-rascunho, rotas, menu e integração da abertura; README.md e documentação SGPD.
+Commits: b543b62 (grupos/templates), f3f0319 (início idempotente), 040ddec (SPA), d18a440 (tipagem dos testes); documentação final em commit próprio.
+Testes: 289 testes backend e 61 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,13 kB, chunk lazy de configuração de 20,29 kB e chunk de rascunho de 85,17 kB. Nenhum objeto ou dado do Senior foi escrito ou consultado neste incremento. As migrations foram validadas fora do Oracle, mas não constam como aplicadas no DEV devido ao ORA-12560.
 ```

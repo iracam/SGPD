@@ -207,10 +207,10 @@ setor. `RESPONSAVEL_SETOR` deixou de ser atribuível e passa a ser derivado do
 vínculo vigente. A SPA e a API independentes de responsáveis foram removidas;
 o setor sincroniza seus vínculos atomicamente e as listas de setores/usuários
 exibem indicadores. `DP` permanece como único papel atribuível, cumulativo e
-independente da responsabilidade de setor, para abertura, acompanhamento,
-análise, liberação e encerramento do processo dentro do escopo. As transições
-ainda pertencem à Fase 4. Grupos, regras de aplicabilidade, templates e
-versionamento de templates permanecem pendentes.
+independente da responsabilidade de setor. Templates e grupos versionados
+também estão implementados com publicação auditada e SPA; nenhuma pergunta ou
+composição funcional foi semeada. Regras automáticas de aplicabilidade
+continuam pendentes.
 
 ## Fase 4 — Processo demissional
 
@@ -233,13 +233,19 @@ Processo completo sem pendências avançadas.
 
 ### Estado em 2026-07-29
 
-Iniciada pelo incremento vertical de abertura. A SPA reaproveita a cascata
+Iniciada pelos incrementos de abertura e início. A SPA reaproveita a cascata
 Senior, lista gestores ativos e cria `RASCUNHO`; o service relê o colaborador,
 usa `has_effective_role()` antes da consulta e após lock transacional, impede
 duplicidade e grava processo, snapshot e `PROCESS_OPENED` atomicamente. A
-migration `offboarding.0001` está aplicada no Oracle DEV. Sugestão e ajuste de
-grupos, início, tarefas, estados posteriores, prazos derivados e painéis
-permanecem pendentes.
+migration `offboarding.0001` está aplicada no Oracle DEV. O rascunho fixa
+grupos publicados, resolve setores pelo escopo e inicia de forma idempotente,
+gerando uma tarefa por setor e snapshots de perguntas. Ausência de responsável
+vigente em setor obrigatório bloqueia e desfaz a transição. A SPA cobre
+confirmação de grupos e início; ajustes manuais existem na API e ainda não
+possuem editor visual. Regras automáticas de sugestão, estados posteriores e
+painéis operacionais permanecem pendentes. As migrations
+`templates_engine.0001` e `offboarding.0002` tiveram o SQL Oracle revisado e
+aguardam restauração da conexão para aplicação e validação no DEV.
 
 ## Fase 5 — Pendências e evidências
 
