@@ -534,9 +534,18 @@ booleana de papel inicial.
 
 ## 14. Retenção
 
-A definição formal de retenção foi postergada por decisão do projeto em
-2026-07-28. Quando retomada, deverá envolver Jurídico, RH e Segurança da
-Informação.
+O prazo operacional de retenção é de **5 anos**, definido pelo projeto em
+2026-07-30, contados do encerramento do processo demissional. O prazo vale para
+as evidências e para os dados operacionais do processo; a trilha de auditoria
+permanece append-only e não é apagada pelo expurgo.
+
+A validação do prazo com Jurídico, RH e Segurança da Informação continua
+pendente e pode revisá-lo antes da automação do expurgo.
+
+O expurgo automático ainda não está implementado: nenhuma rotina apaga
+evidências hoje. Enquanto a Fase 8 não fechar o ciclo de encerramento, não há
+marco confiável para iniciar a contagem, e o expurgo permanece manual e
+autorizado.
 
 O sistema deve suportar:
 

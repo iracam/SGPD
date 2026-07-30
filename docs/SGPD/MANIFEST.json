@@ -12,7 +12,7 @@
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 6766
+      "bytes": 10053
     },
     {
       "file": "CONTEXT.md",
@@ -20,7 +20,7 @@
     },
     {
       "file": "DATA_MODEL.md",
-      "bytes": 20657
+      "bytes": 20727
     },
     {
       "file": "DECISIONS.md",
@@ -44,7 +44,7 @@
     },
     {
       "file": "INTEGRATION_SENIOR_ORACLE.md",
-      "bytes": 12921
+      "bytes": 12922
     },
     {
       "file": "PROMPT.md",
@@ -56,7 +56,7 @@
     },
     {
       "file": "REQUIREMENTS.md",
-      "bytes": 26886
+      "bytes": 26877
     },
     {
       "file": "RISK_REGISTER.md",
@@ -68,7 +68,7 @@
     },
     {
       "file": "SECURITY.md",
-      "bytes": 23019
+      "bytes": 23524
     },
     {
       "file": "VISION.md",
@@ -96,7 +96,7 @@
     },
     {
       "file": "sql/senior_reference_queries.sql",
-      "bytes": 5634
+      "bytes": 5711
     }
   ]
 }

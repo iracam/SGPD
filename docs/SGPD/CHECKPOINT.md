@@ -6,7 +6,7 @@
 - Ambiente: DEV único sobre Oracle 19c
 - Fases estabilizadas: 1, 2, 2.5, 2.7 e 3
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Próximo incremento: homologação funcional e visual das Fases 3 e 5
+- Próximo incremento: Fase 6 — valores e decisões segregadas
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente
@@ -109,20 +109,56 @@ Contrato Senior — legibilidade cadastral:
 
 ## Riscos e pendências relevantes
 
-- conferir visualmente os painéis nos cinco breakpoints homologados;
-- cadastrar e homologar o catálogo de regras de aplicabilidade, cuja tabela
-  está criada e vazia no Oracle DEV;
-- conferir visualmente o editor de regras e o bloco de sugestão do rascunho
-  nos cinco breakpoints homologados;
-- definir retenção operacional das evidências;
 - homologar o limite de 10 MiB e o catálogo inicial PDF/PNG/JPEG;
-- conferir visualmente pendências e upload nos cinco breakpoints homologados;
-- conferir visualmente a pré-visualização de template/grupo nos cinco
-  breakpoints homologados;
+- o expurgo de evidências é manual: a retenção de 5 anos está definida, mas não
+  há rotina automática nem marco confiável de contagem enquanto a Fase 8 não
+  fechar o encerramento formal;
+- validar a retenção de 5 anos com Jurídico, RH e Segurança da Informação;
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
-- o estado formal de encerramento e sua data aguardam a Fase 8.
+- o estado formal de encerramento e sua data aguardam a Fase 8;
+- o DEV contém dados de homologação: processos `5bfc0d3a` (rascunho) e
+  `9cbed216` (iniciado, com pendência bloqueante aberta), criados para exercitar
+  as telas;
+- o usuário `homolog.visual` permanece no DEV desativado e com senha
+  inutilizável: a FK da auditoria append-only impede a exclusão.
+
+## Homologação funcional e visual das Fases 3 e 5
+
+Concluída em 2026-07-30 sobre o Oracle DEV, com Chromium headless dirigido por
+CDP nas cinco larguras homologadas (360, 480, 768, 1024 e 1440).
+
+A regra `Regra Padrao` foi cadastrada e validada ponta a ponta: sem filtro, ela
+é curinga, sugere `Grupo Padrão 01 - Todos` e o rascunho exibe a origem da
+sugestão. A seleção continua explícita — o início permanece bloqueado até o
+`DP` salvar, como especificado.
+
+Foram fotografadas e conferidas painel, hub de processos, abertura, rascunho com
+sugestão, tarefas expandidas com pendência e evidência, setores, editor de
+regras, editor de template, editor de grupo e a pré-visualização do rascunho não
+salvo. A varredura mediu overflow horizontal e erros de console em cada
+combinação.
+
+Dois defeitos foram encontrados e corrigidos:
+
+- o textarea de comentário da pendência renderizava a string literal
+  `undefined`, porque o binding indexava um `Record` sem entrada para pendência
+  nova. Como comentário é append-only, um `Comentar` acidental gravaria lixo
+  permanente na trilha. O tipo do signal passou a admitir `undefined` e o
+  template ganhou a mesma guarda `?? ''` que as três ligações irmãs já tinham;
+- `.metadados` estourava a largura em 768 e 1024 com as tarefas expandidas: o
+  piso `repeat(3, minmax(8rem, 1fr))` não cabe nas duas colunas do painel em
+  `md`. Passou a `minmax(0, 1fr)`, como os demais grids do arquivo.
+
+A retenção operacional de evidências foi definida em 5 anos e registrada em
+`SECURITY.md` §14.
 
 ## Baseline de qualidade
+
+Na homologação das Fases 3 e 5 passaram 355 testes backend e 81 frontend — o
+novo cobre a regressão do comentário e falha com `expected 'undefined' to be ''`
+sem a correção —, além de Ruff, formatação, Mypy, Django check, verificação de
+migrations e build Angular sem avisos. Nenhuma migration foi necessária: as
+correções são de template, SCSS e tipo.
 
 No incremento de legibilidade cadastral passaram 355 testes backend e 80
 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e
