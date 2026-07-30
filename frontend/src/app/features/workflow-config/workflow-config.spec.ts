@@ -335,7 +335,6 @@ describe('WorkflowConfigPage', () => {
       ],
     };
     component.templates.set([template]);
-    component.templatesVisiveis.set([template]);
 
     component.criarNovaVersao(template);
 
@@ -360,20 +359,6 @@ describe('WorkflowConfigPage', () => {
     expect(component.formularioTemplate.controls.items.at(0).controls.question.value).toBe(
       'Os acessos foram encerrados?',
     );
-  });
-
-  it('busca templates pelo nome no servidor', () => {
-    component.buscaTemplate.set('tecnologia');
-
-    component.buscarTemplates();
-
-    httpMock
-      .expectOne(
-        (request) =>
-          request.url === apiConfig.routes.workflowTemplates &&
-          request.params.get('q') === 'tecnologia',
-      )
-      .flush({ results: [] });
   });
 
   it('cria a regra de aplicabilidade enviando curinga como nulo', () => {

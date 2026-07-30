@@ -379,7 +379,9 @@ automática de perguntas funcionais. O cadastro do template não solicita setor;
 setor e template são escolhidos separadamente ao compor o grupo.
 
 O código público do template é o `ID` numérico gerado pelo banco e não é
-informado pelo usuário. O catálogo pode ser pesquisado pelo nome. Nome,
+informado pelo usuário. A API aceita busca pelo nome; a SPA lista o catálogo
+completo, sem campo de busca, porque o volume de templates não justifica o
+filtro. Nome,
 descrição, SLA e perguntas podem ser corrigidos na versão `DRAFT`, com versão
 otimista e auditoria; conteúdo publicado exige nova versão.
 

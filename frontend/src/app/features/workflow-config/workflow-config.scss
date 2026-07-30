@@ -69,13 +69,6 @@
   gap: 0.8rem;
 }
 
-.busca {
-  display: grid;
-  gap: 0.55rem;
-  align-items: end;
-  margin-block-end: 0.75rem;
-}
-
 .linha {
   min-width: 0;
   padding: 0.85rem;
@@ -140,10 +133,6 @@
 
   .grade-campos {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .busca {
-    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .campo--total {

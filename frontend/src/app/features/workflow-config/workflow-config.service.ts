@@ -30,14 +30,10 @@ export class WorkflowConfigService {
     );
   }
 
-  listarTemplates(query = ''): Observable<PaginaWorkflow<TemplateChecklist>> {
-    const params: Record<string, string | number> = { limit: 200 };
-    if (query.trim()) {
-      params['q'] = query.trim();
-    }
+  listarTemplates(): Observable<PaginaWorkflow<TemplateChecklist>> {
     return this.http.get<PaginaWorkflow<TemplateChecklist>>(
       apiConfig.routes.workflowTemplates,
-      { params },
+      { params: { limit: 200 } },
     );
   }
 

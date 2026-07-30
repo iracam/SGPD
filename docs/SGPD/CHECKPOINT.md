@@ -107,7 +107,7 @@ Fase 5 — pendências e evidências:
 
 ## Baseline de qualidade
 
-No incremento das regras de aplicabilidade passaram 355 testes backend e 81
+No incremento das regras de aplicabilidade passaram 355 testes backend e 80
 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e
 build Angular. O SQL Oracle de
 `templates_engine.0006_add_group_applicability_rules` foi revisado e aplicado

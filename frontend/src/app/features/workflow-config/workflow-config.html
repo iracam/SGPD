@@ -398,30 +398,9 @@
   <article class="cartao">
     <div class="subtitulo">
       <h2>Templates</h2>
-      <span>{{ templatesVisiveis().length }} encontrado(s)</span>
+      <span>{{ templates().length }} cadastrado(s)</span>
     </div>
-    <div class="busca">
-      <div class="campo">
-        <label for="busca-template">Buscar pelo nome</label>
-        <input
-          #buscaTemplateInput
-          id="busca-template"
-          pInputText
-          type="search"
-          [value]="buscaTemplate()"
-          (input)="buscaTemplate.set(buscaTemplateInput.value)"
-          (keydown.enter)="$event.preventDefault(); buscarTemplates()"
-        />
-      </div>
-      <p-button
-        type="button"
-        icon="pi pi-search"
-        label="Buscar"
-        [loading]="carregando()"
-        (onClick)="buscarTemplates()"
-      ></p-button>
-    </div>
-    @for (template of templatesVisiveis(); track template.id) {
+    @for (template of templates(); track template.id) {
       <div class="registro">
         <div>
           <strong>#{{ template.code }} — {{ template.name }}</strong>

@@ -77,7 +77,6 @@ export class WorkflowConfigPage {
 
   readonly setores = signal<SetorWorkflow[]>([]);
   readonly templates = signal<TemplateChecklist[]>([]);
-  readonly templatesVisiveis = signal<TemplateChecklist[]>([]);
   readonly grupos = signal<GrupoValidacao[]>([]);
   readonly regrasAplicabilidade = signal<RegraAplicabilidade[]>([]);
   readonly carregando = signal(true);
@@ -89,7 +88,6 @@ export class WorkflowConfigPage {
   readonly exibirTemplate = signal(false);
   readonly exibirGrupo = signal(false);
   readonly exibirRegra = signal(false);
-  readonly buscaTemplate = signal('');
   readonly templateEmEdicao = signal<TemplateChecklist | null>(null);
   readonly grupoEmEdicao = signal<GrupoValidacao | null>(null);
   readonly regraEmEdicao = signal<RegraAplicabilidade | null>(null);
@@ -278,7 +276,6 @@ export class WorkflowConfigPage {
           );
           this.exibirTemplate.set(false);
           this.templateEmEdicao.set(null);
-          this.buscaTemplate.set('');
           this.resetarTemplate();
           this.carregar();
         },
@@ -320,9 +317,6 @@ export class WorkflowConfigPage {
           this.templates.update((templates) =>
             templates.map((item) => (item.id === template.id ? atualizado : item)),
           );
-          this.templatesVisiveis.update((templates) =>
-            templates.map((item) => (item.id === template.id ? atualizado : item)),
-          );
           this.editarRascunho(atualizado);
           this.aviso.set(
             `Versão ${draft.version_number} do template #${template.code} criada em rascunho.`,
@@ -347,7 +341,6 @@ export class WorkflowConfigPage {
       .subscribe({
         next: () => {
           this.aviso.set(`Template #${template.code} publicado.`);
-          this.buscaTemplate.set('');
           this.carregar();
         },
         error: (error) =>
@@ -523,22 +516,6 @@ export class WorkflowConfigPage {
     return filtros.length > 0 ? filtros.join(' · ') : 'Sem filtro — sugere sempre';
   }
 
-  buscarTemplates(): void {
-    this.carregando.set(true);
-    this.limparMensagens();
-    this.service
-      .listarTemplates(this.buscaTemplate())
-      .pipe(
-        finalize(() => this.carregando.set(false)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe({
-        next: (templates) => this.templatesVisiveis.set(templates.results),
-        error: (error) =>
-          this.erro.set(errorMessage(error, 'Não foi possível buscar os templates.')),
-      });
-  }
-
   rascunhoTemplate(template: TemplateChecklist): VersaoTemplate | undefined {
     return template.versions.find((version) => version.status === 'DRAFT');
   }
@@ -563,7 +540,6 @@ export class WorkflowConfigPage {
         next: ({ sectors, templates, groups, rules }) => {
           this.setores.set(sectors.results);
           this.templates.set(templates.results);
-          this.templatesVisiveis.set(templates.results);
           this.grupos.set(groups.results);
           this.regrasAplicabilidade.set(rules.results);
         },

@@ -609,7 +609,8 @@ quantos setores forem necessários, sem duplicar seu conteúdo.
 
 Setores, templates, grupos e perguntas usam o próprio `ID` como código público
 numérico, sem campo correspondente nos payloads de criação. Templates aceitam
-busca parcial por nome no parâmetro `q`. Versões `DRAFT` de template e grupo
+busca parcial por nome no parâmetro `q`, hoje usada somente pela API: a SPA
+lista o catálogo completo. Versões `DRAFT` de template e grupo
 podem ser editadas atomicamente; os services bloqueiam cabeçalho, versões e
 itens/regras, exigem a versão otimista e auditam a substituição do conteúdo.
 Uma versão publicada permanece imutável. Para templates publicados, a SPA cria
