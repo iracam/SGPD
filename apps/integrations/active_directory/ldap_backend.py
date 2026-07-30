@@ -51,10 +51,12 @@ def _dynamic_ldap_settings(config: ActiveDirectoryConfig) -> SimpleNamespace:
         ldap.OPT_NETWORK_TIMEOUT: config.connect_timeout_seconds,
         ldap.OPT_TIMEOUT: config.receive_timeout_seconds,
         ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_DEMAND,
-        ldap.OPT_X_TLS_NEWCTX: 0,
     }
     if config.tls_ca_cert_file:
         connection_options[ldap.OPT_X_TLS_CACERTFILE] = config.tls_ca_cert_file
+    # OpenLDAP snapshots the TLS options when NEWCTX is applied. The private
+    # CA must therefore be configured first, matching ActiveDirectoryClient.
+    connection_options[ldap.OPT_X_TLS_NEWCTX] = 0
 
     values = dict(LDAPSettings.defaults)
     values.update(

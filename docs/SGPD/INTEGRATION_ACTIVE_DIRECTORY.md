@@ -132,6 +132,11 @@ validação do SGPD rejeita ativação sem CA válida. Se a cadeia corporativa n
 estiver no trust store do sistema, instale-a e informe
 `LDAP_TLS_CA_CERT_FILE`.
 
+No backend de login, o arquivo da CA privada deve ser aplicado à conexão antes
+de `OPT_X_TLS_NEWCTX`. O OpenLDAP cria o novo contexto com as opções vigentes
+nesse instante; inverter essa ordem faz o probe próprio passar, mas o
+`django-auth-ldap` falhar no bind técnico por não reconhecer a CA emissora.
+
 Com `LDAP_USE_TLS=false`, descoberta e autenticação usam LDAP simples. O system
 check e a SPA exibem warning permanente porque a credencial técnica e as
 senhas dos usuários trafegam sem criptografia.

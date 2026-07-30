@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 
+import ldap  # type: ignore[import-untyped]
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection
@@ -34,7 +35,10 @@ from apps.integrations.active_directory.exceptions import (
     DirectoryConfigurationError,
     DirectoryUnavailableError,
 )
-from apps.integrations.active_directory.ldap_backend import ActiveDirectoryBackend
+from apps.integrations.active_directory.ldap_backend import (
+    ActiveDirectoryBackend,
+    _dynamic_ldap_settings,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -110,6 +114,36 @@ def test_configuration_requires_valid_uri_and_user_base_for_authentication() -> 
 
     assert any("servidor LDAP" in error for error in errors)
     assert any("LDAP_USER_SEARCH_BASE" in error for error in errors)
+
+
+def test_django_auth_ldap_applies_private_ca_before_creating_tls_context() -> None:
+    config = ActiveDirectoryConfig(
+        enabled=True,
+        authentication_enabled=True,
+        server_uri="ldaps://dc01.example.internal:636",
+        bind_dn="svc.sgpd@example.internal",
+        bind_password="secret",
+        user_search_base="OU=Usuarios,DC=example,DC=internal",
+        group_search_base="OU=Grupos,DC=example,DC=internal",
+        required_group_dn="CN=SGPD,OU=Grupos,DC=example,DC=internal",
+        start_tls=False,
+        tls_require_certificate=True,
+        tls_ca_cert_file="/private/ldap-ca.pem",
+        connect_timeout_seconds=5,
+        receive_timeout_seconds=10,
+        page_size=100,
+        result_limit=50,
+        nested_group_search=True,
+        local_superuser_fallback=True,
+        user_extra_filter="",
+    )
+
+    connection_options = list(_dynamic_ldap_settings(config).CONNECTION_OPTIONS)
+
+    assert connection_options.index(ldap.OPT_X_TLS_CACERTFILE) < connection_options.index(
+        ldap.OPT_X_TLS_NEWCTX
+    )
+    assert connection_options[-1] == ldap.OPT_X_TLS_NEWCTX
 
 
 def test_disabled_configuration_never_attempts_a_directory_connection() -> None:

@@ -1593,3 +1593,20 @@ Comandos executados: consulta somente leitura do processo ativo no Oracle DEV; t
 Arquivos alterados: frontend/src/app/features/colaboradores/colaboradores.ts; frontend/src/app/features/colaboradores/colaboradores.html; frontend/src/app/features/colaboradores/colaboradores.spec.ts; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
 Testes: 71 testes frontend passaram e o build de produção foi concluído com bundle inicial de 497,09 kB. Não houve mudança no backend, schema ou dados nesta correção; nenhum objeto do Senior HCM foi consultado ou alterado.
 ```
+
+### 2026-07-30 — Correção da CA privada no backend de login AD
+
+```text
+Data: 2026-07-30
+Responsável: Codex
+Fase: Checkpoint 2.7 — Autenticação Active Directory
+O que foi concluído: correção da ordem das opções TLS entregues ao django-auth-ldap; a CA privada passa a ser configurada antes da criação do novo contexto OpenLDAP; regressão automatizada e resolução real do usuário controlado devteste validadas.
+Diagnóstico: o probe operacional usava a ordem correta CA → OPT_X_TLS_NEWCTX e passava, mas o backend de login montava OPT_X_TLS_NEWCTX → CA. O OpenLDAP congelava o contexto antes de conhecer a CA BSA-AD-CA e o bind técnico falhava com certificate verify failed (unable to get local issuer certificate), traduzido pela API em directory_unavailable/503.
+Decisões: preservar LDAPS, validação obrigatória do certificado, CA privada, timeouts, filtro, grupo obrigatório e contingência local; alinhar somente a ordem das opções do backend à ordem já homologada no cliente de descoberta; não desabilitar a validação TLS nem retornar a LDAP simples.
+Riscos: uma alteração futura na montagem de CONNECTION_OPTIONS pode reintroduzir a divergência entre probe e login; o teste exige explicitamente OPT_X_TLS_CACERTFILE antes de OPT_X_TLS_NEWCTX.
+Pendências: nenhuma no escopo da correção; nenhuma senha foi solicitada, registrada ou usada na validação técnica.
+Próximo passo: seguir o checkpoint vigente da Fase 5.
+Comandos executados: reprodução do caminho _LDAPUser do django-auth-ldap; testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; resolução LDAPS real de devteste com bind técnico e objectGUID, sem senha do usuário.
+Arquivos alterados: apps/integrations/active_directory/ldap_backend.py; tests/test_active_directory.py; docs/SGPD/INTEGRATION_ACTIVE_DIRECTORY.md; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
+Testes: 58 testes direcionados e 324 testes backend passaram; Ruff e format sem erros; Mypy sem erros em 139 arquivos; Django check sem alertas; models e migrations sem divergência. A resolução real confirmou DN e objectGUID de devteste pelo mesmo backend que falhava antes, e o login corporativo com a senha do próprio usuário foi confirmado pelo responsável funcional após a correção. Não houve migration, alteração de schema, mudança na configuração LDAP persistida ou acesso ao Senior HCM.
+```
