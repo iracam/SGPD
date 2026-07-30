@@ -23,17 +23,15 @@
 } @else {
   <section class="painel-tarefas" aria-label="Tarefas de setor">
     @for (grupo of grupos(); track grupo.key) {
-      <article class="grupo-card">
-        <header class="grupo-card__cabecalho">
-          <span class="grupo-card__icone">
-            <i [class]="grupo.icon" aria-hidden="true"></i>
-          </span>
+      <article class="grupo">
+        <header class="grupo__cabecalho">
+          <i [class]="grupo.icon" aria-hidden="true"></i>
           <span>
-            <strong>{{ grupo.title }}</strong>
+            <h2 class="grupo__titulo">{{ grupo.title }}</h2>
             <small>{{ grupo.description }}</small>
           </span>
           <span
-            class="grupo-card__total"
+            class="grupo__total"
             [attr.aria-label]="grupo.processos.length + ' processos'"
           >
             {{ grupo.processos.length }}
@@ -46,7 +44,7 @@
               <summary class="processo-tarefas__resumo">
                 <span>
                   <strong>{{ processo.employeeName }}</strong>
-                  <small>
+                  <small class="registro">
                     Matrícula {{ processo.employeeRegistration }} · Empresa
                     {{ processo.companyCode }} · Filial {{ processo.branchCode }}
                   </small>
@@ -67,12 +65,11 @@
                     <header class="tarefa__cabecalho">
                       <div>
                         <span class="rotulo">Setor</span>
-                        <h2>{{ tarefa.sector.name }}</h2>
+                        <h3>{{ tarefa.sector.name }}</h3>
                       </div>
-                      <p-tag
-                        [severity]="severidade(tarefa)"
-                        [value]="tarefa.status"
-                      ></p-tag>
+                      <span [class]="'chip chip--' + estadoTarefa(tarefa.status)">
+                        {{ rotuloStatus(tarefa.status) }}
+                      </span>
                     </header>
 
                     <dl class="metadados">
@@ -108,9 +105,9 @@
                         class="checklist"
                         [attr.aria-labelledby]="'checklist-' + tarefa.id"
                       >
-                        <h3 [id]="'checklist-' + tarefa.id">Checklist</h3>
+                        <h4 [id]="'checklist-' + tarefa.id">Checklist</h4>
                         @for (item of tarefa.checklist_items; track item.id) {
-                          <div class="pergunta">
+                          <div class="pergunta" [class.pergunta--conferida]="conferido(item)">
                             <label [for]="'item-' + item.id">
                               {{ item.question }}
                               @if (item.is_required) {
@@ -118,13 +115,17 @@
                               }
                             </label>
 
-                            @if (item.response_type !== 'FILE') {
+                            @if (tarefa.status === 'CONCLUIDA') {
+                              @if (item.response_type !== 'FILE') {
+                                <p class="resposta-registrada">
+                                  {{ respostaRegistrada(item) }}
+                                </p>
+                              }
+                            } @else if (item.response_type !== 'FILE') {
                               @switch (item.response_type) {
                                 @case ('BOOLEAN') {
                                   <select
-                                    [id]="'item-' + item.id"
-                                    [disabled]="tarefa.status === 'CONCLUIDA'"
-                                    (change)="atualizarResposta(item, $event)"
+                                    [id]="'item-' + item.id"                                    (change)="atualizarResposta(item, $event)"
                                   >
                                     <option value="">Selecione</option>
                                     <option value="true">Sim</option>
@@ -134,32 +135,24 @@
                                 @case ('TEXT') {
                                   <textarea
                                     [id]="'item-' + item.id"
-                                    rows="3"
-                                    [disabled]="tarefa.status === 'CONCLUIDA'"
-                                    (input)="atualizarResposta(item, $event)"
+                                    rows="3"                                    (input)="atualizarResposta(item, $event)"
                                   ></textarea>
                                 }
                                 @case ('NUMBER') {
                                   <input
                                     [id]="'item-' + item.id"
-                                    type="number"
-                                    [disabled]="tarefa.status === 'CONCLUIDA'"
-                                    (input)="atualizarResposta(item, $event)"
+                                    type="number"                                    (input)="atualizarResposta(item, $event)"
                                   />
                                 }
                                 @case ('DATE') {
                                   <input
                                     [id]="'item-' + item.id"
-                                    type="date"
-                                    [disabled]="tarefa.status === 'CONCLUIDA'"
-                                    (change)="atualizarResposta(item, $event)"
+                                    type="date"                                    (change)="atualizarResposta(item, $event)"
                                   />
                                 }
                                 @case ('SINGLE_CHOICE') {
                                   <select
-                                    [id]="'item-' + item.id"
-                                    [disabled]="tarefa.status === 'CONCLUIDA'"
-                                    (change)="atualizarResposta(item, $event)"
+                                    [id]="'item-' + item.id"                                    (change)="atualizarResposta(item, $event)"
                                   >
                                     <option value="">Selecione</option>
                                     @for (opcao of item.config.choices ?? []; track opcao) {
@@ -170,9 +163,7 @@
                                 @case ('MULTIPLE_CHOICE') {
                                   <select
                                     [id]="'item-' + item.id"
-                                    multiple
-                                    [disabled]="tarefa.status === 'CONCLUIDA'"
-                                    (change)="atualizarResposta(item, $event)"
+                                    multiple                                    (change)="atualizarResposta(item, $event)"
                                   >
                                     @for (opcao of item.config.choices ?? []; track opcao) {
                                       <option [value]="opcao">{{ opcao }}</option>
@@ -183,9 +174,7 @@
                                   <label class="confirmacao" [for]="'item-' + item.id">
                                     <input
                                       [id]="'item-' + item.id"
-                                      type="checkbox"
-                                      [disabled]="tarefa.status === 'CONCLUIDA'"
-                                      (change)="atualizarResposta(item, $event)"
+                                      type="checkbox"                                      (change)="atualizarResposta(item, $event)"
                                     />
                                     Confirmo a validação
                                   </label>
@@ -243,7 +232,7 @@
                         class="pendencias"
                         [attr.aria-labelledby]="'pending-' + tarefa.id"
                       >
-                        <h3 [id]="'pending-' + tarefa.id">Pendências</h3>
+                        <h4 [id]="'pending-' + tarefa.id">Pendências</h4>
 
                         @if (tarefa.status === 'EM_ANALISE') {
                           <div class="pendencia-form">
@@ -343,24 +332,27 @@
 
                         <div class="pendencias__lista">
                           @for (pendencia of tarefa.pending_items; track pendencia.uuid) {
-                            <article class="pendencia">
+                            <article
+                              [class]="
+                                'pendencia pendencia--' +
+                                pendencia.blocking_level.toLowerCase()
+                              "
+                            >
                               <header>
                                 <span>
                                   <strong>{{ pendencia.title }}</strong>
                                   <small>
-                                    {{ pendencia.category }} ·
-                                    {{ pendencia.blocking_level }}
+                                    {{ rotuloCategoria(pendencia.category) }} ·
+                                    {{ rotuloBloqueio(pendencia.blocking_level) }}
                                   </small>
                                 </span>
-                                <p-tag
-                                  [severity]="
-                                    pendencia.status === 'REGULARIZADA' ||
-                                    pendencia.status === 'ENCERRADA'
-                                      ? 'success'
-                                      : 'warn'
+                                <span
+                                  [class]="
+                                    'chip chip--' + estadoPendencia(pendencia.status)
                                   "
-                                  [value]="pendencia.status"
-                                ></p-tag>
+                                >
+                                  {{ rotuloStatusPendencia(pendencia.status) }}
+                                </span>
                               </header>
                               <p>{{ pendencia.description }}</p>
 
@@ -387,7 +379,7 @@
                                   <textarea
                                     rows="2"
                                     maxlength="4000"
-                                    [value]="comentariosPendencia()[pendencia.uuid]"
+                                    [value]="comentariosPendencia()[pendencia.uuid] ?? ''"
                                     (input)="
                                       atualizarComentarioPendencia(pendencia.uuid, $event)
                                     "
@@ -469,7 +461,7 @@
           } @empty {
             <article class="vazio">
               <i [class]="grupo.icon" aria-hidden="true"></i>
-              <h2>{{ grupo.emptyTitle }}</h2>
+              <h3>{{ grupo.emptyTitle }}</h3>
               <p>{{ grupo.emptyText }}</p>
             </article>
           }

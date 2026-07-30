@@ -287,4 +287,17 @@ describe('TarefasPage', () => {
 
     expect(component.tarefas()[0].checklist_items[0].evidences).toHaveLength(1);
   });
+
+  it('abre o comentário da pendência vazio, sem a string "undefined"', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    emAnalise.pending_items = [pendencia()];
+    carregar(emAnalise);
+
+    const comentario = [...fixture.nativeElement.querySelectorAll('label')]
+      .find((label) => (label as HTMLLabelElement).textContent?.includes('Comentário'))
+      ?.querySelector('textarea') as HTMLTextAreaElement | null;
+
+    expect(comentario).toBeTruthy();
+    expect(comentario?.value).toBe('');
+  });
 });

@@ -3,7 +3,6 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
-import { TagModule } from 'primeng/tag';
 import { finalize } from 'rxjs';
 
 import { errorMessage } from '../../core/api/api-error';
@@ -13,6 +12,7 @@ import {
   Pendencia,
   PendenciaStatus,
   TarefaSetor,
+  TarefaStatus,
 } from './models/tarefas.models';
 import { TarefasService } from './tarefas.service';
 
@@ -66,7 +66,7 @@ function agruparPorProcesso(
 
 @Component({
   selector: 'app-tarefas-page',
-  imports: [DatePipe, ButtonModule, MessageModule, TagModule],
+  imports: [DatePipe, ButtonModule, MessageModule],
   templateUrl: './tarefas.html',
   styleUrl: './tarefas.scss',
 })
@@ -83,7 +83,9 @@ export class TarefasPage {
   readonly respostas = signal<Record<number, unknown>>({});
   readonly observacoes = signal<Record<number, string>>({});
   readonly rascunhosPendencia = signal<Record<number, RascunhoPendencia>>({});
-  readonly comentariosPendencia = signal<Record<string, string>>({});
+  // Pendencia ainda sem rascunho de comentario nao tem chave no record: o tipo
+  // precisa admitir undefined para o template nao renderizar a string literal.
+  readonly comentariosPendencia = signal<Record<string, string | undefined>>({});
   readonly grupos = computed(() => {
     const tarefas = this.tarefas();
     return [
@@ -413,11 +415,85 @@ export class TarefasPage {
     this.observacoes.update((current) => ({ ...current, [taskId]: value }));
   }
 
-  protected severidade(tarefa: TarefaSetor): 'warn' | 'info' | 'success' {
-    if (tarefa.status === 'CONCLUIDA') {
-      return 'success';
+  /** Item já conferido: respondido nesta sessão ou registrado na conclusão. */
+  protected conferido(item: ItemChecklist): boolean {
+    return item.answered_at !== null || Object.hasOwn(this.respostas(), item.id);
+  }
+
+  protected rotuloStatus(status: TarefaStatus): string {
+    return { PENDENTE: 'Pendente', EM_ANALISE: 'Em análise', CONCLUIDA: 'Concluída' }[
+      status
+    ];
+  }
+
+  /** Modificador do chip: reutiliza os tokens --status-* da identidade. */
+  protected estadoTarefa(status: TarefaStatus): string {
+    return { PENDENTE: 'pending', EM_ANALISE: 'review', CONCLUIDA: 'released' }[status];
+  }
+
+  protected rotuloStatusPendencia(status: PendenciaStatus): string {
+    return {
+      ABERTA: 'Aberta',
+      EM_REGULARIZACAO: 'Em regularização',
+      REGULARIZADA: 'Regularizada',
+      ENCERRADA: 'Encerrada',
+    }[status];
+  }
+
+  protected estadoPendencia(status: PendenciaStatus): string {
+    return {
+      ABERTA: 'blocked',
+      EM_REGULARIZACAO: 'pending',
+      REGULARIZADA: 'released',
+      ENCERRADA: 'canceled',
+    }[status];
+  }
+
+  protected rotuloCategoria(category: string): string {
+    return (
+      {
+        MATERIAL: 'Material',
+        FERRAMENTA: 'Ferramenta',
+        EQUIPAMENTO: 'Equipamento',
+        DOCUMENTO: 'Documento',
+        ACESSO: 'Acesso',
+        EXAME: 'Exame',
+        ATIVIDADE: 'Atividade',
+        VEICULO: 'Veículo',
+        PATRIMONIO: 'Patrimônio',
+        CONTRATO: 'Contrato',
+        OUTRO: 'Outro',
+      }[category] ?? category
+    );
+  }
+
+  protected rotuloBloqueio(level: Pendencia['blocking_level']): string {
+    return {
+      BLOQUEANTE: 'Bloqueante',
+      NAO_BLOQUEANTE: 'Não bloqueante',
+      INFORMATIVA: 'Informativa',
+    }[level];
+  }
+
+  /** Resposta registrada, legível, para o histórico da tarefa concluída. */
+  protected respostaRegistrada(item: ItemChecklist): string {
+    const value = item.response;
+    if (value === null || value === undefined || value === '') {
+      return 'Sem resposta';
     }
-    return tarefa.status === 'EM_ANALISE' ? 'info' : 'warn';
+    if (item.response_type === 'CONFIRMATION') {
+      return 'Confirmado';
+    }
+    if (item.response_type === 'BOOLEAN') {
+      return value ? 'Sim' : 'Não';
+    }
+    if (item.response_type === 'DATE' && typeof value === 'string') {
+      return value.split('-').reverse().join('/');
+    }
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+    return String(value);
   }
 
   private carregar(): void {

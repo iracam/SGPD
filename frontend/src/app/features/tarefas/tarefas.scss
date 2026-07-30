@@ -1,60 +1,67 @@
 @use 'breakpoints' as bp;
 
+// A tela é o protocolo de conferência do desligamento: os grupos são seções
+// com régua, o dado de registro (matrícula, template, prazo) sai em mono e o
+// checklist corre sobre um trilho cujos nós preenchem em verdigris — a cor do
+// item conferido — conforme o responsável responde.
+
 .cabecalho {
   margin-block-end: 1.25rem;
 }
 
-.painel-tarefas,
+.painel-tarefas {
+  display: grid;
+  gap: 1.75rem;
+}
+
 .lista {
   display: grid;
   gap: 1rem;
 }
 
-.grupo-card {
+.grupo {
   min-width: 0;
-  padding: 1rem;
-  border: 1px solid var(--p-content-border-color);
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--p-content-background) 94%, var(--sgpd-accent));
 }
 
-.grupo-card__cabecalho {
+.grupo__cabecalho {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
   margin-block-end: 1rem;
+  padding-block-end: 0.65rem;
+  border-block-end: 2px solid
+    color-mix(in srgb, var(--sgpd-accent) 40%, transparent);
+
+  > i {
+    color: var(--sgpd-accent);
+    font-size: 1.1rem;
+  }
+
+  small {
+    display: block;
+    margin-block-start: 0.1rem;
+    color: var(--p-text-muted-color);
+  }
 }
 
-.grupo-card__cabecalho strong,
-.grupo-card__cabecalho small {
-  display: block;
+.grupo__titulo {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-.grupo-card__cabecalho small {
-  margin-block-start: 0.15rem;
-  color: var(--p-text-muted-color);
-}
-
-.grupo-card__icone,
-.grupo-card__total {
-  display: grid;
-  place-items: center;
-  border-radius: 0.65rem;
+.grupo__total {
+  min-width: 2rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
   background: color-mix(in srgb, var(--sgpd-accent) 16%, transparent);
   color: var(--status-released-color);
-}
-
-.grupo-card__icone {
-  width: var(--touch-target);
-  height: var(--touch-target);
-}
-
-.grupo-card__total {
-  min-width: 2rem;
-  min-height: 2rem;
-  padding-inline: 0.45rem;
+  font-family: var(--font-mono);
   font-weight: 700;
+  text-align: center;
 }
 
 .processo-tarefas {
@@ -94,6 +101,11 @@
   }
 }
 
+.registro {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
 .processo-tarefas[open] > .processo-tarefas__resumo {
   border-block-end: 1px solid var(--p-content-border-color);
 
@@ -109,6 +121,9 @@
 }
 
 .cartao {
+  // Item de grid encolhe até a trilha; sem isso o conteúdo mínimo (botões,
+  // cabeçalhos) empurrava o cartão por cima da coluna vizinha em md/lg.
+  min-width: 0;
   padding: 1rem;
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.9rem;
@@ -127,10 +142,9 @@
   gap: 0.75rem;
 }
 
-.tarefa__cabecalho h2,
-.tarefa__cabecalho p,
-.checklist h3,
-.vazio h2,
+.tarefa__cabecalho h3,
+.checklist h4,
+.vazio h3,
 .vazio p {
   margin-block: 0.2rem;
 }
@@ -141,6 +155,44 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip--pending {
+  background: var(--status-pending-bg);
+  color: var(--status-pending-color);
+}
+
+.chip--review {
+  background: var(--status-review-bg);
+  color: var(--status-review-color);
+}
+
+.chip--released {
+  background: var(--status-released-bg);
+  color: var(--status-released-color);
+}
+
+.chip--blocked {
+  background: var(--status-blocked-bg);
+  color: var(--status-blocked-color);
+}
+
+.chip--canceled {
+  background: var(--status-canceled-bg);
+  color: var(--status-canceled-color);
 }
 
 .metadados {
@@ -157,15 +209,79 @@
 
 .metadados dd {
   margin: 0.15rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
 .checklist {
   display: grid;
-  gap: 0.8rem;
+  gap: 0;
 }
 
-.pergunta,
+.checklist h4 {
+  margin-block-end: 0.35rem;
+}
+
+// Trilho de conferência: um nó por item, ligado por um fio; o nó preenche em
+// verdigris quando o item é respondido nesta sessão ou registrado na conclusão.
+.pergunta {
+  position: relative;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem 0 0.9rem 1.9rem;
+}
+
+.pergunta::before {
+  content: '';
+  position: absolute;
+  top: 0.78rem;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--p-form-field-border-color);
+  border-radius: 0.3rem;
+  background: var(--p-content-background);
+  color: var(--sgpd-accent-contrast);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.pergunta::after {
+  content: '';
+  position: absolute;
+  top: 2.05rem;
+  // Alcança o nó do item seguinte (top 0.78rem), mantendo o fio contínuo.
+  bottom: -0.78rem;
+  left: calc(0.5rem - 1px);
+  width: 2px;
+  background: var(--p-content-border-color);
+}
+
+.pergunta:last-child::after {
+  display: none;
+}
+
+.pergunta--conferida::before {
+  content: '✓';
+  border-color: var(--sgpd-accent);
+  background: var(--sgpd-accent);
+}
+
+.pergunta > label {
+  font-weight: 650;
+}
+
+.resposta-registrada {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
 .observacao,
 .pendencias,
 .pendencias__lista,
@@ -176,13 +292,6 @@
   gap: 0.45rem;
 }
 
-.pergunta {
-  padding: 0.85rem;
-  border: 1px solid var(--p-content-border-color);
-  border-radius: 0.7rem;
-}
-
-.pergunta > label,
 .observacao > label {
   font-weight: 650;
 }
@@ -222,7 +331,7 @@ select[multiple] {
   border-block-start: 1px solid var(--p-content-border-color);
 }
 
-.pendencias h3,
+.pendencias h4,
 .pendencia p {
   margin: 0;
 }
@@ -232,6 +341,23 @@ select[multiple] {
   padding: 0.85rem;
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.7rem;
+}
+
+// A borda esquerda carrega o nível de bloqueio da pendência.
+.pendencia {
+  border-inline-start-width: 3px;
+}
+
+.pendencia--bloqueante {
+  border-inline-start-color: var(--status-blocked-color);
+}
+
+.pendencia--nao_bloqueante {
+  border-inline-start-color: var(--status-pending-color);
+}
+
+.pendencia--informativa {
+  border-inline-start-color: var(--status-canceled-color);
 }
 
 .pendencia-form label,
@@ -312,7 +438,7 @@ select[multiple] {
 }
 
 .vazio {
-  padding: 1rem;
+  padding: 1.5rem 1rem;
   border: 1px dashed var(--p-content-border-color);
   border-radius: 0.7rem;
   text-align: center;
@@ -333,12 +459,15 @@ select[multiple] {
   .pendencia > header,
   .acoes {
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
   }
 
   .metadados {
-    grid-template-columns: repeat(3, minmax(8rem, 1fr));
+    // O piso de 8rem nao cabe nas duas colunas do painel em md/lg e empurrava
+    // scroll horizontal; 0 deixa a coluna encolher como nos demais grids.
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .acoes {
