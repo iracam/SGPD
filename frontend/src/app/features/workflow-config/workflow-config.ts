@@ -9,6 +9,7 @@ import {
 } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
+import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
@@ -60,6 +61,7 @@ type RegraForm = FormGroup<{
     ReactiveFormsModule,
     ButtonModule,
     CheckboxModule,
+    DialogModule,
     InputNumberModule,
     InputTextModule,
     MessageModule,
@@ -91,6 +93,8 @@ export class WorkflowConfigPage {
   readonly templateEmEdicao = signal<TemplateChecklist | null>(null);
   readonly grupoEmEdicao = signal<GrupoValidacao | null>(null);
   readonly regraEmEdicao = signal<RegraAplicabilidade | null>(null);
+  readonly previewTemplate = signal(false);
+  readonly previewGrupo = signal(false);
 
   readonly tiposResposta: Array<{ label: string; value: TipoRespostaChecklist }> = [
     { label: 'Sim / não', value: 'BOOLEAN' },
@@ -198,6 +202,18 @@ export class WorkflowConfigPage {
     this.limparMensagens();
   }
 
+  abrirPreviewTemplate(): void {
+    this.previewTemplate.set(true);
+  }
+
+  fecharPreviewTemplate(): void {
+    this.previewTemplate.set(false);
+  }
+
+  rotuloTipoResposta(tipo: TipoRespostaChecklist): string {
+    return this.tiposResposta.find((opcao) => opcao.value === tipo)?.label ?? tipo;
+  }
+
   cancelarEditorTemplate(): void {
     this.exibirTemplate.set(false);
     this.templateEmEdicao.set(null);
@@ -227,6 +243,22 @@ export class WorkflowConfigPage {
     }
     this.exibirGrupo.set(true);
     this.limparMensagens();
+  }
+
+  abrirPreviewGrupo(): void {
+    this.previewGrupo.set(true);
+  }
+
+  fecharPreviewGrupo(): void {
+    this.previewGrupo.set(false);
+  }
+
+  rotuloSetor(id: number | null): string {
+    return this.setores().find((setor) => setor.id === id)?.name ?? '—';
+  }
+
+  rotuloTemplateVersao(id: number | null): string {
+    return this.versoesTemplatePublicadas().find((versao) => versao.id === id)?.label ?? '—';
   }
 
   cancelarEditorGrupo(): void {

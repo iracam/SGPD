@@ -32,7 +32,11 @@
 - evidências privadas com validação de conteúdo, SHA-256, upload idempotente e
   download autorizado/auditado;
 - hub de processos com abertura, rascunhos, processos em aberto e concluídos,
-  além dos cards agrupados de tarefas ativas/concluídas.
+  além dos cards agrupados de tarefas ativas/concluídas;
+- identificação cadastral legível na cascata: empresa rotulada pela razão
+  social e filial pelo nome próprio (`R030FIL.NOMFIL`);
+- pré-visualização do rascunho não salvo de template e de grupo no editor de
+  configuração.
 
 ## Estado corrente
 
@@ -82,6 +86,17 @@ Fase 5 — pendências e evidências:
   estado inválido, rollback de banco/arquivo, auditoria, versão concorrente,
   replay e dados incompletos.
 
+Contrato Senior — legibilidade cadastral:
+
+- `listar_empresas` passou a projetar a razão social da menor filial da empresa
+  (`MIN(RAZSOC) KEEP (DENSE_RANK FIRST ORDER BY CODFIL)`), já que o Senior não
+  possui nome de empresa próprio;
+- filial, listagem e detalhe de colaborador passaram de `RAZSOC` para `NOMFIL`;
+  o campo `FILIAL_NOME` do snapshot agora guarda o nome da filial, e
+  `offboarding.0006` só ajusta o `verbose_name` correspondente;
+- snapshots anteriores a essa mudança preservam a razão social gravada na
+  abertura e não são reescritos.
+
 ## Restrições ativas
 
 - nenhuma escrita em objetos internos do Senior;
@@ -102,14 +117,23 @@ Fase 5 — pendências e evidências:
 - definir retenção operacional das evidências;
 - homologar o limite de 10 MiB e o catálogo inicial PDF/PNG/JPEG;
 - conferir visualmente pendências e upload nos cinco breakpoints homologados;
+- conferir visualmente a pré-visualização de template/grupo nos cinco
+  breakpoints homologados;
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
 - o estado formal de encerramento e sua data aguardam a Fase 8.
 
 ## Baseline de qualidade
 
-No incremento das regras de aplicabilidade passaram 355 testes backend e 80
+No incremento de legibilidade cadastral passaram 355 testes backend e 80
 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e
-build Angular. O SQL Oracle de
+build Angular. O `sqlmigrate` de `offboarding.0006` é `(no-op)` — só altera
+metadados Django — e foi aplicado no Oracle DEV. As cinco consultas alteradas
+do contrato Senior foram executadas somente leitura contra o Oracle DEV pelo
+próprio `SeniorRepository`, retornando razão social por empresa e `NOMFIL` em
+filial, listagem e detalhe.
+
+No incremento das regras de aplicabilidade passaram os mesmos gates. O SQL
+Oracle de
 `templates_engine.0006_add_group_applicability_rules` foi revisado e aplicado
 no Oracle DEV: a migration é aditiva, cria uma tabela, uma FK `PROTECT`, um
 índice e três check constraints, todos dentro do limite de 30 caracteres do

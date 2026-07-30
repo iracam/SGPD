@@ -146,6 +146,13 @@
           (onClick)="cancelarEditorTemplate()"
         ></p-button>
         <p-button
+          type="button"
+          [outlined]="true"
+          icon="pi pi-eye"
+          label="Pré-visualizar"
+          (onClick)="abrirPreviewTemplate()"
+        ></p-button>
+        <p-button
           type="submit"
           icon="pi pi-save"
           [label]="templateEmEdicao() ? 'Salvar rascunho' : 'Criar em rascunho'"
@@ -155,6 +162,48 @@
     </form>
   </section>
 }
+
+<p-dialog
+  header="Pré-visualização do template (rascunho não salvo)"
+  [visible]="previewTemplate()"
+  (visibleChange)="$event ? null : fecharPreviewTemplate()"
+  [modal]="true"
+  [draggable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '95vw', maxWidth: '40rem' }"
+>
+  <div class="preview">
+    <h3>{{ formularioTemplate.controls.name.value || '(sem nome)' }}</h3>
+    @if (formularioTemplate.controls.description.value) {
+      <p>{{ formularioTemplate.controls.description.value }}</p>
+    }
+    @if (formularioTemplate.controls.default_due_hours.value) {
+      <p><small>SLA padrão: {{ formularioTemplate.controls.default_due_hours.value }}h</small></p>
+    }
+    <ol class="preview__itens">
+      @for (pergunta of formularioTemplate.controls.items.controls; track pergunta; let i = $index) {
+        <li>
+          <strong>{{ pergunta.controls.question.value || '(sem pergunta)' }}</strong>
+          <div class="preview__marcadores">
+            <p-tag severity="info" [value]="rotuloTipoResposta(pergunta.controls.response_type.value)"></p-tag>
+            @if (pergunta.controls.is_required.value) {
+              <p-tag severity="warn" value="Obrigatória"></p-tag>
+            }
+            @if (pergunta.controls.blocks_process.value) {
+              <p-tag severity="danger" value="Bloqueante"></p-tag>
+            }
+            @if (pergunta.controls.requires_evidence.value) {
+              <p-tag severity="secondary" value="Exige evidência"></p-tag>
+            }
+            @if (pergunta.controls.allows_pending.value) {
+              <p-tag severity="secondary" value="Permite pendência"></p-tag>
+            }
+          </div>
+        </li>
+      }
+    </ol>
+  </div>
+</p-dialog>
 
 @if (exibirGrupo()) {
   <section class="cartao editor" aria-labelledby="editor-grupo">
@@ -260,6 +309,13 @@
           (onClick)="cancelarEditorGrupo()"
         ></p-button>
         <p-button
+          type="button"
+          [outlined]="true"
+          icon="pi pi-eye"
+          label="Pré-visualizar"
+          (onClick)="abrirPreviewGrupo()"
+        ></p-button>
+        <p-button
           type="submit"
           icon="pi pi-save"
           [label]="grupoEmEdicao() ? 'Salvar rascunho' : 'Criar em rascunho'"
@@ -269,6 +325,44 @@
     </form>
   </section>
 }
+
+<p-dialog
+  header="Pré-visualização do grupo (rascunho não salvo)"
+  [visible]="previewGrupo()"
+  (visibleChange)="$event ? null : fecharPreviewGrupo()"
+  [modal]="true"
+  [draggable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '95vw', maxWidth: '40rem' }"
+>
+  <div class="preview">
+    <h3>{{ formularioGrupo.controls.name.value || '(sem nome)' }}</h3>
+    @if (formularioGrupo.controls.description.value) {
+      <p>{{ formularioGrupo.controls.description.value }}</p>
+    }
+    <ol class="preview__itens">
+      @for (regra of formularioGrupo.controls.sectors.controls; track regra; let i = $index) {
+        <li>
+          <strong>
+            {{ rotuloSetor(regra.controls.sector_id.value) }} —
+            {{ rotuloTemplateVersao(regra.controls.template_version_id.value) }}
+          </strong>
+          <div class="preview__marcadores">
+            @if (regra.controls.is_required.value) {
+              <p-tag severity="warn" value="Obrigatório"></p-tag>
+            }
+            @if (regra.controls.blocks_process.value) {
+              <p-tag severity="danger" value="Bloqueante"></p-tag>
+            }
+            @if (regra.controls.due_hours_override.value) {
+              <p-tag severity="info" [value]="'SLA ' + regra.controls.due_hours_override.value + 'h'"></p-tag>
+            }
+          </div>
+        </li>
+      }
+    </ol>
+  </div>
+</p-dialog>
 
 @if (exibirRegra()) {
   <section class="cartao editor" aria-labelledby="editor-regra">
