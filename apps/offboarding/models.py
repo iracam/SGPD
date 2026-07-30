@@ -62,14 +62,6 @@ class OffboardingProcess(models.Model):
         unique=True,
         editable=False,
     )
-    manager = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        verbose_name="gestor imediato",
-        on_delete=models.PROTECT,
-        related_name="managed_offboarding_processes",
-    )
-    manager_name_snapshot = models.CharField("nome histórico do gestor", max_length=301)
-    manager_email_snapshot = models.EmailField("e-mail histórico do gestor")
     opened_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="aberto por",
@@ -109,10 +101,7 @@ class OffboardingProcess(models.Model):
                     branch_code__gt=0,
                     employee_type_code__gt=0,
                     employee_registration__gt=0,
-                    manager__isnull=False,
                     opened_by__isnull=False,
-                    manager_name_snapshot__isnull=False,
-                    manager_email_snapshot__isnull=False,
                     planned_termination_date__isnull=False,
                     due_date__isnull=False,
                     reason__isnull=False,
@@ -166,19 +155,9 @@ class OffboardingProcess(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        self.manager_name_snapshot = self.manager_name_snapshot.strip()
-        self.manager_email_snapshot = self.manager_email_snapshot.strip().lower()
         self.reason = self.reason.strip()
         self.priority = self.priority.strip()
         self.notes = self.notes.strip()
-        if not self.manager_name_snapshot:
-            raise ValidationError(
-                {"manager_user_id": "O gestor precisa possuir nome completo cadastrado."}
-            )
-        if not self.manager_email_snapshot:
-            raise ValidationError(
-                {"manager_user_id": "O gestor precisa possuir e-mail cadastrado."}
-            )
         if not self.reason:
             raise ValidationError({"reason": "O motivo é obrigatório."})
         if not self.priority:

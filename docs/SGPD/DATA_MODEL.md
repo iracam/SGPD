@@ -76,7 +76,9 @@ Somente `DP` pode permanecer ativo, conforme `SGPD_CK_ROLE_ACTIVE_CODE`.
 `RESPONSAVEL_SETOR` é um marcador derivado de vínculo vigente e não uma linha
 atribuível do catálogo. Papéis legados permanecem inativos e fisicamente
 preservados para rastreabilidade. SuperAdmin é o atributo técnico
-`SGPD_USER.IS_SUPERUSER`, não um papel.
+`SGPD_USER.IS_SUPERUSER`, não um papel, e constitui a autoridade global
+explícita sobre processos, tarefas, menus e casos de uso. Essa autoridade não
+cria linhas em `SGPD_ROLE_ASSIGN` ou `SETOR_RESPONSAVEL`.
 
 #### SGPD_ROLE_ASSIGN
 
@@ -343,9 +345,6 @@ fixos, como `DP`, também preservam o contrato declarado.
 - `FILIAL_CODIGO`
 - `TIPO_COLABORADOR_CODIGO`
 - `COLABORADOR_MATRICULA`
-- `GESTOR_USUARIO_ID`
-- `GESTOR_NOME_SNAPSHOT`
-- `GESTOR_EMAIL_SNAPSHOT`
 - `ABERTO_POR_ID`
 - `DATA_ABERTURA`
 - `DATA_PREVISTA_DESLIGAMENTO`
@@ -368,7 +367,6 @@ Estado implementado em `SGPD_OFFBOARDING_PROCESS`:
 - `ACTIVE_EMPLOYEE_KEY` é anulável e única, formada pela identidade Senior; é
   preenchida enquanto o processo não estiver encerrado e será liberada apenas
   por transição futura auditada de cancelamento ou encerramento;
-- preserva usuário, nome e e-mail históricos do gestor;
 - possui versão, índices por estado/prazo, identidade/abertura e ator;
 - rejeita `QuerySet.update()` e exclusão física; as futuras transições deverão
   alterar instâncias somente por services auditados.

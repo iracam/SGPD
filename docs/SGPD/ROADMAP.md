@@ -76,10 +76,15 @@ checkpoint.
 Em 2026-07-29, o catálogo funcional foi inicialmente simplificado para
 `RESPONSAVEL_SETOR`; a decisão posterior ADR-036 o fixou em `DP` e
 `RESPONSAVEL_SETOR`, cumulativos e independentes. SuperAdmin permaneceu como
-atributo técnico e os demais papéis legados foram preservados apenas como
-histórico inativo. A ADR-038 então eliminou a atribuição redundante:
+atributo técnico fora do catálogo, e os demais papéis legados foram preservados
+apenas como histórico inativo. A ADR-038 então eliminou a atribuição redundante:
 `RESPONSAVEL_SETOR` tornou-se derivado do vínculo de setor e somente `DP`
 permaneceu atribuível.
+
+Em 2026-07-30, a ADR-044 estabeleceu `is_superuser` como autoridade global:
+SuperAdmin acessa todos os processos, tarefas, menus e casos de uso sem receber
+papel ou vínculo artificial, preservando integralmente as regras de negócio e
+auditoria.
 
 Em 2026-07-28, a integração AD foi antecipada da Fase 10 e implementada com
 `django-auth-ldap` e `python-ldap`: pesquisa por OU/grupo, criação local
@@ -252,7 +257,7 @@ Processo completo sem pendências avançadas.
 
 Iniciada pelos incrementos de abertura, início e execução inicial das tarefas.
 A SPA reaproveita a cascata
-Senior, lista gestores ativos e cria `RASCUNHO`; o service relê o colaborador,
+Senior e cria `RASCUNHO` sem exigir gestor imediato; o service relê o colaborador,
 usa `has_effective_role()` antes da consulta e após lock transacional, impede
 duplicidade e grava processo, snapshot e `PROCESS_OPENED` atomicamente. A
 migration `offboarding.0001` está aplicada no Oracle DEV. O rascunho fixa
@@ -262,8 +267,9 @@ vigente em setor obrigatório bloqueia e desfaz a transição. A SPA cobre
 confirmação de grupos e início; ajustes manuais existem na API e ainda não
 possuem editor visual. Regras automáticas de sugestão, estados posteriores e
 painel do DP permanecem pendentes. A SPA `/fe/tarefas` já funciona como painel
-inicial dos setores: filtra pelo vínculo e escopo vigentes, inicia a análise,
-valida respostas simples e conclui a tarefa com concorrência, idempotência e
+inicial dos setores: filtra usuários funcionais pelo vínculo e escopo vigentes,
+enquanto SuperAdmin visualiza todas as tarefas; ambos iniciam a análise,
+validam respostas simples e concluem a tarefa com concorrência, idempotência e
 auditoria. Itens de arquivo ou com evidência obrigatória aguardam a Fase 5; a
 conclusão ainda não promove automaticamente o estado do processo. As migrations
 `templates_engine.0001`, `templates_engine.0002` e `offboarding.0002` estão

@@ -229,6 +229,18 @@ Responsável por:
 
 ## 7. Regras de domínio
 
+### SuperAdmin
+
+- `is_superuser=true` é a autoridade global explícita do SGPD;
+- um SuperAdmin ativo e autenticado acessa todos os processos, tarefas, menus,
+  APIs e casos de uso, independentemente de papel, setor ou escopo;
+- essa autoridade não cria atribuições `DP` nem vínculos de setor;
+- a exceção é somente de autorização: estados, validações, locks,
+  idempotência, imutabilidade, auditoria e regras de segregação continuam
+  obrigatórios;
+- toda funcionalidade nova deve aplicar essa premissa no backend e refletir a
+  mesma visibilidade na SPA, conforme a ADR-044.
+
 ### Senior HCM
 
 - fonte oficial;
@@ -263,7 +275,7 @@ Responsável por:
 
 ### Liberação
 
-- somente DP;
+- somente DP vigente no escopo ou SuperAdmin;
 - ação explícita;
 - exige verificação de prontidão;
 - deve ser auditada.

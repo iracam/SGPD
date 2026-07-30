@@ -253,7 +253,7 @@
         <h2 id="titulo-abertura">Abertura do rascunho</h2>
       </div>
       <p>
-        O service consultará novamente o Senior e revalidará o papel DP no escopo antes
+        O service consultará novamente o Senior e revalidará a autoridade do ator antes
         de gravar.
       </p>
     </div>
@@ -263,39 +263,6 @@
       [formGroup]="formularioAbertura"
       (ngSubmit)="abrirProcesso()"
     >
-      <div class="campo campo--largo">
-        <label for="gestor">Gestor imediato</label>
-        <p-select
-          inputId="gestor"
-          formControlName="manager_user_id"
-          [options]="gestores()"
-          optionLabel="label"
-          optionValue="id"
-          placeholder="Selecione o gestor cadastrado no SGPD"
-          emptyMessage="Nenhum gestor disponível"
-          [loading]="carregandoGestores()"
-          [disabled]="carregandoGestores() || gestores().length === 0"
-          [filter]="true"
-          filterBy="display_name,email,username"
-          ariaLabel="Gestor imediato"
-        ></p-select>
-        @for (erro of erros('manager_user_id'); track erro) {
-          <small class="erro-campo">{{ erro }}</small>
-        }
-        @if (erroGestores()) {
-          <div class="erro-nivel">
-            <p-message severity="error" [text]="erroGestores()"></p-message>
-            <p-button
-              type="button"
-              size="small"
-              [outlined]="true"
-              label="Tentar novamente"
-              (onClick)="tentarGestores()"
-            ></p-button>
-          </div>
-        }
-      </div>
-
       <div class="campo">
         <label for="data-prevista">Data prevista de desligamento</label>
         <input
@@ -344,9 +311,6 @@
         @for (erro of erros('reason'); track erro) {
           <small class="erro-campo">{{ erro }}</small>
         }
-        @for (erro of erros('employee_registration'); track erro) {
-          <small class="erro-campo">{{ erro }}</small>
-        }
       </div>
 
       <div class="campo campo--largo">
@@ -387,7 +351,7 @@
       <div>
         <h2>Processo aberto em rascunho</h2>
         <p>
-          Identificador {{ processo.uuid }} · gestor {{ processo.manager.name }} · prazo
+          Identificador {{ processo.uuid }} · prazo
           {{ processo.due_date | date: 'dd/MM/yyyy' }}
         </p>
       </div>

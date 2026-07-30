@@ -66,6 +66,15 @@ localmente e vinculada depois, ou criada explicitamente a partir de uma
 identidade pesquisada no Active Directory. A autenticação AD somente aceitará
 contas previamente vinculadas e nunca provisionará usuário durante o login.
 
+### SuperAdmin
+
+- é definido pelo atributo técnico `IS_SUPERUSER`, fora do catálogo de papéis;
+- acessa todos os processos, tarefas, menus, configurações e casos de uso;
+- não precisa receber atribuição `DP` nem vínculo de setor para exercer essa
+  autoridade global;
+- continua sujeito aos estados, validações, segregações, locks, idempotência e
+  auditoria de cada operação.
+
 ### Departamento Pessoal
 
 - possui o papel `DP` vigente no escopo do processo;

@@ -8,10 +8,18 @@ implementadas. O ciclo inicial da tarefa `PENDENTE → EM_ANALISE → CONCLUIDA`
 e as respostas simples de checklist também estão implementados; as demais
 transições deverão ser confirmadas e testadas nos checkpoints das Fases 4 a 8.
 
+## Premissa de autoridade global
+
+SuperAdmin ativo e autenticado pode consultar e executar qualquer processo,
+tarefa e transição exposta pelo SGPD, sem atribuição `DP` ou vínculo de setor.
+Essa premissa substitui apenas a checagem de autorização: estados, bloqueios,
+prontidão, segregação, concorrência, idempotência e auditoria permanecem
+obrigatórios.
+
 ## 1. Fluxo principal
 
 ```text
-Usuário com papel DP vigente abre o processo
+Usuário com papel DP vigente ou SuperAdmin abre o processo
     |
     v
 Sistema consulta o Senior em tempo real por SELECT parametrizado
@@ -23,7 +31,7 @@ Sistema cria snapshot do colaborador
 Sistema sugere grupos de validação
     |
     v
-Usuário com papel DP confirma ou ajusta os setores
+Usuário com papel DP ou SuperAdmin confirma ou ajusta os setores
     |
     v
 Sistema gera tarefas e checklists
@@ -42,7 +50,7 @@ Pendências / evidências         Pendências / evidências
         Consolidação automática
                     |
                     v
-     Análise final por usuário com papel DP
+     Análise final por DP ou SuperAdmin
                     |
           +---------+---------+
           |                   |

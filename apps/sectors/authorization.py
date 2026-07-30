@@ -7,6 +7,7 @@ from datetime import datetime
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
+from apps.accounts.authorization import has_global_authority
 from apps.accounts.models import ScopeType, User
 
 from .models import SectorResponsible
@@ -46,13 +47,12 @@ def has_sector_responsibility(
     branch_code: int | None = None,
     at: datetime | None = None,
 ) -> bool:
-    """Check the derived role and the organizational scope inherited by it.
-
-    SuperAdmin is deliberately not an implicit functional responsible.
-    """
+    """Check global authority or responsibility and its inherited scope."""
 
     if not user.is_active:
         return False
+    if has_global_authority(user):
+        return True
 
     responsibilities = active_sector_responsibilities(
         user,

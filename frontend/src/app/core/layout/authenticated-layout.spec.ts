@@ -101,7 +101,7 @@ describe('AuthenticatedLayout', () => {
     ]);
   });
 
-  it('mostra a seção Configurações somente para SuperAdmin', async () => {
+  it('mostra todos os menus e a seção Configurações para SuperAdmin', async () => {
     fixture.detectChanges();
     httpMock.expectOne(apiConfig.routes.authContext).flush(
       contextWith(
@@ -118,8 +118,16 @@ describe('AuthenticatedLayout', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(labels()).toContain('Configurações');
-    expect(labels()).not.toContain('Abrir processo');
+    expect(labels()).toEqual([
+      'Painel',
+      'Abrir processo',
+      'Minhas tarefas',
+      'Setores',
+      'Grupos e templates',
+      'Usuários',
+      'Auditoria',
+      'Configurações',
+    ]);
     expect(fixture.nativeElement.querySelector('.nav-section__title')?.textContent.trim()).toBe(
       'Configurações',
     );

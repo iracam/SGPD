@@ -8,6 +8,18 @@ from django.utils import timezone
 from .models import RoleAssignment, ScopeType, User
 
 
+def has_global_authority(user: User) -> bool:
+    """Return whether the active authenticated user is the SGPD SuperAdmin.
+
+    SuperAdmin is the global authority of the application. It bypasses
+    functional role, sector-responsibility and organizational-scope checks,
+    but never bypasses workflow state, validation, concurrency, idempotency or
+    audit rules.
+    """
+
+    return bool(user.is_authenticated and user.is_active and user.is_superuser)
+
+
 def _permission_parts(permission: str) -> tuple[str, str]:
     app_label, separator, codename = permission.partition(".")
     if not separator:
@@ -69,14 +81,12 @@ def has_effective_role(
     company_code: int | None = None,
     branch_code: int | None = None,
 ) -> bool:
-    """Check an explicit, current role assignment in the requested scope.
-
-    SuperAdmin is deliberately not an implicit functional DP or sector
-    responsible.
-    """
+    """Check global authority or a current role assignment in the scope."""
 
     if not user.is_authenticated or not user.is_active:
         return False
+    if has_global_authority(user):
+        return True
     assignments = active_assignments(user).filter(role__code=role_code.strip().upper())
     return _has_assignment_in_scope(
         assignments,
@@ -94,7 +104,7 @@ def has_permission(
 ) -> bool:
     if not user.is_authenticated or not user.is_active:
         return False
-    if user.is_superuser:
+    if has_global_authority(user):
         return True
 
     app_label, codename = _permission_parts(permission)
@@ -116,7 +126,7 @@ def allowed_company_codes(user: User, permission: str) -> set[int] | None:
 
     if not user.is_authenticated or not user.is_active:
         return set()
-    if user.is_superuser:
+    if has_global_authority(user):
         return None
     app_label, codename = _permission_parts(permission)
     if user.user_permissions.filter(

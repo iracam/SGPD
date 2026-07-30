@@ -12,7 +12,6 @@ import type { SelectFilterOptions } from 'primeng/types/select';
 import {
   EMPTY,
   Subject,
-  Subscription,
   catchError,
   finalize,
   map,
@@ -32,7 +31,6 @@ import {
   ColaboradorSenior,
   EmpresaSenior,
   FilialSenior,
-  GestorCandidato,
   NovaAberturaProcesso,
   ProcessoAberto,
   TipoColaboradorSenior,
@@ -68,14 +66,12 @@ export class ColaboradoresPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly requisicoesColaborador = new Subject<RequisicaoColaborador>();
-  private requisicaoGestores: Subscription | null = null;
 
   readonly empresa = this.formBuilder.control<number | null>(null);
   readonly filial = this.formBuilder.control<number | null>(null);
   readonly tipoColaborador = this.formBuilder.control<number | null>(null);
   readonly colaborador = this.formBuilder.control<number | null>(null);
   readonly formularioAbertura = this.formBuilder.group({
-    manager_user_id: this.formBuilder.control<number | null>(null, Validators.required),
     planned_termination_date: this.formBuilder.nonNullable.control(
       '',
       Validators.required,
@@ -90,19 +86,16 @@ export class ColaboradoresPage {
   readonly filiais = signal<ComRotulo<FilialSenior>[]>([]);
   readonly tiposColaborador = signal<ComRotulo<TipoColaboradorSenior>[]>([]);
   readonly colaboradores = signal<ComRotulo<ColaboradorSenior>[]>([]);
-  readonly gestores = signal<ComRotulo<GestorCandidato>[]>([]);
 
   readonly carregandoEmpresas = signal(false);
   readonly carregandoFiliais = signal(false);
   readonly carregandoTipos = signal(false);
   readonly carregandoColaboradores = signal(false);
-  readonly carregandoGestores = signal(false);
 
   readonly erroEmpresas = signal('');
   readonly erroFiliais = signal('');
   readonly erroTipos = signal('');
   readonly erroColaboradores = signal('');
-  readonly erroGestores = signal('');
   readonly buscaColaborador = signal('');
   readonly salvandoProcesso = signal(false);
   readonly erroAbertura = signal('');
@@ -166,13 +159,6 @@ export class ColaboradoresPage {
     this.solicitarColaboradores(this.buscaColaborador(), true);
   }
 
-  tentarGestores(): void {
-    const selecionado = this.colaboradorSelecionado();
-    if (selecionado) {
-      this.carregarGestores(selecionado.company, selecionado.branch);
-    }
-  }
-
   abrirProcesso(): void {
     const selecionado = this.colaboradorSelecionado();
     if (
@@ -194,7 +180,6 @@ export class ColaboradoresPage {
         branch_code: selecionado.branch,
         employee_type_code: selecionado.employee_type,
         employee_registration: selecionado.registration,
-        manager_user_id: value.manager_user_id as number,
         planned_termination_date: value.planned_termination_date,
         due_date: value.due_date,
         reason: value.reason,
@@ -211,9 +196,22 @@ export class ColaboradoresPage {
           void this.router.navigate(['/fe/processos', processo.uuid, 'rascunho']);
         },
         error: (error) => {
-          this.errosAbertura.set(fieldErrors(error));
+          const detalhes = fieldErrors(error);
+          const camposRenderizados = new Set([
+            'planned_termination_date',
+            'due_date',
+            'priority',
+            'reason',
+          ]);
+          const primeiraMensagemGeral = Object.entries(detalhes).find(
+            ([campo]) => !camposRenderizados.has(campo),
+          )?.[1][0];
+          this.errosAbertura.set(detalhes);
           this.erroAbertura.set(
-            errorMessage(error, 'Não foi possível abrir o processo demissional.'),
+            primeiraMensagemGeral ??
+              (Object.keys(detalhes).length
+                ? ''
+                : errorMessage(error, 'Não foi possível abrir o processo demissional.')),
           );
         },
       });
@@ -353,57 +351,16 @@ export class ColaboradoresPage {
     this.colaborador.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((registration) => {
-        this.requisicaoGestores?.unsubscribe();
-        this.requisicaoGestores = null;
-        this.gestores.set([]);
-        this.erroGestores.set('');
         this.erroAbertura.set('');
         this.errosAbertura.set({});
         this.processoAberto.set(null);
         this.formularioAbertura.reset({
-          manager_user_id: null,
           planned_termination_date: '',
           due_date: '',
           reason: '',
           priority: '',
           notes: '',
         });
-        if (registration === null) {
-          return;
-        }
-        const selected = this.colaboradores().find(
-          (item) => item.registration === registration,
-        );
-        if (selected) {
-          this.carregarGestores(selected.company, selected.branch);
-        }
-      });
-  }
-
-  private carregarGestores(company: number, branch: number): void {
-    if (this.carregandoGestores()) {
-      return;
-    }
-    this.carregandoGestores.set(true);
-    this.erroGestores.set('');
-    this.requisicaoGestores = this.service
-      .listarGestores(company, branch)
-      .pipe(
-        finalize(() => this.carregandoGestores.set(false)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe({
-        next: (pagina) =>
-          this.gestores.set(
-            pagina.results.map((item) => ({
-              ...item,
-              label: `${item.display_name} — ${item.email}`,
-            })),
-          ),
-        error: (error) =>
-          this.erroGestores.set(
-            errorMessage(error, 'Não foi possível carregar os gestores cadastrados.'),
-          ),
       });
   }
 

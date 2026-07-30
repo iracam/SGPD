@@ -467,7 +467,12 @@ def test_role_assignment_enforces_organizational_scope(actor: User) -> None:
         company_code=2,
         branch_code=10,
     )
-    assert not has_effective_role(actor, PEOPLE_DEPARTMENT_ROLE_CODE)
+    assert has_effective_role(
+        actor,
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        company_code=999,
+        branch_code=999,
+    )
 
 
 def test_sector_responsible_role_cannot_be_assigned(actor: User) -> None:

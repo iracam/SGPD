@@ -14,7 +14,6 @@ class OpenOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
     branch_code = serializers.IntegerField(min_value=1)
     employee_type_code = serializers.IntegerField(min_value=1)
     employee_registration = serializers.IntegerField(min_value=1)
-    manager_user_id = serializers.IntegerField(min_value=1)
     planned_termination_date = serializers.DateField()
     due_date = serializers.DateField()
     reason = serializers.CharField(max_length=2000, trim_whitespace=True)
@@ -26,19 +25,6 @@ class OpenOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
         default="",
         trim_whitespace=True,
     )
-
-
-class ManagerCandidateQuerySerializer(serializers.Serializer[dict[str, Any]]):
-    company = serializers.IntegerField(min_value=1)
-    branch = serializers.IntegerField(min_value=1)
-    q = serializers.CharField(
-        max_length=100,
-        required=False,
-        allow_blank=True,
-        default="",
-        trim_whitespace=True,
-    )
-    limit = serializers.IntegerField(min_value=1, max_value=200, required=False, default=100)
 
 
 class DraftSectorOverrideSerializer(serializers.Serializer[dict[str, Any]]):

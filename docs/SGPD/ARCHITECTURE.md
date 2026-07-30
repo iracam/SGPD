@@ -110,8 +110,9 @@ O cadastro funcional de usuários pertence ao SGPD:
 - o catálogo de papéis atribuíveis é fixo em `DP`; `RESPONSAVEL_SETOR` é
   derivado do vínculo vigente com o setor e herda o escopo organizacional
   desse setor;
-- SuperAdmin é autoridade técnica por `is_superuser`, fora do catálogo
-  funcional;
+- SuperAdmin é a autoridade global explícita por `is_superuser`, fora do
+  catálogo funcional; acessa todos os processos, tarefas, menus e casos de uso
+  sem receber atribuições artificiais;
 - senha temporária pode exigir troca no primeiro acesso;
 - login, logout, falha de autenticação e toda manutenção de conta são
   auditados com correlation ID;
@@ -201,7 +202,7 @@ administração técnica somente leitura.
 e grupos, com edição auditada do `DRAFT` e publicação imutável. Templates são
 neutros quanto a setor; cada regra de grupo associa separadamente um setor a
 uma versão exata de template. `offboarding` contém abertura, seleção versionada
-do rascunho e início idempotente: snapshots do colaborador, gestor, setor,
+do rascunho e início idempotente: snapshots do colaborador, setor,
 template e perguntas, tarefas pertencentes ao setor, auditoria append-only,
 services, API e administração técnica somente leitura.
 
@@ -260,7 +261,7 @@ responsabilidade.
 
 `OpenOffboardingProcessService` consulta o Senior antes de iniciar a transação
 de escrita e nunca persiste referência retornada pela listagem. Depois da
-releitura da chave completa, bloqueia ator, gestor e atribuições `DP`, repete
+releitura da chave completa, bloqueia ator e atribuições `DP`, repete
 `has_effective_role()` no escopo, impede outro processo não encerrado para a
 mesma identidade e confirma processo, snapshot e `PROCESS_OPENED` na mesma
 transação. Revogação de `DP` e abertura concorrentes têm vencedor
@@ -274,18 +275,24 @@ responsáveis vigentes, cria tarefas/perguntas históricas e registra
 locks acompanha Setor → responsabilidades → usuários para evitar inversão com
 a manutenção do catálogo.
 
-`sector_tasks_for_actor()` limita consulta ao vínculo vigente do ator com o
-setor e ao escopo herdado que cobre empresa/filial do processo. SuperAdmin não
-recebe autoridade funcional implícita. `StartSectorTaskService` e
-`CompleteSectorTaskService` voltam a validar essa autoridade sob locks
-ordenados, exigem versão e chave idempotente e gravam tarefa, respostas e
-auditoria na mesma transação. A conclusão valida o snapshot de cada pergunta;
-valores das respostas não são copiados para o evento de auditoria.
+`sector_tasks_for_actor()` limita usuários funcionais ao vínculo vigente com o
+setor e ao escopo herdado que cobre empresa/filial do processo. Para
+SuperAdmin ativo, devolve todas as tarefas. `StartSectorTaskService` e
+`CompleteSectorTaskService` revalidam sob locks a responsabilidade ou a
+autoridade global, exigem estado, versão e chave idempotente e gravam tarefa,
+respostas e auditoria na mesma transação. A conclusão valida o snapshot de
+cada pergunta; valores das respostas não são copiados para o evento de
+auditoria.
 
 No Oracle 19c, `JSONField` usa constraint `IS JSON`, que rejeita um escalar
 JSON no topo. Por isso `RESPONSE` armazena internamente o documento
 `{"value": ...}`; a API projeta novamente o valor simples. Esse detalhe é
 isolado no backend e não cria regra de negócio no Angular.
+
+`TextField` é armazenado como `NCLOB` no Oracle. Consultas que carregam models
+com esse tipo não usam `SELECT DISTINCT`, porque o Oracle não compara LOBs
+nessa operação. A seleção de grupos aplicáveis e a autorização da listagem de
+tarefas eliminam duplicidade com subconsultas correlacionadas `EXISTS`.
 
 ### Consulta ao Senior
 
@@ -403,10 +410,9 @@ Criação e edição dinâmica de papéis, o catálogo de permissões e a tela
 `/fe/papeis` não possuem superfície ativa.
 
 `has_effective_role()` é o limite reutilizável para os services do workflow:
-o papel `DP` deve estar ativo, vigente e cobrir a empresa/filial do processo.
-SuperAdmin não satisfaz essa verificação implicitamente. Neste incremento,
-`DP` recebe `query_senior_references`; as transições do processo continuam
-pendentes da Fase 4.
+para usuários funcionais, o papel `DP` deve estar ativo, vigente e cobrir a
+empresa/filial do processo; para SuperAdmin ativo, a ADR-044 concede autoridade
+global explícita. `DP` recebe `query_senior_references`.
 
 A API emite `account_role_assignment_requested` ao receber a operação e
 `account_role_assignment_completed` após o commit do service. O cadastro
@@ -473,7 +479,6 @@ Endpoints de abertura implementados:
 
 ```text
 POST /api/v1/processes/
-GET  /api/v1/processes/manager-candidates/?company=&branch=&q=
 GET  /api/v1/processes/{uuid}/draft/
 PUT  /api/v1/processes/{uuid}/draft/selection/
 POST /api/v1/processes/{uuid}/start/

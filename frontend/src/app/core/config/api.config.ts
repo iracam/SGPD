@@ -18,7 +18,6 @@ export const apiConfig = {
     accountsDirectoryUserCreate: '/api/v1/accounts/directory/users/create/',
 
     processes: '/api/v1/processes/',
-    processManagerCandidates: '/api/v1/processes/manager-candidates/',
     tasks: '/api/v1/tasks/',
     workflowTemplates: '/api/v1/workflow-config/templates/',
     workflowGroups: '/api/v1/workflow-config/groups/',

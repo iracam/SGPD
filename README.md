@@ -161,8 +161,8 @@ Processo demissional:
 - `/fe/colaboradores`: seleção Empresa → Filial → Tipo de colaborador
   → Colaborador e abertura do rascunho;
 - exige uma atribuição `DP` explícita, ativa, vigente e compatível com empresa
-  e filial; SuperAdmin e responsabilidade pelo setor Departamento Pessoal não
-  substituem o papel;
+  e filial para usuários funcionais; SuperAdmin ativo possui autoridade global
+  explícita sem receber uma atribuição funcional artificial;
 - o service consulta novamente o Senior somente por `SELECT`, grava processo,
   snapshot imutável e evento `PROCESS_OPENED` na mesma transação;
 - duplicidade de processo não encerrado para a mesma chave do colaborador é
@@ -226,7 +226,11 @@ A SPA vive em `frontend/`. As versões exatas estão em
 9. Pendências serão entidades próprias e auditáveis.
 10. Valores informados serão tratados como pretensões de cobrança.
 11. A abertura, análise final, liberação e encerramento continuarão sob
-    responsabilidade de usuário com o papel `DP` vigente no escopo do processo.
+    responsabilidade de usuário com o papel `DP` vigente no escopo do processo
+    ou de SuperAdmin ativo, cuja autoridade global é definida na ADR-044.
+12. SuperAdmin acessa todos os processos, tarefas, menus e casos de uso, mas
+    continua sujeito a estado, validação, concorrência, idempotência e
+    auditoria.
 
 ## Estado atual
 
@@ -246,6 +250,9 @@ de exposição das credenciais. O login AD permanece desligado até concluir um
 teste controlado da configuração escolhida.
 A primeira conta humana foi criada explicitamente pelo bootstrap auditado;
 nenhuma conta é criada automaticamente pelo login AD.
+SuperAdmin é a autoridade global explícita do SGPD: a SPA exibe todos os menus
+existentes e o backend permite operar qualquer processo e tarefa, sem dispensar
+as regras de negócio ou a auditoria.
 
 A seleção cadastral da Fase 2 está concluída e usa o mesmo repository e a
 mesma autorização por escopo dos endpoints JSON. O `LEFT JOIN` de centro de
@@ -253,10 +260,10 @@ custo foi homologado no Oracle DEV e a consulta de colaboradores concluiu a
 medição controlada com até dez conexões concorrentes sem erros ou timeouts.
 
 A Fase 4 possui abertura, início e ciclo inicial das tarefas implementados. A SPA permite ao
-`DP` selecionar colaborador e gestor, informar datas, motivo, prioridade e
+`DP` selecionar colaborador, informar datas, motivo, prioridade e
 observações e criar o processo em `RASCUNHO`. O backend revalida
 `has_effective_role()` após bloquear a autoridade funcional, relê a chave
-completa no Senior, preserva os snapshots do colaborador e do gestor e registra
+completa no Senior, preserva o snapshot do colaborador e registra
 auditoria append-only. Templates e grupos possuem versões publicadas imutáveis;
 um mesmo template pode ser associado a diferentes setores nos grupos. O
 rascunho fixa as versões escolhidas e o início idempotente gera tarefas e

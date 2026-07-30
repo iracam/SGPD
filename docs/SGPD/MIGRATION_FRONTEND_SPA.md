@@ -264,6 +264,10 @@ O contrato `NavItem[]` usa `label`, `route`, `icon`, `description`, `feature`
 e, quando necessário, `role`, com `visibleNavItems` filtrando pelo contexto
 devolvido por `GET /auth/context/`.
 
+SuperAdmin ativo ignora os filtros visuais de papel e feature e recebe todos
+os itens existentes. Essa projeção acompanha a autoridade global aplicada
+novamente no backend; não constitui a barreira de autorização.
+
 | Item | Rota | Ícone | Permissão |
 | --- | --- | --- | --- |
 | Painel | `/fe/painel` | `pi pi-th-large` | — |
@@ -281,7 +285,7 @@ mantido no card de responsáveis do setor. A rota independente
 `/fe/responsaveis` também foi removida.
 
 A rota `/fe/colaboradores` foi promovida na Fase 4: preserva a cascata e
-acrescenta gestor, datas, motivo, prioridade, observações e confirmação da
+acrescenta datas, motivo, prioridade, observações e confirmação da
 abertura; após sucesso navega ao rascunho. `/fe/processos/:uuid/rascunho`
 confirma grupos, projeta bloqueios e chama o início com chave idempotente
 preservada durante retries. `/fe/workflow-config` cria e edita versões em

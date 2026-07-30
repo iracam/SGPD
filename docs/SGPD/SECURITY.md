@@ -170,9 +170,20 @@ derivado de vínculo efetivo com o setor e não concede administração técnica
 `DP` recebe apenas `query_senior_references` neste
 incremento para selecionar o colaborador dentro do seu escopo; permissões
 diretas são globais e permanecem disponíveis para evolução controlada.
-SuperAdmin é reservado ao bootstrap e à contingência administrativa. Papéis e
+SuperAdmin é a autoridade global explícita do SGPD. Uma conta ativa com
+`is_superuser=true` acessa todos os processos, tarefas, menus, endpoints e
+services, sem precisar de atribuição `DP`, vínculo de setor ou escopo. Papéis e
 atribuições legados permanecem inativos ou revogados com auditoria, nunca
 excluídos.
+
+O bypass de SuperAdmin limita-se à decisão de autorização. Ele não remove:
+
+- pré-condições e estados do workflow;
+- validações de entrada e de prontidão;
+- segregação e decisões explícitas exigidas pelo domínio;
+- locks, versão otimista e idempotência;
+- imutabilidade de snapshots e auditoria;
+- minimização de dados, logs seguros e acesso somente leitura ao Senior.
 
 `manage_sectors` exige concessão global na configuração funcional, pois um
 setor e suas responsabilidades podem cobrir múltiplas empresas e filiais. A
@@ -191,22 +202,26 @@ nem substitui códigos oficiais recebidos do Senior.
 Uma responsabilidade pode ser cadastrada para qualquer usuário ativo e herda
 integralmente o escopo organizacional do setor. A autoridade operacional exige,
 no instante do caso de uso, usuário, setor e vínculo ativos e dentro da
-validade. SuperAdmin não se torna responsável funcional implicitamente.
+validade para usuários funcionais. SuperAdmin não recebe vínculo funcional
+artificial, mas sua autoridade global satisfaz a verificação de autorização.
 Escopo e validade são reavaliados no backend; ocultar controles na SPA não
 substitui essa decisão.
 
 O papel `DP` é cumulativo e independente da responsabilidade de setor. A
 abertura já exige uma atribuição `DP` ativa, vigente e compatível com a
 empresa/filial; acompanhamento, análise final, liberação, cancelamento e
-encerramento deverão repetir o mesmo limite. SuperAdmin e responsável pelo
-setor Departamento Pessoal não se tornam `DP` implicitamente.
+encerramento deverão repetir o mesmo limite para usuários funcionais.
+SuperAdmin não se torna `DP`, mas a autoridade global explícita satisfaz o
+limite; responsável pelo setor Departamento Pessoal continua sem receber `DP`
+implicitamente.
 
 Na abertura, a API exige sessão, mas a decisão funcional permanece no service.
 O service chama `has_effective_role()` antes da consulta ao Senior e novamente
 dentro da transação, após lock da conta e das atribuições `DP`. Assim,
-revogação e abertura concorrentes não produzem autoridade implícita. A SPA
-oculta o item de menu sem o papel `DP`, mas isso é somente orientação de
-navegação.
+revogação e abertura concorrentes não produzem autoridade implícita para
+usuários funcionais; SuperAdmin ativo é reconhecido pela mesma função. A SPA
+oculta o item de menu sem o papel `DP`, exceto para SuperAdmin, mas isso é
+somente orientação de navegação.
 
 Na seleção e no início, o service revalida `DP` no escopo do processo. O início
 bloqueia configuração, setores, responsabilidades e usuários em ordem
@@ -257,11 +272,11 @@ Exemplos:
   válida vence e as demais não duplicam efeitos.
 
 Na API de tarefas, listagem e detalhe devolvem `404` para tarefa fora da
-responsabilidade vigente e do escopo herdado do ator. A mutação repete essa
-autorização sob locks; SuperAdmin não recebe acesso funcional implícito. Os
-eventos de conclusão registram apenas IDs dos itens respondidos e quantidade,
-nunca o conteúdo das respostas ou observações, reduzindo exposição de dados
-pessoais na trilha técnica.
+responsabilidade vigente e do escopo herdado do usuário funcional. SuperAdmin
+lista e acessa todas as tarefas. A mutação repete sob locks a responsabilidade
+ou a autoridade global; os eventos registram o SuperAdmin como ator e mantêm
+apenas IDs dos itens respondidos e quantidade, nunca o conteúdo das respostas
+ou observações.
 
 ## 4. Segregação
 

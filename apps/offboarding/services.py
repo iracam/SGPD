@@ -12,10 +12,10 @@ from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import F, Q, QuerySet
+from django.db.models import Exists, OuterRef, Q, QuerySet
 from django.utils import timezone
 
-from apps.accounts.authorization import has_effective_role
+from apps.accounts.authorization import has_effective_role, has_global_authority
 from apps.accounts.models import (
     PEOPLE_DEPARTMENT_ROLE_CODE,
     RoleAssignment,
@@ -54,10 +54,10 @@ from .models import (
     SectorTaskStatus,
 )
 
-PROCESS_OPENED_DESCRIPTION = "Abertura explícita de processo demissional pelo DP."
-DRAFT_SELECTION_DESCRIPTION = "Seleção de grupos e ajustes do rascunho pelo DP."
-PROCESS_STARTED_DESCRIPTION = "Início explícito e idempotente do processo pelo DP."
-SECTOR_TASK_STARTED_DESCRIPTION = "Início explícito da análise pela pessoa responsável."
+PROCESS_OPENED_DESCRIPTION = "Abertura explícita de processo demissional por ator autorizado."
+DRAFT_SELECTION_DESCRIPTION = "Seleção de grupos e ajustes por ator autorizado."
+PROCESS_STARTED_DESCRIPTION = "Início explícito e idempotente por ator autorizado."
+SECTOR_TASK_STARTED_DESCRIPTION = "Início explícito da análise por ator autorizado."
 SECTOR_TASK_COMPLETED_DESCRIPTION = "Conclusão explícita da validação pelo setor."
 START_ACTION = "START"
 
@@ -120,23 +120,11 @@ def _validate_employee_identity(
         raise SeniorContractError("O Senior retornou uma chave de colaborador divergente.")
 
 
-def _lock_users(actor: User, manager_user_id: int) -> tuple[User, User]:
-    user_ids = sorted({actor.pk, manager_user_id})
-    users = {
-        user.pk: user
-        for user in User.objects.select_for_update().filter(pk__in=user_ids).order_by("pk")
-    }
+def _lock_actor(actor: User) -> User:
     try:
-        locked_actor = users[actor.pk]
-    except KeyError as exc:
+        return User.objects.select_for_update().get(pk=actor.pk)
+    except User.DoesNotExist as exc:
         raise PermissionDenied("O ator não está mais disponível.") from exc
-    try:
-        manager = users[manager_user_id]
-    except KeyError as exc:
-        raise ValidationError(
-            {"manager_user_id": "O gestor selecionado não existe no SGPD."}
-        ) from exc
-    return locked_actor, manager
 
 
 def _lock_people_department_assignments(actor: User) -> None:
@@ -149,20 +137,6 @@ def _lock_people_department_assignments(actor: User) -> None:
     )
 
 
-def _manager_snapshot(manager: User) -> tuple[str, str]:
-    if not manager.is_active:
-        raise ValidationError({"manager_user_id": "O gestor selecionado está inativo."})
-    name = manager.get_full_name().strip()
-    email = manager.email.strip().lower()
-    if not name:
-        raise ValidationError(
-            {"manager_user_id": "O gestor precisa possuir nome completo cadastrado."}
-        )
-    if not email:
-        raise ValidationError({"manager_user_id": "O gestor precisa possuir e-mail cadastrado."})
-    return name, email
-
-
 @dataclass(frozen=True, slots=True)
 class OpenOffboardingProcessCommand:
     actor: User
@@ -170,7 +144,6 @@ class OpenOffboardingProcessCommand:
     branch_code: int
     employee_type_code: int
     employee_registration: int
-    manager_user_id: int
     planned_termination_date: date
     due_date: date
     reason: str
@@ -199,11 +172,6 @@ class OpenOffboardingProcessService:
             company_code=command.company_code,
             branch_code=command.branch_code,
         )
-        if not User.objects.filter(pk=command.manager_user_id, is_active=True).exists():
-            raise ValidationError(
-                {"manager_user_id": "Selecione um gestor ativo cadastrado no SGPD."}
-            )
-
         employee = self._repository.get_employee(
             company=command.company_code,
             branch=command.branch_code,
@@ -228,15 +196,13 @@ class OpenOffboardingProcessService:
         source_queried_at = timezone.now()
 
         with transaction.atomic():
-            actor, manager = _lock_users(command.actor, command.manager_user_id)
+            actor = _lock_actor(command.actor)
             _lock_people_department_assignments(actor)
             _require_people_department_role(
                 actor,
                 company_code=command.company_code,
                 branch_code=command.branch_code,
             )
-            manager_name, manager_email = _manager_snapshot(manager)
-
             active_employee_key = _employee_key(
                 command.company_code,
                 command.branch_code,
@@ -264,9 +230,6 @@ class OpenOffboardingProcessService:
                 employee_type_code=command.employee_type_code,
                 employee_registration=command.employee_registration,
                 active_employee_key=active_employee_key,
-                manager=manager,
-                manager_name_snapshot=manager_name,
-                manager_email_snapshot=manager_email,
                 opened_by=actor,
                 planned_termination_date=command.planned_termination_date,
                 due_date=command.due_date,
@@ -322,7 +285,6 @@ class OpenOffboardingProcessService:
                     "branch_code": command.branch_code,
                     "employee_type_code": command.employee_type_code,
                     "employee_registration": command.employee_registration,
-                    "manager_user_id": manager.pk,
                     "planned_termination_date": command.planned_termination_date.isoformat(),
                     "due_date": command.due_date.isoformat(),
                     "priority": priority,
@@ -858,7 +820,6 @@ class GetDraftProcessContextService:
         try:
             process = (
                 OffboardingProcess.objects.select_related(
-                    "manager",
                     "opened_by",
                     "employee_snapshot",
                     "started_by",
@@ -1085,37 +1046,41 @@ class SectorTaskMutationResult:
 
 
 def sector_tasks_for_actor(actor: User) -> QuerySet[ProcessSectorTask]:
-    """Return only tasks covered by an effective sector responsibility."""
+    """Return all tasks for SuperAdmin or those covered by responsibility."""
 
     if not actor.is_active:
         return ProcessSectorTask.objects.none()
+    if has_global_authority(actor):
+        return ProcessSectorTask.objects.all()
     instant = timezone.now()
-    scope = (
-        Q(sector__scopes__scope_type="GLOBAL")
+    responsibility = SectorResponsible.objects.filter(
+        sector_id=OuterRef("sector_id"),
+        user=actor,
+        is_active=True,
+        valid_from__lte=instant,
+    ).filter(Q(valid_until__isnull=True) | Q(valid_until__gt=instant))
+    scope = SectorScope.objects.filter(sector_id=OuterRef("sector_id")).filter(
+        Q(scope_type="GLOBAL")
         | Q(
-            sector__scopes__scope_type="COMPANY",
-            sector__scopes__company_code=F("process__company_code"),
+            scope_type="COMPANY",
+            company_code=OuterRef("process__company_code"),
         )
         | Q(
-            sector__scopes__scope_type="BRANCH",
-            sector__scopes__company_code=F("process__company_code"),
-            sector__scopes__branch_code=F("process__branch_code"),
+            scope_type="BRANCH",
+            company_code=OuterRef("process__company_code"),
+            branch_code=OuterRef("process__branch_code"),
         )
     )
     return (
         ProcessSectorTask.objects.filter(
             process__status=ProcessStatus.STARTED,
             sector__is_active=True,
-            sector__responsibles__user=actor,
-            sector__responsibles__is_active=True,
-            sector__responsibles__valid_from__lte=instant,
         )
-        .filter(
-            Q(sector__responsibles__valid_until__isnull=True)
-            | Q(sector__responsibles__valid_until__gt=instant)
+        .annotate(
+            has_responsibility=Exists(responsibility),
+            has_scope=Exists(scope),
         )
-        .filter(scope)
-        .distinct()
+        .filter(has_responsibility=True, has_scope=True)
     )
 
 
@@ -1160,12 +1125,10 @@ def _lock_task_and_authority(
     except User.DoesNotExist as exc:
         raise PermissionDenied("O ator não está mais disponível.") from exc
     scopes = tuple(SectorScope.objects.filter(sector=sector).order_by("pk"))
-    if (
-        not locked_actor.is_active
-        or not sector.is_active
-        or not responsibilities
-        or not any(_scope_covers_process(scope, process) for scope in scopes)
-    ):
+    has_task_authority = has_global_authority(locked_actor) or (
+        bool(responsibilities) and any(_scope_covers_process(scope, process) for scope in scopes)
+    )
+    if not locked_actor.is_active or not sector.is_active or not has_task_authority:
         raise PermissionDenied(
             "O ator não possui responsabilidade vigente pelo setor no escopo do processo."
         )

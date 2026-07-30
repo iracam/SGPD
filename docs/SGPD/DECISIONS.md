@@ -918,6 +918,9 @@ Manter somente `RESPONSAVEL_SETOR` como papel funcional ativo.
 ### Estado
 
 Aceita em 2026-07-29 no incremento vertical de responsáveis da Fase 3.
+Parcialmente substituída em 2026-07-30 pela ADR-044: o vínculo continua sendo
+necessário para usuários funcionais, mas SuperAdmin possui autoridade global
+sem vínculo artificial.
 
 ### Decisão
 
@@ -946,11 +949,10 @@ idêntica é idempotente; reativar reutiliza a mesma linha e incrementa a versã
 
 ### Autorização
 
-A autoridade operacional exige simultaneamente o papel fixo e uma
-responsabilidade vigente para o setor e contexto organizacional. A revogação
-ou expiração de qualquer um retira a autoridade. `is_superuser` não satisfaz
-essa verificação, pois SuperAdmin é autoridade técnica e não responsável
-funcional.
+Para usuários funcionais, a autoridade operacional exige uma responsabilidade
+vigente para o setor e contexto organizacional. A revogação ou expiração retira
+essa autoridade. SuperAdmin não se torna responsável funcional, mas satisfaz o
+limite por autoridade global conforme a ADR-044.
 
 ### Consequências
 
@@ -967,6 +969,9 @@ funcional.
 ### Estado
 
 Aceita em 2026-07-29 por decisão explícita do responsável funcional.
+Parcialmente substituída em 2026-07-30 pela ADR-044: `DP` continua sendo o
+papel explícito dos usuários funcionais, mas SuperAdmin passa a satisfazer o
+limite de autorização por autoridade global.
 
 ### Contexto
 
@@ -1028,7 +1033,8 @@ de cada transição.
 ### Estado
 
 Aceita em 2026-07-29 no primeiro incremento vertical da Fase 4. Complementada
-pela ADR-039 quanto à configuração do workflow e à transição de início.
+pela ADR-039 quanto à configuração do workflow e à transição de início. A
+identificação do gestor imediato foi substituída pela ADR-045.
 
 ### Contexto
 
@@ -1446,7 +1452,9 @@ e não consultam nem escrevem no Senior HCM.
 
 ### Estado
 
-Aceita e implementada em 2026-07-29.
+Aceita e implementada em 2026-07-29. A restrição que excluía SuperAdmin da
+autoridade sobre tarefas foi substituída em 2026-07-30 pela ADR-044; os demais
+controles permanecem vigentes.
 
 ### Contexto
 
@@ -1464,8 +1472,9 @@ unitários e exige um contrato explícito de persistência.
 ### Decisão
 
 - manter a tarefa pertencente ao setor, sem campo de responsável individual;
-- autorizar consulta e mutação somente por vínculo vigente cujo escopo herdado
-  cobre o processo; SuperAdmin não recebe autoridade funcional implícita;
+- para usuários funcionais, autorizar consulta e mutação somente por vínculo
+  vigente cujo escopo herdado cobre o processo; SuperAdmin satisfaz o limite
+  por autoridade global, sem receber vínculo funcional implícito;
 - implementar `PENDENTE → EM_ANALISE → CONCLUIDA` com locks ordenados, versão
   otimista, chave idempotente por tarefa/ação e auditoria atômica;
 - exigir todas as respostas obrigatórias válidas na conclusão, sem persistir
@@ -1501,3 +1510,112 @@ tabela do Senior foi escrita.
   correspondente existir;
 - prontidão, pendências, painel do DP e estados posteriores continuam fora
   deste incremento.
+
+## ADR-044 — SuperAdmin como autoridade global explícita
+
+### Estado
+
+Aceita e implementada em 2026-07-30 por decisão explícita do responsável
+funcional.
+
+### Contexto
+
+O atributo `is_superuser` já concedia todas as permissões administrativas, mas
+os limites funcionais de `DP`, responsabilidade de setor e os filtros da SPA
+o excluíam de abertura, leitura e execução de processos e tarefas. Isso
+produzia uma conta tecnicamente administrativa que não conseguia inspecionar
+ou operar toda a aplicação.
+
+### Decisão
+
+- definir SuperAdmin como toda conta ativa, autenticada e com
+  `is_superuser=true`;
+- centralizar essa premissa em `has_global_authority()`;
+- permitir ao SuperAdmin acessar e executar todos os processos, tarefas,
+  endpoints, services, menus e funções atuais ou futuras do SGPD;
+- fazer `has_effective_role()` e `has_sector_responsibility()` aceitarem a
+  autoridade global sem criar atribuição `DP` ou vínculo de setor artificiais;
+- fazer consultas de tarefas devolverem todas as linhas ao SuperAdmin e manter
+  os filtros por vínculo e escopo para os demais usuários;
+- exibir todos os itens de navegação existentes ao SuperAdmin, ainda que o
+  contexto não projete papéis funcionais artificiais;
+- registrar o SuperAdmin real como ator de toda mutação e preservar a
+  auditoria transacional.
+
+### Limites
+
+A autoridade global substitui somente verificações de permissão, papel, setor
+e escopo. Ela não permite contornar:
+
+- estado e transições do workflow;
+- prontidão, segregação e decisões explícitas;
+- validação de entrada e integridade;
+- locks, versão otimista e idempotência;
+- imutabilidade de snapshots, versões publicadas e auditoria;
+- minimização de dados, restrições de evidência e logs seguros;
+- a proibição de DML no Senior HCM.
+
+### Compatibilidade e migrations
+
+A decisão não altera models, tabelas, constraints, grants ou dados. Não existe
+migration. `DP` continua sendo o único papel atribuível e
+`RESPONSAVEL_SETOR` continua sendo uma capacidade derivada para usuários
+funcionais.
+
+### Consequências
+
+- uma conta SuperAdmin comprometida possui impacto máximo, registrado no risco
+  R61;
+- contas SuperAdmin devem ser poucas, ativas somente quando necessárias,
+  protegidas e revisadas periodicamente;
+- funcionalidades futuras devem reutilizar `has_global_authority()` no
+  backend e projetar todos os seus menus para SuperAdmin;
+- testes devem cobrir SuperAdmin sem papel ou vínculo, além dos casos de
+  negação para usuários comuns.
+
+## ADR-045 — Remoção do gestor imediato da abertura
+
+### Estado
+
+Aceita e implementada em 2026-07-30 por decisão explícita do responsável
+funcional.
+
+### Contexto
+
+A abertura exigia selecionar uma conta SGPD como gestor imediato e copiava
+identificador, nome e e-mail para o processo. O workflow vigente distribui as
+validações por setores e responsáveis configurados, sem usar essa atribuição
+nas tarefas, nos bloqueios ou nas transições posteriores. O campo adicionava
+cadastro e validação obrigatórios sem produzir autoridade ou roteamento.
+
+### Decisão
+
+- remover gestor imediato do comando, serializer e payload da abertura;
+- remover o endpoint e a consulta de candidatos a gestor;
+- remover o seletor e todo o estado correspondente da SPA;
+- retirar do processo a referência de usuário, o nome histórico e o e-mail
+  histórico;
+- remover `manager_user_id` do evento `PROCESS_OPENED`;
+- manter inalterados o snapshot do colaborador, a autorização `DP` ou
+  SuperAdmin, a releitura somente leitura do Senior, a unicidade do processo e
+  a auditoria transacional;
+- distribuir as validações exclusivamente pelas tarefas dos setores e seus
+  responsáveis vigentes.
+
+### Compatibilidade e migration
+
+A migration `offboarding.0004` remove as colunas `MANAGER_ID`,
+`MANAGER_NAME_SNAPSHOT` e `MANAGER_EMAIL_SNAPSHOT` e recria
+`SGPD_CK_PROCESS_REQUIRED` sem essas colunas. A operação é destrutiva para os
+três valores removidos e deve ser aplicada somente após confirmar que não há
+processos cujo histórico precise preservá-los, além de revisar o SQL Oracle e
+o plano de rollback operacional.
+
+### Consequências
+
+- a abertura não depende de outra conta SGPD além do ator autorizado;
+- processos e respostas da API deixam de expor um bloco `manager`;
+- a remoção reduz dados pessoais persistidos sem alterar a integração Senior;
+- necessidades relacionadas à gestão imediata devem ser modeladas por setor,
+  checklist ou responsável de setor, e não reintroduzidas como campo do
+  processo sem nova decisão.

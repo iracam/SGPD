@@ -98,28 +98,6 @@ describe('ColaboradoresPage', () => {
     component.tipoColaborador.setValue(1);
   }
 
-  function responderGestores(): void {
-    httpMock
-      .expectOne(
-        (req) =>
-          req.url === apiConfig.routes.processManagerCandidates &&
-          req.params.get('company') === '1' &&
-          req.params.get('branch') === '2' &&
-          req.params.get('limit') === '100',
-      )
-      .flush({
-        limit: 100,
-        results: [
-          {
-            id: 50,
-            username: 'gestor.imediato',
-            display_name: 'Gestor Imediato',
-            email: 'gestor.imediato@example.invalid',
-          },
-        ],
-      });
-  }
-
   it('consulta os quatro níveis com os limites homologados', () => {
     responderCascataAteColaborador();
 
@@ -144,13 +122,9 @@ describe('ColaboradoresPage', () => {
       .expectOne((req) => req.url === apiConfig.routes.referenceEmployees)
       .flush({ offset: 0, limit: 20, results: [COLABORADOR] });
     component.colaborador.setValue(123);
-    const gestores = httpMock.expectOne(
-      (req) => req.url === apiConfig.routes.processManagerCandidates,
-    );
 
     component.empresa.setValue(2);
 
-    expect(gestores.cancelled).toBe(true);
     expect(component.filial.value).toBeNull();
     expect(component.tipoColaborador.value).toBeNull();
     expect(component.colaborador.value).toBeNull();
@@ -276,7 +250,6 @@ describe('ColaboradoresPage', () => {
         ],
       });
     component.colaborador.setValue(123);
-    responderGestores();
     fixture.detectChanges();
 
     const content = fixture.nativeElement.textContent as string;
@@ -287,15 +260,13 @@ describe('ColaboradoresPage', () => {
     expect(content.toLowerCase()).not.toContain('cpf');
   });
 
-  it('abre o rascunho com gestor, datas e snapshot somente após confirmação', () => {
+  it('abre o rascunho com datas e snapshot somente após confirmação', () => {
     responderCascataAteColaborador();
     httpMock
       .expectOne((req) => req.url === apiConfig.routes.referenceEmployees)
       .flush({ offset: 0, limit: 20, results: [COLABORADOR] });
     component.colaborador.setValue(123);
-    responderGestores();
     component.formularioAbertura.setValue({
-      manager_user_id: 50,
       planned_termination_date: '2026-08-15',
       due_date: '2026-08-14',
       reason: 'Reorganização da área.',
@@ -312,7 +283,6 @@ describe('ColaboradoresPage', () => {
       branch_code: 2,
       employee_type_code: 1,
       employee_registration: 123,
-      manager_user_id: 50,
       planned_termination_date: '2026-08-15',
       due_date: '2026-08-14',
       reason: 'Reorganização da área.',
@@ -326,11 +296,6 @@ describe('ColaboradoresPage', () => {
       branch_code: 2,
       employee_type_code: 1,
       employee_registration: 123,
-      manager: {
-        id: 50,
-        name: 'Gestor Imediato',
-        email: 'gestor.imediato@example.invalid',
-      },
       opened_by: { id: 10, username: 'dp.operador' },
       opened_at: '2026-07-29T12:00:00-03:00',
       planned_termination_date: '2026-08-15',
@@ -356,5 +321,43 @@ describe('ColaboradoresPage', () => {
     const content = fixture.nativeElement.textContent as string;
     expect(content).toContain('Processo aberto em rascunho');
     expect(content).toContain('3ca25d06-ca5d-4a49-a9df-d42d74a1d6b2');
+  });
+
+  it('prioriza o detalhe útil quando a abertura é rejeitada', () => {
+    responderCascataAteColaborador();
+    httpMock
+      .expectOne((req) => req.url === apiConfig.routes.referenceEmployees)
+      .flush({ offset: 0, limit: 20, results: [COLABORADOR] });
+    component.colaborador.setValue(123);
+    component.formularioAbertura.setValue({
+      planned_termination_date: '2026-08-15',
+      due_date: '2026-08-14',
+      reason: 'Reorganização da área.',
+      priority: 'Alta',
+      notes: '',
+    });
+
+    component.abrirProcesso();
+    httpMock.expectOne(apiConfig.routes.processes).flush(
+      {
+        code: 'validation_error',
+        message: 'Os dados enviados são inválidos.',
+        details: {
+          employee_registration: [
+            'Já existe um processo não encerrado para este colaborador.',
+          ],
+        },
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    fixture.detectChanges();
+
+    expect(component.erroAbertura()).toBe(
+      'Já existe um processo não encerrado para este colaborador.',
+    );
+    const ocorrencias = (
+      fixture.nativeElement.textContent as string
+    ).match(/Já existe um processo não encerrado para este colaborador\./g);
+    expect(ocorrencias).toHaveLength(1);
   });
 });

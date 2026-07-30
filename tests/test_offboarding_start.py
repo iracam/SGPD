@@ -8,8 +8,9 @@ from typing import Any
 import pytest
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -34,6 +35,7 @@ from apps.offboarding.models import (
 )
 from apps.offboarding.services import (
     DraftSectorOverrideValue,
+    GetDraftProcessContextService,
     IdempotencyConflict,
     StartOffboardingProcessCommand,
     StartOffboardingProcessResult,
@@ -96,27 +98,13 @@ def actor() -> User:
 
 
 @pytest.fixture
-def manager() -> User:
-    return User.objects.create_user(
-        username="gestor.inicio",
-        email="gestor.inicio@example.invalid",
-        password=PASSWORD,
-        first_name="Gestor",
-        last_name="Início",
-    )
-
-
-@pytest.fixture
-def process(actor: User, manager: User) -> OffboardingProcess:
+def process(actor: User) -> OffboardingProcess:
     row = OffboardingProcess.objects.create(
         company_code=1,
         branch_code=2,
         employee_type_code=1,
         employee_registration=321,
         active_employee_key="1:2:1:321",
-        manager=manager,
-        manager_name_snapshot=manager.get_full_name(),
-        manager_email_snapshot=manager.email,
         opened_by=actor,
         planned_termination_date=date(2026, 8, 15),
         due_date=date(2026, 8, 14),
@@ -328,6 +316,28 @@ def test_start_generates_sector_task_and_historical_questions_once(
     )
 
 
+def test_superadmin_reads_and_starts_any_process_without_dp_assignment(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    process, _ = configured_draft(actor, process)
+    superadmin = User.objects.create_superuser(
+        username="workflow.superadmin",
+        email="workflow.superadmin@example.invalid",
+        password=PASSWORD,
+    )
+
+    context = GetDraftProcessContextService().execute(superadmin, str(process.uuid))
+    result = start(superadmin, process, key="superadmin-start")
+    process.refresh_from_db()
+
+    assert context.process == process
+    assert len(result.tasks) == 1
+    assert process.status == ProcessStatus.STARTED
+    assert process.started_by == superadmin
+    assert ProcessAuditEvent.objects.get(event_type=ProcessEventType.STARTED).actor == superadmin
+
+
 def test_start_reuses_template_with_independent_snapshots_for_each_sector(
     actor: User,
     process: OffboardingProcess,
@@ -529,9 +539,6 @@ def test_overlapping_groups_merge_stricter_rule_and_conflicting_template_fails(
         employee_type_code=1,
         employee_registration=999,
         active_employee_key="1:2:1:999",
-        manager=process.manager,
-        manager_name_snapshot=process.manager_name_snapshot,
-        manager_email_snapshot=process.manager_email_snapshot,
         opened_by=actor,
         planned_termination_date=process.planned_termination_date,
         due_date=process.due_date,
@@ -616,10 +623,18 @@ def test_draft_and_start_api_authorize_validate_and_replay(
         kwargs={"process_uuid": process.uuid},
     )
 
-    detail = client.get(detail_url)
+    with CaptureQueriesContext(connection) as queries:
+        detail = client.get(detail_url)
     assert detail.status_code == 200
     assert detail.json()["selection"]["blockers"] == []
     assert detail.json()["selection"]["resolved_sectors"][0]["code"] == "TECNOLOGIA"
+    group_queries = [
+        query["sql"].upper()
+        for query in queries.captured_queries
+        if "SGPD_VALIDATION_GROUP_VER" in query["sql"].upper()
+    ]
+    assert group_queries
+    assert all("SELECT DISTINCT" not in query for query in group_queries)
 
     missing_key = client.post(
         start_url,

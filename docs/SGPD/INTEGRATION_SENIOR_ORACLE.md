@@ -124,7 +124,7 @@ Para o SGPD, “ativo/elegível” significa “não demitido”. Portanto, outr
 ### Limites do contrato cadastral
 
 - local de trabalho foi retirado do escopo e não será consultado nem usado nas regras do MVP;
-- gestor não vem do Senior: será um usuário cadastrado no SGPD e selecionado na abertura do processo;
+- gestor imediato não faz parte dos dados de abertura do processo;
 - e-mail não vem do Senior: será mantido no perfil do usuário do SGPD;
 - nenhum usuário, gestor, e-mail, papel funcional, associação ou permissão do
   sistema será provisionado pelo Senior;
@@ -273,7 +273,7 @@ Na abertura do processo, implementada na Fase 4:
 2. executar novamente `obter_colaborador` pela chave completa;
 3. validar que existe exatamente um colaborador elegível e que a chave
    retornada é idêntica à solicitada;
-4. iniciar a transação SGPD, bloquear ator, gestor e atribuições `DP` e repetir
+4. iniciar a transação SGPD, bloquear ator e atribuições `DP` e repetir
    `has_effective_role()`;
 5. impedir duplicidade de processo não encerrado pela identidade externa;
 6. copiar os dados necessários para o snapshot na mesma transação da abertura;

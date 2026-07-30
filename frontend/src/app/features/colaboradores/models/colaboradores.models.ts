@@ -39,24 +39,11 @@ export interface ColaboradorSenior {
   source_updated_at: string | null;
 }
 
-export interface GestorCandidato {
-  id: number;
-  username: string;
-  display_name: string;
-  email: string;
-}
-
-export interface PaginaGestores {
-  limit: number;
-  results: GestorCandidato[];
-}
-
 export interface NovaAberturaProcesso {
   company_code: number;
   branch_code: number;
   employee_type_code: number;
   employee_registration: number;
-  manager_user_id: number;
   planned_termination_date: string;
   due_date: string;
   reason: string;
@@ -71,11 +58,6 @@ export interface ProcessoAberto {
   branch_code: number;
   employee_type_code: number;
   employee_registration: number;
-  manager: {
-    id: number;
-    name: string;
-    email: string;
-  };
   opened_by: {
     id: number;
     username: string;

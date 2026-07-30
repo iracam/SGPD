@@ -35,7 +35,6 @@ from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
     actor,
     configured_draft,
-    manager,
     process,
     start,
 )
@@ -202,7 +201,7 @@ def test_complete_validates_and_normalizes_supported_answer_types(
     assert item.response == {"value": stored}
 
 
-def test_task_authority_is_derived_from_current_sector_link(
+def test_superadmin_has_all_tasks_and_can_mutate_without_sector_link(
     actor: User,
     process: Any,
 ) -> None:
@@ -216,9 +215,22 @@ def test_task_authority_is_derived_from_current_sector_link(
         is_superuser=True,
     )
 
-    assert list(sector_tasks_for_actor(outsider)) == []
-    with pytest.raises(PermissionDenied, match="responsabilidade vigente"):
-        start_task(outsider, task)
+    assert list(sector_tasks_for_actor(outsider)) == [task]
+    start_task(outsider, task)
+    task.refresh_from_db()
+    assert task.status == SectorTaskStatus.IN_ANALYSIS
+    assert (
+        ProcessAuditEvent.objects.get(event_type=ProcessEventType.SECTOR_TASK_STARTED).actor
+        == outsider
+    )
+
+
+def test_task_authority_is_removed_when_current_sector_link_is_revoked(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+    assert "SELECT DISTINCT" not in str(sector_tasks_for_actor(actor).query).upper()
 
     responsibility = task.sector.responsibles.get(user=actor)
     responsibility.is_active = False
@@ -381,6 +393,28 @@ def test_task_api_lists_starts_and_completes_only_authorized_task(
     assert complete_response.status_code == 200
     assert complete_response.json()["status"] == SectorTaskStatus.COMPLETED
     assert complete_response.json()["checklist_items"][0]["response"] is True
+
+
+def test_superadmin_api_lists_any_task_without_sector_link(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    task = started_task(actor, process)
+    superadmin = User.objects.create_superuser(
+        username="tarefas.superadmin",
+        email="tarefas.superadmin@example.invalid",
+        password=PASSWORD,
+    )
+    client.force_login(superadmin)
+
+    listing = client.get(reverse("offboarding-task-api:task-list"))
+    detail = client.get(reverse("offboarding-task-api:task-detail", kwargs={"task_id": task.pk}))
+
+    assert listing.status_code == 200
+    assert [row["id"] for row in listing.json()["results"]] == [task.pk]
+    assert detail.status_code == 200
+    assert detail.json()["id"] == task.pk
 
 
 def test_task_api_rejects_anonymous_and_unrelated_user(

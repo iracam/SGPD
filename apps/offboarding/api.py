@@ -5,23 +5,25 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from django.core.exceptions import PermissionDenied
-from django.db.models import F, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.authorization import has_effective_role
-from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, ScopeType, User
+from apps.accounts.models import ScopeType, User
 from apps.integrations.senior.exceptions import (
     SeniorContractError,
     SeniorUnavailableError,
 )
 from apps.integrations.senior.repository import SeniorRepository
 from apps.sectors.models import SectorScope
-from apps.templates_engine.models import ValidationGroupVersion, VersionStatus
+from apps.templates_engine.models import (
+    ValidationGroupSector,
+    ValidationGroupVersion,
+    VersionStatus,
+)
 from config.api import api_error
 
 from .models import (
@@ -33,7 +35,6 @@ from .models import (
 )
 from .serializers import (
     CompleteSectorTaskSerializer,
-    ManagerCandidateQuerySerializer,
     OpenOffboardingProcessSerializer,
     SectorTaskQuerySerializer,
     StartOffboardingProcessSerializer,
@@ -101,11 +102,6 @@ def process_payload(process: OffboardingProcess) -> dict[str, Any]:
         "branch_code": process.branch_code,
         "employee_type_code": process.employee_type_code,
         "employee_registration": process.employee_registration,
-        "manager": {
-            "id": process.manager_id,
-            "name": process.manager_name_snapshot,
-            "email": process.manager_email_snapshot,
-        },
         "opened_by": {
             "id": process.opened_by_id,
             "username": process.opened_by.username,
@@ -224,30 +220,33 @@ def _available_group_payload(
 
 
 def _available_groups(process: OffboardingProcess) -> list[dict[str, Any]]:
+    applicable_rules = ValidationGroupSector.objects.filter(
+        group_version_id=OuterRef("pk"),
+    ).filter(
+        Q(sector__scopes__scope_type=ScopeType.GLOBAL)
+        | Q(
+            sector__scopes__scope_type=ScopeType.COMPANY,
+            sector__scopes__company_code=process.company_code,
+        )
+        | Q(
+            sector__scopes__scope_type=ScopeType.BRANCH,
+            sector__scopes__company_code=process.company_code,
+            sector__scopes__branch_code=process.branch_code,
+        )
+    )
     versions = (
         ValidationGroupVersion.objects.filter(
             status=VersionStatus.PUBLISHED,
             group__is_active=True,
             group__current_version_id=F("pk"),
         )
-        .filter(
-            Q(sector_rules__sector__scopes__scope_type=ScopeType.GLOBAL)
-            | Q(
-                sector_rules__sector__scopes__scope_type=ScopeType.COMPANY,
-                sector_rules__sector__scopes__company_code=process.company_code,
-            )
-            | Q(
-                sector_rules__sector__scopes__scope_type=ScopeType.BRANCH,
-                sector_rules__sector__scopes__company_code=process.company_code,
-                sector_rules__sector__scopes__branch_code=process.branch_code,
-            )
-        )
+        .annotate(has_applicable_rule=Exists(applicable_rules))
+        .filter(has_applicable_rule=True)
         .select_related("group")
         .prefetch_related(
             "sector_rules__sector__scopes",
             "sector_rules__template_version__template",
         )
-        .distinct()
         .order_by("group_id")
     )
     return [_available_group_payload(version, process) for version in versions]
@@ -332,7 +331,6 @@ class ProcessListCreateView(APIView):
                     branch_code=data["branch_code"],
                     employee_type_code=data["employee_type_code"],
                     employee_registration=data["employee_registration"],
-                    manager_user_id=data["manager_user_id"],
                     planned_termination_date=data["planned_termination_date"],
                     due_date=data["due_date"],
                     reason=data["reason"],
@@ -354,56 +352,11 @@ class ProcessListCreateView(APIView):
                 status_code=502,
             )
 
-        process = (
-            OffboardingProcess.objects.select_related("manager", "opened_by")
-            .select_related("employee_snapshot")
-            .get(pk=process.pk)
-        )
+        process = OffboardingProcess.objects.select_related(
+            "opened_by",
+            "employee_snapshot",
+        ).get(pk=process.pk)
         return Response(process_payload(process), status=201)
-
-
-class ManagerCandidateListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request: Request) -> Response:
-        serializer = ManagerCandidateQuerySerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        data = cast(dict[str, Any], serializer.validated_data)
-        actor = cast(User, request.user)
-        if not has_effective_role(
-            actor,
-            PEOPLE_DEPARTMENT_ROLE_CODE,
-            company_code=data["company"],
-            branch_code=data["branch"],
-        ):
-            raise PermissionDenied(
-                "O ator não possui o papel DP vigente para a empresa e a filial informadas."
-            )
-
-        users = User.objects.filter(is_active=True).order_by(
-            "first_name",
-            "last_name",
-            "username",
-            "pk",
-        )
-        query = data["q"]
-        if query:
-            users = users.filter(
-                Q(first_name__icontains=query)
-                | Q(last_name__icontains=query)
-                | Q(username__icontains=query)
-                | Q(email__icontains=query)
-            )
-        results = [
-            {
-                "id": user.pk,
-                "username": user.username,
-                "display_name": user.get_full_name().strip() or user.username,
-                "email": user.email,
-            }
-            for user in users[: data["limit"]]
-        ]
-        return Response({"limit": data["limit"], "results": results})
 
 
 class ProcessDraftDetailView(APIView):

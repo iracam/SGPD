@@ -85,18 +85,21 @@ export class AuthenticatedLayout {
   };
 
   protected readonly visibleNavItems = computed(() =>
-    this.navItems.filter(
-      (item) =>
-        (!item.feature || this.authService.canView(item.feature)) &&
-        (!item.role || this.authService.currentContext()?.roles.includes(item.role)),
-    ),
+    this.isSuperAdmin()
+      ? this.navItems
+      : this.navItems.filter(
+          (item) =>
+            (!item.feature || this.authService.canView(item.feature)) &&
+            (!item.role || this.authService.currentContext()?.roles.includes(item.role)),
+        ),
   );
-  protected readonly showConfigurationSection = computed(
+  private readonly isSuperAdmin = computed(
     () =>
       this.authService.currentUser()?.is_superuser ??
       this.authService.currentContext()?.scopes.is_superuser ??
       false,
   );
+  protected readonly showConfigurationSection = computed(() => this.isSuperAdmin());
 
   constructor() {
     if (!this.authService.currentContext()) {

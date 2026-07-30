@@ -217,6 +217,15 @@ def test_future_link_is_scheduled_but_not_effective(
     )
 
 
+def test_superadmin_has_global_sector_authority_without_link(actor: User) -> None:
+    assert has_sector_responsibility(
+        actor,
+        "QUALQUER_SETOR",
+        company_code=999,
+        branch_code=999,
+    )
+
+
 def test_update_synchronizes_validity_and_logically_revokes_omitted_link(
     actor: User,
     plain_user: User,

@@ -120,31 +120,19 @@ def actor(dp_role: Role) -> User:
 
 
 @pytest.fixture
-def manager() -> User:
-    return User.objects.create_user(
-        username="gestor.imediato",
-        email="gestor.imediato@example.invalid",
-        password=PASSWORD,
-        first_name="Gestor",
-        last_name="Imediato",
-    )
-
-
-@pytest.fixture
 def actor_client(actor: User) -> Client:
     client = Client()
     client.force_login(actor)
     return client
 
 
-def command(actor: User, manager: User, **overrides: Any) -> OpenOffboardingProcessCommand:
+def command(actor: User, **overrides: Any) -> OpenOffboardingProcessCommand:
     values: dict[str, Any] = {
         "actor": actor,
         "company_code": 1,
         "branch_code": 2,
         "employee_type_code": 1,
         "employee_registration": 123,
-        "manager_user_id": manager.pk,
         "planned_termination_date": date(2026, 8, 15),
         "due_date": date(2026, 8, 14),
         "reason": "Reorganização da área.",
@@ -161,13 +149,12 @@ def service(repository: RepositoryStub | None = None) -> OpenOffboardingProcessS
     )
 
 
-def api_payload(manager: User) -> dict[str, Any]:
+def api_payload() -> dict[str, Any]:
     return {
         "company_code": 1,
         "branch_code": 2,
         "employee_type_code": 1,
         "employee_registration": 123,
-        "manager_user_id": manager.pk,
         "planned_termination_date": "2026-08-15",
         "due_date": "2026-08-14",
         "reason": "Reorganização da área.",
@@ -186,14 +173,11 @@ def post_json(client: Client, payload: dict[str, Any]) -> Any:
 
 def test_open_process_creates_draft_immutable_snapshot_and_audit(
     actor: User,
-    manager: User,
 ) -> None:
-    process = service().execute(command(actor, manager))
+    process = service().execute(command(actor))
 
     assert process.status == ProcessStatus.DRAFT
     assert process.active_employee_key == "1:2:1:123"
-    assert process.manager_name_snapshot == "Gestor Imediato"
-    assert process.manager_email_snapshot == manager.email
     assert process.opened_by == actor
     assert process.version == 1
 
@@ -208,13 +192,12 @@ def test_open_process_creates_draft_immutable_snapshot_and_audit(
     assert event.actor == actor
     assert event.process == process
     assert event.data["employee_registration"] == 123
+    assert "manager_user_id" not in event.data
     assert "employee_name" not in event.data
     assert "masked_cpf" not in event.data
 
 
-def test_open_process_requires_explicit_dp_even_for_superuser(
-    manager: User,
-) -> None:
+def test_superadmin_opens_process_without_explicit_dp_assignment() -> None:
     superuser = User.objects.create_superuser(
         username="tecnico",
         email="tecnico@example.invalid",
@@ -223,16 +206,15 @@ def test_open_process_requires_explicit_dp_even_for_superuser(
         last_name="Admin",
     )
 
-    with pytest.raises(PermissionDenied, match="papel DP"):
-        service().execute(command(superuser, manager))
+    process = service().execute(command(superuser))
 
-    assert RepositoryStub.calls == 0
-    assert not OffboardingProcess.objects.exists()
+    assert RepositoryStub.calls == 1
+    assert process.opened_by == superuser
+    assert process.status == ProcessStatus.DRAFT
+    assert ProcessAuditEvent.objects.get(process=process).actor == superuser
 
 
-def test_open_process_rejects_responsible_sector_without_dp(
-    manager: User,
-) -> None:
+def test_open_process_rejects_responsible_sector_without_dp() -> None:
     responsible = User.objects.create_user(
         username="responsavel.dp",
         email="responsavel.dp@example.invalid",
@@ -256,14 +238,13 @@ def test_open_process_rejects_responsible_sector_without_dp(
     )
 
     with pytest.raises(PermissionDenied, match="papel DP"):
-        service().execute(command(responsible, manager))
+        service().execute(command(responsible))
 
     assert RepositoryStub.calls == 0
 
 
 def test_open_process_enforces_dp_company_and_branch_scope(
     dp_role: Role,
-    manager: User,
 ) -> None:
     scoped_actor = User.objects.create_user(
         username="dp.escopado",
@@ -283,14 +264,13 @@ def test_open_process_enforces_dp_company_and_branch_scope(
     )
 
     with pytest.raises(PermissionDenied, match="empresa e a filial"):
-        service().execute(command(scoped_actor, manager))
+        service().execute(command(scoped_actor))
 
     assert RepositoryStub.calls == 0
 
 
 def test_open_process_rechecks_role_after_senior_query(
     actor: User,
-    manager: User,
 ) -> None:
     assignment = RoleAssignment.objects.get(user=actor)
 
@@ -303,7 +283,7 @@ def test_open_process_rechecks_role_after_senior_query(
             return super().get_employee(**kwargs)
 
     with pytest.raises(PermissionDenied, match="papel DP"):
-        service(RevokingRepository()).execute(command(actor, manager))
+        service(RevokingRepository()).execute(command(actor))
 
     assert RepositoryStub.calls == 1
     assert not OffboardingProcess.objects.exists()
@@ -312,38 +292,23 @@ def test_open_process_rechecks_role_after_senior_query(
 
 def test_open_process_rejects_stale_or_ineligible_employee(
     actor: User,
-    manager: User,
 ) -> None:
     repository = RepositoryStub()
     repository.employee = None
 
     with pytest.raises(ValidationError, match="deixou de ser elegível"):
-        service(repository).execute(command(actor, manager))
+        service(repository).execute(command(actor))
 
     assert not OffboardingProcess.objects.exists()
 
 
-def test_open_process_rejects_inactive_manager_before_senior_query(
-    actor: User,
-    manager: User,
-) -> None:
-    manager.is_active = False
-    manager.save(update_fields=("is_active",))
-
-    with pytest.raises(ValidationError, match="gestor ativo"):
-        service().execute(command(actor, manager))
-
-    assert RepositoryStub.calls == 0
-
-
 def test_open_process_prevents_duplicate_active_employee(
     actor: User,
-    manager: User,
 ) -> None:
-    first = service().execute(command(actor, manager))
+    first = service().execute(command(actor))
 
     with pytest.raises(ValidationError, match="Já existe um processo"):
-        service().execute(command(actor, manager))
+        service().execute(command(actor))
 
     assert OffboardingProcess.objects.get() == first
     assert EmployeeSnapshot.objects.count() == 1
@@ -352,7 +317,6 @@ def test_open_process_prevents_duplicate_active_employee(
 
 def test_audit_failure_rolls_back_process_and_snapshot(
     actor: User,
-    manager: User,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fail_create(**kwargs: Any) -> None:
@@ -361,14 +325,14 @@ def test_audit_failure_rolls_back_process_and_snapshot(
     monkeypatch.setattr(ProcessAuditEvent.objects, "create", fail_create)
 
     with pytest.raises(IntegrityError, match="audit unavailable"):
-        service().execute(command(actor, manager))
+        service().execute(command(actor))
 
     assert not OffboardingProcess.objects.exists()
     assert not EmployeeSnapshot.objects.exists()
 
 
-def test_snapshot_and_audit_are_append_only(actor: User, manager: User) -> None:
-    process = service().execute(command(actor, manager))
+def test_snapshot_and_audit_are_append_only(actor: User) -> None:
+    process = service().execute(command(actor))
     snapshot = process.employee_snapshot
     event = ProcessAuditEvent.objects.get()
 
@@ -391,17 +355,15 @@ def test_snapshot_and_audit_are_append_only(actor: User, manager: User) -> None:
         OffboardingProcess.objects.all().delete()
 
 
-def test_open_process_api_rejects_anonymous(manager: User) -> None:
-    response = post_json(Client(), api_payload(manager))
+def test_open_process_api_rejects_anonymous() -> None:
+    response = post_json(Client(), api_payload())
 
     assert response.status_code == 401
     assert response.json()["code"] == "not_authenticated"
     assert not OffboardingProcess.objects.exists()
 
 
-def test_open_process_api_uses_service_authorization(
-    manager: User,
-) -> None:
+def test_open_process_api_uses_service_authorization() -> None:
     plain_user = User.objects.create_user(
         username="sem.dp",
         email="sem.dp@example.invalid",
@@ -411,7 +373,7 @@ def test_open_process_api_uses_service_authorization(
     )
     client = Client()
     client.force_login(plain_user)
-    response = post_json(client, api_payload(manager))
+    response = post_json(client, api_payload())
 
     assert response.status_code == 403
     assert response.json()["code"] == "permission_denied"
@@ -421,18 +383,17 @@ def test_open_process_api_uses_service_authorization(
 
 def test_open_process_api_creates_snapshot_without_exposing_cpf(
     actor_client: Client,
-    manager: User,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(ProcessListCreateView, "repository_class", RepositoryStub)
 
-    response = post_json(actor_client, api_payload(manager))
+    response = post_json(actor_client, api_payload())
 
     assert response.status_code == 201
     payload = response.json()
     assert payload["status"] == ProcessStatus.DRAFT
     assert payload["employee_snapshot"]["employee_name"] == "Pessoa de Teste"
-    assert payload["manager"]["name"] == "Gestor Imediato"
+    assert "manager" not in payload
     assert "masked_cpf" not in payload["employee_snapshot"]
     assert "cpf" not in str(payload).lower()
     assert "active_employee_key" not in payload
@@ -440,13 +401,12 @@ def test_open_process_api_creates_snapshot_without_exposing_cpf(
 
 def test_open_process_api_translates_senior_unavailability(
     actor_client: Client,
-    manager: User,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     RepositoryStub.error = SeniorUnavailableError("ORA-00000")
     monkeypatch.setattr(ProcessListCreateView, "repository_class", RepositoryStub)
 
-    response = post_json(actor_client, api_payload(manager))
+    response = post_json(actor_client, api_payload())
 
     assert response.status_code == 503
     assert response.json() == {
@@ -459,9 +419,8 @@ def test_open_process_api_translates_senior_unavailability(
 
 def test_open_process_api_validates_incomplete_data(
     actor_client: Client,
-    manager: User,
 ) -> None:
-    payload = api_payload(manager)
+    payload = api_payload()
     payload.pop("reason")
 
     response = post_json(actor_client, payload)
@@ -470,38 +429,6 @@ def test_open_process_api_validates_incomplete_data(
     assert response.json()["code"] == "validation_error"
     assert "reason" in response.json()["details"]
     assert RepositoryStub.calls == 0
-
-
-def test_manager_candidates_require_scoped_dp(
-    actor_client: Client,
-    manager: User,
-) -> None:
-    url = reverse("offboarding-api:manager-candidates")
-    query: dict[str, str | int] = {"company": 1, "branch": 2, "q": "gestor"}
-    response = actor_client.get(url, query)
-
-    assert response.status_code == 200
-    assert response.json()["results"] == [
-        {
-            "id": manager.pk,
-            "username": manager.username,
-            "display_name": "Gestor Imediato",
-            "email": manager.email,
-        }
-    ]
-
-    plain = User.objects.create_user(
-        username="sem.escopo",
-        email="sem.escopo@example.invalid",
-        password=PASSWORD,
-        first_name="Sem",
-        last_name="Escopo",
-    )
-    client = Client()
-    client.force_login(plain)
-    forbidden = client.get(url, {"company": 1, "branch": 2})
-    assert forbidden.status_code == 403
-    assert forbidden.json()["code"] == "permission_denied"
 
 
 def test_process_endpoint_does_not_offer_unimplemented_read_or_delete(

@@ -9,7 +9,6 @@ import {
   FilialSenior,
   NovaAberturaProcesso,
   PaginaSenior,
-  PaginaGestores,
   ProcessoAberto,
   TipoColaboradorSenior,
 } from './models/colaboradores.models';
@@ -69,16 +68,6 @@ export class ColaboradoresService {
       apiConfig.routes.referenceEmployees,
       { params },
     );
-  }
-
-  listarGestores(company: number, branch: number): Observable<PaginaGestores> {
-    const params = new HttpParams()
-      .set('company', company)
-      .set('branch', branch)
-      .set('limit', 100);
-    return this.http.get<PaginaGestores>(apiConfig.routes.processManagerCandidates, {
-      params,
-    });
   }
 
   abrirProcesso(payload: NovaAberturaProcesso): Observable<ProcessoAberto> {

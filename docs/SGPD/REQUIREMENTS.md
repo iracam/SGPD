@@ -104,9 +104,13 @@ recebe a permissão de consultar
 referências do Senior para selecionar o colaborador, mas não recebe
 administração de usuários, papéis ou setores.
 
-SuperAdmin é autoridade técnica definida por `IS_SUPERUSER`, não um papel
-funcional e não se torna `DP` implicitamente. Grupos AD e associações a setores
-não concedem `DP`.
+SuperAdmin é a autoridade global explícita definida por `IS_SUPERUSER`, fora do
+catálogo funcional. Uma conta SuperAdmin ativa e autenticada deverá acessar
+todos os processos, tarefas, menus, endpoints e casos de uso sem depender de
+atribuição `DP`, vínculo de setor ou escopo organizacional. Esse bypass é
+exclusivamente de autorização: estado, prontidão, validação, segregação,
+concorrência, idempotência, imutabilidade e auditoria continuam obrigatórios.
+Grupos AD e associações a setores não concedem essa autoridade.
 
 ### RF-003 — Cadastro de setores
 
@@ -241,14 +245,13 @@ A consulta deverá:
 
 ### RF-009 — Abertura de processo
 
-Um usuário com o papel `DP` vigente no escopo deverá abrir um processo
+Um usuário com o papel `DP` vigente no escopo ou SuperAdmin deverá abrir um processo
 informando:
 
 - empresa;
 - filial;
 - tipo de colaborador;
 - colaborador;
-- gestor imediato cadastrado no SGPD;
 - data de abertura automática;
 - data prevista de desligamento;
 - data limite;
@@ -264,8 +267,6 @@ Estado implementado no primeiro incremento da Fase 4:
   o papel `DP`, empresa e filial;
 - repetição da autorização dentro da transação, após lock da conta e das
   atribuições `DP`, para serializar abertura e revogação concorrentes;
-- gestor ativo selecionado entre contas SGPD, com nome e e-mail copiados para
-  o processo;
 - releitura da chave completa no Senior imediatamente antes da gravação;
 - processo, snapshot e evento `PROCESS_OPENED` confirmados ou revertidos em
   conjunto;
@@ -298,7 +299,9 @@ Alterações posteriores no Senior não deverão alterar o snapshot.
 
 O snapshot é uma entidade do SGPD e não contradiz a ausência de models para referências do Senior.
 
-O gestor é uma atribuição do processo, selecionada entre usuários cadastrados no SGPD. Nome e e-mail do gestor deverão ser preservados historicamente na abertura sem consultar o Senior.
+Gestor imediato não é dado da abertura nem atribuição do processo. As
+validações necessárias são distribuídas pelos setores e responsáveis
+configurados no workflow.
 
 Estado implementado no primeiro incremento da Fase 4:
 
@@ -340,8 +343,8 @@ O sistema poderá sugerir grupos com base em:
 
 ### RF-013 — Alteração manual do grupo
 
-Um usuário com o papel `DP` vigente no escopo poderá incluir ou remover
-setores, com justificativa obrigatória.
+Um usuário com o papel `DP` vigente no escopo ou SuperAdmin poderá incluir ou
+remover setores, com justificativa obrigatória.
 
 O contrato da API implementa inclusão/remoção manual e preserva a justificativa
 na auditoria. A SPA mínima deste incremento confirma grupos e preserva ajustes
@@ -385,7 +388,7 @@ Ao iniciar o processo, o sistema deverá criar uma tarefa para cada setor aplic�
 
 Estado implementado:
 
-- início exclusivo de `RASCUNHO` por `DP` vigente no escopo;
+- início de `RASCUNHO` por `DP` vigente no escopo ou SuperAdmin;
 - nenhuma releitura do Senior; o snapshot da abertura é a referência;
 - ao menos um grupo e um setor obrigatório;
 - setor ativo e compatível com empresa/filial;
@@ -402,9 +405,11 @@ Estado implementado:
 
 - a tarefa pertence ao setor, sem responsável individual;
 - a listagem considera vínculo vigente e escopo herdado `GLOBAL`, `COMPANY` ou
-  `BRANCH`, sem conceder acesso implícito a SuperAdmin;
+  `BRANCH` para usuários funcionais;
+- SuperAdmin lista e acessa todas as tarefas, inclusive sem vínculo com o setor;
 - qualquer responsável efetivo pode iniciar `PENDENTE → EM_ANALISE` e concluir
-  `EM_ANALISE → CONCLUIDA`;
+  `EM_ANALISE → CONCLUIDA`; SuperAdmin pode executar as mesmas transições sem
+  dispensar o estado válido;
 - lock do processo, tarefa, setor, vínculos e ator, versão otimista,
   `Idempotency-Key`, auditoria e transação única implementam first-writer-wins;
 - o processo permanece `INICIADO`; consolidação e prontidão pertencem a
@@ -517,8 +522,8 @@ O sistema deverá escalar tarefas próximas do vencimento ou vencidas.
 
 ### RF-029 — Liberação final
 
-Somente usuário com o papel `DP` vigente no escopo poderá liberar o processo
-para rescisão.
+Somente usuário com o papel `DP` vigente no escopo ou SuperAdmin poderá liberar
+o processo para rescisão.
 
 ### RF-030 — Condições de liberação
 

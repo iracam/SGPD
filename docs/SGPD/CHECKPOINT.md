@@ -12,6 +12,9 @@
 - Autenticação: sessão Django com CSRF em origem única; local operacional;
   descoberta e login AD compartilham o transporte da ADR-032; LDAP simples
   funciona com warning e login AD permanece desligado até teste controlado
+- Autorização: SuperAdmin ativo possui autoridade global sobre todos os
+  processos, tarefas, menus e funções, sem contornar regras de workflow,
+  validação, concorrência ou auditoria, conforme a ADR-044
 
 ## Checkpoint 0 — Descoberta
 
@@ -56,7 +59,7 @@
 - [x] Retirar local do contrato e das regras do MVP.
 - [x] Mapear centro de custo.
 - [x] Retirar gestor da integração Senior.
-  - Gestores serão usuários cadastrados no SGPD.
+  - Gestor imediato também foi retirado dos dados de abertura do processo.
 - [x] Retirar e-mail da integração Senior.
   - E-mails serão mantidos no cadastro local de usuários.
 - [x] Confirmar data de atualização.
@@ -120,7 +123,8 @@
     revogação próprios.
   - `RESPONSAVEL_SETOR` é uma capacidade derivada do vínculo vigente mantido
     no agregado Setor e herda integralmente o escopo do próprio setor.
-  - SuperAdmin é atributo técnico e não recebe papel funcional implicitamente.
+  - SuperAdmin é atributo técnico, não recebe papel funcional implicitamente e
+    possui autoridade global explícita conforme a ADR-044.
 - [x] Definir escopo por empresa/filial.
   - Global, empresa e filial, com validade e revogação lógica.
 - [ ] Definir dados sensíveis.
@@ -439,32 +443,43 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
   - `templates_engine.0004` aplicada no Oracle DEV; grupo e pergunta passaram
     à mesma convenção automática, sem alterar versões ou snapshots históricos.
 - [x] Permissões.
-  - SuperAdmin mantém a administração técnica fora do catálogo funcional.
+  - SuperAdmin mantém-se fora do catálogo funcional e possui autoridade global
+    explícita sobre todos os processos, tarefas, menus e funções.
   - O único papel funcional atribuível ativo é `DP`.
   - `RESPONSAVEL_SETOR` é derivado de vínculo vigente; ações sobre tarefas
     decorrem dessa associação e do escopo herdado do setor. Abertura,
-    acompanhamento, análise, liberação e encerramento decorrerão de `DP`
-    vigente no escopo do processo.
+    acompanhamento, análise, liberação e encerramento decorrem de `DP` vigente
+    no escopo do processo para usuários funcionais.
 
 ## Checkpoint 4 — Workflow
 
+- [x] Autoridade global do SuperAdmin.
+  - A conta ativa acessa todos os processos e tarefas sem papel `DP` ou vínculo
+    de setor artificial.
+  - Services e menus reutilizam a premissa central; o ator real permanece
+    identificado em cada evento de auditoria.
+  - A autoridade não contorna estado, prontidão, validação, locks,
+    idempotência, imutabilidade histórica ou a proibição de DML no Senior.
 - [x] Abertura.
   - `POST /api/v1/processes/` e formulário SPA reutilizam a cascata Senior
     homologada e criam somente o estado `RASCUNHO`.
   - O service exige `has_effective_role()` para `DP` no escopo do colaborador
-    antes da consulta pessoal e repete a verificação sob lock antes da
-    persistência.
-  - Gestor ativo, elegibilidade cadastral, chave devolvida pelo Senior e
-    duplicidade de processo ativo são validados no backend.
+    ou autoridade global do SuperAdmin antes da consulta pessoal e repete a
+    verificação sob lock antes da persistência.
+  - A abertura não exige nem persiste gestor imediato; elegibilidade
+    cadastral, chave devolvida pelo Senior e duplicidade de processo ativo são
+    validadas no backend.
   - A migration aditiva `offboarding.0001` foi revisada, aplicada e validada
     no Oracle DEV.
+  - A migration `offboarding.0004` removeu do Oracle DEV a referência, o nome
+    e o e-mail históricos do gestor; a tabela não possuía processos.
 - [x] Snapshot histórico.
-  - Colaborador e gestor são congelados na abertura; o snapshot rejeita
-    atualização e exclusão física.
+  - O colaborador é congelado na abertura; o snapshot rejeita atualização e
+    exclusão física.
 - [x] Início.
   - Seleção de grupos e ajustes manuais usam versão otimista e auditoria.
   - `POST /api/v1/processes/{uuid}/start/` exige `Idempotency-Key`, revalida
-    `DP` sob lock e não consulta o Senior.
+    `DP` ou autoridade global sob lock e não consulta o Senior.
   - O início exige ao menos um grupo e um setor obrigatório e bloqueia setor
     obrigatório sem responsável vigente no escopo.
 - [x] Geração inicial de tarefas.
@@ -1493,4 +1508,88 @@ Próximo passo: iniciar a Fase 5 por um incremento vertical de pendência e evid
 Comandos executados: revisão integral da documentação e do checkpoint; testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; sqlmigrate e migrate plan; aplicação de offboarding.0003 no Oracle DEV; dois smokes de tarefa sob transaction.atomic com rollback obrigatório; Vitest; build Angular; inspeção visual em 360, 390, 768, 1024 e 1440 px e tema escuro; validação de manifesto e diff.
 Arquivos alterados: models, services, serializers, API, URLs e migration 0003 de offboarding; rota, menu e feature frontend/src/app/features/tarefas; testes backend/frontend; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, WORKFLOWS.md e MANIFEST.json.
 Testes: 321 testes backend e 70 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build inicial de 497,15 kB. O smoke iniciou e concluiu uma tarefa, confirmou replay de início, processo e conclusão, cinco eventos e três chaves idempotentes. A primeira gravação escalar recebeu ORA-02290 e foi integralmente revertida; após o envelope JSON, o smoke passou. O rollback final deixou contagem zero para todos os dados criados e o Senior foi acessado somente por SELECT.
+```
+
+### 2026-07-30 — Autoridade global do SuperAdmin
+
+```text
+Data: 2026-07-30
+Responsável: Codex
+Fase: Segurança e autorização transversal
+O que foi concluído: premissa central de autoridade global para toda conta ativa, autenticada e com is_superuser=true; abertura, leitura e início de qualquer processo; listagem, leitura, início e conclusão de qualquer tarefa; reconhecimento nos helpers de papel e responsabilidade; exibição de todos os menus existentes na SPA; testes de regressão e documentação normativa.
+Diagnóstico: SuperAdmin já possuía permissões administrativas, mas as verificações funcionais de DP, responsabilidade de setor e os filtros da SPA ainda podiam negar processos, tarefas e menus. A autorização estava distribuída e produzia comportamento incompatível com a premissa solicitada.
+Decisões: ADR-044 aceita; has_global_authority() é a fonte central no backend; SuperAdmin não recebe papel DP ou vínculo de setor artificiais; o bypass limita-se à autorização e preserva workflow, prontidão, validação, locks, versão, idempotência, snapshots, auditoria, minimização de dados e a proibição de DML no Senior; cada mutação registra a conta SuperAdmin real como ator.
+Riscos: o comprometimento de SuperAdmin passa a ter impacto máximo e exige contas raras, protegidas e revisadas; novos casos de uso e menus devem reutilizar a premissa central e incluir teste específico; risco R61 registrado.
+Pendências: nenhuma pendência de implementação neste incremento; homologação funcional dos templates, setores e fases posteriores do workflow permanece inalterada.
+Próximo passo: iniciar a Fase 5 com pendência e evidência privada, mantendo a autoridade global do SuperAdmin nos novos endpoints, services e menus.
+Comandos executados: leitura integral da documentação obrigatória; diagnóstico do checkpoint e dos limites de autorização; testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; Vitest; build Angular; revisão documental e de diff.
+Arquivos alterados: helpers de autorização de accounts e sectors; services de offboarding; layout autenticado da SPA; testes backend/frontend; AGENTS.md, README.md, ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, RISK_REGISTER.md, ROADMAP.md, SECURITY.md, VISION.md, WORKFLOWS.md e MANIFEST.json.
+Testes: 325 testes backend e 70 testes frontend passaram; Ruff e format sem erros; Mypy sem erros em 138 arquivos; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,15 kB. Não houve mudança de schema, migration, conexão Oracle ou acesso ao Senior HCM.
+```
+
+### 2026-07-30 — Remoção dos hashes do manifesto documental
+
+```text
+Data: 2026-07-30
+Responsável: Codex
+Fase: Manutenção documental
+O que foi concluído: os campos SHA-256 foram removidos de todos os itens do MANIFEST.json; o catálogo preserva somente caminho e tamanho dos arquivos.
+Decisões: a mudança alcança exclusivamente o manifesto documental; hashes de dependências, certificados, idempotência e futuras evidências permanecem inalterados.
+Riscos: sem hash, o manifesto deixa de validar a integridade do conteúdo e passa a funcionar apenas como catálogo documental com tamanho informativo.
+Pendências: nenhuma no escopo desta alteração.
+Próximo passo: manter novos itens do manifesto sem campo de hash.
+Comandos executados: leitura da documentação obrigatória; busca de usos de hash; validação JSON; verificação da estrutura dos itens; diff check.
+Arquivos alterados: docs/SGPD/MANIFEST.json e docs/SGPD/CHECKPOINT.md.
+Testes: JSON válido; 19 itens contendo somente file e bytes; nenhum campo sha256 no manifesto; diff sem erros de whitespace. A suíte da aplicação não foi executada porque não houve alteração de código.
+```
+
+### 2026-07-30 — Remoção do gestor imediato da abertura
+
+```text
+Data: 2026-07-30
+Responsável: Codex
+Fase: Checkpoint 4 — Workflow / Abertura
+O que foi concluído: gestor imediato removido do formulário, contrato da API, command, service, auditoria e payload da abertura; endpoint de candidatos removido; referência de usuário, nome e e-mail históricos removidos do processo; migration offboarding.0004 aplicada e validada no Oracle DEV.
+Diagnóstico: o gestor era obrigatório e congelado no processo, mas não participava da autorização, da distribuição de tarefas, dos bloqueios ou das transições posteriores. O Oracle DEV possuía zero processos antes da migration.
+Decisões: ADR-045 aceita; a abertura preserva colaborador, datas, motivo, prioridade e observações, e as validações continuam distribuídas por setores e responsáveis vigentes. Não existe fallback, valor nulo ou campo legado no payload.
+Riscos: a migration remove três colunas e é destrutiva para seus valores; o risco foi neutralizado no DEV pela confirmação prévia de zero processos. Outros ambientes devem repetir o preflight e definir preservação ou rollback operacional antes da aplicação.
+Pendências: nenhuma no escopo da abertura; homologação funcional dos templates, setores e fases posteriores do workflow permanece inalterada.
+Próximo passo: seguir o checkpoint vigente da Fase 5 sem reintroduzir gestor como dado do processo.
+Comandos executados: leitura integral da documentação obrigatória; mapeamento de usos; testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; Vitest; build Angular; sqlmigrate Oracle; preflight somente leitura; migrate offboarding 0004; validação de colunas, constraint e plano final.
+Arquivos alterados: models, services, serializer, API, URLs e migration 0004 de offboarding; abertura Angular, contratos, configuração de API e testes; README.md; ARCHITECTURE.md, CHECKPOINT.md, DATA_MODEL.md, DECISIONS.md, INTEGRATION_SENIOR_ORACLE.md, MIGRATION_FRONTEND_SPA.md, REQUIREMENTS.md, ROADMAP.md e MANIFEST.json.
+Testes: 323 testes backend e 70 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,09 kB. No Oracle DEV, as três colunas de gestor estão ausentes, SGPD_CK_PROCESS_REQUIRED está ENABLED/VALIDATED e o plano final de migrations está vazio. Nenhum objeto ou dado do Senior HCM foi consultado ou alterado.
+```
+
+### 2026-07-30 — Compatibilidade Oracle na abertura do rascunho
+
+```text
+Data: 2026-07-30
+Responsável: Codex
+Fase: Checkpoint 4 — Workflow / Abertura e tarefas
+O que foi concluído: correção do ORA-00932 ao abrir a tela do rascunho depois da criação do processo; seleção de grupos aplicáveis e filtro de tarefas migrados de SELECT DISTINCT para subconsultas correlacionadas EXISTS.
+Diagnóstico: ValidationGroup.description e ProcessSectorTask.notes são TextField mapeados como NCLOB no Oracle 19c. As consultas carregavam o model completo com DISTINCT para eliminar duplicidade de joins, e o Oracle não permite comparar NCLOB nessa operação.
+Decisões: preservar o mesmo resultado funcional usando EXISTS para testar grupo aplicável, responsabilidade vigente e escopo organizacional; não converter, truncar nem retirar campos NCLOB; não alterar schema, dados, autorização ou contrato da API.
+Riscos: novas consultas sobre models com TextField podem repetir o problema se usarem DISTINCT; a restrição foi registrada na arquitetura e coberta por regressões que inspecionam o SQL.
+Pendências: nenhuma no escopo da correção.
+Próximo passo: recarregar o rascunho já criado e continuar a seleção/início.
+Comandos executados: diagnóstico de QuerySets e models; testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; repetição somente leitura da consulta real no Oracle DEV.
+Arquivos alterados: apps/offboarding/api.py; apps/offboarding/services.py; tests/test_offboarding_start.py; tests/test_offboarding_tasks.py; ARCHITECTURE.md; CHECKPOINT.md; MANIFEST.json.
+Testes: 31 testes direcionados e 323 testes backend passaram; Ruff, format e Mypy sem erros; Django check e migrations sem divergência. No Oracle DEV, a consulta do processo 2a8b358d-6f09-4377-b991-78cdceac6367 retornou um grupo disponível e estado RASCUNHO sem ORA-00932. Nenhum DML foi executado e nenhum objeto do Senior HCM foi consultado ou alterado.
+```
+
+### 2026-07-30 — Mensagem específica para processo já existente
+
+```text
+Data: 2026-07-30
+Responsável: Codex
+Fase: Checkpoint 4 — Workflow / Abertura
+O que foi concluído: a SPA passou a apresentar o primeiro detalhe de validação sem campo próprio ao rejeitar a abertura, exibindo a causa específica em vez da mensagem genérica "Os dados enviados são inválidos."; detalhes dos campos da abertura permanecem junto aos respectivos controles e nenhuma mensagem é duplicada.
+Diagnóstico: o primeiro POST criou corretamente o processo 2a8b358d-6f09-4377-b991-78cdceac6367 em RASCUNHO para a chave ativa 9:1:1:53. Um segundo POST para o mesmo colaborador foi corretamente rejeitado pela proteção contra processo não encerrado duplicado; a API já devolvia "Já existe um processo não encerrado para este colaborador.", mas a SPA destacava somente a mensagem genérica do envelope.
+Decisões: preservar a validação e o status HTTP 400; não criar, alterar ou encerrar processo automaticamente; apresentar no alerta geral o primeiro detalhe que não possui controle próprio e manter os detalhes dos campos visíveis somente junto aos respectivos controles.
+Riscos: quando houver múltiplos detalhes sem controle próprio, somente o primeiro é promovido ao alerta principal.
+Pendências: nenhuma no escopo da correção; o rascunho existente deve ser reutilizado.
+Próximo passo: acessar /fe/processos/2a8b358d-6f09-4377-b991-78cdceac6367/rascunho/ e continuar o processo, sem repetir a abertura.
+Comandos executados: consulta somente leitura do processo ativo no Oracle DEV; teste completo do frontend; build Angular; validação do manifesto e do diff.
+Arquivos alterados: frontend/src/app/features/colaboradores/colaboradores.ts; frontend/src/app/features/colaboradores/colaboradores.html; frontend/src/app/features/colaboradores/colaboradores.spec.ts; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
+Testes: 71 testes frontend passaram e o build de produção foi concluído com bundle inicial de 497,09 kB. Não houve mudança no backend, schema ou dados nesta correção; nenhum objeto do Senior HCM foi consultado ou alterado.
 ```
