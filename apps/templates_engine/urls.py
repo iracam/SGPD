@@ -50,4 +50,14 @@ urlpatterns = [
         api.ValidationGroupDraftUpdateView.as_view(),
         name="group-version-update",
     ),
+    path(
+        "applicability-rules/",
+        api.ApplicabilityRuleListCreateView.as_view(),
+        name="applicability-rule-list",
+    ),
+    path(
+        "applicability-rules/<int:rule_id>/",
+        api.ApplicabilityRuleUpdateView.as_view(),
+        name="applicability-rule-update",
+    ),
 ]

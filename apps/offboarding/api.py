@@ -8,6 +8,7 @@ from typing import Any, cast
 from django.core.exceptions import PermissionDenied
 from django.db.models import Exists, F, OuterRef, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -26,6 +27,7 @@ from apps.templates_engine.models import (
     ValidationGroupVersion,
     VersionStatus,
 )
+from apps.templates_engine.services import resolve_applicable_group_versions
 from config.api import api_error
 
 from .models import (
@@ -283,6 +285,47 @@ def _available_groups(process: OffboardingProcess) -> list[dict[str, Any]]:
     return [_available_group_payload(version, process) for version in versions]
 
 
+def _applicability_suggestion(
+    process: OffboardingProcess,
+    available_version_ids: set[int],
+) -> dict[str, Any]:
+    """Sugere grupos pelo snapshot; a seleção continua sendo do DP.
+
+    Só entram grupos que também estão disponíveis para o processo, para não
+    sugerir o que a SPA não consegue exibir nem o início conseguiria resolver.
+    """
+    snapshot = getattr(process, "employee_snapshot", None)
+    if snapshot is None:
+        return {"group_version_ids": [], "matches": []}
+    matches = [
+        match
+        for match in resolve_applicable_group_versions(
+            company_code=snapshot.company_code,
+            branch_code=snapshot.branch_code,
+            employee_type_code=snapshot.employee_type_code,
+            job_structure_code=snapshot.job_structure_code,
+            job_code=snapshot.job_code,
+            cost_center_code=snapshot.cost_center_code,
+            reference_date=timezone.localdate(),
+        )
+        if match.group_version_id in available_version_ids
+    ]
+    return {
+        "group_version_ids": [match.group_version_id for match in matches],
+        "matches": [
+            {
+                "rule_id": match.rule_id,
+                "rule_name": match.rule_name,
+                "priority": match.priority,
+                "group_id": match.group_id,
+                "group_name": match.group_name,
+                "group_version_id": match.group_version_id,
+            }
+            for match in matches
+        ],
+    }
+
+
 def _draft_payload(actor: User, process_uuid: str) -> dict[str, Any]:
     context = GetDraftProcessContextService().execute(actor, process_uuid)
     process = context.process
@@ -297,6 +340,7 @@ def _draft_payload(actor: User, process_uuid: str) -> dict[str, Any]:
         "sector",
         "template_version",
     ).prefetch_related("checklist_items")
+    available_groups = _available_groups(process)
     return {
         "process": process_payload(process),
         "selection": {
@@ -340,7 +384,11 @@ def _draft_payload(actor: User, process_uuid: str) -> dict[str, Any]:
             ],
             "blockers": list(context.blockers),
         },
-        "available_groups": _available_groups(process),
+        "available_groups": available_groups,
+        "applicability_suggestion": _applicability_suggestion(
+            process,
+            {group["version_id"] for group in available_groups},
+        ),
         "tasks": [_task_payload(task) for task in tasks],
     }
 

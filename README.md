@@ -149,7 +149,8 @@ Configuração funcional:
 - `/fe/setores`: cadastro auditado de setores, escopos e múltiplos
   responsáveis;
 - `/fe/workflow-config`: cadastro e publicação auditada de templates,
-  perguntas e grupos versionados;
+  perguntas e grupos versionados, além das regras de aplicabilidade que
+  sugerem grupos no rascunho;
 - escopos globais, por empresa ou por filial, usando somente os códigos do
   Senior e sem replicar referências;
 - prazos, bloqueio, valores, evidência e destino de escalada configuráveis;

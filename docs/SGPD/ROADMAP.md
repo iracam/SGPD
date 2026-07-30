@@ -232,6 +232,16 @@ O editor de grupos também permite corrigir nome, descrição, setores, template
 SLA, obrigatoriedade e bloqueio enquanto a versão estiver em `DRAFT`, com
 concorrência otimista e auditoria. A publicação mantém a versão imutável.
 
+### Estado em 2026-07-30
+
+Concluída. As regras de aplicabilidade fecham o RF-012 e a última entrega
+pendente da fase: filtros por empresa, filial, tipo de colaborador, estrutura
+de cargos, cargo e centro de custo sugerem grupos no rascunho, com prioridade,
+janela de validade e auditoria. Pela ADR-046 a regra sugere e não aplica — o
+`DP` confirma a seleção — e regras concorrentes se somam por união. O catálogo
+de regras continua vazio até a homologação funcional; sem regra cadastrada, o
+comportamento anterior de seleção manual permanece inalterado.
+
 A convenção foi uniformizada para os cadastros configuráveis locais: setor,
 template, grupo e pergunta recebem código numérico automático igual ao `ID`;
 API e SPA não solicitam código manual. Referências do Senior e códigos

@@ -341,6 +341,24 @@ O sistema poderá sugerir grupos com base em:
 - vínculo;
 - outros atributos disponíveis.
 
+Estado implementado:
+
+- regra própria em `SGPD_GROUP_APPLICAB_RULE`, associando filtros do snapshot a
+  um grupo, com prioridade, situação e janela de validade;
+- comparação por empresa, filial, tipo de colaborador, estrutura de cargos,
+  cargo e centro de custo; campo vazio é curinga e campo preenchido exige
+  igualdade;
+- a regra sugere e não aplica: o rascunho pré-marca os grupos sugeridos e a
+  seleção só existe depois que o `DP` confirma e salva;
+- união quando várias regras vigentes casam, com prioridade apenas ordenando a
+  exibição; a sugestão informa a regra de origem de cada grupo;
+- sugestão limitada aos grupos disponíveis pelo escopo organizacional do setor;
+- manutenção auditada por `templates_engine.manage_workflow_configuration`, com
+  versão otimista e inativação em vez de exclusão.
+
+Categoria, vínculo e expressões declarativas continuam fora do recorte, assim
+como supressão de uma regra por outra de maior prioridade.
+
 ### RF-013 — Alteração manual do grupo
 
 Um usuário com o papel `DP` vigente no escopo ou SuperAdmin poderá incluir ou

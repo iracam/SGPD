@@ -19,11 +19,14 @@ from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
     ChecklistTemplateVersion,
+    GroupApplicabilityRule,
     ValidationGroup,
     ValidationGroupSector,
     ValidationGroupVersion,
 )
 from .serializers import (
+    ApplicabilityRuleSerializer,
+    ApplicabilityRuleUpdateSerializer,
     ChecklistTemplateCreateSerializer,
     ChecklistTemplateDraftUpdateSerializer,
     ChecklistVersionSerializer,
@@ -34,7 +37,10 @@ from .serializers import (
 )
 from .services import (
     MANAGE_WORKFLOW_CONFIGURATION_PERMISSION,
+    ApplicabilityRuleValue,
     ChecklistItemValue,
+    CreateApplicabilityRuleCommand,
+    CreateApplicabilityRuleService,
     CreateChecklistTemplateCommand,
     CreateChecklistTemplateService,
     CreateChecklistTemplateVersionCommand,
@@ -48,6 +54,8 @@ from .services import (
     PublishChecklistTemplateVersionService,
     PublishValidationGroupVersionCommand,
     PublishValidationGroupVersionService,
+    UpdateApplicabilityRuleCommand,
+    UpdateApplicabilityRuleService,
     UpdateChecklistTemplateDraftCommand,
     UpdateChecklistTemplateDraftService,
     UpdateValidationGroupDraftCommand,
@@ -429,3 +437,99 @@ class ValidationGroupPublishView(WorkflowConfigurationAPIView):
             )
         )
         return Response(group_version_payload(version))
+
+
+def applicability_rule_payload(rule: GroupApplicabilityRule) -> dict[str, Any]:
+    return {
+        "id": rule.pk,
+        "name": rule.name,
+        "priority": rule.priority,
+        "group": {
+            "id": rule.group_id,
+            "name": rule.group.name,
+            "is_active": rule.group.is_active,
+            "current_version_id": rule.group.current_version_id,
+        },
+        "company_code": rule.company_code,
+        "branch_code": rule.branch_code,
+        "employee_type_code": rule.employee_type_code,
+        "job_structure_code": rule.job_structure_code,
+        "job_code": rule.job_code,
+        "cost_center_code": rule.cost_center_code,
+        "is_active": rule.is_active,
+        "valid_from": rule.valid_from.isoformat() if rule.valid_from is not None else None,
+        "valid_to": rule.valid_to.isoformat() if rule.valid_to is not None else None,
+        "version": rule.version,
+    }
+
+
+def _rule_value(data: dict[str, Any]) -> ApplicabilityRuleValue:
+    return ApplicabilityRuleValue(
+        name=data["name"],
+        priority=data["priority"],
+        group_id=data["group_id"],
+        company_code=data.get("company_code"),
+        branch_code=data.get("branch_code"),
+        employee_type_code=data.get("employee_type_code"),
+        job_structure_code=data.get("job_structure_code"),
+        job_code=(data.get("job_code") or "").strip() or None,
+        cost_center_code=(data.get("cost_center_code") or "").strip() or None,
+        is_active=data["is_active"],
+        valid_from=data.get("valid_from"),
+        valid_to=data.get("valid_to"),
+    )
+
+
+def applicability_rule_queryset() -> QuerySet[GroupApplicabilityRule]:
+    return GroupApplicabilityRule.objects.select_related("group").order_by(
+        "-priority",
+        "name",
+        "pk",
+    )
+
+
+class ApplicabilityRuleListCreateView(WorkflowConfigurationAPIView):
+    def get(self, request: Request) -> Response:
+        offset, limit = self.page(request)
+        rules = applicability_rule_queryset()
+        return Response(
+            {
+                "offset": offset,
+                "limit": limit,
+                "results": [
+                    applicability_rule_payload(rule) for rule in rules[offset : offset + limit]
+                ],
+            }
+        )
+
+    def post(self, request: Request) -> Response:
+        serializer = ApplicabilityRuleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        rule = CreateApplicabilityRuleService().execute(
+            CreateApplicabilityRuleCommand(
+                actor=self.actor(request),
+                value=_rule_value(data),
+            )
+        )
+        return Response(
+            applicability_rule_payload(applicability_rule_queryset().get(pk=rule.pk)),
+            status=201,
+        )
+
+
+class ApplicabilityRuleUpdateView(WorkflowConfigurationAPIView):
+    def put(self, request: Request, rule_id: int) -> Response:
+        get_object_or_404(GroupApplicabilityRule, pk=rule_id)
+        serializer = ApplicabilityRuleUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        rule = UpdateApplicabilityRuleService().execute(
+            UpdateApplicabilityRuleCommand(
+                actor=self.actor(request),
+                rule_id=rule_id,
+                expected_version=data["expected_version"],
+                value=_rule_value(data),
+            )
+        )
+        return Response(applicability_rule_payload(applicability_rule_queryset().get(pk=rule.pk)))

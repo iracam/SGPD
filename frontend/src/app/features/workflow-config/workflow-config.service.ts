@@ -6,11 +6,14 @@ import { apiConfig } from '../../core/config/api.config';
 import {
   AtualizacaoRascunhoGrupo,
   AtualizacaoRascunhoTemplate,
+  AtualizacaoRegraAplicabilidade,
   GrupoValidacao,
+  NovaRegraAplicabilidade,
   NovoGrupo,
   NovoTemplate,
   NovaVersaoTemplate,
   PaginaWorkflow,
+  RegraAplicabilidade,
   SetorWorkflow,
   TemplateChecklist,
   VersaoGrupo,
@@ -106,6 +109,32 @@ export class WorkflowConfigService {
     return this.http.post<VersaoGrupo>(
       `/api/v1/workflow-config/group-versions/${versionId}/publish/`,
       { expected_version: expectedVersion },
+    );
+  }
+
+  listarRegrasAplicabilidade(): Observable<PaginaWorkflow<RegraAplicabilidade>> {
+    return this.http.get<PaginaWorkflow<RegraAplicabilidade>>(
+      apiConfig.routes.workflowApplicabilityRules,
+      { params: { limit: 200 } },
+    );
+  }
+
+  criarRegraAplicabilidade(
+    payload: NovaRegraAplicabilidade,
+  ): Observable<RegraAplicabilidade> {
+    return this.http.post<RegraAplicabilidade>(
+      apiConfig.routes.workflowApplicabilityRules,
+      payload,
+    );
+  }
+
+  atualizarRegraAplicabilidade(
+    ruleId: number,
+    payload: AtualizacaoRegraAplicabilidade,
+  ): Observable<RegraAplicabilidade> {
+    return this.http.put<RegraAplicabilidade>(
+      `${apiConfig.routes.workflowApplicabilityRules}${ruleId}/`,
+      payload,
     );
   }
 }

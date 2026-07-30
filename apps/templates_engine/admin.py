@@ -7,6 +7,7 @@ from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
     ChecklistTemplateVersion,
+    GroupApplicabilityRule,
     ValidationGroup,
     ValidationGroupSector,
     ValidationGroupVersion,
@@ -40,6 +41,7 @@ for model in (
     ValidationGroup,
     ValidationGroupVersion,
     ValidationGroupSector,
+    GroupApplicabilityRule,
     WorkflowConfigurationAuditEvent,
 ):
     admin_class = type(

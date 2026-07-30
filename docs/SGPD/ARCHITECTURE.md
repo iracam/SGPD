@@ -582,7 +582,15 @@ GET  POST   /api/v1/workflow-config/groups/
 POST        /api/v1/workflow-config/groups/{id}/versions/
 PUT         /api/v1/workflow-config/group-versions/{id}/
 POST        /api/v1/workflow-config/group-versions/{id}/publish/
+GET  POST   /api/v1/workflow-config/applicability-rules/
+PUT         /api/v1/workflow-config/applicability-rules/{id}/
 ```
+
+As regras de aplicabilidade sugerem grupos pelo snapshot do processo e não
+substituem a seleção do `DP`: o rascunho devolve `applicability_suggestion` com
+os grupos sugeridos e a regra de origem, a SPA pré-marca essa lista e nada é
+persistido antes de o `DP` salvar a seleção. Toda regra vigente que casa
+contribui seu grupo — a prioridade só ordena a exibição, conforme a ADR-046.
 
 Não existe `DELETE`: a desativação é uma alteração explícita, versionada e
 auditada. A cobertura usa escopos `GLOBAL`, `COMPANY` e `BRANCH`; um escopo

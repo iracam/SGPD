@@ -28,6 +28,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 039–043 | Vigentes | Configuração versionada, templates, códigos e execução concorrente |
 | 044 | Vigente | SuperAdmin como autoridade global explícita |
 | 045 | Vigente | Abertura sem gestor imediato |
+| 046 | Vigente | Regra de aplicabilidade como sugestão não vinculante |
 
 ## Integrações, identidade e frontend
 

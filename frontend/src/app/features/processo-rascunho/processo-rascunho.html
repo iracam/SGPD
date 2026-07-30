@@ -61,6 +61,27 @@
         <p>Somente versões vigentes e publicadas podem entrar em uma nova seleção.</p>
       </div>
 
+      @if (sugestoes().length > 0) {
+        <div class="sugestao" role="status">
+          <strong>
+            {{
+              sugestaoAplicada()
+                ? 'Sugestão automática pré-selecionada — confirme e salve'
+                : 'Regras de aplicabilidade sugerem'
+            }}
+          </strong>
+          <ul>
+            @for (sugestao of sugestoes(); track sugestao.rule_id) {
+              <li>
+                {{ sugestao.group_name }}
+                <small>· regra {{ sugestao.rule_name }}</small>
+              </li>
+            }
+          </ul>
+          <small>A seleção final continua sendo sua; desmarque o que não se aplicar.</small>
+        </div>
+      }
+
       <form [formGroup]="formulario" (ngSubmit)="salvarSelecao()">
         <label for="grupos">Grupos aplicáveis</label>
         <p-multiSelect

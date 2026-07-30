@@ -66,17 +66,20 @@ Senior usam repository SQL explícito, parametrizado, sem models e sem tabelas
 
 Módulos já ativos: contas e autorização, auditoria, integração Senior,
 configuração LDAP/AD, setores e responsáveis, templates e grupos versionados,
-abertura e início do processo, tarefas setoriais, pendências estruturadas,
-evidências privadas e painéis iniciais.
+regras de aplicabilidade, abertura e início do processo, tarefas setoriais,
+pendências estruturadas, evidências privadas e painéis iniciais.
 
 ## Estado funcional resumido
 
 A SPA cobre autenticação, contas, configuração LDAP, cascata Senior, setores,
-responsáveis, configuração versionada, abertura, rascunho, início, tarefas e
-hub de processos. O processo nasce `RASCUNHO`, grava snapshot e auditoria na
-mesma transação e impede duplicidade não encerrada. O início fixa grupos,
-setores, templates e perguntas, exige responsáveis vigentes e é idempotente.
-Tarefas possuem controle otimista, lock, idempotência e auditoria.
+responsáveis, configuração versionada, regras de aplicabilidade, abertura,
+rascunho, início, tarefas e hub de processos. O processo nasce `RASCUNHO`,
+grava snapshot e auditoria na mesma transação e impede duplicidade não
+encerrada. As regras de aplicabilidade sugerem grupos pelo snapshot, mas a
+seleção continua explícita: o `DP` confirma antes de salvar. O início fixa
+grupos, setores, templates e perguntas, exige responsáveis vigentes e é
+idempotente. Tarefas possuem controle otimista, lock, idempotência e
+auditoria.
 
 Pendências e evidências possuem a primeira fatia vertical operacional:
 registro, comentários, regularização, bloqueio de conclusão, upload, hash e

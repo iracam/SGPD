@@ -285,6 +285,18 @@ setor. Um grupo exige pelo menos um setor obrigatório.
 - `VALIDO_DE`
 - `VALIDO_ATE`
 
+Estado implementado em `SGPD_GROUP_APPLICAB_RULE`. Os seis campos de match são
+opcionais: nulo é curinga e valor preenchido exige igualdade com o snapshot do
+processo. A regra aponta para o cabeçalho do grupo e a sugestão resolve sua
+versão publicada vigente, por isso a regra não é versionada. `PRIORIDADE`
+ordena a exibição e não suprime outra regra, conforme a ADR-046.
+
+Constraints: `SGPD_CK_APPLICAB_RULE_REQ` exige nome, prioridade e versão
+positivas; `SGPD_CK_APPLICAB_RULE_WIN` impede fim de validade anterior ao
+início; `SGPD_CK_APPLICAB_RULE_BRA` exige a empresa quando a filial é
+informada. A tabela é alterada somente por service auditado, com versão
+otimista, e a regra é inativada em vez de excluída.
+
 A regra poderá usar expressão declarativa em fase posterior.
 
 ### Templates

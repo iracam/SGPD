@@ -1619,3 +1619,80 @@ o plano de rollback operacional.
 - necessidades relacionadas à gestão imediata devem ser modeladas por setor,
   checklist ou responsável de setor, e não reintroduzidas como campo do
   processo sem nova decisão.
+
+## ADR-046 — Regra de aplicabilidade como sugestão não vinculante
+
+### Estado
+
+Aceita e implementada em 2026-07-30. Conclui o RF-012 e a Fase 3. Complementa
+a ADR-039 sem substituí-la: a seleção explícita do `DP` permanece a única
+forma de fixar grupos no processo.
+
+### Contexto
+
+A ADR-039 restringiu a aplicabilidade automática ao escopo organizacional do
+setor e deixou fora os demais atributos do snapshot. Na prática, o `DP`
+precisava reconhecer manualmente, a cada processo, quais grupos publicados se
+aplicavam ao colaborador — conhecimento tácito, não auditável e sujeito a
+esquecimento.
+
+O `DATA_MODEL.md` já previa `REGRA_APLICABILIDADE` com seis campos de match,
+prioridade e janela de validade, mas a entidade não existia no código.
+
+### Decisão
+
+- criar `SGPD_GROUP_APPLICAB_RULE`, associando filtros do snapshot a um
+  cabeçalho de grupo;
+- comparar empresa, filial, tipo de colaborador, estrutura de cargos, cargo e
+  centro de custo; campo nulo é curinga e campo preenchido exige igualdade;
+- a regra **sugere**, não aplica: o rascunho pré-marca os grupos sugeridos e o
+  `DP` confirma, inclui ou remove antes de salvar. Nada é persistido no
+  processo sem a seleção explícita da ADR-039;
+- usar união quando várias regras vigentes casam: toda regra contribui seu
+  grupo e nenhuma suprime outra. `PRIORIDADE` apenas ordena a exibição;
+- resolver o grupo para sua versão publicada vigente no momento da consulta; a
+  regra não é versionada porque o processo já preserva a versão selecionada;
+- limitar a sugestão aos grupos que também estão disponíveis pelo escopo
+  organizacional do setor, evitando sugerir o que o início não resolveria;
+- exigir `templates_engine.manage_workflow_configuration` para manter regras,
+  com versão otimista, auditoria append-only e inativação em vez de exclusão;
+- exigir que o grupo esteja ativo e publicado quando a regra estiver ativa;
+- exigir a empresa quando a filial for informada, pela mesma semântica de
+  `SectorScope`.
+
+Os endpoints são `GET POST /api/v1/workflow-config/applicability-rules/` e
+`PUT /api/v1/workflow-config/applicability-rules/{id}/`. O rascunho passa a
+devolver `applicability_suggestion` com os grupos sugeridos e a regra de
+origem de cada um.
+
+### Alternativa descartada
+
+“Maior prioridade vence”, em que a regra específica substituiria a geral, foi
+descartada neste incremento. Como a sugestão não é vinculante, o único dano
+possível é esconder do `DP` um grupo que deveria aparecer — exatamente o que a
+supressão por prioridade produziria, e de forma silenciosa. A semântica de
+sobreposição também exigiria decidir empates e escopo da substituição sem
+nenhuma regra de exceção real cadastrada.
+
+A troca posterior é barata: `PRIORIDADE` já existe na tabela e a mudança fica
+contida no resolvedor, sem migration nem correção de dados.
+
+### Migration e rollback
+
+`templates_engine.0006_add_group_applicability_rules` é aditiva: cria a tabela,
+a FK `PROTECT` para `SGPD_VALIDATION_GROUP`, o índice de recorte e três check
+constraints (`REQ`, `WIN`, `BRA`). Também reescreve as opções de
+`SGPD_WORKFLOW_CONFIG_AUDIT.EVENT_TYPE`, que no Oracle é no-op. Todos os
+identificadores respeitam o limite de 30 caracteres. O rollback automático é
+seguro enquanto não houver regras cadastradas.
+
+### Consequências
+
+- a configuração funcional deixa de depender de conhecimento tácito do `DP`;
+- a sugestão é rastreável: o rascunho mostra qual regra propôs cada grupo;
+- regras sem filtro algum são válidas e sugerem sempre, cobrindo o caso do
+  grupo piloto único;
+- nenhuma regra bloqueia, obriga ou remove grupo: bloqueio continua sendo
+  atributo do setor no grupo, e o ajuste manual permanece no RF-013;
+- expressões declarativas, regras por categoria ou vínculo e supressão por
+  prioridade continuam fora do recorte.

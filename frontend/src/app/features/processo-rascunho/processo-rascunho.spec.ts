@@ -148,4 +148,86 @@ describe('ProcessoRascunhoPage', () => {
     expect(component.iniciado()).toBe(true);
     expect(component.contexto()?.tasks).toHaveLength(1);
   });
+
+  it('preserva a seleção já salva mesmo quando há sugestão divergente', () => {
+    expect(component.formulario.controls.group_version_ids.value).toEqual([10]);
+    expect(component.sugestaoAplicada()).toBe(false);
+  });
+});
+
+describe('ProcessoRascunhoPage — sugestão de aplicabilidade', () => {
+  let component: ProcessoRascunhoPage;
+  let httpMock: HttpTestingController;
+
+  function montar(contextoInicial: ContextoRascunho): void {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideAnimationsAsync(),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: { get: () => UUID } } },
+        },
+      ],
+    });
+    component = TestBed.createComponent(ProcessoRascunhoPage).componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    httpMock.expectOne(`/api/v1/processes/${UUID}/draft/`).flush(contextoInicial);
+  }
+
+  afterEach(() => {
+    httpMock.verify();
+    TestBed.resetTestingModule();
+  });
+
+  it('pré-marca os grupos sugeridos quando o rascunho ainda não tem seleção', () => {
+    const inicial = contexto();
+    inicial.selection.group_version_ids = [];
+    inicial.selection.groups = [];
+    inicial.applicability_suggestion = {
+      group_version_ids: [10, 11],
+      matches: [
+        {
+          rule_id: 1,
+          rule_name: 'Padrão',
+          priority: 10,
+          group_id: 1,
+          group_name: 'Padrão',
+          group_version_id: 10,
+        },
+        {
+          rule_id: 2,
+          rule_name: 'Gestores',
+          priority: 90,
+          group_id: 2,
+          group_name: 'Crítico',
+          group_version_id: 11,
+        },
+      ],
+    };
+
+    montar(inicial);
+
+    expect(component.formulario.controls.group_version_ids.value).toEqual([10, 11]);
+    expect(component.sugestaoAplicada()).toBe(true);
+    // A sugestão não é persistida: o DP ainda precisa salvar a seleção.
+    expect(component.selecaoAlterada()).toBe(true);
+    expect(component.podeIniciar()).toBe(false);
+    expect(component.sugestoes()).toHaveLength(2);
+  });
+
+  it('não marca nada quando não há regra aplicável', () => {
+    const inicial = contexto();
+    inicial.selection.group_version_ids = [];
+    inicial.selection.groups = [];
+    inicial.applicability_suggestion = { group_version_ids: [], matches: [] };
+
+    montar(inicial);
+
+    expect(component.formulario.controls.group_version_ids.value).toEqual([]);
+    expect(component.sugestaoAplicada()).toBe(false);
+    expect(component.selecaoAlterada()).toBe(false);
+    expect(component.sugestoes()).toHaveLength(0);
+  });
 });

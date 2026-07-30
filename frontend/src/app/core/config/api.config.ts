@@ -24,6 +24,7 @@ export const apiConfig = {
     workflowTemplates: '/api/v1/workflow-config/templates/',
     workflowGroups: '/api/v1/workflow-config/groups/',
     workflowSectors: '/api/v1/workflow-config/sectors/',
+    workflowApplicabilityRules: '/api/v1/workflow-config/applicability-rules/',
 
     sectors: '/api/v1/sectors/',
     sectorResponsibleCandidates: '/api/v1/sectors/responsible-candidates/',

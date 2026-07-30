@@ -85,6 +85,47 @@ export interface GrupoValidacao {
   versions: VersaoGrupo[];
 }
 
+export interface RegraAplicabilidade {
+  id: number;
+  name: string;
+  priority: number;
+  group: {
+    id: number;
+    name: string;
+    is_active: boolean;
+    current_version_id: number | null;
+  };
+  company_code: number | null;
+  branch_code: number | null;
+  employee_type_code: number | null;
+  job_structure_code: number | null;
+  job_code: string | null;
+  cost_center_code: string | null;
+  is_active: boolean;
+  valid_from: string | null;
+  valid_to: string | null;
+  version: number;
+}
+
+export interface NovaRegraAplicabilidade {
+  name: string;
+  priority: number;
+  group_id: number;
+  company_code: number | null;
+  branch_code: number | null;
+  employee_type_code: number | null;
+  job_structure_code: number | null;
+  job_code: string | null;
+  cost_center_code: string | null;
+  is_active: boolean;
+  valid_from: string | null;
+  valid_to: string | null;
+}
+
+export interface AtualizacaoRegraAplicabilidade extends NovaRegraAplicabilidade {
+  expected_version: number;
+}
+
 export interface PaginaWorkflow<T> {
   results: T[];
 }

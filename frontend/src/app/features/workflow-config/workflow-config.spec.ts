@@ -47,6 +47,13 @@ describe('WorkflowConfigPage', () => {
           request.params.get('limit') === '200',
       )
       .flush({ results: [] });
+    httpMock
+      .expectOne(
+        (request) =>
+          request.url === apiConfig.routes.workflowApplicabilityRules &&
+          request.params.get('limit') === '200',
+      )
+      .flush({ results: [] });
   });
 
   afterEach(() => httpMock.verify());
@@ -86,6 +93,9 @@ describe('WorkflowConfigPage', () => {
       .flush({ results: [] });
     httpMock
       .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowApplicabilityRules)
       .flush({ results: [] });
   });
 
@@ -142,6 +152,9 @@ describe('WorkflowConfigPage', () => {
       .flush({ results: [] });
     httpMock
       .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowApplicabilityRules)
       .flush({ results: [] });
   });
 
@@ -203,6 +216,9 @@ describe('WorkflowConfigPage', () => {
       .flush({ results: [] });
     httpMock
       .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowApplicabilityRules)
       .flush({ results: [] });
   });
 
@@ -278,6 +294,9 @@ describe('WorkflowConfigPage', () => {
       .flush({ results: [] });
     httpMock
       .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowApplicabilityRules)
       .flush({ results: [] });
   });
 
@@ -355,5 +374,117 @@ describe('WorkflowConfigPage', () => {
           request.params.get('q') === 'tecnologia',
       )
       .flush({ results: [] });
+  });
+
+  it('cria a regra de aplicabilidade enviando curinga como nulo', () => {
+    component.abrirNovaRegraAplicabilidade();
+    component.formularioRegra.patchValue({
+      name: 'Gestores da matriz',
+      priority: 90,
+      group_id: 5,
+      company_code: 1,
+      job_code: ' GERENTE ',
+      cost_center_code: '',
+      valid_from: '2026-08-01',
+    });
+
+    component.salvarRegraAplicabilidade();
+
+    const create = httpMock.expectOne(apiConfig.routes.workflowApplicabilityRules);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      name: 'Gestores da matriz',
+      priority: 90,
+      group_id: 5,
+      company_code: 1,
+      branch_code: null,
+      employee_type_code: null,
+      job_structure_code: null,
+      job_code: 'GERENTE',
+      cost_center_code: null,
+      is_active: true,
+      valid_from: '2026-08-01',
+      valid_to: null,
+    });
+    create.flush({ id: 9, name: 'Gestores da matriz' });
+
+    httpMock.expectOne(apiConfig.routes.workflowSectors).flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowTemplates)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowApplicabilityRules)
+      .flush({ results: [] });
+    expect(component.exibirRegra()).toBe(false);
+  });
+
+  it('atualiza a regra com a versão otimista carregada', () => {
+    component.editarRegraAplicabilidade({
+      id: 9,
+      name: 'Padrão',
+      priority: 10,
+      group: { id: 5, name: 'Todos', is_active: true, current_version_id: 50 },
+      company_code: 1,
+      branch_code: null,
+      employee_type_code: null,
+      job_structure_code: null,
+      job_code: null,
+      cost_center_code: null,
+      is_active: true,
+      valid_from: null,
+      valid_to: null,
+      version: 4,
+    });
+
+    component.formularioRegra.patchValue({ is_active: false });
+    component.salvarRegraAplicabilidade();
+
+    const update = httpMock.expectOne(
+      `${apiConfig.routes.workflowApplicabilityRules}9/`,
+    );
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body.expected_version).toBe(4);
+    expect(update.request.body.is_active).toBe(false);
+    update.flush({ id: 9, name: 'Padrão' });
+
+    httpMock.expectOne(apiConfig.routes.workflowSectors).flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowTemplates)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowApplicabilityRules)
+      .flush({ results: [] });
+  });
+
+  it('descreve o filtro da regra sem campo preenchido', () => {
+    const semFiltro = {
+      id: 1,
+      name: 'Sempre',
+      priority: 100,
+      group: { id: 5, name: 'Todos', is_active: true, current_version_id: 50 },
+      company_code: null,
+      branch_code: null,
+      employee_type_code: null,
+      job_structure_code: null,
+      job_code: null,
+      cost_center_code: null,
+      is_active: true,
+      valid_from: null,
+      valid_to: null,
+      version: 1,
+    };
+
+    expect(component.descricaoFiltroRegra(semFiltro)).toBe(
+      'Sem filtro — sugere sempre',
+    );
+    expect(
+      component.descricaoFiltroRegra({ ...semFiltro, company_code: 1, job_code: 'DEV' }),
+    ).toBe('Empresa 1 · Cargo DEV');
   });
 });

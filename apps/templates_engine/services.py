@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, cast
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.authorization import has_permission
@@ -19,6 +21,7 @@ from .models import (
     ChecklistTemplate,
     ChecklistTemplateItem,
     ChecklistTemplateVersion,
+    GroupApplicabilityRule,
     ValidationGroup,
     ValidationGroupSector,
     ValidationGroupVersion,
@@ -824,3 +827,198 @@ class PublishValidationGroupVersionService:
             data={"group_id": group.pk, "version_number": version.version_number},
         )
         return cast(ValidationGroupVersion, version)
+
+
+@dataclass(frozen=True, slots=True)
+class ApplicabilityRuleValue:
+    name: str
+    priority: int
+    group_id: int
+    company_code: int | None
+    branch_code: int | None
+    employee_type_code: int | None
+    job_structure_code: int | None
+    job_code: str | None
+    cost_center_code: str | None
+    is_active: bool
+    valid_from: date | None
+    valid_to: date | None
+
+
+def _locked_rule_group(group_id: int) -> ValidationGroup:
+    try:
+        group = ValidationGroup.objects.select_for_update().get(pk=group_id)
+    except ValidationGroup.DoesNotExist as exc:
+        raise ValidationError({"group_id": "O grupo informado não existe."}) from exc
+    if not group.is_active:
+        raise ValidationError({"group_id": "O grupo precisa estar ativo."})
+    if group.current_version_id is None:
+        raise ValidationError(
+            {"group_id": "O grupo precisa possuir uma versão publicada para ser sugerido."}
+        )
+    return cast(ValidationGroup, group)
+
+
+def _apply_rule_value(rule: GroupApplicabilityRule, value: ApplicabilityRuleValue) -> None:
+    rule.name = value.name
+    rule.priority = value.priority
+    rule.group_id = value.group_id
+    rule.company_code = value.company_code
+    rule.branch_code = value.branch_code
+    rule.employee_type_code = value.employee_type_code
+    rule.job_structure_code = value.job_structure_code
+    rule.job_code = value.job_code
+    rule.cost_center_code = value.cost_center_code
+    rule.is_active = value.is_active
+    rule.valid_from = value.valid_from
+    rule.valid_to = value.valid_to
+
+
+def _rule_snapshot(rule: GroupApplicabilityRule) -> dict[str, Any]:
+    return {
+        "name": rule.name,
+        "priority": rule.priority,
+        "group_id": rule.group_id,
+        "company_code": rule.company_code,
+        "branch_code": rule.branch_code,
+        "employee_type_code": rule.employee_type_code,
+        "job_structure_code": rule.job_structure_code,
+        "job_code": rule.job_code,
+        "cost_center_code": rule.cost_center_code,
+        "is_active": rule.is_active,
+        "valid_from": rule.valid_from.isoformat() if rule.valid_from is not None else None,
+        "valid_to": rule.valid_to.isoformat() if rule.valid_to is not None else None,
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class CreateApplicabilityRuleCommand:
+    actor: User
+    value: ApplicabilityRuleValue
+
+
+class CreateApplicabilityRuleService:
+    @transaction.atomic
+    def execute(self, command: CreateApplicabilityRuleCommand) -> GroupApplicabilityRule:
+        _require_permission(command.actor)
+        group = _locked_rule_group(command.value.group_id)
+        rule = GroupApplicabilityRule(group=group)
+        _apply_rule_value(rule, command.value)
+        rule.full_clean()
+        rule.save()
+        _audit(
+            event_type=WorkflowConfigurationEventType.RULE_CREATED,
+            actor=command.actor,
+            entity_type="GROUP_APPLICABILITY_RULE",
+            entity_id=rule.pk,
+            data=_rule_snapshot(rule),
+        )
+        return rule
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateApplicabilityRuleCommand:
+    actor: User
+    rule_id: int
+    expected_version: int
+    value: ApplicabilityRuleValue
+
+
+class UpdateApplicabilityRuleService:
+    @transaction.atomic
+    def execute(self, command: UpdateApplicabilityRuleCommand) -> GroupApplicabilityRule:
+        _require_permission(command.actor)
+        try:
+            rule = GroupApplicabilityRule.objects.select_for_update().get(pk=command.rule_id)
+        except GroupApplicabilityRule.DoesNotExist as exc:
+            raise GroupApplicabilityRule.DoesNotExist from exc
+        if rule.version != command.expected_version:
+            raise ValidationError("A regra foi alterada por outra sessão. Recarregue a página.")
+        # Uma regra inativa pode continuar apontando para grupo sem versão publicada; só
+        # revalidamos o grupo quando a regra permanece ou volta a ficar ativa.
+        if command.value.is_active:
+            _locked_rule_group(command.value.group_id)
+        previous = _rule_snapshot(rule)
+        _apply_rule_value(rule, command.value)
+        rule.version += 1
+        rule.full_clean()
+        rule.save()
+        _audit(
+            event_type=WorkflowConfigurationEventType.RULE_UPDATED,
+            actor=command.actor,
+            entity_type="GROUP_APPLICABILITY_RULE",
+            entity_id=rule.pk,
+            data={
+                "previous": previous,
+                "current": _rule_snapshot(rule),
+                "rule_version": rule.version,
+            },
+        )
+        return cast(GroupApplicabilityRule, rule)
+
+
+@dataclass(frozen=True, slots=True)
+class ApplicabilitySuggestion:
+    rule_id: int
+    rule_name: str
+    priority: int
+    group_id: int
+    group_name: str
+    group_version_id: int
+
+
+def _matches(field: str, value: object) -> Q:
+    """Campo nulo na regra é curinga; caso contrário exige igualdade."""
+    return Q(**{f"{field}__isnull": True}) | Q(**{field: value})
+
+
+def resolve_applicable_group_versions(
+    *,
+    company_code: int | None,
+    branch_code: int | None,
+    employee_type_code: int | None,
+    job_structure_code: int | None,
+    job_code: str | None,
+    cost_center_code: str | None,
+    reference_date: date,
+) -> tuple[ApplicabilitySuggestion, ...]:
+    """Une os grupos de todas as regras vigentes que casam com o snapshot.
+
+    Prioridade só ordena a exibição: nenhuma regra suprime outra, de modo que o
+    DP sempre enxerga tudo que foi sugerido antes de confirmar a seleção.
+    """
+    rules = (
+        GroupApplicabilityRule.objects.filter(is_active=True)
+        .filter(Q(valid_from__isnull=True) | Q(valid_from__lte=reference_date))
+        .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=reference_date))
+        .filter(_matches("company_code", company_code))
+        .filter(_matches("branch_code", branch_code))
+        .filter(_matches("employee_type_code", employee_type_code))
+        .filter(_matches("job_structure_code", job_structure_code))
+        .filter(_matches("job_code", job_code))
+        .filter(_matches("cost_center_code", cost_center_code))
+        .select_related("group__current_version")
+        .order_by("-priority", "name", "pk")
+    )
+    suggestions: list[ApplicabilitySuggestion] = []
+    seen_versions: set[int] = set()
+    for rule in rules:
+        group = rule.group
+        if not group.is_active or group.current_version_id is None:
+            continue
+        if group.current_version.status != VersionStatus.PUBLISHED:
+            continue
+        if group.current_version_id in seen_versions:
+            continue
+        seen_versions.add(group.current_version_id)
+        suggestions.append(
+            ApplicabilitySuggestion(
+                rule_id=rule.pk,
+                rule_name=rule.name,
+                priority=rule.priority,
+                group_id=group.pk,
+                group_name=group.name,
+                group_version_id=group.current_version_id,
+            )
+        )
+    return tuple(suggestions)

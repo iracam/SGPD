@@ -23,9 +23,11 @@ import {
   AtualizacaoRascunhoTemplate,
   GrupoValidacao,
   ItemTemplate,
+  NovaRegraAplicabilidade,
   NovoGrupo,
   NovoTemplate,
   NovaVersaoTemplate,
+  RegraAplicabilidade,
   RegraGrupo,
   SetorWorkflow,
   TemplateChecklist,
@@ -77,16 +79,20 @@ export class WorkflowConfigPage {
   readonly templates = signal<TemplateChecklist[]>([]);
   readonly templatesVisiveis = signal<TemplateChecklist[]>([]);
   readonly grupos = signal<GrupoValidacao[]>([]);
+  readonly regrasAplicabilidade = signal<RegraAplicabilidade[]>([]);
   readonly carregando = signal(true);
   readonly salvandoTemplate = signal(false);
   readonly salvandoGrupo = signal(false);
+  readonly salvandoRegra = signal(false);
   readonly erro = signal('');
   readonly aviso = signal('');
   readonly exibirTemplate = signal(false);
   readonly exibirGrupo = signal(false);
+  readonly exibirRegra = signal(false);
   readonly buscaTemplate = signal('');
   readonly templateEmEdicao = signal<TemplateChecklist | null>(null);
   readonly grupoEmEdicao = signal<GrupoValidacao | null>(null);
+  readonly regraEmEdicao = signal<RegraAplicabilidade | null>(null);
 
   readonly tiposResposta: Array<{ label: string; value: TipoRespostaChecklist }> = [
     { label: 'Sim / não', value: 'BOOLEAN' },
@@ -121,6 +127,27 @@ export class WorkflowConfigPage {
     name: this.formBuilder.nonNullable.control('', Validators.required),
     description: this.formBuilder.nonNullable.control(''),
     sectors: this.formBuilder.array<RegraForm>([this.criarRegra()]),
+  });
+
+  readonly gruposPublicados = computed(() =>
+    this.grupos()
+      .filter((grupo) => grupo.is_active && grupo.current_version_id !== null)
+      .map((grupo) => ({ id: grupo.id, label: `#${grupo.code} · ${grupo.name}` })),
+  );
+
+  readonly formularioRegra = this.formBuilder.group({
+    name: this.formBuilder.nonNullable.control('', Validators.required),
+    priority: this.formBuilder.nonNullable.control(100, Validators.required),
+    group_id: this.formBuilder.control<number | null>(null, Validators.required),
+    company_code: this.formBuilder.control<number | null>(null),
+    branch_code: this.formBuilder.control<number | null>(null),
+    employee_type_code: this.formBuilder.control<number | null>(null),
+    job_structure_code: this.formBuilder.control<number | null>(null),
+    job_code: this.formBuilder.nonNullable.control(''),
+    cost_center_code: this.formBuilder.nonNullable.control(''),
+    is_active: this.formBuilder.nonNullable.control(true),
+    valid_from: this.formBuilder.nonNullable.control(''),
+    valid_to: this.formBuilder.nonNullable.control(''),
   });
 
   constructor() {
@@ -398,6 +425,104 @@ export class WorkflowConfigPage {
       });
   }
 
+  abrirNovaRegraAplicabilidade(): void {
+    this.regraEmEdicao.set(null);
+    this.resetarRegraAplicabilidade();
+    this.exibirRegra.set(true);
+    this.limparMensagens();
+  }
+
+  editarRegraAplicabilidade(regra: RegraAplicabilidade): void {
+    this.regraEmEdicao.set(regra);
+    this.formularioRegra.reset({
+      name: regra.name,
+      priority: regra.priority,
+      group_id: regra.group.id,
+      company_code: regra.company_code,
+      branch_code: regra.branch_code,
+      employee_type_code: regra.employee_type_code,
+      job_structure_code: regra.job_structure_code,
+      job_code: regra.job_code ?? '',
+      cost_center_code: regra.cost_center_code ?? '',
+      is_active: regra.is_active,
+      valid_from: regra.valid_from ?? '',
+      valid_to: regra.valid_to ?? '',
+    });
+    this.exibirRegra.set(true);
+    this.limparMensagens();
+  }
+
+  cancelarEditorRegraAplicabilidade(): void {
+    this.exibirRegra.set(false);
+    this.regraEmEdicao.set(null);
+    this.resetarRegraAplicabilidade();
+  }
+
+  salvarRegraAplicabilidade(): void {
+    if (this.formularioRegra.invalid || this.salvandoRegra()) {
+      this.formularioRegra.markAllAsTouched();
+      return;
+    }
+    const value = this.formularioRegra.getRawValue();
+    const payload: NovaRegraAplicabilidade = {
+      name: value.name,
+      priority: value.priority,
+      group_id: value.group_id as number,
+      company_code: value.company_code,
+      branch_code: value.branch_code,
+      employee_type_code: value.employee_type_code,
+      job_structure_code: value.job_structure_code,
+      job_code: value.job_code.trim() || null,
+      cost_center_code: value.cost_center_code.trim() || null,
+      is_active: value.is_active,
+      valid_from: value.valid_from || null,
+      valid_to: value.valid_to || null,
+    };
+    const regra = this.regraEmEdicao();
+    const request = regra
+      ? this.service.atualizarRegraAplicabilidade(regra.id, {
+          ...payload,
+          expected_version: regra.version,
+        })
+      : this.service.criarRegraAplicabilidade(payload);
+    this.salvandoRegra.set(true);
+    this.limparMensagens();
+    request
+      .pipe(
+        finalize(() => this.salvandoRegra.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (salva) => {
+          this.aviso.set(
+            regra
+              ? `Regra "${salva.name}" atualizada.`
+              : `Regra "${salva.name}" criada.`,
+          );
+          this.exibirRegra.set(false);
+          this.regraEmEdicao.set(null);
+          this.resetarRegraAplicabilidade();
+          this.carregar();
+        },
+        error: (error) =>
+          this.erro.set(errorMessage(error, 'Não foi possível salvar a regra.')),
+      });
+  }
+
+  descricaoFiltroRegra(regra: RegraAplicabilidade): string {
+    const filtros = [
+      ['Empresa', regra.company_code],
+      ['Filial', regra.branch_code],
+      ['Tipo', regra.employee_type_code],
+      ['Estrutura', regra.job_structure_code],
+      ['Cargo', regra.job_code],
+      ['Centro de custo', regra.cost_center_code],
+    ]
+      .filter(([, valor]) => valor !== null && valor !== '')
+      .map(([rotulo, valor]) => `${rotulo} ${valor}`);
+    return filtros.length > 0 ? filtros.join(' · ') : 'Sem filtro — sugere sempre';
+  }
+
   buscarTemplates(): void {
     this.carregando.set(true);
     this.limparMensagens();
@@ -428,17 +553,19 @@ export class WorkflowConfigPage {
       sectors: this.service.listarSetores(),
       templates: this.service.listarTemplates(),
       groups: this.service.listarGrupos(),
+      rules: this.service.listarRegrasAplicabilidade(),
     })
       .pipe(
         finalize(() => this.carregando.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: ({ sectors, templates, groups }) => {
+        next: ({ sectors, templates, groups, rules }) => {
           this.setores.set(sectors.results);
           this.templates.set(templates.results);
           this.templatesVisiveis.set(templates.results);
           this.grupos.set(groups.results);
+          this.regrasAplicabilidade.set(rules.results);
         },
         error: (error) =>
           this.erro.set(
@@ -499,6 +626,23 @@ export class WorkflowConfigPage {
     items: ItemTemplate[],
   ): Array<Omit<ItemTemplate, 'id' | 'code'>> {
     return items.map(({ id: _id, code: _code, ...item }) => item);
+  }
+
+  private resetarRegraAplicabilidade(): void {
+    this.formularioRegra.reset({
+      name: '',
+      priority: 100,
+      group_id: null,
+      company_code: null,
+      branch_code: null,
+      employee_type_code: null,
+      job_structure_code: null,
+      job_code: '',
+      cost_center_code: '',
+      is_active: true,
+      valid_from: '',
+      valid_to: '',
+    });
   }
 
   private resetarGrupo(): void {

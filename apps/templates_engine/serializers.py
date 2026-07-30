@@ -90,3 +90,34 @@ class ValidationGroupCreateSerializer(ValidationGroupVersionSerializer):
 
 class ValidationGroupDraftUpdateSerializer(ValidationGroupCreateSerializer):
     expected_version = serializers.IntegerField(min_value=1)
+
+
+class ApplicabilityRuleSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    priority = serializers.IntegerField(min_value=1, max_value=9999, default=100)
+    group_id = serializers.IntegerField(min_value=1)
+    company_code = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    branch_code = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    employee_type_code = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    job_structure_code = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    job_code = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
+    cost_center_code = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
+    is_active = serializers.BooleanField(default=True)
+    valid_from = serializers.DateField(required=False, allow_null=True)
+    valid_to = serializers.DateField(required=False, allow_null=True)
+
+
+class ApplicabilityRuleUpdateSerializer(ApplicabilityRuleSerializer):
+    expected_version = serializers.IntegerField(min_value=1)

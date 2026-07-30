@@ -4,10 +4,9 @@
 
 - Projeto: SGPD / DesligaFlow
 - Ambiente: DEV único sobre Oracle 19c
-- Fases estabilizadas: 1, 2, 2.5 e 2.7
-- Fases em andamento: 3 — configuração funcional; 4 — workflow; 5 —
-  pendências e evidências
-- Próximo incremento: homologação funcional e visual da Fase 5
+- Fases estabilizadas: 1, 2, 2.5, 2.7 e 3
+- Fases em andamento: 4 — workflow; 5 — pendências e evidências
+- Próximo incremento: homologação funcional e visual das Fases 3 e 5
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente
@@ -21,6 +20,8 @@
 - consulta Senior somente leitura e cascata Empresa → Filial → Tipo →
   Colaborador;
 - templates, perguntas e grupos versionados, com publicação imutável;
+- regras de aplicabilidade que sugerem grupos pelo snapshot, com prioridade,
+  validade, versão otimista e auditoria;
 - abertura transacional em rascunho, snapshot e prevenção de duplicidade;
 - seleção explícita de grupos e início idempotente;
 - geração atômica de tarefas e snapshots de checklist;
@@ -35,9 +36,12 @@
 
 ## Estado corrente
 
-O cadastro funcional básico está operacional. Regras automáticas de
-aplicabilidade permanecem pendentes. O fluxo de processo cobre abertura,
-seleção, início, tarefas e a primeira fatia vertical de pendências/evidências.
+A configuração funcional está completa: setores, responsáveis, templates,
+grupos versionados e regras de aplicabilidade. A regra sugere e não aplica —
+o rascunho pré-marca os grupos sugeridos e a seleção só existe depois que o
+`DP` confirma e salva. Sem regra cadastrada, a seleção manual anterior
+permanece inalterada. O fluxo de processo cobre abertura, seleção, início,
+tarefas e a primeira fatia vertical de pendências/evidências.
 Itens `FILE` e com evidência obrigatória podem concluir depois do upload
 privado. Pendência bloqueante aberta ou em regularização impede a conclusão da
 tarefa.
@@ -48,6 +52,18 @@ concluída; ao concluir a última tarefa, o processo sai desse card e passa para
 foram implementadas.
 
 ## Incremento autorizado implementado
+
+Fase 3 — regras de aplicabilidade (RF-012, ADR-046):
+
+- `SGPD_GROUP_APPLICAB_RULE` com seis campos de match opcionais, prioridade,
+  situação e janela de validade;
+- campo vazio é curinga; campo preenchido exige igualdade com o snapshot;
+- união entre regras vigentes, sem supressão por prioridade;
+- sugestão limitada aos grupos disponíveis pelo escopo do setor e resolvida
+  para a versão publicada vigente;
+- `applicability_suggestion` no rascunho, com a regra de origem de cada grupo;
+- API e SPA de manutenção sob `manage_workflow_configuration`, com versão
+  otimista, auditoria append-only e inativação em vez de exclusão.
 
 Fase 5 — pendências e evidências:
 
@@ -79,7 +95,10 @@ Fase 5 — pendências e evidências:
 ## Riscos e pendências relevantes
 
 - conferir visualmente os painéis nos cinco breakpoints homologados;
-- homologar regras automáticas de aplicabilidade;
+- cadastrar e homologar o catálogo de regras de aplicabilidade, cuja tabela
+  está criada e vazia no Oracle DEV;
+- conferir visualmente o editor de regras e o bloco de sugestão do rascunho
+  nos cinco breakpoints homologados;
 - definir retenção operacional das evidências;
 - homologar o limite de 10 MiB e o catálogo inicial PDF/PNG/JPEG;
 - conferir visualmente pendências e upload nos cinco breakpoints homologados;
@@ -88,13 +107,21 @@ Fase 5 — pendências e evidências:
 
 ## Baseline de qualidade
 
-No incremento da Fase 5 passaram 337 testes backend e 75 frontend,
-Ruff, formatação, Mypy, Django check, verificação de migrations e build Angular.
-O SQL Oracle das migrations `offboarding.0005`, `pending_items.0001` e
-`evidence.0001` foi revisado e aplicado no Oracle DEV. As quatro novas tabelas,
-49 constraints e todos os índices estão válidos; o plano final está vazio.
-Cada nova mudança deve executar o subconjunto pertinente e justificar qualquer
-validação omitida.
+No incremento das regras de aplicabilidade passaram 355 testes backend e 81
+frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e
+build Angular. O SQL Oracle de
+`templates_engine.0006_add_group_applicability_rules` foi revisado e aplicado
+no Oracle DEV: a migration é aditiva, cria uma tabela, uma FK `PROTECT`, um
+índice e três check constraints, todos dentro do limite de 30 caracteres do
+Oracle, e a alteração de opções do `EVENT_TYPE` é no-op. A verificação somente
+leitura confirmou 20 constraints e 3 índices `ENABLED`/`VALIDATED`, com a
+tabela ainda vazia.
+
+No incremento anterior, da Fase 5, o SQL das migrations `offboarding.0005`,
+`pending_items.0001` e `evidence.0001` foi revisado e aplicado no Oracle DEV;
+as quatro tabelas, 49 constraints e todos os índices estão válidos, com plano
+final vazio. Cada nova mudança deve executar o subconjunto pertinente e
+justificar qualquer validação omitida.
 
 O replay idempotente de pendências/evidências materializa consultas
 `select_for_update()` sem paginação, devido à incompatibilidade do Oracle com

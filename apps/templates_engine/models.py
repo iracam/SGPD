@@ -36,6 +36,8 @@ class WorkflowConfigurationEventType(models.TextChoices):
     GROUP_VERSION_CREATED = "GROUP_VERSION_CREATED", "Versão de grupo criada"
     GROUP_DRAFT_UPDATED = "GROUP_DRAFT_UPDATED", "Rascunho de grupo alterado"
     GROUP_PUBLISHED = "GROUP_PUBLISHED", "Grupo publicado"
+    RULE_CREATED = "APPLICAB_RULE_CREATED", "Regra de aplicabilidade criada"
+    RULE_UPDATED = "APPLICAB_RULE_UPDATED", "Regra de aplicabilidade alterada"
 
 
 class ProtectedConfigurationQuerySet(models.QuerySet[Any]):
@@ -516,6 +518,97 @@ class ValidationGroupSector(models.Model):
         if status != VersionStatus.DRAFT:
             raise ValidationError("Relações de grupos publicados não podem ser excluídas.")
         return super().delete(*args, **kwargs)
+
+
+class GroupApplicabilityRule(models.Model):
+    """Sugere um grupo quando o snapshot do processo casa com os filtros.
+
+    Campo nulo é curinga. A regra não é versionada: ela aponta para o cabeçalho
+    do grupo e a sugestão resolve a versão publicada vigente no momento da
+    consulta. O processo continua preservando a versão que o DP selecionou.
+    """
+
+    name = models.CharField("nome", max_length=120)
+    priority = models.PositiveIntegerField("prioridade", default=100)
+    group = models.ForeignKey(
+        ValidationGroup,
+        verbose_name="grupo sugerido",
+        on_delete=models.PROTECT,
+        related_name="applicability_rules",
+    )
+    company_code = models.PositiveIntegerField("código da empresa", null=True, blank=True)
+    branch_code = models.PositiveIntegerField("código da filial", null=True, blank=True)
+    employee_type_code = models.PositiveIntegerField("tipo de colaborador", null=True, blank=True)
+    job_structure_code = models.PositiveIntegerField("estrutura de cargos", null=True, blank=True)
+    job_code = models.CharField(  # noqa: DJ001
+        "código do cargo",
+        max_length=50,
+        null=True,
+        blank=True,
+    )
+    cost_center_code = models.CharField(  # noqa: DJ001
+        "código do centro de custo",
+        max_length=50,
+        null=True,
+        blank=True,
+    )
+    is_active = models.BooleanField("ativa", default=True)
+    valid_from = models.DateField("válida de", null=True, blank=True)
+    valid_to = models.DateField("válida até", null=True, blank=True)
+    created_at = models.DateTimeField("criada em", auto_now_add=True)
+    updated_at = models.DateTimeField("atualizada em", auto_now=True)
+    version = models.PositiveIntegerField("versão de concorrência", default=1)
+
+    objects = ProtectedConfigurationQuerySet.as_manager()
+
+    class Meta:
+        db_table = "SGPD_GROUP_APPLICAB_RULE"
+        ordering = ("-priority", "name", "pk")
+        verbose_name = "regra de aplicabilidade"
+        verbose_name_plural = "regras de aplicabilidade"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(name__isnull=False, priority__gt=0, version__gt=0),
+                name="SGPD_CK_APPLICAB_RULE_REQ",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valid_from__isnull=True)
+                | models.Q(valid_to__isnull=True)
+                | models.Q(valid_to__gte=models.F("valid_from")),
+                name="SGPD_CK_APPLICAB_RULE_WIN",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(branch_code__isnull=True) | models.Q(company_code__isnull=False),
+                name="SGPD_CK_APPLICAB_RULE_BRA",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=("is_active", "company_code", "branch_code"),
+                name="SGPD_IX_APPLICAB_RULE_HIT",
+            ),
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValidationError({"name": "O nome da regra é obrigatório."})
+        self.job_code = (self.job_code or "").strip() or None
+        self.cost_center_code = (self.cost_center_code or "").strip() or None
+        if self.branch_code is not None and self.company_code is None:
+            raise ValidationError(
+                {"branch_code": "A filial exige a empresa correspondente na mesma regra."}
+            )
+        if (
+            self.valid_from is not None
+            and self.valid_to is not None
+            and self.valid_to < self.valid_from
+        ):
+            raise ValidationError({"valid_to": "O fim da validade não pode anteceder o início."})
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Regras de aplicabilidade devem ser inativadas, não excluídas.")
 
 
 class WorkflowConfigurationAuditEvent(models.Model):

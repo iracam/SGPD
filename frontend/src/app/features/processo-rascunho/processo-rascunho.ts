@@ -48,6 +48,11 @@ export class ProcessoRascunhoPage {
     ),
   });
 
+  readonly sugestaoAplicada = signal(false);
+  readonly sugestoes = computed(
+    () => this.contexto()?.applicability_suggestion?.matches ?? [],
+  );
+
   readonly iniciado = computed(
     () => this.contexto()?.process.status === 'INICIADO',
   );
@@ -155,11 +160,20 @@ export class ProcessoRascunhoPage {
 
   private aplicar(contexto: ContextoRascunho): void {
     this.contexto.set(contexto);
+    const persistidos = contexto.selection.group_version_ids;
+    const sugeridos = contexto.applicability_suggestion?.group_version_ids ?? [];
+    // A sugestão só pré-marca um rascunho ainda sem seleção; nada é persistido
+    // até o DP salvar, e ele pode desmarcar qualquer grupo antes disso.
+    const aplicarSugestao =
+      contexto.process.status === 'RASCUNHO' &&
+      persistidos.length === 0 &&
+      sugeridos.length > 0;
     this.formulario.controls.group_version_ids.setValue(
-      contexto.selection.group_version_ids,
+      aplicarSugestao ? sugeridos : persistidos,
       { emitEvent: false },
     );
-    this.selecaoAlterada.set(false);
+    this.sugestaoAplicada.set(aplicarSugestao);
+    this.selecaoAlterada.set(aplicarSugestao);
   }
 
   private criarChaveIdempotencia(): string {

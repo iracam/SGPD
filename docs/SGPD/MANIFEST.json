@@ -8,27 +8,27 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "bytes": 29202
+      "bytes": 29716
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 5154
+      "bytes": 6766
     },
     {
       "file": "CONTEXT.md",
-      "bytes": 5889
+      "bytes": 6069
     },
     {
       "file": "DATA_MODEL.md",
-      "bytes": 19924
+      "bytes": 20657
     },
     {
       "file": "DECISIONS.md",
-      "bytes": 67922
+      "bytes": 71812
     },
     {
       "file": "DECISIONS_INDEX.md",
-      "bytes": 2286
+      "bytes": 2361
     },
     {
       "file": "ENVIRONMENT.md",
@@ -52,11 +52,11 @@
     },
     {
       "file": "README.md",
-      "bytes": 17196
+      "bytes": 17265
     },
     {
       "file": "REQUIREMENTS.md",
-      "bytes": 25815
+      "bytes": 26791
     },
     {
       "file": "RISK_REGISTER.md",
@@ -64,7 +64,7 @@
     },
     {
       "file": "ROADMAP.md",
-      "bytes": 15756
+      "bytes": 16327
     },
     {
       "file": "SECURITY.md",
@@ -84,7 +84,7 @@
     },
     {
       "file": "history/checkpoints/2026-07.md",
-      "bytes": 196798
+      "bytes": 199384
     },
     {
       "file": "history/checkpoints/2026-07-30-documentation-consolidation.md",

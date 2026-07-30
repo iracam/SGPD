@@ -71,6 +71,18 @@ export interface TarefaSetor {
   version: number;
 }
 
+export interface SugestaoAplicabilidade {
+  group_version_ids: number[];
+  matches: Array<{
+    rule_id: number;
+    rule_name: string;
+    priority: number;
+    group_id: number;
+    group_name: string;
+    group_version_id: number;
+  }>;
+}
+
 export interface ContextoRascunho {
   process: ProcessoRascunhoResumo;
   selection: {
@@ -86,6 +98,7 @@ export interface ContextoRascunho {
     blockers: string[];
   };
   available_groups: GrupoDisponivel[];
+  applicability_suggestion?: SugestaoAplicabilidade;
   tasks: TarefaSetor[];
   idempotency_replayed?: boolean;
 }

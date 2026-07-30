@@ -24,6 +24,14 @@
       [disabled]="versoesTemplatePublicadas().length === 0"
       (onClick)="abrirNovoGrupo()"
     ></p-button>
+    <p-button
+      type="button"
+      [outlined]="true"
+      icon="pi pi-filter"
+      label="Nova regra"
+      [disabled]="gruposPublicados().length === 0"
+      (onClick)="abrirNovaRegraAplicabilidade()"
+    ></p-button>
   </div>
 </header>
 
@@ -262,6 +270,130 @@
   </section>
 }
 
+@if (exibirRegra()) {
+  <section class="cartao editor" aria-labelledby="editor-regra">
+    <h2 id="editor-regra">
+      @if (regraEmEdicao(); as regra) {
+        Editar regra — {{ regra.name }}
+      } @else {
+        Nova regra de aplicabilidade
+      }
+    </h2>
+    <p class="editor__nota">
+      A regra sugere o grupo quando todos os filtros preenchidos casam com o
+      snapshot do processo. Campo vazio é curinga. A sugestão não substitui a
+      confirmação do DP no rascunho.
+    </p>
+    <form [formGroup]="formularioRegra" (ngSubmit)="salvarRegraAplicabilidade()">
+      <div class="grade-campos">
+        <div class="campo campo--largo">
+          <label for="regra-name">Nome</label>
+          <input id="regra-name" pInputText formControlName="name" />
+        </div>
+        <div class="campo">
+          <label for="regra-priority">Prioridade (ordena a exibição)</label>
+          <p-inputNumber
+            inputId="regra-priority"
+            formControlName="priority"
+            [min]="1"
+            [max]="9999"
+          ></p-inputNumber>
+        </div>
+        <div class="campo campo--largo">
+          <label for="regra-group">Grupo sugerido</label>
+          <p-select
+            inputId="regra-group"
+            formControlName="group_id"
+            [options]="gruposPublicados()"
+            optionLabel="label"
+            optionValue="id"
+            placeholder="Selecione um grupo publicado"
+          ></p-select>
+        </div>
+        <div class="campo">
+          <label for="regra-company">Empresa</label>
+          <p-inputNumber
+            inputId="regra-company"
+            formControlName="company_code"
+            [min]="1"
+          ></p-inputNumber>
+        </div>
+        <div class="campo">
+          <label for="regra-branch">Filial (exige empresa)</label>
+          <p-inputNumber
+            inputId="regra-branch"
+            formControlName="branch_code"
+            [min]="1"
+          ></p-inputNumber>
+        </div>
+        <div class="campo">
+          <label for="regra-type">Tipo de colaborador</label>
+          <p-inputNumber
+            inputId="regra-type"
+            formControlName="employee_type_code"
+            [min]="1"
+          ></p-inputNumber>
+        </div>
+        <div class="campo">
+          <label for="regra-structure">Estrutura de cargos</label>
+          <p-inputNumber
+            inputId="regra-structure"
+            formControlName="job_structure_code"
+            [min]="1"
+          ></p-inputNumber>
+        </div>
+        <div class="campo">
+          <label for="regra-job">Cargo</label>
+          <input id="regra-job" pInputText formControlName="job_code" />
+        </div>
+        <div class="campo">
+          <label for="regra-cost-center">Centro de custo</label>
+          <input id="regra-cost-center" pInputText formControlName="cost_center_code" />
+        </div>
+        <div class="campo">
+          <label for="regra-valid-from">Válida de</label>
+          <input
+            id="regra-valid-from"
+            pInputText
+            type="date"
+            formControlName="valid_from"
+          />
+        </div>
+        <div class="campo">
+          <label for="regra-valid-to">Válida até</label>
+          <input
+            id="regra-valid-to"
+            pInputText
+            type="date"
+            formControlName="valid_to"
+          />
+        </div>
+        <div class="campo marcadores">
+          <label>
+            <p-checkbox formControlName="is_active" [binary]="true"></p-checkbox>
+            Ativa
+          </label>
+        </div>
+      </div>
+      <div class="acoes">
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          label="Cancelar"
+          (onClick)="cancelarEditorRegraAplicabilidade()"
+        ></p-button>
+        <p-button
+          type="submit"
+          icon="pi pi-save"
+          [label]="regraEmEdicao() ? 'Salvar regra' : 'Criar regra'"
+          [loading]="salvandoRegra()"
+        ></p-button>
+      </div>
+    </form>
+  </section>
+}
+
 <section class="catalogos" aria-label="Catálogo versionado">
   <article class="cartao">
     <div class="subtitulo">
@@ -378,6 +510,50 @@
       </div>
     } @empty {
       <p>Nenhum grupo cadastrado.</p>
+    }
+  </article>
+
+  <article class="cartao">
+    <div class="subtitulo">
+      <h2>Regras de aplicabilidade</h2>
+      <span>{{ regrasAplicabilidade().length }} cadastrada(s)</span>
+    </div>
+    <p class="editor__nota">
+      Toda regra vigente que casa contribui seu grupo; nenhuma suprime outra. O
+      DP confirma a sugestão no rascunho antes de iniciar.
+    </p>
+    @for (regra of regrasAplicabilidade(); track regra.id) {
+      <div class="registro">
+        <div>
+          <strong>{{ regra.name }} → {{ regra.group.name }}</strong>
+          <small>
+            {{ descricaoFiltroRegra(regra) }} · prioridade {{ regra.priority }}
+            @if (regra.valid_from || regra.valid_to) {
+              · vigência {{ regra.valid_from || 'início livre' }} a
+              {{ regra.valid_to || 'sem fim' }}
+            }
+          </small>
+        </div>
+        <div class="registro__acoes">
+          <p-tag
+            [severity]="regra.is_active ? 'success' : 'secondary'"
+            [value]="regra.is_active ? 'Ativa' : 'Inativa'"
+          ></p-tag>
+          <p-button
+            type="button"
+            size="small"
+            [outlined]="true"
+            icon="pi pi-pencil"
+            label="Editar"
+            (onClick)="editarRegraAplicabilidade(regra)"
+          ></p-button>
+        </div>
+      </div>
+    } @empty {
+      <p>
+        Nenhuma regra cadastrada. Sem regra, o rascunho não recebe sugestão e o
+        DP seleciona os grupos manualmente.
+      </p>
     }
   </article>
 </section>
