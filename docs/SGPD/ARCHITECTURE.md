@@ -212,7 +212,8 @@ obtém o identificador do banco e preenche a coluna técnica `CODE` na mesma
 transação. A SPA e os serializers não aceitam código manual. Essa convenção não
 altera referências externas do Senior nem os códigos funcionais fixos.
 
-A estrutura de `frontend/` está detalhada em `MIGRATION_FRONTEND_SPA.md` §5.
+A estrutura de `frontend/` está preservada no plano concluído em
+`history/completed-plans/MIGRATION_FRONTEND_SPA.md` §5.
 
 ## 4. Serviços de domínio
 

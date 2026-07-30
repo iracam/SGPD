@@ -7,6 +7,9 @@ componentes intermediários que já foram substituídos. Os blocos `Estado`
 registram o resultado de cada fase; o status geral e o próximo incremento
 autorizado estão em `CHECKPOINT.md`.
 
+Este documento é consultado para planejamento. O contexto mínimo de uma tarefa
+está em `CONTEXT.md`; detalhes cronológicos ficam em `history/checkpoints/`.
+
 ## Fase 0 — Descoberta e fundação
 
 ### Objetivos
@@ -153,8 +156,8 @@ Colaborador sobre os quatro endpoints Senior homologados. O Django Admin
 somente leitura foi
 preservado. A rota de catálogo editável de papéis foi removida em 2026-07-29.
 
-O plano completo, com as sete fases e seus critérios de conclusão, está em
-`MIGRATION_FRONTEND_SPA.md`.
+O plano completo, com as sete fases e seus critérios de conclusão, está
+preservado em `history/completed-plans/MIGRATION_FRONTEND_SPA.md`.
 
 ## Fase 2.7 — Configuração técnica de autenticação
 

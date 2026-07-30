@@ -458,8 +458,8 @@ conforme `SECURITY.md` §9.
 - HTMX, Alpine.js, Tailwind e daisyUI não fazem parte da stack;
 - a autorização não usa a renderização como barreira auxiliar: a API é a única
   superfície e cada endpoint possui teste de permissão negada;
-- o plano de execução, com sete fases e critérios de conclusão, está em
-  `MIGRATION_FRONTEND_SPA.md`.
+- o plano de execução, com sete fases e critérios de conclusão, está preservado
+  em `history/completed-plans/MIGRATION_FRONTEND_SPA.md`.
 
 ### Risco aceito
 

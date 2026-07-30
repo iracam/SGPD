@@ -45,8 +45,9 @@ A interface não depende de CDN: componentes, ícones e fontes são empacotados 
 build.
 
 A interface definitiva é uma SPA Angular, conforme as ADRs 025 a 028. O plano
-concluído está registrado em `docs/SGPD/MIGRATION_FRONTEND_SPA.md`. O Django
-Admin é a única interface server-side preservada.
+concluído está preservado em
+`docs/SGPD/history/completed-plans/MIGRATION_FRONTEND_SPA.md`. O Django Admin é
+a única interface server-side preservada.
 
 ## Execução local
 
@@ -201,6 +202,9 @@ A SPA vive em `frontend/`. As versões exatas estão em
 
 ## Estrutura da documentação (`./docs/SGPD/`)
 
+- `CONTEXT.md`: contexto mínimo vigente e roteamento de leitura por escopo.
+- `CHECKPOINT.md`: estado atual, riscos e próximo incremento.
+- `DECISIONS_INDEX.md`: índice compacto para localizar ADRs relacionadas.
 - `VISION.md`: visão do produto.
 - `ENVIRONMENT.md`: inventário e matriz dos ambientes.
 - `REQUIREMENTS.md`: requisitos funcionais e não funcionais.
@@ -212,9 +216,9 @@ A SPA vive em `frontend/`. As versões exatas estão em
 - `SECURITY.md`: segurança, LGPD e auditoria.
 - `RISK_REGISTER.md`: registro e mitigação de riscos.
 - `DECISIONS.md`: decisões arquiteturais vigentes e índice das substituídas.
-- `MIGRATION_FRONTEND_SPA.md`: registro do plano executado de migração para a SPA.
 - `ROADMAP.md`: fases de implementação.
-- `CHECKPOINT.md`: controle de progresso do projeto.
+- `history/`: checkpoints históricos e planos concluídos, fora da leitura
+  cotidiana.
 
 ## Na raiz do projeto
 

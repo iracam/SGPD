@@ -20,18 +20,17 @@ Todo agente deve preservar:
 Antes de implementar:
 
 1. leia `README.md`;
-2. leia `VISION.md`;
-3. leia `REQUIREMENTS.md`;
-4. leia `ARCHITECTURE.md`;
-5. leia `DATA_MODEL.md`;
-6. leia `INTEGRATION_SENIOR_ORACLE.md`;
-7. leia `SECURITY.md`;
-8. leia `MIGRATION_FRONTEND_SPA.md`;
-9. leia `ROADMAP.md`;
-10. leia `CHECKPOINT.md`;
-11. produza diagnóstico do estado atual.
+2. leia `docs/SGPD/CONTEXT.md`;
+3. leia `docs/SGPD/CHECKPOINT.md`;
+4. leia `docs/SGPD/DECISIONS_INDEX.md`;
+5. identifique o escopo e leia integralmente os documentos adicionais indicados
+   pela matriz de leitura do `CONTEXT.md`;
+6. consulte em `DECISIONS.md` o texto completo de toda ADR relacionada;
+7. produza diagnóstico do estado atual.
 
 Não implemente grandes blocos sem verificar o checkpoint atual.
+O histórico em `docs/SGPD/history/` não é leitura obrigatória; consulte-o para
+investigação, regressão, auditoria ou rastreabilidade.
 
 ## 3. Proibições
 
@@ -125,8 +124,9 @@ project/
 └── CHECKPOINT.md
 ```
 
-A estrutura interna de `frontend/` está detalhada em
-`docs/SGPD/MIGRATION_FRONTEND_SPA.md` §5.
+A estrutura interna de `frontend/` está resumida em `docs/SGPD/CONTEXT.md`. O
+plano executado está preservado em
+`docs/SGPD/history/completed-plans/MIGRATION_FRONTEND_SPA.md` §5.
 
 Não force essa estrutura se o repositório já possuir padrão consolidado. Nesse caso, documente a adaptação.
 

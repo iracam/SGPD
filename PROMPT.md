@@ -24,40 +24,25 @@ diretamente nos objetos internos do Senior.
 
 ## 2. Estado atual
 
-- Fases 1 e 2 estabilizadas.
-- Fase 2.5 concluída até a Fase G.
-- Fase 3 ainda não iniciada.
-- Interface definitiva: SPA Angular 21 + PrimeNG 21.
-- Django exposto funcionalmente por `/api/v1/`.
-- Django Admin preservado somente para diagnóstico e leitura.
-- Autenticação local por sessão Django e CSRF em origem única.
-- Administração de contas, papéis, escopos e auditoria disponível na SPA.
-- Cascata Empresa → Filial → Tipo → Colaborador disponível na SPA.
-- Oracle 19c acessado por `python-oracledb` em modo Thick.
-
-Antes de iniciar qualquer mudança, confirme o estado em
-`docs/SGPD/CHECKPOINT.md`. O próximo bloco planejado é a configuração funcional
-da Fase 3.
+O estado corrente, o incremento autorizado e os riscos ativos estão
+exclusivamente em `docs/SGPD/CHECKPOINT.md`. O contexto técnico e funcional
+mínimo está em `docs/SGPD/CONTEXT.md`; não replique aqui um snapshot que possa
+ficar desatualizado.
 
 ## 3. Fontes normativas
 
-Leia, nesta ordem:
+Leitura obrigatória inicial:
 
 1. `README.md`;
-2. `docs/SGPD/VISION.md`;
-3. `docs/SGPD/REQUIREMENTS.md`;
-4. `docs/SGPD/ARCHITECTURE.md`;
-5. `docs/SGPD/DATA_MODEL.md`;
-6. `docs/SGPD/INTEGRATION_SENIOR_ORACLE.md`;
-7. `docs/SGPD/SECURITY.md`;
-8. `docs/SGPD/ROADMAP.md`;
-9. `docs/SGPD/CHECKPOINT.md`;
-10. `AGENTS.md`.
+2. `docs/SGPD/CONTEXT.md`;
+3. `docs/SGPD/CHECKPOINT.md`;
+4. `docs/SGPD/DECISIONS_INDEX.md`;
+5. `AGENTS.md`.
 
-`docs/SGPD/DECISIONS.md` registra as ADRs vigentes e as substituições.
-`docs/SGPD/MIGRATION_FRONTEND_SPA.md` é o registro da migração já concluída.
-O histórico cronológico do checkpoint preserva o contexto de cada data, mas não
-substitui o status geral e os checklists atuais no início do documento.
+Depois, use a matriz do `CONTEXT.md` para ler os documentos especializados do
+escopo. Consulte em `DECISIONS.md` o texto integral das ADRs relacionadas. O
+histórico em `docs/SGPD/history/` é leitura sob demanda e não substitui o
+checkpoint vigente.
 
 ## 4. Decisões obrigatórias
 
