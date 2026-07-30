@@ -19,6 +19,21 @@
   <p-message severity="error" [text]="erroPagina()"></p-message>
 }
 
+<section class="grupo" aria-label="Setores cadastrados">
+  <header class="grupo__cabecalho">
+    <i class="pi pi-sitemap" aria-hidden="true"></i>
+    <span>
+      <h2 class="grupo__titulo">Setores cadastrados</h2>
+      <small>Responsáveis, prazos e escopos de cada área.</small>
+    </span>
+    <span
+      class="grupo__total"
+      [attr.aria-label]="setores().length + ' setores'"
+    >
+      {{ setores().length }}
+    </span>
+  </header>
+
 @if (vazio()) {
   <p class="vazio">Nenhum setor cadastrado.</p>
 }
@@ -27,12 +42,10 @@
   @for (setor of setores(); track setor.id) {
     <article class="cartao">
       <div class="cartao__topo">
-        <span class="cartao__titulo">#{{ setor.code }} — {{ setor.name }}</span>
-        <span
-          class="selo"
-          [class.selo--ativo]="setor.is_active"
-          [class.selo--inativo]="!setor.is_active"
-        >
+        <span class="cartao__titulo">
+          <span class="registro">#{{ setor.code }}</span> — {{ setor.name }}
+        </span>
+        <span [class]="setor.is_active ? 'chip chip--released' : 'chip chip--canceled'">
           {{ setor.is_active ? 'Ativo' : 'Inativo' }}
         </span>
       </div>
@@ -42,31 +55,31 @@
       </dl>
       <div class="selos">
         @if (setor.blocks_process) {
-          <span class="selo selo--atencao">Bloqueante</span>
+          <span class="chip chip--blocked">Bloqueante</span>
         }
         @if (setor.allows_amount) {
-          <span class="selo selo--info">Permite valores</span>
+          <span class="chip chip--review">Permite valores</span>
         }
         @if (setor.requires_evidence) {
-          <span class="selo selo--info">Exige evidência</span>
+          <span class="chip chip--review">Exige evidência</span>
         }
       </div>
       <div class="escopos">
         @for (scope of setor.scopes; track scope.scope_key) {
-          <span>{{ rotuloEscopo(scope) }}</span>
+          <span class="registro">{{ rotuloEscopo(scope) }}</span>
         }
       </div>
       <div class="responsavel-indicador">
         @if (setor.has_effective_responsible) {
-          <span class="selo selo--ativo">
+          <span class="chip chip--released">
             {{ setor.effective_responsible_count }}
             {{ setor.effective_responsible_count === 1 ? 'responsável vigente' : 'responsáveis vigentes' }}
           </span>
         } @else {
-          <span class="selo selo--atencao">Sem responsável vigente</span>
+          <span class="chip chip--pending">Sem responsável vigente</span>
         }
         @if (setor.scheduled_responsible_count) {
-          <span class="selo selo--info">
+          <span class="chip chip--review">
             {{ setor.scheduled_responsible_count }}
             {{ setor.scheduled_responsible_count === 1 ? 'agendado' : 'agendados' }}
           </span>
@@ -104,23 +117,23 @@
     <tbody>
       @for (setor of setores(); track setor.id) {
         <tr>
-          <td><strong>#{{ setor.code }}</strong></td>
+          <td><strong class="registro">#{{ setor.code }}</strong></td>
           <td>{{ setor.name }}</td>
           <td>{{ setor.default_due_hours }} h</td>
           <td>
             <div class="escopos">
               @for (scope of setor.scopes; track scope.scope_key) {
-                <span>{{ rotuloEscopo(scope) }}</span>
+                <span class="registro">{{ rotuloEscopo(scope) }}</span>
               }
             </div>
           </td>
           <td>
             @if (setor.has_effective_responsible) {
-              <span class="selo selo--ativo">
+              <span class="chip chip--released">
                 {{ setor.effective_responsible_count }} vigente(s)
               </span>
             } @else {
-              <span class="selo selo--atencao">Não designado</span>
+              <span class="chip chip--pending">Não designado</span>
             }
             @if (setor.scheduled_responsible_count) {
               <small class="responsavel-indicador__agenda">
@@ -131,22 +144,18 @@
           <td>
             <div class="selos">
               @if (setor.blocks_process) {
-                <span class="selo selo--atencao">Bloqueante</span>
+                <span class="chip chip--blocked">Bloqueante</span>
               }
               @if (setor.allows_amount) {
-                <span class="selo selo--info">Valores</span>
+                <span class="chip chip--review">Valores</span>
               }
               @if (setor.requires_evidence) {
-                <span class="selo selo--info">Evidência</span>
+                <span class="chip chip--review">Evidência</span>
               }
             </div>
           </td>
           <td>
-            <span
-              class="selo"
-              [class.selo--ativo]="setor.is_active"
-              [class.selo--inativo]="!setor.is_active"
-            >
+            <span [class]="setor.is_active ? 'chip chip--released' : 'chip chip--canceled'">
               {{ setor.is_active ? 'Ativo' : 'Inativo' }}
             </span>
           </td>
@@ -165,6 +174,7 @@
     </tbody>
   </table>
 </div>
+</section>
 
 <p-dialog
   [header]="titulo()"

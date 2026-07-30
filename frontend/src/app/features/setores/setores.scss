@@ -1,5 +1,19 @@
 @use 'listagem';
+@use 'conferencia';
 @use 'breakpoints' as bp;
+
+// Protocolo de conferência (ADR-047): listagem envolvida no grupo com régua,
+// estado em chips sobre os tokens --status-* e código/escopo em mono.
+
+.grupo {
+  margin-block-start: 0.5rem;
+}
+
+.selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
 
 .escopos {
   display: flex;
