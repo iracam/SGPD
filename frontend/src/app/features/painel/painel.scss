@@ -1,43 +1,47 @@
 @use 'breakpoints' as bp;
+@use 'conferencia';
 
-.cards {
+// Protocolo de conferência (ADR-047): grupos como seções com régua e total em
+// mono no lugar dos cartões cinza; dado de registro (usuário, códigos) em mono.
+
+.grupos {
   display: grid;
-  gap: 0.85rem;
+  gap: 1.75rem;
   margin-top: 1.5rem;
-  // Coluna única no estado base; múltiplas colunas só a partir de `md`.
   grid-template-columns: 1fr;
 
   @include bp.from(bp.$md) {
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   }
 }
 
-.card {
+.sessao {
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 1rem;
-  border-radius: 0.7rem;
-  background: var(--p-content-background);
-  border: 1px solid var(--p-content-border-color);
-  min-width: 0;
+  gap: 0.25rem;
+}
 
-  small {
-    color: var(--p-text-muted-color);
+.itens {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
   }
 }
 
-.card__eyebrow {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--sgpd-accent);
+.registro {
+  color: var(--p-text-muted-color);
 }
 
-.card__list {
-  margin: 0.2rem 0 0;
-  padding-left: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.estado-vazio {
+  margin: 0;
+  color: var(--p-text-muted-color);
 }

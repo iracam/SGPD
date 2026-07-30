@@ -7,46 +7,75 @@
   aqui conforme cada fase avança.
 </p>
 
-<section class="cards">
-  <article class="card">
-    <span class="card__eyebrow">Sessão</span>
-    <strong>{{ user?.username }}</strong>
-    <small>{{ user?.email }}</small>
-  </article>
+<div class="grupos">
+  <section class="grupo" aria-label="Sessão">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-user" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo">Sessão</h2>
+        <small>Identidade autenticada.</small>
+      </span>
+    </header>
+    <p class="sessao">
+      <strong>{{ user?.display_name }}</strong>
+      <span class="registro">{{ user?.username }} · {{ user?.email }}</span>
+    </p>
+  </section>
 
-  <article class="card">
-    <span class="card__eyebrow">Papéis</span>
+  <section class="grupo" aria-label="Papéis">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-id-card" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo">Papéis</h2>
+        <small>Funções atribuídas ao seu usuário.</small>
+      </span>
+      <span
+        class="grupo__total"
+        [attr.aria-label]="(context?.roles?.length ?? 0) + ' papéis'"
+      >
+        {{ context?.roles?.length ?? 0 }}
+      </span>
+    </header>
     @if (context && context.roles.length) {
-      <ul class="card__list">
+      <ul class="itens">
         @for (role of context.roles; track role) {
-          <li>{{ role }}</li>
+          <li>{{ rotuloPapel(role) }}</li>
         }
       </ul>
     } @else {
-      <small>Nenhum papel atribuído.</small>
+      <p class="estado-vazio">Nenhum papel atribuído.</p>
     }
-  </article>
+  </section>
 
-  <article class="card">
-    <span class="card__eyebrow">Escopos</span>
+  <section class="grupo" aria-label="Escopos">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-building" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo">Escopos</h2>
+        <small>Empresas e filiais do seu vínculo vigente.</small>
+      </span>
+      @if (!context?.scopes?.is_superuser) {
+        <span
+          class="grupo__total"
+          [attr.aria-label]="(context?.scopes?.assignments?.length ?? 0) + ' escopos'"
+        >
+          {{ context?.scopes?.assignments?.length ?? 0 }}
+        </span>
+      }
+    </header>
     @if (context?.scopes?.is_superuser) {
-      <small>Acesso global de contingência.</small>
+      <p class="estado-vazio">Acesso global de contingência.</p>
     } @else if (context && context.scopes.assignments.length) {
-      <ul class="card__list">
-        @for (scope of context.scopes.assignments; track scope.role + scope.scope_type) {
+      <ul class="itens">
+        @for (scope of context.scopes.assignments; track scope.role + scope.scope_type + scope.company_code + scope.branch_code) {
           <li>
-            {{ scope.role }} — {{ scope.scope_type }}
-            @if (scope.company_code) {
-              · empresa {{ scope.company_code }}
-            }
-            @if (scope.branch_code) {
-              · filial {{ scope.branch_code }}
-            }
+            {{ rotuloPapel(scope.role) }}
+            <small class="registro">{{ registroEscopo(scope) }}</small>
           </li>
         }
       </ul>
     } @else {
-      <small>Nenhum escopo ativo.</small>
+      <p class="estado-vazio">Nenhum escopo ativo.</p>
     }
-  </article>
-</section>
+  </section>
+</div>
