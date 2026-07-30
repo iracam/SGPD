@@ -66,7 +66,8 @@ Senior usam repository SQL explícito, parametrizado, sem models e sem tabelas
 
 Módulos já ativos: contas e autorização, auditoria, integração Senior,
 configuração LDAP/AD, setores e responsáveis, templates e grupos versionados,
-abertura e início do processo, tarefas setoriais e painéis iniciais.
+abertura e início do processo, tarefas setoriais, pendências estruturadas,
+evidências privadas e painéis iniciais.
 
 ## Estado funcional resumido
 
@@ -77,8 +78,10 @@ mesma transação e impede duplicidade não encerrada. O início fixa grupos,
 setores, templates e perguntas, exige responsáveis vigentes e é idempotente.
 Tarefas possuem controle otimista, lock, idempotência e auditoria.
 
-Pendências/evidências, valores, notificações, prontidão, liberação,
-encerramento formal e relatórios ainda pertencem aos incrementos seguintes.
+Pendências e evidências possuem a primeira fatia vertical operacional:
+registro, comentários, regularização, bloqueio de conclusão, upload, hash e
+download autorizado. Valores, notificações, prontidão, liberação, encerramento
+formal e relatórios ainda pertencem aos incrementos seguintes.
 
 ## Leitura por escopo
 
@@ -123,4 +126,3 @@ Cada fato deve ter uma fonte canônica. Atualize:
 - `DECISIONS.md` somente para decisão arquitetural relevante;
 - `history/checkpoints/` com registro conciso de entrega, sem repetir o mesmo
   relato nos demais documentos.
-

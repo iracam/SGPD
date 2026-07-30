@@ -19,6 +19,8 @@ export const apiConfig = {
 
     processes: '/api/v1/processes/',
     tasks: '/api/v1/tasks/',
+    pendingItems: '/api/v1/pending-items/',
+    evidence: '/api/v1/evidence/',
     workflowTemplates: '/api/v1/workflow-config/templates/',
     workflowGroups: '/api/v1/workflow-config/groups/',
     workflowSectors: '/api/v1/workflow-config/sectors/',

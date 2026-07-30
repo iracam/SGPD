@@ -20,7 +20,7 @@ describe('ProcessosPage', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('mostra os três cards e lista rascunhos na ordem recebida do backend', () => {
+  it('mostra os quatro cards e expande tarefas abertas e concluídas', () => {
     const request = httpMock.expectOne(
       (candidate) =>
         candidate.url === '/api/v1/processes/' &&
@@ -75,6 +75,38 @@ describe('ProcessosPage', () => {
       .expectOne(
         (candidate) =>
           candidate.url === '/api/v1/processes/' &&
+          candidate.params.get('open') === 'true' &&
+          candidate.params.get('limit') === '50',
+      )
+      .flush({
+        offset: 0,
+        limit: 50,
+        results: [
+          {
+            uuid: 'aberto',
+            status: 'INICIADO',
+            company_code: 1,
+            branch_code: 2,
+            employee_type_code: 1,
+            employee_registration: 444,
+            opened_at: '2026-07-30T12:00:00-03:00',
+            completion_at: null,
+            planned_termination_date: '2026-08-15',
+            due_date: '2026-08-14',
+            priority: 'Alta',
+            version: 2,
+            employee_snapshot: {
+              employee_name: 'Processo Em Aberto',
+              registration: 444,
+              branch_legal_name: 'Empresa',
+            },
+          },
+        ],
+      });
+    httpMock
+      .expectOne(
+        (candidate) =>
+          candidate.url === '/api/v1/processes/' &&
           candidate.params.get('completed') === 'true' &&
           candidate.params.get('limit') === '50',
       )
@@ -108,13 +140,45 @@ describe('ProcessosPage', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Abrir processo');
     expect(text).toContain('Rascunhos');
+    expect(text).toContain('Em Aberto');
     expect(text).toContain('Concluídos');
+    expect(text).toContain('Processo Em Aberto');
     expect(text).toContain('Processo Concluído');
     expect(text.indexOf('Rascunho Novo')).toBeLessThan(text.indexOf('Rascunho Antigo'));
 
-    const concludedButton = fixture.nativeElement.querySelector(
+    const processButtons = fixture.nativeElement.querySelectorAll(
       '.processo-lista__item--botao',
-    ) as HTMLButtonElement;
+    ) as NodeListOf<HTMLButtonElement>;
+    const openButton = processButtons[0];
+    const concludedButton = processButtons[1];
+
+    openButton.click();
+    const openTasksRequest = httpMock.expectOne(
+      (candidate) =>
+        candidate.url === '/api/v1/processes/aberto/tasks/' &&
+        !candidate.params.has('status') &&
+        candidate.params.get('limit') === '100',
+    );
+    openTasksRequest.flush({
+      offset: 0,
+      limit: 100,
+      results: [
+        {
+          id: 44,
+          status: 'EM_ANALISE',
+          sector: { id: 7, code: 'DP', name: 'Departamento Pessoal' },
+          template: { version_id: 9, code: 'CHECK-DP', version_number: 1 },
+          due_at: '2026-08-14T12:00:00-03:00',
+          completed_at: null,
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(openButton.getAttribute('aria-expanded')).toBe('true');
+    expect(fixture.nativeElement.textContent).toContain('Departamento Pessoal');
+    expect(fixture.nativeElement.textContent).toContain('Em análise');
+
     concludedButton.click();
     const tasksRequest = httpMock.expectOne(
       (candidate) =>

@@ -35,13 +35,22 @@ class ProcessQuerySerializer(serializers.Serializer[dict[str, Any]]):
         default="",
     )
     completed = serializers.BooleanField(required=False, default=False)
+    open = serializers.BooleanField(required=False, default=False)
     offset = serializers.IntegerField(min_value=0, required=False, default=0)
     limit = serializers.IntegerField(min_value=1, max_value=100, required=False, default=50)
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
-        if attrs.get("status") and attrs.get("completed"):
+        active_filters = sum(
+            bool(value)
+            for value in (
+                attrs.get("status"),
+                attrs.get("completed"),
+                attrs.get("open"),
+            )
+        )
+        if active_filters > 1:
             raise serializers.ValidationError(
-                "Os filtros status e completed não podem ser combinados."
+                "Os filtros status, completed e open não podem ser combinados."
             )
         return attrs
 

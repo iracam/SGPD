@@ -41,8 +41,10 @@ INSTALLED_APPS = [
     "rest_framework",
     "apps.accounts",
     "apps.core",
+    "apps.evidence",
     "apps.integrations",
     "apps.offboarding",
+    "apps.pending_items",
     "apps.sectors",
     "apps.system_settings",
     "apps.templates_engine",
@@ -147,6 +149,18 @@ WHITENOISE_INDEX_FILE = False
 EVIDENCE_STORAGE_PATH = Path(
     os.getenv("EVIDENCE_STORAGE_PATH", str(BASE_DIR / "media" / "evidence"))
 )
+if not EVIDENCE_STORAGE_PATH.is_absolute():
+    EVIDENCE_STORAGE_PATH = BASE_DIR / EVIDENCE_STORAGE_PATH
+STORAGES["evidence"] = {
+    "BACKEND": "django.core.files.storage.FileSystemStorage",
+    "OPTIONS": {
+        "location": str(EVIDENCE_STORAGE_PATH),
+        "base_url": None,
+        "file_permissions_mode": 0o600,
+        "directory_permissions_mode": 0o700,
+    },
+}
+EVIDENCE_MAX_UPLOAD_BYTES = env_int("EVIDENCE_MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE")

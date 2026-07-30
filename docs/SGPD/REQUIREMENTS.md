@@ -438,12 +438,25 @@ Estado implementado:
   template vigente;
 - resposta, ator, instante, conclusão, auditoria e idempotência confirmam ou
   revertem juntos;
-- `FILE` e qualquer item com `requires_evidence` são rejeitados explicitamente
-  até o módulo de evidências da Fase 5.
+- `FILE` é satisfeito por evidência privada vinculada ao item, sem resposta
+  JSON artificial;
+- qualquer item obrigatório com `requires_evidence` exige ao menos uma
+  evidência ativa antes da conclusão.
 
 ### RF-019 — Pendências
 
 O sistema deverá permitir criar múltiplas pendências por setor.
+
+Estado implementado:
+
+- pendência própria vinculada ao processo, tarefa e opcionalmente ao item
+  histórico do checklist;
+- zero ou mais itens próprios com descrição, código, patrimônio, série,
+  quantidade, unidade, estado e JSON adicional;
+- criação somente em tarefa `EM_ANALISE`, com versão da tarefa,
+  `Idempotency-Key`, lock, auditoria e rollback atômico;
+- responsáveis vigentes do setor no escopo, `DP` vigente no processo e
+  SuperAdmin possuem a autoridade prevista, sem vínculo artificial.
 
 ### RF-020 — Tipos de pendência
 
@@ -462,13 +475,25 @@ Exemplos:
 - contrato;
 - outro.
 
+No incremento implementado, `VALOR` não integra o catálogo para não antecipar
+a Fase 6. As demais categorias declaradas acima possuem códigos fixos no
+backend e na SPA.
+
 ### RF-021 — Evidências
 
 O sistema deverá permitir anexar arquivos às tarefas e pendências.
 
+Estado implementado: arquivos também podem ser vinculados diretamente ao item
+histórico do checklist. O upload aceita somente PDF, PNG e JPEG com extensão,
+MIME type e assinatura compatíveis, tamanho positivo e limite configurável.
+
 ### RF-022 — Hash de evidências
 
 O sistema deverá calcular e armazenar hash dos arquivos.
+
+Estado implementado com SHA-256 calculado em streaming e persistido com UUID,
+nome original, nome privado aleatório, MIME type, tamanho, ator, instante e
+classificação.
 
 ### RF-023 — Situação da pendência
 
@@ -488,6 +513,19 @@ Estados sugeridos:
 - abonada;
 - encerrada.
 
+Estado implementado nesta fatia:
+
+```text
+ABERTA → EM_REGULARIZACAO → REGULARIZADA → ENCERRADA
+                                  |
+                                  +→ EM_REGULARIZACAO
+```
+
+Toda transição exige comentário, versão otimista, chave idempotente, lock e
+auditoria. Comentários adicionais são append-only. Estados de comunicação,
+contestação e decisão financeira permanecem reservados para os incrementos
+que implementarem seus casos de uso.
+
 ### RF-024 — Classificação de bloqueio
 
 Setores, itens e pendências poderão ser:
@@ -496,6 +534,11 @@ Setores, itens e pendências poderão ser:
 - não bloqueantes;
 - bloqueantes;
 - bloqueantes até decisão.
+
+Estado implementado: `INFORMATIVA`, `NAO_BLOQUEANTE` e `BLOQUEANTE`.
+`BLOQUEANTE` impede a conclusão da tarefa enquanto não estiver
+`REGULARIZADA` ou `ENCERRADA`. A classificação dependente de decisão permanece
+na Fase 6.
 
 ### RF-025 — Pretensão de cobrança
 
@@ -552,6 +595,9 @@ Toda ação relevante deverá gerar evento de auditoria.
 
 O painel deverá exibir:
 
+- card de processos em aberto, definidos por processo iniciado com ao menos
+  uma tarefa ainda não concluída;
+- card de processos concluídos, com expansão das tarefas;
 - processos por status;
 - processos vencidos;
 - processos próximos do prazo;

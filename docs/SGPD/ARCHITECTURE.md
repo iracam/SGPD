@@ -171,7 +171,9 @@ Estrutura incremental adotada:
 apps/
 ├── accounts/
 ├── core/
+├── evidence/
 ├── offboarding/
+├── pending_items/
 ├── sectors/
 ├── system_settings/
 ├── templates_engine/
@@ -205,6 +207,11 @@ uma versão exata de template. `offboarding` contém abertura, seleção version
 do rascunho e início idempotente: snapshots do colaborador, setor,
 template e perguntas, tarefas pertencentes ao setor, auditoria append-only,
 services, API e administração técnica somente leitura.
+`pending_items` contém pendências, seus itens, comentários append-only,
+regularização, classificação de bloqueio, concorrência, idempotência e
+auditoria. `evidence` mantém metadados e SHA-256 no Oracle, grava os bytes no
+storage privado, valida extensão/MIME/assinatura e expõe somente upload e
+download autorizados; nenhum caminho privado é projetado.
 
 Setores, templates, grupos e perguntas são entidades configuráveis locais e
 usam o próprio `ID` como código público numérico. O service cria o registro,
@@ -239,9 +246,16 @@ Serviços de workflow implementados na Fase 4:
 - `StartSectorTaskService`;
 - `CompleteSectorTaskService`.
 
-Serviços de workflow planejados para as fases 4 a 9:
+Serviços de workflow implementados na Fase 5:
 
-- `RegisterPendingItemService`
+- `CreatePendingItemService`;
+- `AddPendingCommentService`;
+- `ChangePendingStatusService`;
+- `UploadEvidenceService`;
+- `RegisterEvidenceDownloadService`.
+
+Serviços de workflow planejados para as fases 6 a 9:
+
 - `EvaluateProcessReadinessService`
 - `ReleaseForTerminationService`
 - `CloseOffboardingProcessService`
@@ -294,6 +308,11 @@ isolado no backend e não cria regra de negócio no Angular.
 com esse tipo não usam `SELECT DISTINCT`, porque o Oracle não compara LOBs
 nessa operação. A seleção de grupos aplicáveis e a autorização da listagem de
 tarefas eliminam duplicidade com subconsultas correlacionadas `EXISTS`.
+
+O backend Oracle também não aceita paginação em uma consulta
+`SELECT ... FOR UPDATE`. Consultas de replay idempotente bloqueiam o conjunto
+definido por uma constraint única e o materializam sem `.first()`, `.last()` ou
+slice; isso evita que o ORM acrescente `FETCH FIRST` ao lock.
 
 ### Consulta ao Senior
 
@@ -479,7 +498,7 @@ de "você não pode".
 Endpoints de abertura implementados:
 
 ```text
-GET  /api/v1/processes/?status=&completed=&offset=&limit=
+GET  /api/v1/processes/?status=&open=&completed=&offset=&limit=
 POST /api/v1/processes/
 GET  /api/v1/processes/{uuid}/tasks/?status=&offset=&limit=
 GET  /api/v1/processes/{uuid}/draft/
@@ -490,18 +509,20 @@ POST /api/v1/processes/{uuid}/start/
 O `GET` lista somente processos cobertos pelos escopos `DP` vigentes do ator;
 SuperAdmin recebe todos. Aceita filtro pelos estados já implementados,
 paginação sem `COUNT(*)` e ordena pela abertura mais nova. O filtro
-`completed=true`, mutuamente exclusivo com `status`, reúne processos
+`open=true` reúne processos `INICIADO` com ao menos uma tarefa não concluída.
+O filtro `completed=true` reúne processos
 formalmente `ENCERRADO` e processos `INICIADO` que possuem ao menos uma tarefa
 setorial e nenhuma tarefa não concluída. Nesse filtro, a conclusão setorial
 mais nova aparece primeiro; até existir a data formal de encerramento, um
 encerrado sem tarefa concluída usa a abertura como desempate. A consulta usa
 subqueries correlacionadas e `EXISTS`, evitando agregação sobre os campos
-históricos `NCLOB` no Oracle. O `POST` cria somente `RASCUNHO`; não existe
+históricos `NCLOB` no Oracle. `status`, `open` e `completed` são mutuamente
+exclusivos. O `POST` cria somente `RASCUNHO`; não existe
 `DELETE`. A listagem de tarefas por UUID revalida a autoridade `DP` no escopo
 do processo e devolve resumos sob demanda, sem depender da responsabilidade
-setorial do coordenador; ela alimenta a expansão de processos concluídos na
-SPA. Os demais endpoints por UUID consultam/substituem a seleção e iniciam o
-processo. O início exige
+setorial do coordenador; ela alimenta a expansão dos processos em aberto e
+concluídos na SPA. Os demais endpoints por UUID consultam/substituem a seleção
+e iniciam o processo. O início exige
 `Idempotency-Key`: repetição pelo mesmo ator e corpo recupera o resultado;
 reutilização divergente responde `409 Conflict` com o código
 `idempotency_conflict`.
@@ -528,12 +549,23 @@ GET  /api/v1/processes/{uuid}/
 POST /api/v1/processes/{uuid}/release/
 POST /api/v1/processes/{uuid}/cancel/
 
-POST /api/v1/pending-items/
-POST /api/v1/pending-items/{uuid}/resolve/
-POST /api/v1/pending-items/{uuid}/decision/
-
-POST /api/v1/evidence/
 ```
+
+Endpoints da Fase 5 implementados:
+
+```text
+GET  POST /api/v1/pending-items/
+POST      /api/v1/pending-items/{uuid}/status/
+POST      /api/v1/pending-items/{uuid}/comments/
+GET  POST /api/v1/evidence/
+GET       /api/v1/evidence/{uuid}/download/
+```
+
+Listagem, mutação, upload e download aceitam a autoridade vigente do setor ou
+do `DP` no escopo do processo; SuperAdmin usa a autoridade global da ADR-044.
+As mutações revalidam o limite sob locks. O upload exige
+`Idempotency-Key`, não expõe caminho e remove o arquivo recém-gravado caso a
+transação ou a auditoria falhe.
 
 Endpoints de configuração funcional implementados:
 

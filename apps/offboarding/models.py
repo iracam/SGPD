@@ -21,6 +21,11 @@ class ProcessEventType(models.TextChoices):
     STARTED = "PROCESS_STARTED", "Processo iniciado"
     SECTOR_TASK_STARTED = "SECTOR_TASK_STARTED", "Tarefa de setor iniciada"
     SECTOR_TASK_COMPLETED = "SECTOR_TASK_COMPLETED", "Tarefa de setor concluída"
+    PENDING_CREATED = "PENDING_CREATED", "Pendência criada"
+    PENDING_COMMENTED = "PENDING_COMMENTED", "Pendência comentada"
+    PENDING_STATUS_CHANGED = "PENDING_STATUS_CHANGED", "Situação da pendência alterada"
+    EVIDENCE_UPLOADED = "EVIDENCE_UPLOADED", "Evidência enviada"
+    EVIDENCE_DOWNLOADED = "EVIDENCE_DOWNLOADED", "Evidência baixada"
 
 
 class DraftOverrideAction(models.TextChoices):

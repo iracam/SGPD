@@ -60,6 +60,7 @@ from .services import (
     UpdateDraftSelectionCommand,
     UpdateDraftSelectionService,
     completed_processes_for_actor,
+    open_processes_for_actor,
     processes_for_actor,
     sector_tasks_for_actor,
 )
@@ -138,7 +139,7 @@ def _checklist_item_payload(item: ProcessChecklistItem) -> dict[str, Any]:
     response = item.response
     if isinstance(response, dict) and set(response) == {"value"}:
         response = response["value"]
-    return {
+    payload = {
         "id": item.pk,
         "code": item.code_snapshot,
         "question": item.question_snapshot,
@@ -152,6 +153,12 @@ def _checklist_item_payload(item: ProcessChecklistItem) -> dict[str, Any]:
         "response": response,
         "answered_at": item.answered_at.isoformat() if item.answered_at else None,
     }
+    from apps.evidence.api import evidence_payload
+
+    payload["evidences"] = [
+        evidence_payload(evidence) for evidence in item.evidences.all() if evidence.is_active
+    ]
+    return payload
 
 
 def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> dict[str, Any]:
@@ -179,6 +186,9 @@ def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> di
         "version": task.version,
     }
     if include_items:
+        from apps.evidence.api import evidence_payload
+        from apps.pending_items.api import pending_item_payload
+
         payload["process"] = {
             "uuid": str(task.process.uuid),
             "company_code": task.process.company_code,
@@ -189,6 +199,12 @@ def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> di
         }
         payload["checklist_items"] = [
             _checklist_item_payload(item) for item in task.checklist_items.all()
+        ]
+        payload["pending_items"] = [
+            pending_item_payload(pending_item) for pending_item in task.pending_items.all()
+        ]
+        payload["evidences"] = [
+            evidence_payload(evidence) for evidence in task.evidences.all() if evidence.is_active
         ]
     return payload
 
@@ -341,11 +357,12 @@ class ProcessListCreateView(APIView):
         serializer = ProcessQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         data = cast(dict[str, Any], serializer.validated_data)
-        process_query = (
-            completed_processes_for_actor(actor)
-            if data["completed"]
-            else processes_for_actor(actor)
-        )
+        if data["completed"]:
+            process_query = completed_processes_for_actor(actor)
+        elif data["open"]:
+            process_query = open_processes_for_actor(actor)
+        else:
+            process_query = processes_for_actor(actor)
         processes = process_query.select_related(
             "opened_by",
             "started_by",
@@ -521,7 +538,14 @@ def _responsible_task_queryset(actor: User) -> Any:
             "template_version",
             "completed_by",
         )
-        .prefetch_related("checklist_items")
+        .prefetch_related(
+            "checklist_items__evidences__uploaded_by",
+            "pending_items__items",
+            "pending_items__comments__author",
+            "pending_items__registered_by",
+            "evidences__pending_item",
+            "evidences__uploaded_by",
+        )
         .order_by(
             F("completed_at").desc(nulls_last=True),
             "-started_at",

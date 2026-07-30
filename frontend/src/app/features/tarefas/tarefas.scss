@@ -166,7 +166,12 @@
 }
 
 .pergunta,
-.observacao {
+.observacao,
+.pendencias,
+.pendencias__lista,
+.pendencia,
+.pendencia-form,
+.evidencias {
   display: grid;
   gap: 0.45rem;
 }
@@ -211,6 +216,97 @@ select[multiple] {
   min-height: 1.25rem;
 }
 
+.pendencias {
+  gap: 0.85rem;
+  padding-block-start: 0.5rem;
+  border-block-start: 1px solid var(--p-content-border-color);
+}
+
+.pendencias h3,
+.pendencia p {
+  margin: 0;
+}
+
+.pendencia-form,
+.pendencia {
+  padding: 0.85rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.7rem;
+}
+
+.pendencia-form label,
+.pendencia label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 650;
+}
+
+.pendencia > header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pendencia > header strong,
+.pendencia > header small {
+  display: block;
+}
+
+.pendencia > header small,
+.evidencias small {
+  color: var(--p-text-muted-color);
+}
+
+.comentarios,
+.evidencias__lista {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comentarios li,
+.evidencias__lista li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem;
+  border-radius: 0.5rem;
+  background: var(--p-content-hover-background);
+}
+
+.comentarios span,
+.comentarios small {
+  display: block;
+}
+
+.upload {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--touch-target);
+  padding: 0.55rem 0.75rem;
+  border: 1px dashed var(--p-primary-color);
+  border-radius: 0.55rem;
+  color: var(--p-primary-color);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.arquivo-input {
+  position: absolute;
+  width: 1px;
+  min-height: 1px;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.vazio-inline {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
 .acoes {
   align-items: stretch;
 }
@@ -234,6 +330,7 @@ select[multiple] {
   }
 
   .tarefa__cabecalho,
+  .pendencia > header,
   .acoes {
     flex-direction: row;
     justify-content: space-between;
@@ -246,6 +343,14 @@ select[multiple] {
 
   .acoes {
     justify-content: flex-end;
+  }
+
+  .pendencia-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .campo-largo {
+    grid-column: 1 / -1;
   }
 }
 

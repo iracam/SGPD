@@ -26,17 +26,17 @@ export interface ListaProcessos {
   results: ProcessoResumo[];
 }
 
-export interface TarefaConcluidaProcesso {
+export interface TarefaProcesso {
   id: number;
-  status: 'CONCLUIDA';
+  status: 'PENDENTE' | 'EM_ANALISE' | 'CONCLUIDA';
   sector: { id: number; code: string; name: string };
   template: { version_id: number; code: string; version_number: number };
   due_at: string;
   completed_at: string | null;
 }
 
-export interface ListaTarefasConcluidasProcesso {
+export interface ListaTarefasProcesso {
   offset: number;
   limit: number;
-  results: TarefaConcluidaProcesso[];
+  results: TarefaProcesso[];
 }

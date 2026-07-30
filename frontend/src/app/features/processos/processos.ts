@@ -1,12 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { MessageModule } from 'primeng/message';
 import { finalize, forkJoin } from 'rxjs';
 
 import { errorMessage } from '../../core/api/api-error';
-import { ProcessoResumo, TarefaConcluidaProcesso } from './models/processos.models';
+import { ProcessoResumo, TarefaProcesso } from './models/processos.models';
 import { ProcessosService } from './processos.service';
 
 @Component({
@@ -20,18 +20,46 @@ export class ProcessosPage {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly rascunhos = signal<ProcessoResumo[]>([]);
+  readonly emAberto = signal<ProcessoResumo[]>([]);
   readonly concluidos = signal<ProcessoResumo[]>([]);
   readonly carregando = signal(true);
   readonly processoExpandido = signal<string | null>(null);
   readonly carregandoTarefas = signal<string | null>(null);
   readonly tarefasPorProcesso = signal<
-    Partial<Record<string, TarefaConcluidaProcesso[]>>
+    Partial<Record<string, TarefaProcesso[]>>
   >({});
   readonly erro = signal('');
+  readonly cardsExpansiveis = computed(() => [
+    {
+      key: 'open',
+      title: 'Em Aberto',
+      description: 'Iniciados com tarefas a concluir.',
+      icon: 'pi pi-clock',
+      loadingText: 'Carregando processos em aberto…',
+      emptyText: 'Nenhum processo em aberto disponível.',
+      taskLoadingText: 'Carregando tarefas do processo…',
+      taskEmptyText: 'Nenhuma tarefa registrada para este processo.',
+      completedOnly: false,
+      processes: this.emAberto(),
+    },
+    {
+      key: 'completed',
+      title: 'Concluídos',
+      description: 'Encerrados ou com todas as tarefas concluídas.',
+      icon: 'pi pi-check-circle',
+      loadingText: 'Carregando processos concluídos…',
+      emptyText: 'Nenhum processo concluído disponível.',
+      taskLoadingText: 'Carregando tarefas concluídas…',
+      taskEmptyText: 'Nenhuma tarefa concluída registrada para este processo.',
+      completedOnly: true,
+      processes: this.concluidos(),
+    },
+  ]);
 
   constructor() {
     forkJoin({
       rascunhos: this.service.listarRascunhos(),
+      emAberto: this.service.listarEmAberto(),
       concluidos: this.service.listarConcluidos(),
     })
       .pipe(
@@ -41,6 +69,7 @@ export class ProcessosPage {
       .subscribe({
         next: (response) => {
           this.rascunhos.set(response.rascunhos.results);
+          this.emAberto.set(response.emAberto.results);
           this.concluidos.set(response.concluidos.results);
         },
         error: (error) =>
@@ -48,7 +77,10 @@ export class ProcessosPage {
       });
   }
 
-  protected alternarTarefas(processo: ProcessoResumo): void {
+  protected alternarTarefas(
+    processo: ProcessoResumo,
+    apenasConcluidas: boolean,
+  ): void {
     if (this.processoExpandido() === processo.uuid) {
       this.processoExpandido.set(null);
       return;
@@ -60,7 +92,7 @@ export class ProcessosPage {
     this.erro.set('');
     this.carregandoTarefas.set(processo.uuid);
     this.service
-      .listarTarefasConcluidas(processo.uuid)
+      .listarTarefas(processo.uuid, apenasConcluidas)
       .pipe(
         finalize(() => this.carregandoTarefas.set(null)),
         takeUntilDestroyed(this.destroyRef),
@@ -78,5 +110,13 @@ export class ProcessosPage {
           );
         },
       });
+  }
+
+  protected rotuloStatusTarefa(status: TarefaProcesso['status']): string {
+    return {
+      PENDENTE: 'Pendente',
+      EM_ANALISE: 'Em análise',
+      CONCLUIDA: 'Concluída',
+    }[status];
   }
 }

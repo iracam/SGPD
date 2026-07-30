@@ -159,11 +159,12 @@ Configuração funcional:
 
 Processo demissional:
 
-- `/fe/processos`: hub do DP com card de abertura, rascunhos ordenados do mais
-  novo para o mais antigo e processos concluídos; um processo aparece como
-  concluído quando está formalmente `ENCERRADO` ou, já iniciado, possui tarefas
-  setoriais e todas elas estão `CONCLUIDA`; clicar em um concluído expande suas
-  tarefas concluídas, enquanto clicar em um rascunho abre sua edição;
+- `/fe/processos`: hub do DP com cards de abertura, rascunhos, processos em
+  aberto e concluídos; `Em Aberto` reúne processos `INICIADO` com ao menos uma
+  tarefa não concluída, enquanto `Concluídos` reúne o estado formal `ENCERRADO`
+  ou processos iniciados cujas tarefas estão todas `CONCLUIDA`; clicar nos
+  dois últimos cards expande as tarefas e clicar em um rascunho abre sua
+  edição;
 - `/fe/colaboradores`: seleção Empresa → Filial → Tipo de colaborador
   → Colaborador e abertura do rascunho;
 - exige uma atribuição `DP` explícita, ativa, vigente e compatível com empresa
@@ -185,8 +186,16 @@ Processo demissional:
   processos e tarefas concluídos aparecem da conclusão mais nova para a mais
   antiga;
 - início e conclusão da tarefa usam versão otimista, lock, `Idempotency-Key`,
-  auditoria e rollback atômico; itens que exigem arquivo ou evidência aguardam
-  a Fase 5.
+  auditoria e rollback atômico;
+- tarefas em análise permitem registrar pendências estruturadas, itens,
+  comentários append-only e o ciclo
+  `ABERTA → EM_REGULARIZACAO → REGULARIZADA → ENCERRADA`;
+- pendências bloqueantes impedem a conclusão até a regularização;
+- evidências PDF, PNG e JPEG são limitadas, validadas, gravadas em filesystem
+  privado com nome aleatório e SHA-256, e baixadas somente por endpoint
+  autorizado e auditado;
+- itens `FILE` e itens com evidência obrigatória podem ser concluídos depois
+  que o arquivo privado correspondente estiver presente.
 
 ## Escopo técnico atual
 

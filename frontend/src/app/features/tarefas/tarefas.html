@@ -118,12 +118,7 @@
                               }
                             </label>
 
-                            @if (item.requires_evidence || item.response_type === 'FILE') {
-                              <p-message
-                                severity="warn"
-                                text="Este item depende do módulo de evidências e não pode ser concluído nesta fase."
-                              ></p-message>
-                            } @else {
+                            @if (item.response_type !== 'FILE') {
                               @switch (item.response_type) {
                                 @case ('BOOLEAN') {
                                   <select
@@ -198,6 +193,42 @@
                               }
                             }
 
+                            @if (item.requires_evidence || item.response_type === 'FILE') {
+                              <div class="evidencias">
+                                <strong>Evidências privadas</strong>
+                                @if (tarefa.status === 'EM_ANALISE') {
+                                  <label class="upload" [for]="'evidence-' + item.id">
+                                    <i class="pi pi-upload" aria-hidden="true"></i>
+                                    Selecionar PDF, PNG ou JPEG
+                                  </label>
+                                  <input
+                                    class="arquivo-input"
+                                    [id]="'evidence-' + item.id"
+                                    type="file"
+                                    accept=".pdf,.png,.jpg,.jpeg"
+                                    [disabled]="tarefaEmMutacao() !== null"
+                                    (change)="enviarEvidencia(tarefa, $event, item)"
+                                  />
+                                }
+                                <ul class="evidencias__lista">
+                                  @for (evidence of item.evidences; track evidence.uuid) {
+                                    <li>
+                                      <a [href]="evidence.download_url">
+                                        <i class="pi pi-download" aria-hidden="true"></i>
+                                        {{ evidence.original_name }}
+                                      </a>
+                                      <small>
+                                        {{ tamanhoEvidencia(evidence.size_bytes) }} ·
+                                        {{ evidence.classification }}
+                                      </small>
+                                    </li>
+                                  } @empty {
+                                    <li><small>Nenhuma evidência anexada.</small></li>
+                                  }
+                                </ul>
+                              </div>
+                            }
+
                             @if (tarefa.status === 'CONCLUIDA' && item.answered_at) {
                               <small>
                                 Respondido em
@@ -206,6 +237,205 @@
                             }
                           </div>
                         }
+                      </section>
+
+                      <section
+                        class="pendencias"
+                        [attr.aria-labelledby]="'pending-' + tarefa.id"
+                      >
+                        <h3 [id]="'pending-' + tarefa.id">Pendências</h3>
+
+                        @if (tarefa.status === 'EM_ANALISE') {
+                          <div class="pendencia-form">
+                            <label>
+                              Título
+                              <input
+                                type="text"
+                                maxlength="200"
+                                [value]="rascunhosPendencia()[tarefa.id]?.title ?? ''"
+                                (input)="atualizarCampoPendencia(tarefa.id, 'title', $event)"
+                              />
+                            </label>
+                            <label>
+                              Categoria
+                              <select
+                                [value]="rascunhosPendencia()[tarefa.id]?.category ?? 'OUTRO'"
+                                (change)="atualizarCampoPendencia(tarefa.id, 'category', $event)"
+                              >
+                                <option value="MATERIAL">Material</option>
+                                <option value="FERRAMENTA">Ferramenta</option>
+                                <option value="EQUIPAMENTO">Equipamento</option>
+                                <option value="DOCUMENTO">Documento</option>
+                                <option value="ACESSO">Acesso</option>
+                                <option value="EXAME">Exame</option>
+                                <option value="ATIVIDADE">Atividade</option>
+                                <option value="VEICULO">Veículo</option>
+                                <option value="PATRIMONIO">Patrimônio</option>
+                                <option value="CONTRATO">Contrato</option>
+                                <option value="OUTRO">Outro</option>
+                              </select>
+                            </label>
+                            <label>
+                              Bloqueio
+                              <select
+                                [value]="
+                                  rascunhosPendencia()[tarefa.id]?.blocking_level ??
+                                  'BLOQUEANTE'
+                                "
+                                (change)="
+                                  atualizarCampoPendencia(
+                                    tarefa.id,
+                                    'blocking_level',
+                                    $event
+                                  )
+                                "
+                              >
+                                <option value="BLOQUEANTE">Bloqueante</option>
+                                <option value="NAO_BLOQUEANTE">Não bloqueante</option>
+                                <option value="INFORMATIVA">Informativa</option>
+                              </select>
+                            </label>
+                            <label>
+                              Item relacionado
+                              <select
+                                [value]="
+                                  rascunhosPendencia()[tarefa.id]?.checklist_item_id ?? ''
+                                "
+                                (change)="
+                                  atualizarCampoPendencia(
+                                    tarefa.id,
+                                    'checklist_item_id',
+                                    $event
+                                  )
+                                "
+                              >
+                                <option value="">Tarefa em geral</option>
+                                @for (item of tarefa.checklist_items; track item.id) {
+                                  @if (item.allows_pending) {
+                                    <option [value]="item.id">{{ item.question }}</option>
+                                  }
+                                }
+                              </select>
+                            </label>
+                            <label class="campo-largo">
+                              Descrição
+                              <textarea
+                                rows="3"
+                                maxlength="4000"
+                                [value]="rascunhosPendencia()[tarefa.id]?.description ?? ''"
+                                (input)="
+                                  atualizarCampoPendencia(tarefa.id, 'description', $event)
+                                "
+                              ></textarea>
+                            </label>
+                            <div class="acoes campo-largo">
+                              <p-button
+                                type="button"
+                                icon="pi pi-exclamation-circle"
+                                label="Registrar pendência"
+                                [loading]="tarefaEmMutacao() === tarefa.id"
+                                [disabled]="tarefaEmMutacao() !== null"
+                                (onClick)="criarPendencia(tarefa)"
+                              ></p-button>
+                            </div>
+                          </div>
+                        }
+
+                        <div class="pendencias__lista">
+                          @for (pendencia of tarefa.pending_items; track pendencia.uuid) {
+                            <article class="pendencia">
+                              <header>
+                                <span>
+                                  <strong>{{ pendencia.title }}</strong>
+                                  <small>
+                                    {{ pendencia.category }} ·
+                                    {{ pendencia.blocking_level }}
+                                  </small>
+                                </span>
+                                <p-tag
+                                  [severity]="
+                                    pendencia.status === 'REGULARIZADA' ||
+                                    pendencia.status === 'ENCERRADA'
+                                      ? 'success'
+                                      : 'warn'
+                                  "
+                                  [value]="pendencia.status"
+                                ></p-tag>
+                              </header>
+                              <p>{{ pendencia.description }}</p>
+
+                              @if (pendencia.comments.length) {
+                                <ul class="comentarios">
+                                  @for (comment of pendencia.comments; track comment.id) {
+                                    <li>
+                                      <strong>{{ comment.author.username }}</strong>
+                                      <span>{{ comment.text }}</span>
+                                      <small>
+                                        {{ comment.created_at | date: 'dd/MM/yyyy HH:mm' }}
+                                      </small>
+                                    </li>
+                                  }
+                                </ul>
+                              }
+
+                              @if (
+                                tarefa.status === 'EM_ANALISE' &&
+                                pendencia.status !== 'ENCERRADA'
+                              ) {
+                                <label>
+                                  Comentário
+                                  <textarea
+                                    rows="2"
+                                    maxlength="4000"
+                                    [value]="comentariosPendencia()[pendencia.uuid]"
+                                    (input)="
+                                      atualizarComentarioPendencia(pendencia.uuid, $event)
+                                    "
+                                  ></textarea>
+                                </label>
+                                <div class="acoes pendencia__acoes">
+                                  <p-button
+                                    type="button"
+                                    severity="secondary"
+                                    icon="pi pi-comment"
+                                    label="Comentar"
+                                    [disabled]="tarefaEmMutacao() !== null"
+                                    (onClick)="comentarPendencia(tarefa, pendencia)"
+                                  ></p-button>
+                                  @for (
+                                    status of transicoesDisponiveis(pendencia.status);
+                                    track status
+                                  ) {
+                                    <p-button
+                                      type="button"
+                                      icon="pi pi-arrow-right"
+                                      [label]="rotuloTransicao(status)"
+                                      [disabled]="tarefaEmMutacao() !== null"
+                                      (onClick)="
+                                        transicionarPendencia(tarefa, pendencia, status)
+                                      "
+                                    ></p-button>
+                                  }
+                                </div>
+                                <label class="upload">
+                                  <i class="pi pi-upload" aria-hidden="true"></i>
+                                  Anexar evidência à pendência
+                                  <input
+                                    class="arquivo-input"
+                                    type="file"
+                                    accept=".pdf,.png,.jpg,.jpeg"
+                                    [disabled]="tarefaEmMutacao() !== null"
+                                    (change)="
+                                      enviarEvidencia(tarefa, $event, undefined, pendencia)
+                                    "
+                                  />
+                                </label>
+                              }
+                            </article>
+                          } @empty {
+                            <p class="vazio-inline">Nenhuma pendência registrada.</p>
+                          }
+                        </div>
                       </section>
 
                       @if (tarefa.status === 'EM_ANALISE') {

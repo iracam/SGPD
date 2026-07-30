@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { TarefaSetor } from './models/tarefas.models';
+import { Evidencia, Pendencia, TarefaSetor } from './models/tarefas.models';
 import { TarefasPage } from './tarefas';
 
 function tarefa(status: TarefaSetor['status'] = 'PENDENTE'): TarefaSetor {
@@ -43,9 +43,50 @@ function tarefa(status: TarefaSetor['status'] = 'PENDENTE'): TarefaSetor {
         config: {},
         response: status === 'CONCLUIDA' ? true : null,
         answered_at: status === 'CONCLUIDA' ? '2026-07-29T14:00:00-03:00' : null,
+        evidences: [],
       },
     ],
+    pending_items: [],
+    evidences: [],
     version: status === 'PENDENTE' ? 1 : status === 'EM_ANALISE' ? 2 : 3,
+  };
+}
+
+function pendencia(): Pendencia {
+  return {
+    uuid: 'f036642b-6e39-43c3-851a-d9f4d7b17ad3',
+    process_uuid: tarefa().process.uuid,
+    task_id: 11,
+    checklist_item_id: 31,
+    category: 'EQUIPAMENTO',
+    title: 'Notebook pendente',
+    description: 'Aguardar devolução.',
+    status: 'ABERTA',
+    blocking_level: 'BLOQUEANTE',
+    identified_at: '2026-07-30T10:00:00-03:00',
+    regularization_due_at: null,
+    registered_by: { id: 1, username: 'responsavel' },
+    version: 1,
+    items: [],
+    comments: [],
+  };
+}
+
+function evidencia(): Evidencia {
+  return {
+    uuid: '0f964f68-f2ad-4096-a4d7-8c0fa6be228a',
+    process_uuid: tarefa().process.uuid,
+    task_id: 11,
+    pending_uuid: null,
+    checklist_item_id: 31,
+    original_name: 'comprovante.png',
+    mime_type: 'image/png',
+    size_bytes: 1024,
+    sha256: 'a'.repeat(64),
+    uploaded_by: { id: 1, username: 'responsavel' },
+    uploaded_at: '2026-07-30T10:00:00-03:00',
+    classification: 'RESTRITA',
+    download_url: '/api/v1/evidence/0f964f68-f2ad-4096-a4d7-8c0fa6be228a/download/',
   };
 }
 
@@ -174,5 +215,76 @@ describe('TarefasPage', () => {
     expect(component.tarefas()[0].status).toBe('CONCLUIDA');
     expect(component.grupos()[0].processos).toHaveLength(0);
     expect(component.grupos()[1].processos).toHaveLength(1);
+  });
+
+  it('registra pendência estruturada com versão e idempotência', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    carregar(emAnalise);
+    component.rascunhosPendencia.set({
+      11: {
+        title: 'Notebook pendente',
+        description: 'Aguardar devolução.',
+        category: 'EQUIPAMENTO',
+        blocking_level: 'BLOQUEANTE',
+        checklist_item_id: 31,
+      },
+    });
+
+    (
+      component as unknown as {
+        criarPendencia(value: TarefaSetor): void;
+      }
+    ).criarPendencia(emAnalise);
+
+    const request = httpMock.expectOne('/api/v1/pending-items/');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      task_id: 11,
+      expected_task_version: 2,
+      checklist_item_id: 31,
+      category: 'EQUIPAMENTO',
+      title: 'Notebook pendente',
+      description: 'Aguardar devolução.',
+      blocking_level: 'BLOQUEANTE',
+      items: [],
+    });
+    expect(request.request.headers.get('Idempotency-Key')).toBeTruthy();
+    request.flush(pendencia());
+
+    expect(component.tarefas()[0].pending_items[0].title).toBe('Notebook pendente');
+  });
+
+  it('envia evidência privada vinculada ao item do checklist', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    emAnalise.checklist_items[0].requires_evidence = true;
+    carregar(emAnalise);
+    const file = new File(['conteúdo'], 'comprovante.png', { type: 'image/png' });
+    const input = document.createElement('input');
+    Object.defineProperty(input, 'files', { value: [file] });
+
+    (
+      component as unknown as {
+        enviarEvidencia(
+          task: TarefaSetor,
+          event: Event,
+          item: TarefaSetor['checklist_items'][number],
+        ): void;
+      }
+    ).enviarEvidencia(
+      emAnalise,
+      { target: input } as unknown as Event,
+      emAnalise.checklist_items[0],
+    );
+
+    const request = httpMock.expectOne('/api/v1/evidence/');
+    expect(request.request.method).toBe('POST');
+    const body = request.request.body as FormData;
+    expect(body.get('task_id')).toBe('11');
+    expect(body.get('expected_task_version')).toBe('2');
+    expect(body.get('checklist_item_id')).toBe('31');
+    expect(body.get('file')).toBe(file);
+    request.flush(evidencia());
+
+    expect(component.tarefas()[0].checklist_items[0].evidences).toHaveLength(1);
   });
 });

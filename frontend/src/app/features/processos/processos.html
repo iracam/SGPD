@@ -61,94 +61,101 @@
     }
   </article>
 
-  <article class="processo-card processo-card--lista">
-    <header class="processo-card__cabecalho">
-      <span class="processo-card__icone">
-        <i class="pi pi-check-circle" aria-hidden="true"></i>
-      </span>
-      <span>
-        <strong>Concluídos</strong>
-        <small>Encerrados ou com todas as tarefas concluídas.</small>
-      </span>
-      <span class="processo-card__total">{{ concluidos().length }}</span>
-    </header>
+  @for (card of cardsExpansiveis(); track card.key) {
+    <article class="processo-card processo-card--lista">
+      <header class="processo-card__cabecalho">
+        <span class="processo-card__icone">
+          <i [class]="card.icon" aria-hidden="true"></i>
+        </span>
+        <span>
+          <strong>{{ card.title }}</strong>
+          <small>{{ card.description }}</small>
+        </span>
+        <span class="processo-card__total">{{ card.processes.length }}</span>
+      </header>
 
-    @if (carregando()) {
-      <p class="estado-vazio">Carregando processos concluídos…</p>
-    } @else {
-      <div class="processo-lista">
-        @for (processo of concluidos(); track processo.uuid) {
-          <div class="processo-expansivel">
-            <button
-              type="button"
-              class="processo-lista__item processo-lista__item--botao"
-              [attr.aria-expanded]="processoExpandido() === processo.uuid"
-              [attr.aria-controls]="'tarefas-processo-' + processo.uuid"
-              [disabled]="carregandoTarefas() !== null && carregandoTarefas() !== processo.uuid"
-              (click)="alternarTarefas(processo)"
-            >
-              <span>
-                <strong>{{ processo.employee_snapshot.employee_name }}</strong>
-                <small>
-                  Matrícula {{ processo.employee_registration }} · Empresa
-                  {{ processo.company_code }} · Filial {{ processo.branch_code }}
-                </small>
-                @if (processo.completion_at) {
-                  <small>
-                    Concluído em {{ processo.completion_at | date: 'dd/MM/yyyy HH:mm' }}
-                  </small>
-                } @else {
-                  <small>Processo formalmente encerrado.</small>
-                }
-              </span>
-              <i
-                class="pi"
-                [class.pi-chevron-up]="processoExpandido() === processo.uuid"
-                [class.pi-chevron-down]="processoExpandido() !== processo.uuid"
-                aria-hidden="true"
-              ></i>
-            </button>
-
-            @if (processoExpandido() === processo.uuid) {
-              <section
-                class="tarefas-processo"
-                [id]="'tarefas-processo-' + processo.uuid"
-                [attr.aria-label]="
-                  'Tarefas concluídas de ' + processo.employee_snapshot.employee_name
-                "
+      @if (carregando()) {
+        <p class="estado-vazio">{{ card.loadingText }}</p>
+      } @else {
+        <div class="processo-lista">
+          @for (processo of card.processes; track processo.uuid) {
+            <div class="processo-expansivel">
+              <button
+                type="button"
+                class="processo-lista__item processo-lista__item--botao"
+                [attr.aria-expanded]="processoExpandido() === processo.uuid"
+                [attr.aria-controls]="'tarefas-processo-' + processo.uuid"
+                [disabled]="carregandoTarefas() !== null && carregandoTarefas() !== processo.uuid"
+                (click)="alternarTarefas(processo, card.completedOnly)"
               >
-                @if (carregandoTarefas() === processo.uuid) {
-                  <p class="estado-vazio">Carregando tarefas concluídas…</p>
-                } @else {
-                  @for (tarefa of tarefasPorProcesso()[processo.uuid] ?? []; track tarefa.id) {
-                    <article class="tarefa-processo">
-                      <span>
-                        <strong>{{ tarefa.sector.name }}</strong>
-                        <small>
-                          Template {{ tarefa.template.code }} · v{{
-                            tarefa.template.version_number
-                          }}
-                        </small>
-                      </span>
-                      @if (tarefa.completed_at) {
-                        <small>
-                          {{ tarefa.completed_at | date: 'dd/MM/yyyy HH:mm' }}
-                        </small>
-                      }
-                    </article>
-                  } @empty {
-                    <p class="estado-vazio">
-                      Nenhuma tarefa concluída registrada para este processo.
-                    </p>
+                <span>
+                  <strong>{{ processo.employee_snapshot.employee_name }}</strong>
+                  <small>
+                    Matrícula {{ processo.employee_registration }} · Empresa
+                    {{ processo.company_code }} · Filial {{ processo.branch_code }}
+                  </small>
+                  @if (card.completedOnly) {
+                    @if (processo.completion_at) {
+                      <small>
+                        Concluído em {{ processo.completion_at | date: 'dd/MM/yyyy HH:mm' }}
+                      </small>
+                    } @else {
+                      <small>Processo formalmente encerrado.</small>
+                    }
+                  } @else {
+                    <small>Prazo {{ processo.due_date | date: 'dd/MM/yyyy' }}</small>
                   }
-                }
-              </section>
-            }
-          </div>
-        } @empty {
-          <p class="estado-vazio">Nenhum processo concluído disponível.</p>
-        }
-      </div>
-    }
-  </article>
+                </span>
+                <i
+                  class="pi"
+                  [class.pi-chevron-up]="processoExpandido() === processo.uuid"
+                  [class.pi-chevron-down]="processoExpandido() !== processo.uuid"
+                  aria-hidden="true"
+                ></i>
+              </button>
+
+              @if (processoExpandido() === processo.uuid) {
+                <section
+                  class="tarefas-processo"
+                  [id]="'tarefas-processo-' + processo.uuid"
+                  [attr.aria-label]="'Tarefas de ' + processo.employee_snapshot.employee_name"
+                >
+                  @if (carregandoTarefas() === processo.uuid) {
+                    <p class="estado-vazio">{{ card.taskLoadingText }}</p>
+                  } @else {
+                    @for (tarefa of tarefasPorProcesso()[processo.uuid] ?? []; track tarefa.id) {
+                      <article class="tarefa-processo">
+                        <span>
+                          <strong>{{ tarefa.sector.name }}</strong>
+                          <small>
+                            Template {{ tarefa.template.code }} · v{{
+                              tarefa.template.version_number
+                            }}
+                          </small>
+                        </span>
+                        <span class="tarefa-processo__situacao">
+                          <small class="tarefa-processo__status">
+                            {{ rotuloStatusTarefa(tarefa.status) }}
+                          </small>
+                          @if (tarefa.completed_at) {
+                            <small>
+                              {{ tarefa.completed_at | date: 'dd/MM/yyyy HH:mm' }}
+                            </small>
+                          }
+                        </span>
+                      </article>
+                    } @empty {
+                      <p class="estado-vazio">{{ card.taskEmptyText }}</p>
+                    }
+                  }
+                </section>
+              }
+            </div>
+          } @empty {
+            <p class="estado-vazio">{{ card.emptyText }}</p>
+          }
+        </div>
+      }
+    </article>
+  }
 </section>

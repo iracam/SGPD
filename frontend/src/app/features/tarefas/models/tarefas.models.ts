@@ -23,6 +23,64 @@ export interface ItemChecklist {
   config: { choices?: string[] };
   response: unknown;
   answered_at: string | null;
+  evidences: Evidencia[];
+}
+
+export interface Evidencia {
+  uuid: string;
+  process_uuid: string;
+  task_id: number;
+  pending_uuid: string | null;
+  checklist_item_id: number | null;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  sha256: string;
+  uploaded_by: { id: number; username: string };
+  uploaded_at: string;
+  classification: 'INTERNA' | 'RESTRITA' | 'SENSIVEL';
+  download_url: string;
+  idempotency_replayed?: boolean;
+}
+
+export type PendenciaStatus =
+  | 'ABERTA'
+  | 'EM_REGULARIZACAO'
+  | 'REGULARIZADA'
+  | 'ENCERRADA';
+
+export interface Pendencia {
+  uuid: string;
+  process_uuid: string;
+  task_id: number;
+  checklist_item_id: number | null;
+  category: string;
+  title: string;
+  description: string;
+  status: PendenciaStatus;
+  blocking_level: 'INFORMATIVA' | 'NAO_BLOQUEANTE' | 'BLOQUEANTE';
+  identified_at: string;
+  regularization_due_at: string | null;
+  registered_by: { id: number; username: string };
+  version: number;
+  items: {
+    id: number;
+    code: string;
+    description: string;
+    asset_tag: string;
+    serial_number: string;
+    quantity: string;
+    unit: string;
+    item_condition: string;
+    extra_data: Record<string, unknown>;
+  }[];
+  comments: {
+    id: number;
+    author: { id: number; username: string };
+    text: string;
+    created_at: string;
+  }[];
+  idempotency_replayed?: boolean;
 }
 
 export interface TarefaSetor {
@@ -47,6 +105,8 @@ export interface TarefaSetor {
   notes: string;
   checklist_item_count: number;
   checklist_items: ItemChecklist[];
+  pending_items: Pendencia[];
+  evidences: Evidencia[];
   version: number;
   idempotency_replayed?: boolean;
 }
@@ -61,4 +121,15 @@ export interface ConcluirTarefaPayload {
   expected_version: number;
   answers: { item_id: number; value: unknown }[];
   notes: string;
+}
+
+export interface CriarPendenciaPayload {
+  task_id: number;
+  expected_task_version: number;
+  checklist_item_id: number | null;
+  category: string;
+  title: string;
+  description: string;
+  blocking_level: string;
+  items: [];
 }

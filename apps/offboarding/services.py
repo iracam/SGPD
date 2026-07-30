@@ -1144,6 +1144,22 @@ def completed_processes_for_actor(actor: User) -> QuerySet[OffboardingProcess]:
     )
 
 
+def open_processes_for_actor(actor: User) -> QuerySet[OffboardingProcess]:
+    """Return started processes with at least one unfinished sector task."""
+
+    unfinished_tasks = ProcessSectorTask.objects.filter(
+        process_id=OuterRef("pk"),
+    ).exclude(status=SectorTaskStatus.COMPLETED)
+    return (
+        processes_for_actor(actor)
+        .annotate(has_unfinished_tasks=Exists(unfinished_tasks))
+        .filter(
+            status=ProcessStatus.STARTED,
+            has_unfinished_tasks=True,
+        )
+    )
+
+
 def _scope_covers_process(scope: SectorScope, process: OffboardingProcess) -> bool:
     return (
         scope.scope_type == "GLOBAL"
@@ -1156,11 +1172,12 @@ def _scope_covers_process(scope: SectorScope, process: OffboardingProcess) -> bo
     )
 
 
-def _lock_task_and_authority(
+def lock_sector_task_and_authority(
     *,
     actor: User,
     task_id: int,
     at: datetime,
+    allow_process_coordinator: bool = False,
 ) -> tuple[User, OffboardingProcess, ProcessSectorTask]:
     try:
         process_id = ProcessSectorTask.objects.values_list("process_id", flat=True).get(pk=task_id)
@@ -1185,8 +1202,20 @@ def _lock_task_and_authority(
     except User.DoesNotExist as exc:
         raise PermissionDenied("O ator não está mais disponível.") from exc
     scopes = tuple(SectorScope.objects.filter(sector=sector).order_by("pk"))
-    has_task_authority = has_global_authority(locked_actor) or (
-        bool(responsibilities) and any(_scope_covers_process(scope, process) for scope in scopes)
+    has_sector_authority = bool(responsibilities) and any(
+        _scope_covers_process(scope, process) for scope in scopes
+    )
+    has_coordinator_authority = False
+    if allow_process_coordinator and not has_global_authority(locked_actor):
+        list(RoleAssignment.objects.select_for_update().filter(user=locked_actor).order_by("pk"))
+        has_coordinator_authority = has_effective_role(
+            locked_actor,
+            PEOPLE_DEPARTMENT_ROLE_CODE,
+            company_code=process.company_code,
+            branch_code=process.branch_code,
+        )
+    has_task_authority = (
+        has_global_authority(locked_actor) or has_sector_authority or has_coordinator_authority
     )
     if not locked_actor.is_active or not sector.is_active or not has_task_authority:
         raise PermissionDenied(
@@ -1282,7 +1311,7 @@ class StartSectorTaskService:
                 "expected_version": command.expected_version,
             }
         )
-        actor, process, task = _lock_task_and_authority(
+        actor, process, task = lock_sector_task_and_authority(
             actor=command.actor,
             task_id=command.task_id,
             at=timezone.now(),
@@ -1342,13 +1371,7 @@ def _choice_values(item: ProcessChecklistItem) -> tuple[str, ...]:
 def _validated_answer(item: ProcessChecklistItem, value: Any) -> Any:
     response_type = item.response_type_snapshot
     if response_type == ChecklistResponseType.FILE:
-        raise ValidationError(
-            {"answers": f"O item {item.pk} depende do módulo de evidências ainda não habilitado."}
-        )
-    if item.requires_evidence:
-        raise ValidationError(
-            {"answers": f"O item {item.pk} exige evidência e ainda não pode ser concluído."}
-        )
+        raise ValidationError({"answers": f"O arquivo do item {item.pk} deve ser enviado antes."})
     if response_type == ChecklistResponseType.BOOLEAN:
         if type(value) is not bool:
             raise ValidationError({"answers": f"O item {item.pk} exige resposta sim/não."})
@@ -1403,6 +1426,8 @@ def _validated_answers(
     items: tuple[ProcessChecklistItem, ...],
     answers: tuple[ChecklistAnswerValue, ...],
 ) -> dict[int, Any]:
+    from apps.evidence.models import Evidence
+
     answer_ids = [answer.item_id for answer in answers]
     if len(answer_ids) != len(set(answer_ids)):
         raise ValidationError({"answers": "Um item do checklist foi informado mais de uma vez."})
@@ -1411,13 +1436,32 @@ def _validated_answers(
     if unknown:
         raise ValidationError({"answers": "Uma resposta não pertence à tarefa informada."})
     supplied = {answer.item_id: answer.value for answer in answers}
+    evidence_item_ids = set(
+        Evidence.objects.filter(
+            checklist_item_id__in=items_by_id,
+            is_active=True,
+        ).values_list("checklist_item_id", flat=True)
+    )
     for item in items:
-        if item.is_required and (item.pk not in supplied or supplied[item.pk] is None):
+        has_answer = item.pk in supplied and supplied[item.pk] is not None
+        has_evidence = item.pk in evidence_item_ids
+        if item.response_type_snapshot == ChecklistResponseType.FILE:
+            if has_answer:
+                raise ValidationError(
+                    {"answers": f"O item de arquivo {item.pk} não aceita resposta JSON."}
+                )
+            if item.is_required and not has_evidence:
+                raise ValidationError({"answers": f"O item obrigatório {item.pk} exige arquivo."})
+            continue
+        if item.is_required and not has_answer:
             raise ValidationError({"answers": f"O item obrigatório {item.pk} exige resposta."})
+        if item.requires_evidence and (item.is_required or has_answer) and not has_evidence:
+            raise ValidationError({"answers": f"O item {item.pk} exige evidência."})
     return {
         item_id: _validated_answer(items_by_id[item_id], value)
         for item_id, value in supplied.items()
         if value is not None
+        and items_by_id[item_id].response_type_snapshot != ChecklistResponseType.FILE
     }
 
 
@@ -1442,7 +1486,7 @@ class CompleteSectorTaskService:
             }
         )
         completed_at = timezone.now()
-        actor, process, task = _lock_task_and_authority(
+        actor, process, task = lock_sector_task_and_authority(
             actor=command.actor,
             task_id=command.task_id,
             at=completed_at,
@@ -1467,6 +1511,17 @@ class CompleteSectorTaskService:
             .filter(task=task)
             .order_by("display_order", "pk")
         )
+        from apps.pending_items.models import BlockingLevel, PendingItem, PendingStatus
+
+        if (
+            PendingItem.objects.filter(
+                task=task,
+                blocking_level=BlockingLevel.BLOCKING,
+            )
+            .exclude(status__in=(PendingStatus.REGULARIZED, PendingStatus.CLOSED))
+            .exists()
+        ):
+            raise ValidationError("A tarefa possui pendência bloqueante ainda não regularizada.")
         normalized = _validated_answers(items, command.answers)
         for item in items:
             if item.pk not in normalized:

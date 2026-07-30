@@ -138,6 +138,14 @@
   }
 }
 
+.tarefa-processo__situacao {
+  text-align: end;
+}
+
+.tarefa-processo__status {
+  font-weight: 700;
+}
+
 .estado-vazio {
   margin: 1rem 0 0;
   padding: 1rem;
@@ -149,7 +157,13 @@
 
 @include bp.from(bp.$md) {
   .processos-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
+  }
+}
+
+@include bp.from(bp.$xl) {
+  .processos-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

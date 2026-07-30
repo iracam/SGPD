@@ -4,9 +4,10 @@
 
 Este documento define o fluxo funcional alvo. A abertura em `RASCUNHO`, a
 seleção versionada e a transição idempotente para `INICIADO` estão
-implementadas. O ciclo inicial da tarefa `PENDENTE → EM_ANALISE → CONCLUIDA`
-e as respostas simples de checklist também estão implementados; as demais
-transições deverão ser confirmadas e testadas nos checkpoints das Fases 4 a 8.
+implementadas. O ciclo da tarefa `PENDENTE → EM_ANALISE → CONCLUIDA`, as
+respostas do checklist e a primeira fatia de pendências/evidências estão
+implementados; as demais transições deverão ser confirmadas e testadas nos
+checkpoints das Fases 6 a 8.
 
 ## Premissa de autoridade global
 
@@ -139,10 +140,11 @@ Processo cancelado com justificativa.
 - CANCELADA
 
 O responsável vigente no escopo inicia a análise explicitamente. A conclusão
-exige a tarefa em análise e todas as respostas obrigatórias válidas. Ambas as
-ações usam locks, versão otimista, chave idempotente e auditoria na mesma
-transação. Respostas que dependem de arquivo/evidência aguardam a Fase 5 e não
-podem concluir a tarefa. Neste incremento a conclusão da última tarefa não
+exige a tarefa em análise, todas as respostas obrigatórias válidas, evidências
+obrigatórias presentes e nenhuma pendência bloqueante aberta ou em
+regularização. As ações usam locks, versão otimista, chave idempotente e
+auditoria na mesma transação. Arquivos são enviados antes da conclusão pelo
+endpoint privado da Fase 5. Neste incremento a conclusão da última tarefa não
 altera automaticamente o estado do processo.
 
 ## 4. Estados da pendência
@@ -158,6 +160,18 @@ altera automaticamente o estado do processo.
 - REJEITADA
 - ABONADA
 - ENCERRADA
+
+Implementado nesta fatia:
+
+- `ABERTA → EM_REGULARIZACAO`;
+- `EM_REGULARIZACAO → REGULARIZADA`;
+- `REGULARIZADA → ENCERRADA`;
+- `REGULARIZADA → EM_REGULARIZACAO`, quando a regularização precisar ser
+  retomada.
+
+As demais situações acima permanecem como fluxo alvo de comunicação e decisão
+dos incrementos posteriores. Toda transição implementada exige comentário e
+preserva concorrência, idempotência e auditoria.
 
 ## 5. Regras de transição
 

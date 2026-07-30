@@ -407,6 +407,9 @@ def test_process_api_classifies_all_sector_tasks_completed(
     before = client.get(route, {"completed": "true"})
     assert before.status_code == 200
     assert before.json()["results"] == []
+    open_before = client.get(route, {"open": "true"})
+    assert open_before.status_code == 200
+    assert [row["uuid"] for row in open_before.json()["results"]] == [str(process.uuid)]
 
     start_task(actor, task)
     task.refresh_from_db()
@@ -416,6 +419,12 @@ def test_process_api_classifies_all_sector_tasks_completed(
     assert after.status_code == 200
     assert [row["uuid"] for row in after.json()["results"]] == [str(process.uuid)]
     assert after.json()["results"][0]["completion_at"] is not None
+    open_after = client.get(route, {"open": "true"})
+    assert open_after.status_code == 200
+    assert open_after.json()["results"] == []
+
+    conflicting = client.get(route, {"open": "true", "completed": "true"})
+    assert conflicting.status_code == 400
 
     tasks_route = reverse(
         "offboarding-api:process-tasks",

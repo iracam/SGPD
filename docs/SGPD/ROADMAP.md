@@ -276,12 +276,14 @@ validam respostas simples e concluem a tarefa com concorrência, idempotência e
 auditoria. A tela separa tarefas ativas e concluídas em dois cards e mostra as
 conclusões mais novas primeiro; cada card lista processos expansíveis e revela
 as respectivas tarefas ao clicar. `/fe/processos` oferece o hub do DP e lista
-rascunhos por abertura decrescente; o card de concluídos reúne tanto o futuro
-estado formal `ENCERRADO` quanto processos iniciados que já possuem todas as
-tarefas setoriais concluídas, com expansão sob demanda das tarefas concluídas.
-Itens de arquivo ou com evidência obrigatória
-aguardam a Fase 5; a conclusão ainda não promove automaticamente o estado do
-processo, e a transição formal de encerramento permanece na Fase 8. As migrations
+rascunhos por abertura decrescente; o card `Em Aberto` reúne processos
+iniciados com ao menos uma tarefa não concluída, enquanto `Concluídos` reúne
+tanto o futuro estado formal `ENCERRADO` quanto processos iniciados que já
+possuem todas as tarefas setoriais concluídas. Ambos expandem suas tarefas sob
+demanda.
+Itens de arquivo ou com evidência obrigatória foram habilitados pela Fase 5;
+a conclusão ainda não promove automaticamente o estado do processo, e a
+transição formal de encerramento permanece na Fase 8. As migrations
 `templates_engine.0001`, `templates_engine.0002` e `offboarding.0002` estão
 aplicadas e validadas no Oracle DEV.
 `templates_engine.0003`, que normaliza o identificador automático e habilita o
@@ -317,6 +319,23 @@ nenhuma linha permaneceu após o rollback.
 ### Saída esperada
 
 Setores conseguem documentar e resolver pendências.
+
+### Estado em 2026-07-30
+
+Primeira fatia vertical implementada. Pendências possuem entidade própria,
+itens, categoria, classificação de bloqueio, comentários append-only e ciclo
+`ABERTA → EM_REGULARIZACAO → REGULARIZADA → ENCERRADA`, com retomada da
+regularização. Criação, comentário e transição usam locks, versão otimista,
+`Idempotency-Key`, auditoria e rollback transacional. Responsável vigente do
+setor, `DP` no escopo e SuperAdmin podem atuar conforme o processo.
+
+Evidências PDF, PNG e JPEG são validadas por extensão, MIME type e assinatura,
+limitadas, renomeadas, gravadas no filesystem privado com SHA-256 e nunca
+servidas pelo WhiteNoise. Upload e download usam endpoints autorizados e
+auditados; falha transacional remove o novo arquivo órfão. Itens `FILE` e com
+evidência obrigatória agora podem concluir, enquanto pendência bloqueante não
+regularizada impede a conclusão da tarefa. Valores e decisões permanecem
+integralmente na Fase 6.
 
 ## Fase 6 — Valores e decisões
 

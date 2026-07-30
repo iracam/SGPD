@@ -5,7 +5,8 @@
 Este é o modelo conceitual do produto. Na implementação atual, contas, o papel,
 escopos, auditoria de contas, configuração técnica LDAP, setores, escopos de
 setor, responsáveis, templates/grupos versionados, processo em rascunho ou
-iniciado, snapshots, tarefas e auditoria possuem models e migrations. Os
+iniciado, snapshots, tarefas, pendências, evidências e auditoria possuem
+models e migrations. Os
 demais domínios serão detalhados e
 implementados nos checkpoints das Fases 3 a 9; seus nomes abaixo não autorizam
 criação antecipada de schema.
@@ -521,6 +522,17 @@ vinculados ao ator e ao hash do corpo.
 - `DECIDIDO_POR_ID`
 - `DECIDIDO_EM`
 
+Estado implementado em `SGPD_PENDING_ITEM` sem antecipar decisão financeira:
+
+- UUID público, processo, tarefa e item de checklist opcional;
+- categoria sem `VALOR`, título, descrição, classificação de bloqueio, prazo
+  opcional, ator, datas e versão otimista;
+- estados `ABERTA`, `EM_REGULARIZACAO`, `REGULARIZADA` e `ENCERRADA`;
+- pendências bloqueantes só deixam de impedir a conclusão quando
+  `REGULARIZADA` ou `ENCERRADA`;
+- alteração e exclusão em lote são rejeitadas; mutações passam por services
+  auditados e idempotentes.
+
 #### PENDENCIA_ITEM
 
 - `ID`
@@ -533,6 +545,24 @@ vinculados ao ator e ao hash do corpo.
 - `UNIDADE`
 - `ESTADO_ITEM`
 - `DADOS_EXTRAS_JSON`
+
+Implementado em `SGPD_PENDING_ITEM_LINE`. A pendência pode existir sem linha
+para casos não materiais; quando informadas, quantidade é positiva e descrição
+e unidade são obrigatórias.
+
+#### PENDENCIA_COMENTARIO
+
+Implementado em `SGPD_PENDING_COMMENT`:
+
+- `ID`
+- `PENDENCIA_ID`
+- `AUTOR_ID`
+- `TEXTO`
+- `CRIADO_EM`
+
+Comentários são append-only. Cada comentário adicional incrementa a versão da
+pendência; transições também criam um comentário obrigatório na mesma
+transação.
 
 #### PENDENCIA_VALOR
 
@@ -577,6 +607,19 @@ vinculados ao ator e ao hash do corpo.
 - `ENVIADO_EM`
 - `CLASSIFICACAO`
 - `ATIVO`
+
+Estado implementado em `SGPD_EVIDENCE`:
+
+- processo e tarefa são obrigatórios; pendência e item do checklist são
+  vínculos opcionais validados contra a mesma tarefa;
+- `FILE` mantém somente o nome privado aleatório relativo ao storage, nunca
+  uma URL pública;
+- UUID, nome original, MIME type, tamanho, SHA-256, ator, instante,
+  classificação e situação ficam no Oracle;
+- bytes ficam no storage `evidence`, com arquivo `0600`, diretório `0700` e
+  `base_url=None`;
+- registros e arquivos não possuem exclusão funcional; falha anterior ao
+  commit remove somente o novo arquivo órfão daquela tentativa.
 
 ### Histórico e auditoria
 

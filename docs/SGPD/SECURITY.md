@@ -356,6 +356,21 @@ Recomendações:
 - nunca servir pelo WhiteNoise;
 - acesso somente por endpoint autenticado e autorizado.
 
+Controles implementados na Fase 5:
+
+- limite padrão de 10 MiB, configurável por `EVIDENCE_MAX_UPLOAD_BYTES`;
+- somente PDF, PNG e JPEG, com validação coerente de extensão, MIME type e
+  assinatura inicial;
+- SHA-256 calculado em streaming, nome armazenado aleatório e permissões
+  `0600/0700`;
+- nenhuma projeção do caminho ou nome privado pela API;
+- upload somente em tarefa `EM_ANALISE`, com versão, lock, chave idempotente,
+  auditoria e remoção compensatória do arquivo se a transação falhar;
+- download somente por endpoint autenticado, autorizado por responsabilidade
+  setorial, `DP` no escopo ou SuperAdmin, com evento de auditoria por acesso;
+- item `FILE` ou com evidência obrigatória só permite concluir a tarefa quando
+  possui evidência ativa.
+
 Certificados de integração não usam o storage de evidências. Eles ficam em
 `SYSTEM_CONFIGURATION_STORAGE_PATH`, também privado e não servido pelo
 WhiteNoise.
