@@ -25,6 +25,12 @@ export const FE_ROUTES: Routes = [
             title: 'Painel | SGPD',
           },
           {
+            path: 'processos',
+            loadComponent: () =>
+              import('./features/processos/processos').then((m) => m.ProcessosPage),
+            title: 'Processos | SGPD',
+          },
+          {
             path: 'colaboradores',
             loadComponent: () =>
               import('./features/colaboradores/colaboradores').then(

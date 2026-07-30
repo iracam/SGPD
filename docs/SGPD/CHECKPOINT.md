@@ -499,10 +499,15 @@ Plano completo em `MIGRATION_FRONTEND_SPA.md`.
     do início e limitado pela data final do processo.
   - Recalendário, escalada e tratamento de atraso aguardam homologação.
 - [ ] Painéis.
-  - `/fe/tarefas` entrega o painel inicial dos setores com listagem, detalhe,
-    início, respostas tipadas e conclusão.
-  - Painel do DP, filtros operacionais avançados e consolidação permanecem
-    pendentes.
+  - `/fe/tarefas` entrega dois cards, ativas e concluídas, com as conclusões
+    mais novas primeiro; cada card lista processos expansíveis e mostra suas
+    tarefas, além de detalhe, início, respostas tipadas e conclusão.
+  - `/fe/processos` oferece abertura e rascunhos autorizados por escopo `DP`,
+    ordenados pela abertura mais nova.
+  - O card de concluídos reúne processos formalmente `ENCERRADO` e processos
+    `INICIADO` com todas as tarefas setoriais concluídas, mais novos primeiro,
+    e expande as tarefas concluídas sob demanda.
+  - Filtros operacionais avançados e consolidação permanecem pendentes.
 - [x] Auditoria.
   - `PROCESS_OPENED` é append-only e integra a mesma transação de processo e
     snapshot, sem dados pessoais no payload técnico.
@@ -1609,4 +1614,21 @@ Próximo passo: seguir o checkpoint vigente da Fase 5.
 Comandos executados: reprodução do caminho _LDAPUser do django-auth-ldap; testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; resolução LDAPS real de devteste com bind técnico e objectGUID, sem senha do usuário.
 Arquivos alterados: apps/integrations/active_directory/ldap_backend.py; tests/test_active_directory.py; docs/SGPD/INTEGRATION_ACTIVE_DIRECTORY.md; docs/SGPD/CHECKPOINT.md; docs/SGPD/MANIFEST.json.
 Testes: 58 testes direcionados e 324 testes backend passaram; Ruff e format sem erros; Mypy sem erros em 139 arquivos; Django check sem alertas; models e migrations sem divergência. A resolução real confirmou DN e objectGUID de devteste pelo mesmo backend que falhava antes, e o login corporativo com a senha do próprio usuário foi confirmado pelo responsável funcional após a correção. Não houve migration, alteração de schema, mudança na configuração LDAP persistida ou acesso ao Senior HCM.
+```
+
+### 2026-07-30 — Cards de tarefas e hub de processos
+
+```text
+Data: 2026-07-30
+Responsável: Codex
+Fase: Checkpoint 4 — Painéis iniciais
+O que foi concluído: Minhas tarefas passou a separar ativas e concluídas em dois cards; cada card lista processos expansíveis e mostra suas tarefas ao clicar. Tarefas concluídas aparecem da conclusão mais nova para a mais antiga e mudam de card após a conclusão. O menu Abrir processo passou a se chamar Processos e abre um hub com cards de abertura, rascunhos autorizados por escopo DP e processos concluídos; rascunhos abrem a edição e concluídos expandem suas tarefas concluídas. GET /api/v1/processes/ foi implementado com filtros de estado e conclusão, paginação, ordenação decrescente, autoridade global de SuperAdmin e escopos DP. GET /api/v1/processes/{uuid}/tasks/ fornece resumos de tarefas sob demanda.
+Diagnóstico: tarefas já possuíam estado CONCLUIDA, mas eram exibidas em uma lista única ordenada por prazo e repetiam os dados do processo em cada item. Processos possuem somente RASCUNHO e INICIADO; não existe ainda uma transição válida de encerramento, mas já é possível derivar a conclusão operacional pelas tarefas setoriais.
+Decisões: preservar a regra de domínio no backend; rascunhos, concluídos e suas tarefas são listados somente dentro dos escopos DP vigentes, e SuperAdmin recebe todos. Minhas Tarefas continua usando a autorização derivada da responsabilidade setorial e apenas agrupa a projeção já autorizada. Conforme definição funcional, o card Concluídos reúne ambos os casos: processo formalmente ENCERRADO ou processo INICIADO que possui ao menos uma tarefa setorial e nenhuma tarefa pendente. A derivação usa EXISTS e subquery correlacionada, compatíveis com os campos NCLOB históricos do Oracle, sem promover automaticamente o estado nem antecipar a transição, auditoria ou migration da Fase 8.
+Riscos: o estado formal ENCERRADO e sua data ainda não são persistíveis no modelo e na constraint atuais; até a Fase 8, o caminho efetivo é a conclusão de todas as tarefas. A listagem atual limita cada chamada a 100, o hub solicita os 50 processos mais novos e a expansão solicita até 100 tarefas por processo; paginação visual adicional permanece para uma evolução do painel.
+Pendências: implementar prontidão, liberação e encerramento formal na Fase 8; conferir visualmente a nova grade nos cinco breakpoints homologados.
+Próximo passo: validar o hub com um processo iniciado cuja última tarefa seja concluída e, no checkpoint próprio, implementar a transição formal ENCERRADO com data auditada.
+Comandos executados: testes direcionados e completos; Ruff check/format; Mypy; Django check; makemigrations check; Vitest; build Angular; busca por max-width; diff check.
+Arquivos alterados: API, serializer, services e testes de offboarding; menu, rotas e nova feature Angular de processos; feature Angular de tarefas; README.md; ARCHITECTURE.md; MIGRATION_FRONTEND_SPA.md; ROADMAP.md; CHECKPOINT.md; MANIFEST.json.
+Testes: 328 testes backend e 73 testes frontend passaram; Ruff, format e Mypy sem erros; Django check sem alertas; models e migrations sem divergência; build de produção concluído com bundle inicial de 497,09 kB; nenhuma consulta max-width foi introduzida; diff sem erros de whitespace. Não houve migration, alteração de schema, escrita no Oracle DEV nem acesso ao Senior HCM.
 ```

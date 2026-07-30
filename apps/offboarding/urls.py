@@ -12,6 +12,11 @@ urlpatterns = [
         name="process-draft",
     ),
     path(
+        "<uuid:process_uuid>/tasks/",
+        api.ProcessTaskListView.as_view(),
+        name="process-tasks",
+    ),
+    path(
         "<uuid:process_uuid>/draft/selection/",
         api.ProcessDraftSelectionView.as_view(),
         name="process-draft-selection",

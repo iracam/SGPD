@@ -69,21 +69,61 @@ describe('TarefasPage', () => {
 
   afterEach(() => httpMock.verify());
 
-  function carregar(row: TarefaSetor): void {
+  function carregar(rows: TarefaSetor | TarefaSetor[]): void {
     httpMock.expectOne('/api/v1/tasks/').flush({
       offset: 0,
       limit: 50,
-      results: [row],
+      results: Array.isArray(rows) ? rows : [rows],
     });
     fixture.detectChanges();
   }
 
-  it('lista somente as tarefas devolvidas pelo servidor', () => {
+  it('separa tarefas ativas e concluídas em dois cards', () => {
     carregar(tarefa());
 
     expect(component.tarefas()).toHaveLength(1);
+    expect(component.grupos()[0].processos).toHaveLength(1);
+    expect(component.grupos()[0].processos[0].tarefas).toHaveLength(1);
+    expect(component.grupos()[1].processos).toHaveLength(0);
+    expect(fixture.nativeElement.textContent).toContain('Ativas (a concluir)');
+    expect(fixture.nativeElement.textContent).toContain('Concluídas');
     expect(fixture.nativeElement.textContent).toContain('Tecnologia da Informação');
     expect(fixture.nativeElement.textContent).toContain('Pessoa de Teste');
+    const details = fixture.nativeElement.querySelector('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    (details.querySelector('summary') as HTMLElement).click();
+    expect(details.open).toBe(true);
+  });
+
+  it('ordena as concluídas da mais nova para a mais antiga', () => {
+    const antiga = {
+      ...tarefa('CONCLUIDA'),
+      id: 10,
+      completed_at: '2026-07-29T14:00:00-03:00',
+      process: {
+        ...tarefa('CONCLUIDA').process,
+        uuid: 'processo-antigo',
+        employee_name: 'Conclusão antiga',
+      },
+    };
+    const nova = {
+      ...tarefa('CONCLUIDA'),
+      id: 12,
+      completed_at: '2026-07-30T14:00:00-03:00',
+      process: {
+        ...tarefa('CONCLUIDA').process,
+        uuid: 'processo-novo',
+        employee_name: 'Conclusão nova',
+      },
+    };
+
+    carregar([antiga, nova]);
+
+    expect(
+      component.grupos()[1].processos.map((processo) => processo.employeeName),
+    ).toEqual(['Conclusão nova', 'Conclusão antiga']);
+    const text = fixture.nativeElement.textContent as string;
+    expect(text.indexOf('Conclusão nova')).toBeLessThan(text.indexOf('Conclusão antiga'));
   });
 
   it('inicia a análise com versão e chave idempotente', () => {
@@ -132,5 +172,7 @@ describe('TarefasPage', () => {
     request.flush(tarefa('CONCLUIDA'));
 
     expect(component.tarefas()[0].status).toBe('CONCLUIDA');
+    expect(component.grupos()[0].processos).toHaveLength(0);
+    expect(component.grupos()[1].processos).toHaveLength(1);
   });
 });

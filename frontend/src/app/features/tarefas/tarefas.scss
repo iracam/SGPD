@@ -4,9 +4,108 @@
   margin-block-end: 1.25rem;
 }
 
+.painel-tarefas,
 .lista {
   display: grid;
   gap: 1rem;
+}
+
+.grupo-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--p-content-background) 94%, var(--sgpd-accent));
+}
+
+.grupo-card__cabecalho {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-end: 1rem;
+}
+
+.grupo-card__cabecalho strong,
+.grupo-card__cabecalho small {
+  display: block;
+}
+
+.grupo-card__cabecalho small {
+  margin-block-start: 0.15rem;
+  color: var(--p-text-muted-color);
+}
+
+.grupo-card__icone,
+.grupo-card__total {
+  display: grid;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--sgpd-accent) 16%, transparent);
+  color: var(--status-released-color);
+}
+
+.grupo-card__icone {
+  width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+.grupo-card__total {
+  min-width: 2rem;
+  min-height: 2rem;
+  padding-inline: 0.45rem;
+  font-weight: 700;
+}
+
+.processo-tarefas {
+  min-width: 0;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.75rem;
+  background: var(--p-content-background);
+}
+
+.processo-tarefas__resumo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: var(--touch-target);
+  padding: 0.85rem;
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  strong,
+  small {
+    display: block;
+  }
+
+  small {
+    margin-block-start: 0.15rem;
+    color: var(--p-text-muted-color);
+  }
+
+  i {
+    color: var(--sgpd-accent);
+    transition: transform 160ms ease;
+  }
+}
+
+.processo-tarefas[open] > .processo-tarefas__resumo {
+  border-block-end: 1px solid var(--p-content-border-color);
+
+  i {
+    transform: rotate(180deg);
+  }
+}
+
+.processo-tarefas__lista {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
 }
 
 .cartao {
@@ -117,6 +216,9 @@ select[multiple] {
 }
 
 .vazio {
+  padding: 1rem;
+  border: 1px dashed var(--p-content-border-color);
+  border-radius: 0.7rem;
   text-align: center;
 }
 
@@ -126,6 +228,11 @@ select[multiple] {
 }
 
 @include bp.from(bp.$md) {
+  .painel-tarefas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
   .tarefa__cabecalho,
   .acoes {
     flex-direction: row;

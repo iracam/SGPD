@@ -395,6 +395,54 @@ def test_task_api_lists_starts_and_completes_only_authorized_task(
     assert complete_response.json()["checklist_items"][0]["response"] is True
 
 
+def test_process_api_classifies_all_sector_tasks_completed(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    task = started_task(actor, process)
+    client.force_login(actor)
+    route = reverse("offboarding-api:process-list")
+
+    before = client.get(route, {"completed": "true"})
+    assert before.status_code == 200
+    assert before.json()["results"] == []
+
+    start_task(actor, task)
+    task.refresh_from_db()
+    complete_task(actor, task)
+
+    after = client.get(route, {"completed": "true"})
+    assert after.status_code == 200
+    assert [row["uuid"] for row in after.json()["results"]] == [str(process.uuid)]
+    assert after.json()["results"][0]["completion_at"] is not None
+
+    tasks_route = reverse(
+        "offboarding-api:process-tasks",
+        kwargs={"process_uuid": process.uuid},
+    )
+    tasks = client.get(tasks_route, {"status": SectorTaskStatus.COMPLETED})
+    assert tasks.status_code == 200
+    assert [row["id"] for row in tasks.json()["results"]] == [task.pk]
+    assert tasks.json()["results"][0]["sector"]["name"] == task.sector_name_snapshot
+
+    unauthorized = User.objects.create_user(
+        username="sem.dp.process.tasks",
+        email="sem.dp.process.tasks@example.invalid",
+        password=PASSWORD,
+    )
+    client.force_login(unauthorized)
+    assert client.get(tasks_route).status_code == 403
+
+    superadmin = User.objects.create_superuser(
+        username="super.process.tasks",
+        email="super.process.tasks@example.invalid",
+        password=PASSWORD,
+    )
+    client.force_login(superadmin)
+    assert client.get(tasks_route).status_code == 200
+
+
 def test_superadmin_api_lists_any_task_without_sector_link(
     actor: User,
     process: Any,

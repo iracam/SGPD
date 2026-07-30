@@ -158,6 +158,11 @@ Configuração funcional:
 
 Processo demissional:
 
+- `/fe/processos`: hub do DP com card de abertura, rascunhos ordenados do mais
+  novo para o mais antigo e processos concluídos; um processo aparece como
+  concluído quando está formalmente `ENCERRADO` ou, já iniciado, possui tarefas
+  setoriais e todas elas estão `CONCLUIDA`; clicar em um concluído expande suas
+  tarefas concluídas, enquanto clicar em um rascunho abre sua edição;
 - `/fe/colaboradores`: seleção Empresa → Filial → Tipo de colaborador
   → Colaborador e abertura do rascunho;
 - exige uma atribuição `DP` explícita, ativa, vigente e compatível com empresa
@@ -174,7 +179,10 @@ Processo demissional:
 - a ausência de responsável vigente em setor obrigatório bloqueia toda a
   transação, sem criar tarefa, auditoria parcial ou chave idempotente.
 - `/fe/tarefas`: responsáveis vigentes veem somente tarefas dos próprios
-  setores no escopo do processo, iniciam a análise e concluem o checklist;
+  setores no escopo do processo, separadas em cards de ativas e concluídas; os
+  cards listam primeiro o processo e expandem suas tarefas ao clicar;
+  processos e tarefas concluídos aparecem da conclusão mais nova para a mais
+  antiga;
 - início e conclusão da tarefa usam versão otimista, lock, `Idempotency-Key`,
   auditoria e rollback atômico; itens que exigem arquivo ou evidência aguardam
   a Fase 5.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
+from django.core.exceptions import PermissionDenied
 from django.db.models import Exists, F, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
@@ -12,7 +13,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.models import ScopeType, User
+from apps.accounts.authorization import active_assignments, has_global_authority
+from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, ScopeType, User
 from apps.integrations.senior.exceptions import (
     SeniorContractError,
     SeniorUnavailableError,
@@ -36,6 +38,7 @@ from .models import (
 from .serializers import (
     CompleteSectorTaskSerializer,
     OpenOffboardingProcessSerializer,
+    ProcessQuerySerializer,
     SectorTaskQuerySerializer,
     StartOffboardingProcessSerializer,
     StartSectorTaskSerializer,
@@ -56,10 +59,20 @@ from .services import (
     StartSectorTaskService,
     UpdateDraftSelectionCommand,
     UpdateDraftSelectionService,
+    completed_processes_for_actor,
+    processes_for_actor,
     sector_tasks_for_actor,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _require_process_coordinator(actor: User) -> None:
+    if (
+        not has_global_authority(actor)
+        and not active_assignments(actor).filter(role__code=PEOPLE_DEPARTMENT_ROLE_CODE).exists()
+    ):
+        raise PermissionDenied("O ator não possui o papel DP vigente.")
 
 
 def _snapshot_payload(snapshot: EmployeeSnapshot) -> dict[str, Any]:
@@ -95,6 +108,7 @@ def process_payload(process: OffboardingProcess) -> dict[str, Any]:
             "id": process.started_by_id,
             "username": process.started_by.username,
         }
+    completion_at = getattr(process, "completion_at", None)
     return {
         "uuid": str(process.uuid),
         "status": process.status,
@@ -109,6 +123,7 @@ def process_payload(process: OffboardingProcess) -> dict[str, Any]:
         "opened_at": process.opened_at.isoformat(),
         "started_at": process.started_at.isoformat() if process.started_at else None,
         "started_by": started_by,
+        "completion_at": completion_at.isoformat() if completion_at else None,
         "planned_termination_date": process.planned_termination_date.isoformat(),
         "due_date": process.due_date.isoformat(),
         "reason": process.reason,
@@ -319,6 +334,43 @@ class ProcessListCreateView(APIView):
     repository_class = SeniorRepository
     service_class = OpenOffboardingProcessService
 
+    def get(self, request: Request) -> Response:
+        actor = cast(User, request.user)
+        _require_process_coordinator(actor)
+
+        serializer = ProcessQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        process_query = (
+            completed_processes_for_actor(actor)
+            if data["completed"]
+            else processes_for_actor(actor)
+        )
+        processes = process_query.select_related(
+            "opened_by",
+            "started_by",
+            "employee_snapshot",
+        )
+        if data["status"]:
+            processes = processes.filter(status=data["status"])
+        if data["completed"]:
+            processes = processes.order_by(
+                F("completion_at").desc(nulls_last=True),
+                "-opened_at",
+                "-pk",
+            )
+        else:
+            processes = processes.order_by("-opened_at", "-pk")
+        offset = data["offset"]
+        rows = processes[offset : offset + data["limit"]]
+        return Response(
+            {
+                "offset": offset,
+                "limit": data["limit"],
+                "results": [process_payload(process) for process in rows],
+            }
+        )
+
     def post(self, request: Request) -> Response:
         serializer = OpenOffboardingProcessSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -423,6 +475,42 @@ class ProcessStartView(APIView):
         return Response(payload)
 
 
+class ProcessTaskListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, process_uuid: str) -> Response:
+        actor = cast(User, request.user)
+        _require_process_coordinator(actor)
+        process = get_object_or_404(
+            processes_for_actor(actor),
+            uuid=process_uuid,
+        )
+        serializer = SectorTaskQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        tasks = (
+            ProcessSectorTask.objects.filter(process=process)
+            .select_related("sector", "template_version", "completed_by")
+            .prefetch_related("checklist_items")
+        )
+        if data["status"]:
+            tasks = tasks.filter(status=data["status"])
+        tasks = tasks.order_by(
+            F("completed_at").desc(nulls_last=True),
+            "due_at",
+            "pk",
+        )
+        offset = data["offset"]
+        rows = tasks[offset : offset + data["limit"]]
+        return Response(
+            {
+                "offset": offset,
+                "limit": data["limit"],
+                "results": [_task_payload(task) for task in rows],
+            }
+        )
+
+
 def _responsible_task_queryset(actor: User) -> Any:
     return (
         sector_tasks_for_actor(actor)
@@ -434,7 +522,11 @@ def _responsible_task_queryset(actor: User) -> Any:
             "completed_by",
         )
         .prefetch_related("checklist_items")
-        .order_by("due_at", "pk")
+        .order_by(
+            F("completed_at").desc(nulls_last=True),
+            "-started_at",
+            "-pk",
+        )
     )
 
 

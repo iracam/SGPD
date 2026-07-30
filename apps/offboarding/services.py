@@ -12,10 +12,14 @@ from typing import Any
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef, Q, QuerySet
+from django.db.models import Exists, OuterRef, Q, QuerySet, Subquery
 from django.utils import timezone
 
-from apps.accounts.authorization import has_effective_role, has_global_authority
+from apps.accounts.authorization import (
+    active_assignments,
+    has_effective_role,
+    has_global_authority,
+)
 from apps.accounts.models import (
     PEOPLE_DEPARTMENT_ROLE_CODE,
     RoleAssignment,
@@ -60,6 +64,7 @@ PROCESS_STARTED_DESCRIPTION = "Início explícito e idempotente por ator autoriz
 SECTOR_TASK_STARTED_DESCRIPTION = "Início explícito da análise por ator autorizado."
 SECTOR_TASK_COMPLETED_DESCRIPTION = "Conclusão explícita da validação pelo setor."
 START_ACTION = "START"
+FORMALLY_CLOSED_PROCESS_STATUS = "ENCERRADO"
 
 
 def _require_people_department_role(
@@ -1081,6 +1086,61 @@ def sector_tasks_for_actor(actor: User) -> QuerySet[ProcessSectorTask]:
             has_scope=Exists(scope),
         )
         .filter(has_responsibility=True, has_scope=True)
+    )
+
+
+def processes_for_actor(actor: User) -> QuerySet[OffboardingProcess]:
+    """Return processes coordinated by the actor's current DP scopes."""
+
+    if not actor.is_active:
+        return OffboardingProcess.objects.none()
+    if has_global_authority(actor):
+        return OffboardingProcess.objects.all()
+
+    assignments = active_assignments(actor).filter(role__code=PEOPLE_DEPARTMENT_ROLE_CODE)
+    scope_filter = Q(pk__in=[])
+    for assignment in assignments.only(
+        "scope_type",
+        "company_code",
+        "branch_code",
+    ):
+        if assignment.scope_type == "GLOBAL":
+            return OffboardingProcess.objects.all()
+        if assignment.scope_type == "COMPANY":
+            scope_filter |= Q(company_code=assignment.company_code)
+        elif assignment.scope_type == "BRANCH":
+            scope_filter |= Q(
+                company_code=assignment.company_code,
+                branch_code=assignment.branch_code,
+            )
+    return OffboardingProcess.objects.filter(scope_filter)
+
+
+def completed_processes_for_actor(actor: User) -> QuerySet[OffboardingProcess]:
+    """Return formally closed processes or those with every sector task completed."""
+
+    tasks = ProcessSectorTask.objects.filter(process_id=OuterRef("pk"))
+    unfinished_tasks = tasks.exclude(status=SectorTaskStatus.COMPLETED)
+    last_task_completion = (
+        tasks.filter(completed_at__isnull=False)
+        .order_by("-completed_at", "-pk")
+        .values("completed_at")[:1]
+    )
+    return (
+        processes_for_actor(actor)
+        .annotate(
+            has_sector_tasks=Exists(tasks),
+            has_unfinished_tasks=Exists(unfinished_tasks),
+            completion_at=Subquery(last_task_completion),
+        )
+        .filter(
+            Q(status=FORMALLY_CLOSED_PROCESS_STATUS)
+            | Q(
+                status=ProcessStatus.STARTED,
+                has_sector_tasks=True,
+                has_unfinished_tasks=False,
+            )
+        )
     )
 
 

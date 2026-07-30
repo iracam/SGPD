@@ -94,7 +94,7 @@ describe('AuthenticatedLayout', () => {
 
     expect(labels()).toEqual([
       'Painel',
-      'Abrir processo',
+      'Processos',
       'Setores',
       'Usuários',
       'Auditoria',
@@ -120,7 +120,7 @@ describe('AuthenticatedLayout', () => {
 
     expect(labels()).toEqual([
       'Painel',
-      'Abrir processo',
+      'Processos',
       'Minhas tarefas',
       'Setores',
       'Grupos e templates',

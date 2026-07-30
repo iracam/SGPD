@@ -232,6 +232,7 @@ páginas usam `loadComponent` e declaram `title`.
 | --- | --- |
 | `/fe/login` | autenticação local |
 | `/fe/painel` | painel inicial |
+| `/fe/processos` | hub de abertura, rascunhos e processos concluídos |
 | `/fe/colaboradores` | cascata Empresa → Filial → Tipo → Colaborador |
 | `/fe/processos/:uuid/rascunho` | grupos, bloqueios, prévia e início idempotente |
 | `/fe/workflow-config` | templates, perguntas e grupos versionados |
@@ -271,7 +272,7 @@ novamente no backend; não constitui a barreira de autorização.
 | Item | Rota | Ícone | Permissão |
 | --- | --- | --- | --- |
 | Painel | `/fe/painel` | `pi pi-th-large` | — |
-| Abrir processo | `/fe/colaboradores` | `pi pi-folder-plus` | `query_senior_references` + papel `DP` |
+| Processos | `/fe/processos` | `pi pi-folder-open` | `query_senior_references` + papel `DP` |
 | Minhas tarefas | `/fe/tarefas` | `pi pi-check-square` | capacidade derivada `RESPONSAVEL_SETOR` |
 | Setores | `/fe/setores` | `pi pi-building` | `manage_sectors` |
 | Grupos e templates | `/fe/workflow-config` | `pi pi-list-check` | `manage_workflow_configuration` |
@@ -284,14 +285,22 @@ catálogo atribuível é fixo em `DP`; `RESPONSAVEL_SETOR` é derivado do víncu
 mantido no card de responsáveis do setor. A rota independente
 `/fe/responsaveis` também foi removida.
 
-A rota `/fe/colaboradores` foi promovida na Fase 4: preserva a cascata e
+A rota `/fe/processos` concentra o card de abertura e a lista autorizada de
+rascunhos, da abertura mais nova para a mais antiga. O card de concluídos reúne
+os processos formalmente `ENCERRADO` e os processos `INICIADO` com ao menos
+uma tarefa setorial e todas as tarefas concluídas, ordenados da conclusão mais
+nova para a mais antiga. Rascunhos abrem a edição; processos concluídos
+expandem, sob demanda, a lista de tarefas concluídas autorizada pelo backend. A
+rota `/fe/colaboradores` foi promovida na Fase 4: preserva a cascata e
 acrescenta datas, motivo, prioridade, observações e confirmação da
 abertura; após sucesso navega ao rascunho. `/fe/processos/:uuid/rascunho`
 confirma grupos, projeta bloqueios e chama o início com chave idempotente
 preservada durante retries. `/fe/workflow-config` cria e edita versões em
 rascunho de templates e grupos. `/fe/tarefas` lista apenas as tarefas
-autorizadas pelo backend, inicia a análise e monta controles a partir do tipo
-histórico de cada pergunta; regras e validações permanecem nos services Django.
+autorizadas pelo backend, separa ativas e concluídas em dois cards, agrupa cada
+lista por processo expansível, ordena conclusões da mais nova para a mais
+antiga, inicia a análise e monta controles a partir do tipo histórico de cada
+pergunta; regras e validações permanecem nos services Django.
 Chaves idempotentes são preservadas durante retries. Setores, templates, grupos e perguntas não
 possuem campo de código nos formulários: o backend gera o identificador
 numérico a partir do `ID` e a SPA apenas o exibe. Para template já publicado,

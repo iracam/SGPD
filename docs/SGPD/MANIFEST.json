@@ -8,11 +8,11 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "bytes": 26684
+      "bytes": 27710
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 185933
+      "bytes": 189791
     },
     {
       "file": "DATA_MODEL.md",
@@ -40,7 +40,7 @@
     },
     {
       "file": "MIGRATION_FRONTEND_SPA.md",
-      "bytes": 23961
+      "bytes": 24633
     },
     {
       "file": "PROMPT.md",
@@ -48,7 +48,7 @@
     },
     {
       "file": "README.md",
-      "bytes": 15939
+      "bytes": 16495
     },
     {
       "file": "REQUIREMENTS.md",
@@ -60,7 +60,7 @@
     },
     {
       "file": "ROADMAP.md",
-      "bytes": 13958
+      "bytes": 14486
     },
     {
       "file": "SECURITY.md",

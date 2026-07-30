@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 
@@ -34,6 +35,7 @@ from apps.offboarding.models import (
 from apps.offboarding.services import (
     OpenOffboardingProcessCommand,
     OpenOffboardingProcessService,
+    processes_for_actor,
 )
 from apps.sectors.models import SectorResponsible, SectorScope, ValidationSector
 
@@ -431,10 +433,86 @@ def test_open_process_api_validates_incomplete_data(
     assert RepositoryStub.calls == 0
 
 
-def test_process_endpoint_does_not_offer_unimplemented_read_or_delete(
+def test_process_api_lists_newest_drafts_first(
+    actor_client: Client,
+    actor: User,
+) -> None:
+    first = service().execute(command(actor))
+    RepositoryStub.employee = replace(employee_detail(), registration=124)
+    second = service().execute(command(actor, employee_registration=124))
+    url = reverse("offboarding-api:process-list")
+
+    response = actor_client.get(url, {"status": ProcessStatus.DRAFT})
+
+    assert response.status_code == 200
+    assert [row["uuid"] for row in response.json()["results"]] == [
+        str(second.uuid),
+        str(first.uuid),
+    ]
+    assert response.json()["results"][0]["employee_snapshot"]["employee_name"] == "Pessoa de Teste"
+    assert "cpf" not in str(response.json()).lower()
+
+
+def test_process_list_respects_dp_scope_and_superadmin_authority(
+    actor: User,
+    dp_role: Role,
+) -> None:
+    process = service().execute(command(actor))
+    scoped = User.objects.create_user(
+        username="dp.outro.escopo",
+        email="dp.outro.escopo@example.invalid",
+        password=PASSWORD,
+        first_name="DP",
+        last_name="Outro escopo",
+    )
+    assignment = RoleAssignment.objects.create(
+        user=scoped,
+        role=dp_role,
+        scope_type=ScopeType.BRANCH,
+        company_code=9,
+        branch_code=9,
+        scope_key=build_scope_key(ScopeType.BRANCH, 9, 9),
+        assigned_by=actor,
+    )
+    superadmin = User.objects.create_superuser(
+        username="processos.superadmin",
+        email="processos.superadmin@example.invalid",
+        password=PASSWORD,
+    )
+
+    assert list(processes_for_actor(scoped)) == []
+    assignment.company_code = 1
+    assignment.branch_code = 2
+    assignment.scope_key = build_scope_key(ScopeType.BRANCH, 1, 2)
+    assignment.save(update_fields=("company_code", "branch_code", "scope_key"))
+    assert list(processes_for_actor(scoped)) == [process]
+    assert list(processes_for_actor(superadmin)) == [process]
+
+
+def test_process_api_rejects_anonymous_user_without_dp_and_delete(
     actor_client: Client,
 ) -> None:
     url = reverse("offboarding-api:process-list")
+    plain_user = User.objects.create_user(
+        username="sem.lista.processos",
+        email="sem.lista.processos@example.invalid",
+        password=PASSWORD,
+    )
+    plain_client = Client()
+    plain_client.force_login(plain_user)
 
-    assert actor_client.get(url).status_code == 405
+    assert Client().get(url).status_code == 401
+    assert plain_client.get(url).status_code == 403
     assert actor_client.delete(url).status_code == 405
+
+
+def test_process_api_rejects_combined_status_and_completed_filters(
+    actor_client: Client,
+) -> None:
+    response = actor_client.get(
+        reverse("offboarding-api:process-list"),
+        {"status": ProcessStatus.DRAFT, "completed": "true"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "validation_error"

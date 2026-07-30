@@ -21,177 +21,229 @@
 @if (carregando()) {
   <section class="cartao"><p>Carregando tarefas…</p></section>
 } @else {
-  <section class="lista" aria-label="Tarefas de setor">
-    @for (tarefa of tarefas(); track tarefa.id) {
-      <article class="cartao tarefa">
-        <header class="tarefa__cabecalho">
-          <div>
-            <span class="rotulo">{{ tarefa.sector.name }}</span>
-            <h2>{{ tarefa.process.employee_name }}</h2>
-            <p>
-              Matrícula {{ tarefa.process.employee_registration }} · Empresa
-              {{ tarefa.process.company_code }} · Filial {{ tarefa.process.branch_code }}
-            </p>
-          </div>
-          <p-tag
-            [severity]="severidade(tarefa)"
-            [value]="tarefa.status"
-          ></p-tag>
+  <section class="painel-tarefas" aria-label="Tarefas de setor">
+    @for (grupo of grupos(); track grupo.key) {
+      <article class="grupo-card">
+        <header class="grupo-card__cabecalho">
+          <span class="grupo-card__icone">
+            <i [class]="grupo.icon" aria-hidden="true"></i>
+          </span>
+          <span>
+            <strong>{{ grupo.title }}</strong>
+            <small>{{ grupo.description }}</small>
+          </span>
+          <span
+            class="grupo-card__total"
+            [attr.aria-label]="grupo.processos.length + ' processos'"
+          >
+            {{ grupo.processos.length }}
+          </span>
         </header>
 
-        <dl class="metadados">
-          <div>
-            <dt>Prazo</dt>
-            <dd>{{ tarefa.due_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
-          </div>
-          <div>
-            <dt>Template</dt>
-            <dd>{{ tarefa.template.code }} · v{{ tarefa.template.version_number }}</dd>
-          </div>
-          <div>
-            <dt>Versão</dt>
-            <dd>{{ tarefa.version }}</dd>
-          </div>
-        </dl>
+        <section class="lista" [attr.aria-label]="grupo.title">
+          @for (processo of grupo.processos; track processo.uuid) {
+            <details class="processo-tarefas">
+              <summary class="processo-tarefas__resumo">
+                <span>
+                  <strong>{{ processo.employeeName }}</strong>
+                  <small>
+                    Matrícula {{ processo.employeeRegistration }} · Empresa
+                    {{ processo.companyCode }} · Filial {{ processo.branchCode }}
+                  </small>
+                  <small>
+                    {{ processo.tarefas.length }}
+                    {{ processo.tarefas.length === 1 ? 'tarefa' : 'tarefas' }}
+                  </small>
+                </span>
+                <i class="pi pi-chevron-down" aria-hidden="true"></i>
+              </summary>
 
-        @if (tarefa.status === 'PENDENTE') {
-          <div class="acoes">
-            <p-button
-              type="button"
-              icon="pi pi-play"
-              label="Iniciar análise"
-              [loading]="tarefaEmMutacao() === tarefa.id"
-              [disabled]="tarefaEmMutacao() !== null"
-              (onClick)="iniciar(tarefa)"
-            ></p-button>
-          </div>
-        } @else {
-          <section class="checklist" [attr.aria-labelledby]="'checklist-' + tarefa.id">
-            <h3 [id]="'checklist-' + tarefa.id">Checklist</h3>
-            @for (item of tarefa.checklist_items; track item.id) {
-              <div class="pergunta">
-                <label [for]="'item-' + item.id">
-                  {{ item.question }}
-                  @if (item.is_required) {
-                    <span aria-label="obrigatório">*</span>
-                  }
-                </label>
+              <section
+                class="processo-tarefas__lista"
+                [attr.aria-label]="'Tarefas de ' + processo.employeeName"
+              >
+                @for (tarefa of processo.tarefas; track tarefa.id) {
+                  <article class="cartao tarefa">
+                    <header class="tarefa__cabecalho">
+                      <div>
+                        <span class="rotulo">Setor</span>
+                        <h2>{{ tarefa.sector.name }}</h2>
+                      </div>
+                      <p-tag
+                        [severity]="severidade(tarefa)"
+                        [value]="tarefa.status"
+                      ></p-tag>
+                    </header>
 
-                @if (item.requires_evidence || item.response_type === 'FILE') {
-                  <p-message
-                    severity="warn"
-                    text="Este item depende do módulo de evidências e não pode ser concluído nesta fase."
-                  ></p-message>
-                } @else {
-                  @switch (item.response_type) {
-                    @case ('BOOLEAN') {
-                      <select
-                        [id]="'item-' + item.id"
-                        [disabled]="tarefa.status === 'CONCLUIDA'"
-                        (change)="atualizarResposta(item, $event)"
+                    <dl class="metadados">
+                      <div>
+                        <dt>Prazo</dt>
+                        <dd>{{ tarefa.due_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
+                      </div>
+                      <div>
+                        <dt>Template</dt>
+                        <dd>
+                          {{ tarefa.template.code }} · v{{ tarefa.template.version_number }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Versão</dt>
+                        <dd>{{ tarefa.version }}</dd>
+                      </div>
+                    </dl>
+
+                    @if (tarefa.status === 'PENDENTE') {
+                      <div class="acoes">
+                        <p-button
+                          type="button"
+                          icon="pi pi-play"
+                          label="Iniciar análise"
+                          [loading]="tarefaEmMutacao() === tarefa.id"
+                          [disabled]="tarefaEmMutacao() !== null"
+                          (onClick)="iniciar(tarefa)"
+                        ></p-button>
+                      </div>
+                    } @else {
+                      <section
+                        class="checklist"
+                        [attr.aria-labelledby]="'checklist-' + tarefa.id"
                       >
-                        <option value="">Selecione</option>
-                        <option value="true">Sim</option>
-                        <option value="false">Não</option>
-                      </select>
-                    }
-                    @case ('TEXT') {
-                      <textarea
-                        [id]="'item-' + item.id"
-                        rows="3"
-                        [disabled]="tarefa.status === 'CONCLUIDA'"
-                        (input)="atualizarResposta(item, $event)"
-                      ></textarea>
-                    }
-                    @case ('NUMBER') {
-                      <input
-                        [id]="'item-' + item.id"
-                        type="number"
-                        [disabled]="tarefa.status === 'CONCLUIDA'"
-                        (input)="atualizarResposta(item, $event)"
-                      />
-                    }
-                    @case ('DATE') {
-                      <input
-                        [id]="'item-' + item.id"
-                        type="date"
-                        [disabled]="tarefa.status === 'CONCLUIDA'"
-                        (change)="atualizarResposta(item, $event)"
-                      />
-                    }
-                    @case ('SINGLE_CHOICE') {
-                      <select
-                        [id]="'item-' + item.id"
-                        [disabled]="tarefa.status === 'CONCLUIDA'"
-                        (change)="atualizarResposta(item, $event)"
-                      >
-                        <option value="">Selecione</option>
-                        @for (opcao of item.config.choices ?? []; track opcao) {
-                          <option [value]="opcao">{{ opcao }}</option>
+                        <h3 [id]="'checklist-' + tarefa.id">Checklist</h3>
+                        @for (item of tarefa.checklist_items; track item.id) {
+                          <div class="pergunta">
+                            <label [for]="'item-' + item.id">
+                              {{ item.question }}
+                              @if (item.is_required) {
+                                <span aria-label="obrigatório">*</span>
+                              }
+                            </label>
+
+                            @if (item.requires_evidence || item.response_type === 'FILE') {
+                              <p-message
+                                severity="warn"
+                                text="Este item depende do módulo de evidências e não pode ser concluído nesta fase."
+                              ></p-message>
+                            } @else {
+                              @switch (item.response_type) {
+                                @case ('BOOLEAN') {
+                                  <select
+                                    [id]="'item-' + item.id"
+                                    [disabled]="tarefa.status === 'CONCLUIDA'"
+                                    (change)="atualizarResposta(item, $event)"
+                                  >
+                                    <option value="">Selecione</option>
+                                    <option value="true">Sim</option>
+                                    <option value="false">Não</option>
+                                  </select>
+                                }
+                                @case ('TEXT') {
+                                  <textarea
+                                    [id]="'item-' + item.id"
+                                    rows="3"
+                                    [disabled]="tarefa.status === 'CONCLUIDA'"
+                                    (input)="atualizarResposta(item, $event)"
+                                  ></textarea>
+                                }
+                                @case ('NUMBER') {
+                                  <input
+                                    [id]="'item-' + item.id"
+                                    type="number"
+                                    [disabled]="tarefa.status === 'CONCLUIDA'"
+                                    (input)="atualizarResposta(item, $event)"
+                                  />
+                                }
+                                @case ('DATE') {
+                                  <input
+                                    [id]="'item-' + item.id"
+                                    type="date"
+                                    [disabled]="tarefa.status === 'CONCLUIDA'"
+                                    (change)="atualizarResposta(item, $event)"
+                                  />
+                                }
+                                @case ('SINGLE_CHOICE') {
+                                  <select
+                                    [id]="'item-' + item.id"
+                                    [disabled]="tarefa.status === 'CONCLUIDA'"
+                                    (change)="atualizarResposta(item, $event)"
+                                  >
+                                    <option value="">Selecione</option>
+                                    @for (opcao of item.config.choices ?? []; track opcao) {
+                                      <option [value]="opcao">{{ opcao }}</option>
+                                    }
+                                  </select>
+                                }
+                                @case ('MULTIPLE_CHOICE') {
+                                  <select
+                                    [id]="'item-' + item.id"
+                                    multiple
+                                    [disabled]="tarefa.status === 'CONCLUIDA'"
+                                    (change)="atualizarResposta(item, $event)"
+                                  >
+                                    @for (opcao of item.config.choices ?? []; track opcao) {
+                                      <option [value]="opcao">{{ opcao }}</option>
+                                    }
+                                  </select>
+                                }
+                                @case ('CONFIRMATION') {
+                                  <label class="confirmacao" [for]="'item-' + item.id">
+                                    <input
+                                      [id]="'item-' + item.id"
+                                      type="checkbox"
+                                      [disabled]="tarefa.status === 'CONCLUIDA'"
+                                      (change)="atualizarResposta(item, $event)"
+                                    />
+                                    Confirmo a validação
+                                  </label>
+                                }
+                              }
+                            }
+
+                            @if (tarefa.status === 'CONCLUIDA' && item.answered_at) {
+                              <small>
+                                Respondido em
+                                {{ item.answered_at | date: 'dd/MM/yyyy HH:mm' }}
+                              </small>
+                            }
+                          </div>
                         }
-                      </select>
-                    }
-                    @case ('MULTIPLE_CHOICE') {
-                      <select
-                        [id]="'item-' + item.id"
-                        multiple
-                        [disabled]="tarefa.status === 'CONCLUIDA'"
-                        (change)="atualizarResposta(item, $event)"
-                      >
-                        @for (opcao of item.config.choices ?? []; track opcao) {
-                          <option [value]="opcao">{{ opcao }}</option>
-                        }
-                      </select>
-                    }
-                    @case ('CONFIRMATION') {
-                      <label class="confirmacao" [for]="'item-' + item.id">
-                        <input
-                          [id]="'item-' + item.id"
-                          type="checkbox"
-                          [disabled]="tarefa.status === 'CONCLUIDA'"
-                          (change)="atualizarResposta(item, $event)"
-                        />
-                        Confirmo a validação
-                      </label>
-                    }
-                  }
-                }
+                      </section>
 
-                @if (tarefa.status === 'CONCLUIDA' && item.answered_at) {
-                  <small>Respondido em {{ item.answered_at | date: 'dd/MM/yyyy HH:mm' }}</small>
+                      @if (tarefa.status === 'EM_ANALISE') {
+                        <div class="observacao">
+                          <label [for]="'notes-' + tarefa.id">
+                            Observações da conclusão
+                          </label>
+                          <textarea
+                            [id]="'notes-' + tarefa.id"
+                            rows="3"
+                            maxlength="4000"
+                            (input)="atualizarObservacao(tarefa.id, $event)"
+                          ></textarea>
+                        </div>
+                        <div class="acoes">
+                          <p-button
+                            type="button"
+                            icon="pi pi-check"
+                            label="Concluir tarefa"
+                            [loading]="tarefaEmMutacao() === tarefa.id"
+                            [disabled]="tarefaEmMutacao() !== null"
+                            (onClick)="concluir(tarefa)"
+                          ></p-button>
+                        </div>
+                      }
+                    }
+                  </article>
                 }
-              </div>
-            }
-          </section>
-
-          @if (tarefa.status === 'EM_ANALISE') {
-            <div class="observacao">
-              <label [for]="'notes-' + tarefa.id">Observações da conclusão</label>
-              <textarea
-                [id]="'notes-' + tarefa.id"
-                rows="3"
-                maxlength="4000"
-                (input)="atualizarObservacao(tarefa.id, $event)"
-              ></textarea>
-            </div>
-            <div class="acoes">
-              <p-button
-                type="button"
-                icon="pi pi-check"
-                label="Concluir tarefa"
-                [loading]="tarefaEmMutacao() === tarefa.id"
-                [disabled]="tarefaEmMutacao() !== null"
-                (onClick)="concluir(tarefa)"
-              ></p-button>
-            </div>
+              </section>
+            </details>
+          } @empty {
+            <article class="vazio">
+              <i [class]="grupo.icon" aria-hidden="true"></i>
+              <h2>{{ grupo.emptyTitle }}</h2>
+              <p>{{ grupo.emptyText }}</p>
+            </article>
           }
-        }
-      </article>
-    } @empty {
-      <article class="cartao vazio">
-        <i class="pi pi-check-circle" aria-hidden="true"></i>
-        <h2>Nenhuma tarefa disponível</h2>
-        <p>Não há tarefas em processo iniciado para seus vínculos vigentes.</p>
+        </section>
       </article>
     }
   </section>

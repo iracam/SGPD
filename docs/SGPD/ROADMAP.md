@@ -270,8 +270,15 @@ painel do DP permanecem pendentes. A SPA `/fe/tarefas` já funciona como painel
 inicial dos setores: filtra usuários funcionais pelo vínculo e escopo vigentes,
 enquanto SuperAdmin visualiza todas as tarefas; ambos iniciam a análise,
 validam respostas simples e concluem a tarefa com concorrência, idempotência e
-auditoria. Itens de arquivo ou com evidência obrigatória aguardam a Fase 5; a
-conclusão ainda não promove automaticamente o estado do processo. As migrations
+auditoria. A tela separa tarefas ativas e concluídas em dois cards e mostra as
+conclusões mais novas primeiro; cada card lista processos expansíveis e revela
+as respectivas tarefas ao clicar. `/fe/processos` oferece o hub do DP e lista
+rascunhos por abertura decrescente; o card de concluídos reúne tanto o futuro
+estado formal `ENCERRADO` quanto processos iniciados que já possuem todas as
+tarefas setoriais concluídas, com expansão sob demanda das tarefas concluídas.
+Itens de arquivo ou com evidência obrigatória
+aguardam a Fase 5; a conclusão ainda não promove automaticamente o estado do
+processo, e a transição formal de encerramento permanece na Fase 8. As migrations
 `templates_engine.0001`, `templates_engine.0002` e `offboarding.0002` estão
 aplicadas e validadas no Oracle DEV.
 `templates_engine.0003`, que normaliza o identificador automático e habilita o

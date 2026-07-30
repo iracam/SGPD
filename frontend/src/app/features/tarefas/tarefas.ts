@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
@@ -9,6 +9,46 @@ import { finalize } from 'rxjs';
 import { errorMessage } from '../../core/api/api-error';
 import { ItemChecklist, TarefaSetor } from './models/tarefas.models';
 import { TarefasService } from './tarefas.service';
+
+interface ProcessoComTarefas {
+  uuid: string;
+  companyCode: number;
+  branchCode: number;
+  employeeName: string;
+  employeeRegistration: number;
+  dueDate: string;
+  tarefas: TarefaSetor[];
+}
+
+function agruparPorProcesso(
+  tarefas: TarefaSetor[],
+  concluido: boolean,
+): ProcessoComTarefas[] {
+  const ordenadas = [...tarefas].sort((left, right) => {
+    const leftDate = concluido ? left.completed_at : left.due_at;
+    const rightDate = concluido ? right.completed_at : right.due_at;
+    const difference = new Date(rightDate ?? 0).getTime() - new Date(leftDate ?? 0).getTime();
+    return concluido ? difference : -difference;
+  });
+  const processos = new Map<string, ProcessoComTarefas>();
+  for (const tarefa of ordenadas) {
+    const current = processos.get(tarefa.process.uuid);
+    if (current) {
+      current.tarefas.push(tarefa);
+      continue;
+    }
+    processos.set(tarefa.process.uuid, {
+      uuid: tarefa.process.uuid,
+      companyCode: tarefa.process.company_code,
+      branchCode: tarefa.process.branch_code,
+      employeeName: tarefa.process.employee_name,
+      employeeRegistration: tarefa.process.employee_registration,
+      dueDate: tarefa.process.due_date,
+      tarefas: [tarefa],
+    });
+  }
+  return [...processos.values()];
+}
 
 @Component({
   selector: 'app-tarefas-page',
@@ -28,6 +68,35 @@ export class TarefasPage {
   readonly aviso = signal('');
   readonly respostas = signal<Record<number, unknown>>({});
   readonly observacoes = signal<Record<number, string>>({});
+  readonly grupos = computed(() => {
+    const tarefas = this.tarefas();
+    return [
+      {
+        key: 'ativas',
+        title: 'Ativas (a concluir)',
+        description: 'Pendentes e em análise.',
+        icon: 'pi pi-clock',
+        emptyTitle: 'Nenhuma tarefa ativa',
+        emptyText: 'Não há tarefas pendentes ou em análise para seus vínculos vigentes.',
+        processos: agruparPorProcesso(
+          tarefas.filter((tarefa) => tarefa.status !== 'CONCLUIDA'),
+          false,
+        ),
+      },
+      {
+        key: 'concluidas',
+        title: 'Concluídas',
+        description: 'Da conclusão mais nova para a mais antiga.',
+        icon: 'pi pi-check-circle',
+        emptyTitle: 'Nenhuma tarefa concluída',
+        emptyText: 'As tarefas concluídas aparecerão aqui, com as mais novas no topo.',
+        processos: agruparPorProcesso(
+          tarefas.filter((tarefa) => tarefa.status === 'CONCLUIDA'),
+          true,
+        ),
+      },
+    ];
+  });
 
   constructor() {
     this.carregar();

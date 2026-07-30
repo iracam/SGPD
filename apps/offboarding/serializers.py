@@ -6,7 +6,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import DraftOverrideAction, SectorTaskStatus
+from .models import DraftOverrideAction, ProcessStatus, SectorTaskStatus
 
 
 class OpenOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
@@ -25,6 +25,25 @@ class OpenOffboardingProcessSerializer(serializers.Serializer[dict[str, Any]]):
         default="",
         trim_whitespace=True,
     )
+
+
+class ProcessQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(
+        choices=ProcessStatus.choices,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    completed = serializers.BooleanField(required=False, default=False)
+    offset = serializers.IntegerField(min_value=0, required=False, default=0)
+    limit = serializers.IntegerField(min_value=1, max_value=100, required=False, default=50)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if attrs.get("status") and attrs.get("completed"):
+            raise serializers.ValidationError(
+                "Os filtros status e completed não podem ser combinados."
+            )
+        return attrs
 
 
 class DraftSectorOverrideSerializer(serializers.Serializer[dict[str, Any]]):

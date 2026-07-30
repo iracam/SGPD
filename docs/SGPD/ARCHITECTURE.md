@@ -478,18 +478,32 @@ de "você não pode".
 Endpoints de abertura implementados:
 
 ```text
+GET  /api/v1/processes/?status=&completed=&offset=&limit=
 POST /api/v1/processes/
+GET  /api/v1/processes/{uuid}/tasks/?status=&offset=&limit=
 GET  /api/v1/processes/{uuid}/draft/
 PUT  /api/v1/processes/{uuid}/draft/selection/
 POST /api/v1/processes/{uuid}/start/
 ```
 
-O primeiro cria somente `RASCUNHO`; não existe listagem geral nem `DELETE`
-neste incremento. O segundo lista contas SGPD ativas apenas depois de validar
-`DP` vigente no escopo. Os endpoints por UUID consultam/substituem a seleção e
-iniciam o processo. O início exige `Idempotency-Key`: repetição pelo mesmo ator
-e corpo recupera o resultado; reutilização divergente responde
-`409 Conflict` com o código `idempotency_conflict`.
+O `GET` lista somente processos cobertos pelos escopos `DP` vigentes do ator;
+SuperAdmin recebe todos. Aceita filtro pelos estados já implementados,
+paginação sem `COUNT(*)` e ordena pela abertura mais nova. O filtro
+`completed=true`, mutuamente exclusivo com `status`, reúne processos
+formalmente `ENCERRADO` e processos `INICIADO` que possuem ao menos uma tarefa
+setorial e nenhuma tarefa não concluída. Nesse filtro, a conclusão setorial
+mais nova aparece primeiro; até existir a data formal de encerramento, um
+encerrado sem tarefa concluída usa a abertura como desempate. A consulta usa
+subqueries correlacionadas e `EXISTS`, evitando agregação sobre os campos
+históricos `NCLOB` no Oracle. O `POST` cria somente `RASCUNHO`; não existe
+`DELETE`. A listagem de tarefas por UUID revalida a autoridade `DP` no escopo
+do processo e devolve resumos sob demanda, sem depender da responsabilidade
+setorial do coordenador; ela alimenta a expansão de processos concluídos na
+SPA. Os demais endpoints por UUID consultam/substituem a seleção e iniciam o
+processo. O início exige
+`Idempotency-Key`: repetição pelo mesmo ator e corpo recupera o resultado;
+reutilização divergente responde `409 Conflict` com o código
+`idempotency_conflict`.
 
 Endpoints de tarefa implementados:
 
@@ -503,12 +517,12 @@ POST /api/v1/tasks/{id}/complete/
 Listagem e detalhe são limitados pela responsabilidade efetiva do setor. Início
 e conclusão exigem `Idempotency-Key` e versão esperada; conflito de chave
 responde `409`, tarefa fora do escopo responde `404` e falha de regra mantém o
-envelope padronizado da API.
+envelope padronizado da API. A SPA separa ativas de concluídas em dois cards;
+as concluídas são ordenadas por `COMPLETED_AT` decrescente.
 
 Endpoints de domínio planejados:
 
 ```text
-GET  /api/v1/processes/
 GET  /api/v1/processes/{uuid}/
 POST /api/v1/processes/{uuid}/release/
 POST /api/v1/processes/{uuid}/cancel/
