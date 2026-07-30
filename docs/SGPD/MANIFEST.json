@@ -4,15 +4,19 @@
   "files": [
     {
       "file": "AGENTS.md",
-      "bytes": 8759
+      "bytes": 9038
     },
     {
       "file": "ARCHITECTURE.md",
-      "bytes": 27710
+      "bytes": 27755
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 189791
+      "bytes": 3555
+    },
+    {
+      "file": "CONTEXT.md",
+      "bytes": 5693
     },
     {
       "file": "DATA_MODEL.md",
@@ -20,7 +24,11 @@
     },
     {
       "file": "DECISIONS.md",
-      "bytes": 67887
+      "bytes": 67922
+    },
+    {
+      "file": "DECISIONS_INDEX.md",
+      "bytes": 2286
     },
     {
       "file": "ENVIRONMENT.md",
@@ -39,16 +47,12 @@
       "bytes": 12921
     },
     {
-      "file": "MIGRATION_FRONTEND_SPA.md",
-      "bytes": 24633
-    },
-    {
       "file": "PROMPT.md",
-      "bytes": 6959
+      "bytes": 6310
     },
     {
       "file": "README.md",
-      "bytes": 16495
+      "bytes": 16685
     },
     {
       "file": "REQUIREMENTS.md",
@@ -60,7 +64,7 @@
     },
     {
       "file": "ROADMAP.md",
-      "bytes": 14486
+      "bytes": 14682
     },
     {
       "file": "SECURITY.md",
@@ -73,6 +77,22 @@
     {
       "file": "WORKFLOWS.md",
       "bytes": 7685
+    },
+    {
+      "file": "history/README.md",
+      "bytes": 396
+    },
+    {
+      "file": "history/checkpoints/2026-07.md",
+      "bytes": 189791
+    },
+    {
+      "file": "history/checkpoints/2026-07-30-documentation-consolidation.md",
+      "bytes": 975
+    },
+    {
+      "file": "history/completed-plans/MIGRATION_FRONTEND_SPA.md",
+      "bytes": 24633
     },
     {
       "file": "sql/senior_reference_queries.sql",
