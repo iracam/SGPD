@@ -41,6 +41,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 029 | Vigente | AD com provisionamento explícito |
 | 030 | Exceção DEV | LDAP sem TLS, com aviso explícito |
 | 031–032 | Vigentes | Configuração dinâmica e transporte LDAP único |
+| 047 | Vigente | Protocolo de conferência como linguagem visual de execução |
 
 ## Regras de consulta
 

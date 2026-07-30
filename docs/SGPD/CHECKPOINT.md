@@ -120,7 +120,9 @@ Contrato Senior — legibilidade cadastral:
   `9cbed216` (iniciado, com pendência bloqueante aberta), criados para exercitar
   as telas;
 - o usuário `homolog.visual` permanece no DEV desativado e com senha
-  inutilizável: a FK da auditoria append-only impede a exclusão.
+  inutilizável: a FK da auditoria append-only impede a exclusão;
+- painel, setores e demais telas ainda não consomem o protocolo de conferência
+  da ADR-047; aplicar a linguagem nos próximos incrementos de cada tela.
 
 ## Homologação funcional e visual das Fases 3 e 5
 
@@ -152,6 +154,25 @@ Dois defeitos foram encontrados e corrigidos:
 A retenção operacional de evidências foi definida em 5 anos e registrada em
 `SECURITY.md` §14.
 
+## Identidade visual das telas de execução (ADR-047)
+
+Em 2026-07-30, Minhas tarefas e Processos passaram a exercer a identidade que
+já existia nos tokens: o protocolo de conferência. O vocabulário compartilhado
+vive em `frontend/src/styles/_conferencia.scss` — grupos como seções com régua
+e total em mono, chips de status sobre os tokens `--status-*` com rótulo
+legível (enum cru não chega mais ao usuário), dado de registro em JetBrains
+Mono e o trilho de conferência, cujo nó preenche em verdigris quando o item
+está conferido. Tarefa concluída mostra a resposta registrada em texto, não
+controles desabilitados vazios; o nível de bloqueio da pendência colore a
+borda esquerda do cartão.
+
+A homologação repetiu a varredura headless nas larguras homologadas, em tema
+claro e escuro, com API simulada por interceptação para encenar os estados
+(sem dependência de dados no Oracle DEV). Corrigiu-se no caminho a
+sobreposição de colunas em `md`/`lg`: cartão de tarefa com `min-width: 0` e
+linhas de ações com `flex-wrap`. Telas de execução novas devem consumir o
+parcial; o texto normativo é a ADR-047.
+
 ## Baseline de qualidade
 
 Na homologação das Fases 3 e 5 passaram 355 testes backend e 81 frontend — o
@@ -159,6 +180,11 @@ novo cobre a regressão do comentário e falha com `expected 'undefined' to be '
 sem a correção —, além de Ruff, formatação, Mypy, Django check, verificação de
 migrations e build Angular sem avisos. Nenhuma migration foi necessária: as
 correções são de template, SCSS e tipo.
+
+No incremento da identidade visual (ADR-047) os 81 testes frontend seguem
+passando e o build Angular está sem avisos; não há mudança de backend. A
+varredura headless não mediu rolagem horizontal nem erro de console em
+360/768/1024/1440, claro e escuro.
 
 No incremento de legibilidade cadastral passaram 355 testes backend e 80
 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e

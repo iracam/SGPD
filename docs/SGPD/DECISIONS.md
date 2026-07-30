@@ -1696,3 +1696,64 @@ seguro enquanto não houver regras cadastradas.
   atributo do setor no grupo, e o ajuste manual permanece no RF-013;
 - expressões declarativas, regras por categoria ou vínculo e supressão por
   prioridade continuam fora do recorte.
+
+## ADR-047 — Protocolo de conferência como linguagem visual de execução
+
+### Estado
+
+Aceita e implementada em 2026-07-30 nas telas Minhas tarefas e Processos.
+Complementa a ADR-027 (PrimeNG e tokens) e a ADR-028 (mobile first) sem
+substituí-las.
+
+### Contexto
+
+A identidade do SGPD — grafite e verdigris, "a cor do item conferido", os
+tokens `--status-*` e as fontes Kanit/DM Sans/JetBrains Mono — existia em
+`styles.scss`, mas as telas de execução não a exerciam: tudo era caixa cinza
+dentro de caixa cinza, o status chegava ao usuário como enum cru
+(`EM_ANALISE`, `NAO_BLOQUEANTE`), a fonte mono nunca era usada e o checklist,
+artefato central do domínio, parecia um formulário genérico. Tarefa concluída
+exibia controles desabilitados vazios em vez da resposta registrada.
+
+### Decisão
+
+O vocabulário visual das telas de execução é o protocolo de conferência,
+compartilhado em `frontend/src/styles/_conferencia.scss` e consumido por
+`@use` em cada folha de componente (mesma convenção de `_listagem.scss`):
+
+- **grupos são seções, não caixas**: cabeçalho com ícone, título display,
+  régua inferior em verdigris translúcido e total em mono (`.grupo__*`);
+- **estado sai em chip sobre os tokens `--status-*`** (`.chip--pending`,
+  `--review`, `--released`, `--blocked`, `--canceled`), sempre com rótulo
+  legível; enum cru nunca chega ao usuário;
+- **dado de registro em mono** (`.registro`): matrícula, códigos de empresa e
+  filial, template, versões, datas de trilha;
+- **trilho de conferência**: itens verificáveis correm sobre um fio com um nó
+  quadrado por item; o nó preenche em verdigris com ✓ quando o item está
+  conferido — resposta dada na sessão ou registrada na conclusão. No
+  checklist da tarefa, o nó acompanha `respostas()`/`answered_at`; no
+  processo expandido, a tarefa de setor concluída;
+- **registro em vez de formulário morto**: tela concluída mostra a resposta
+  registrada em texto (mono), não controles desabilitados;
+- **fato mais grave na estrutura**: o nível de bloqueio da pendência colore a
+  borda esquerda do cartão (bloqueante em `--status-blocked-color`).
+
+`p-tag` deixa de ser usado para status de domínio nessas telas; o chip do
+parcial é o único desenho de status.
+
+### Alternativa descartada
+
+Estilos globais em `styles.scss` foram descartados: o parcial por `@use`
+segue a convenção de `_listagem.scss`, mantém o custo no chunk de quem usa e
+não vaza desenho para telas administrativas que têm padrão próprio.
+
+### Consequências
+
+- tela de execução nova deve consumir `_conferencia.scss` em vez de redesenhar
+  grupo, chip ou registro; desvio do vocabulário exige nova ADR;
+- os mapas de rótulo (status, categoria, nível de bloqueio) vivem no
+  componente; enum novo exige rótulo novo no mesmo incremento;
+- o CSS do parcial duplica por chunk lazy que o usa — aceito pelo tamanho
+  (~2 kB) e pela ausência de estado global;
+- painel, setores e demais telas seguem candidatas à mesma linguagem em
+  incrementos futuros.
