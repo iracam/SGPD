@@ -23,16 +23,19 @@
     <i class="pi pi-arrow-right processo-card__seta" aria-hidden="true"></i>
   </a>
 
-  <article class="processo-card processo-card--lista">
-    <header class="processo-card__cabecalho">
-      <span class="processo-card__icone">
-        <i class="pi pi-file-edit" aria-hidden="true"></i>
-      </span>
+  <section class="grupo" aria-label="Rascunhos">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-file-edit" aria-hidden="true"></i>
       <span>
-        <strong>Rascunhos</strong>
+        <h2 class="grupo__titulo">Rascunhos</h2>
         <small>Mais novos primeiro.</small>
       </span>
-      <span class="processo-card__total">{{ rascunhos().length }}</span>
+      <span
+        class="grupo__total"
+        [attr.aria-label]="rascunhos().length + ' rascunhos'"
+      >
+        {{ rascunhos().length }}
+      </span>
     </header>
 
     @if (carregando()) {
@@ -46,7 +49,7 @@
           >
             <span>
               <strong>{{ processo.employee_snapshot.employee_name }}</strong>
-              <small>
+              <small class="registro">
                 Matrícula {{ processo.employee_registration }} · Empresa
                 {{ processo.company_code }} · Filial {{ processo.branch_code }}
               </small>
@@ -59,19 +62,22 @@
         }
       </div>
     }
-  </article>
+  </section>
 
   @for (card of cardsExpansiveis(); track card.key) {
-    <article class="processo-card processo-card--lista">
-      <header class="processo-card__cabecalho">
-        <span class="processo-card__icone">
-          <i [class]="card.icon" aria-hidden="true"></i>
-        </span>
+    <section class="grupo" [attr.aria-label]="card.title">
+      <header class="grupo__cabecalho">
+        <i [class]="card.icon" aria-hidden="true"></i>
         <span>
-          <strong>{{ card.title }}</strong>
+          <h2 class="grupo__titulo">{{ card.title }}</h2>
           <small>{{ card.description }}</small>
         </span>
-        <span class="processo-card__total">{{ card.processes.length }}</span>
+        <span
+          class="grupo__total"
+          [attr.aria-label]="card.processes.length + ' processos'"
+        >
+          {{ card.processes.length }}
+        </span>
       </header>
 
       @if (carregando()) {
@@ -90,7 +96,7 @@
               >
                 <span>
                   <strong>{{ processo.employee_snapshot.employee_name }}</strong>
-                  <small>
+                  <small class="registro">
                     Matrícula {{ processo.employee_registration }} · Empresa
                     {{ processo.company_code }} · Filial {{ processo.branch_code }}
                   </small>
@@ -124,21 +130,24 @@
                     <p class="estado-vazio">{{ card.taskLoadingText }}</p>
                   } @else {
                     @for (tarefa of tarefasPorProcesso()[processo.uuid] ?? []; track tarefa.id) {
-                      <article class="tarefa-processo">
+                      <article
+                        class="tarefa-processo"
+                        [class.tarefa-processo--conferida]="tarefa.status === 'CONCLUIDA'"
+                      >
                         <span>
                           <strong>{{ tarefa.sector.name }}</strong>
-                          <small>
-                            Template {{ tarefa.template.code }} · v{{
+                          <small class="registro">
+                            {{ tarefa.template.code }} · v{{
                               tarefa.template.version_number
                             }}
                           </small>
                         </span>
                         <span class="tarefa-processo__situacao">
-                          <small class="tarefa-processo__status">
+                          <span [class]="'chip chip--' + estadoTarefa(tarefa.status)">
                             {{ rotuloStatusTarefa(tarefa.status) }}
-                          </small>
+                          </span>
                           @if (tarefa.completed_at) {
-                            <small>
+                            <small class="registro">
                               {{ tarefa.completed_at | date: 'dd/MM/yyyy HH:mm' }}
                             </small>
                           }
@@ -156,6 +165,6 @@
           }
         </div>
       }
-    </article>
+    </section>
   }
 </section>

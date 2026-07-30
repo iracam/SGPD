@@ -119,4 +119,9 @@ export class ProcessosPage {
       CONCLUIDA: 'Concluída',
     }[status];
   }
+
+  /** Modificador do chip: reutiliza os tokens --status-* da identidade. */
+  protected estadoTarefa(status: TarefaProcesso['status']): string {
+    return { PENDENTE: 'pending', EM_ANALISE: 'review', CONCLUIDA: 'released' }[status];
+  }
 }

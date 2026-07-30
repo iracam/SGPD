@@ -1,0 +1,95 @@
+/*
+ * Vocabulário do protocolo de conferência (Tarefas, Processos).
+ *
+ * Grupos são seções com régua em verdigris e total em mono; o estado sai em
+ * chips sobre os tokens --status-*; o dado de registro (matrícula, códigos)
+ * usa a fonte mono da identidade.
+ */
+
+.grupo {
+  min-width: 0;
+}
+
+.grupo__cabecalho {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  margin-block-end: 1rem;
+  padding-block-end: 0.65rem;
+  border-block-end: 2px solid
+    color-mix(in srgb, var(--sgpd-accent) 40%, transparent);
+
+  > i {
+    color: var(--sgpd-accent);
+    font-size: 1.1rem;
+  }
+
+  small {
+    display: block;
+    margin-block-start: 0.1rem;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.grupo__titulo {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.grupo__total {
+  min-width: 2rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--sgpd-accent) 16%, transparent);
+  color: var(--status-released-color);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+}
+
+.registro {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip--pending {
+  background: var(--status-pending-bg);
+  color: var(--status-pending-color);
+}
+
+.chip--review {
+  background: var(--status-review-bg);
+  color: var(--status-review-color);
+}
+
+.chip--released {
+  background: var(--status-released-bg);
+  color: var(--status-released-color);
+}
+
+.chip--blocked {
+  background: var(--status-blocked-bg);
+  color: var(--status-blocked-color);
+}
+
+.chip--canceled {
+  background: var(--status-canceled-bg);
+  color: var(--status-canceled-color);
+}

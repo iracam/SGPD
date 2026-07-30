@@ -1,19 +1,15 @@
 @use 'breakpoints' as bp;
+@use 'conferencia';
+
+// Mesmo protocolo de conferência das tarefas: grupos como seções com régua,
+// registro em mono, chips sobre os tokens --status-* e, no processo expandido,
+// as tarefas de setor sobre o trilho — nó preenchido quando o setor concluiu.
 
 .processos-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.85rem;
+  gap: 1.75rem;
   margin-block-start: 1.5rem;
-}
-
-.processo-card {
-  min-width: 0;
-  padding: 1rem;
-  border: 1px solid var(--p-content-border-color);
-  border-radius: 0.8rem;
-  background: var(--p-content-background);
-  color: var(--p-text-color);
 }
 
 .processo-card--acao {
@@ -21,25 +17,31 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.85rem;
+  min-width: 0;
   min-height: 7rem;
-  border-color: color-mix(in srgb, var(--sgpd-accent) 55%, var(--p-content-border-color));
+  padding: 1rem;
+  border: 1px solid
+    color-mix(in srgb, var(--sgpd-accent) 55%, var(--p-content-border-color));
+  border-radius: 0.8rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
   text-decoration: none;
 
   &:hover {
     border-color: var(--sgpd-accent);
     box-shadow: 0 0.45rem 1.2rem rgba(16, 35, 31, 0.08);
   }
-}
 
-.processo-card strong,
-.processo-card small {
-  display: block;
-}
+  strong,
+  small {
+    display: block;
+  }
 
-.processo-card small {
-  margin-block-start: 0.2rem;
-  color: var(--p-text-muted-color);
-  line-height: 1.4;
+  small {
+    margin-block-start: 0.2rem;
+    color: var(--p-text-muted-color);
+    line-height: 1.4;
+  }
 }
 
 .processo-card__icone {
@@ -57,29 +59,9 @@
   color: var(--sgpd-accent);
 }
 
-.processo-card__cabecalho {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.processo-card__total {
-  display: grid;
-  place-items: center;
-  min-width: 2rem;
-  min-height: 2rem;
-  padding-inline: 0.45rem;
-  border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--sgpd-accent) 16%, transparent);
-  color: var(--status-released-color);
-  font-weight: 700;
-}
-
 .processo-lista {
   display: grid;
   gap: 0.55rem;
-  margin-block-start: 1rem;
 }
 
 .processo-lista__item {
@@ -92,8 +74,24 @@
   padding: 0.75rem;
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.65rem;
+  background: var(--p-content-background);
   color: var(--p-text-color);
   text-decoration: none;
+
+  strong,
+  small {
+    display: block;
+  }
+
+  small {
+    margin-block-start: 0.2rem;
+    color: var(--p-text-muted-color);
+    line-height: 1.4;
+  }
+
+  > i {
+    color: var(--sgpd-accent);
+  }
 }
 
 .processo-lista__item--botao {
@@ -113,20 +111,19 @@
 
 .tarefas-processo {
   display: grid;
-  gap: 0.5rem;
-  padding-inline-start: 0.75rem;
-  border-inline-start: 0.2rem solid
-    color-mix(in srgb, var(--sgpd-accent) 45%, var(--p-content-border-color));
+  padding-block: 0.25rem;
+  padding-inline-start: 0.5rem;
 }
 
+// Trilho de conferência do processo: um nó por tarefa de setor, ligado por um
+// fio; o nó preenche em verdigris quando o setor concluiu a validação.
 .tarefa-processo {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 0.65rem;
-  padding: 0.65rem;
-  border: 1px solid var(--p-content-border-color);
-  border-radius: 0.6rem;
+  padding: 0.45rem 0 0.75rem 1.75rem;
 
   strong,
   small {
@@ -134,20 +131,59 @@
   }
 
   small {
+    margin-block-start: 0.15rem;
     color: var(--p-text-muted-color);
   }
 }
 
+.tarefa-processo::before {
+  content: '';
+  position: absolute;
+  top: 0.6rem;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--p-form-field-border-color);
+  border-radius: 0.3rem;
+  background: var(--p-content-background);
+  color: var(--sgpd-accent-contrast);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tarefa-processo::after {
+  content: '';
+  position: absolute;
+  top: 1.85rem;
+  // Alcança o nó da tarefa seguinte (top 0.6rem), mantendo o fio contínuo.
+  bottom: -0.6rem;
+  left: calc(0.5rem - 1px);
+  width: 2px;
+  background: var(--p-content-border-color);
+}
+
+.tarefa-processo:last-child::after {
+  display: none;
+}
+
+.tarefa-processo--conferida::before {
+  content: '✓';
+  border-color: var(--sgpd-accent);
+  background: var(--sgpd-accent);
+}
+
 .tarefa-processo__situacao {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: end;
   text-align: end;
 }
 
-.tarefa-processo__status {
-  font-weight: 700;
-}
-
 .estado-vazio {
-  margin: 1rem 0 0;
+  margin: 0;
   padding: 1rem;
   border: 1px dashed var(--p-content-border-color);
   border-radius: 0.65rem;
