@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { finalize, forkJoin } from 'rxjs';
 
@@ -11,7 +12,7 @@ import { ProcessosService } from './processos.service';
 
 @Component({
   selector: 'app-processos-page',
-  imports: [DatePipe, RouterLink, MessageModule],
+  imports: [DatePipe, RouterLink, ButtonModule, MessageModule],
   templateUrl: './processos.html',
   styleUrl: './processos.scss',
 })

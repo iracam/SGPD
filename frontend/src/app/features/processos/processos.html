@@ -1,10 +1,20 @@
-<header>
-  <span class="pagina-selo">
-    <i class="pi pi-folder-open" aria-hidden="true"></i>
-    Gestão demissional
-  </span>
-  <h1 class="page-title">Processos</h1>
-  <p class="page-lead">Abra um processo novo ou retome os processos já registrados.</p>
+<header class="cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-folder-open" aria-hidden="true"></i>
+      Gestão demissional
+    </span>
+    <h1 class="page-title">Processos</h1>
+    <p class="page-lead">Abra um processo novo ou retome os processos já registrados.</p>
+  </div>
+  <div class="cabecalho__acoes">
+    <a
+      pButton
+      routerLink="/fe/colaboradores"
+      icon="pi pi-folder-plus"
+      label="Abrir processo"
+    ></a>
+  </div>
 </header>
 
 @if (erro()) {
@@ -12,17 +22,6 @@
 }
 
 <section class="processos-grid" aria-label="Opções de processos">
-  <a class="processo-card processo-card--acao" routerLink="/fe/colaboradores">
-    <span class="processo-card__icone">
-      <i class="pi pi-folder-plus" aria-hidden="true"></i>
-    </span>
-    <span>
-      <strong>Abrir processo</strong>
-      <small>Selecione o colaborador e crie um novo rascunho.</small>
-    </span>
-    <i class="pi pi-arrow-right processo-card__seta" aria-hidden="true"></i>
-  </a>
-
   <section class="grupo" aria-label="Rascunhos">
     <header class="grupo__cabecalho">
       <i class="pi pi-file-edit" aria-hidden="true"></i>
