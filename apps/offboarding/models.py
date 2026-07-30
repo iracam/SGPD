@@ -196,7 +196,7 @@ class EmployeeSnapshot(models.Model):
     )
     company_code = models.PositiveIntegerField("código da empresa")
     branch_code = models.PositiveIntegerField("código da filial")
-    branch_legal_name = models.CharField("razão social da filial", max_length=255)
+    branch_legal_name = models.CharField("nome da filial", max_length=255)
     employee_type_code = models.PositiveIntegerField("tipo de colaborador")
     employee_type_description = models.CharField(
         "descrição do tipo de colaborador",

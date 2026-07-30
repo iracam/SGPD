@@ -414,8 +414,9 @@ Estado implementado em `SGPD_OFFBOARDING_PROCESS`:
 Estado implementado em `SGPD_EMPLOYEE_SNAPSHOT`:
 
 - relação um-para-um protegida com o processo;
-- `FILIAL_NOME` corresponde à razão social retornada pelo contrato atual; o
-  Senior não fornece um nome de empresa separado;
+- `FILIAL_NOME` corresponde ao nome da filial (`R030FIL.NOMFIL`) retornado pelo
+  contrato atual; a razão social (`R030FIL.RAZSOC`) é usada apenas para rotular
+  a empresa na cascata de seleção;
 - registra `SOURCE_QUERIED_AT` além de `ORIGEM_ATUALIZADA_EM`;
 - mantém CPF somente mascarado e não o projeta na API de abertura;
 - rejeita alteração e exclusão por instância ou em lote.

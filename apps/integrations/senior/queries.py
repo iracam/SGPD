@@ -1,7 +1,8 @@
 """Canonical runtime SQL for the read-only Senior HCM contract."""
 
 LIST_COMPANIES = """
-SELECT c.numemp AS empresa
+SELECT c.numemp AS empresa,
+       MIN(c.razsoc) KEEP (DENSE_RANK FIRST ORDER BY c.codfil) AS razao_social
   FROM vetorh.r030fil c
  WHERE EXISTS (
            SELECT 1
@@ -17,7 +18,7 @@ SELECT c.numemp AS empresa
 LIST_BRANCHES = """
 SELECT c.numemp AS empresa,
        c.codfil AS filial,
-       c.razsoc AS razao_social
+       c.nomfil AS nome_filial
   FROM vetorh.r030fil c
  WHERE c.numemp = :empresa
    AND EXISTS (
@@ -27,7 +28,7 @@ SELECT c.numemp AS empresa,
               AND a.codfil = c.codfil
               AND a.sitafa <> 7
        )
- GROUP BY c.numemp, c.codfil, c.razsoc
+ GROUP BY c.numemp, c.codfil, c.nomfil
  ORDER BY c.codfil
  OFFSET :offset ROWS FETCH NEXT :limite ROWS ONLY
 """
@@ -52,7 +53,7 @@ SELECT a.tipcol AS tipo_colaborador,
 _EMPLOYEE_FIELDS = """
 SELECT a.numemp AS empresa,
        a.codfil AS filial,
-       c.razsoc AS razao_social,
+       c.nomfil AS nome_filial,
        a.tipcol AS tipo_colaborador,
        CASE a.tipcol
            WHEN 1 THEN 'Empregado'
@@ -111,7 +112,7 @@ LIST_EMPLOYEES = (
 GET_EMPLOYEE = """
 SELECT a.numemp AS empresa,
        a.codfil AS filial,
-       c.razsoc AS razao_social,
+       c.nomfil AS nome_filial,
        a.tipcol AS tipo_colaborador,
        CASE a.tipcol
            WHEN 1 THEN 'Empregado'

@@ -6,6 +6,7 @@ export interface PaginaSenior<T> {
 
 export interface EmpresaSenior {
   company: number;
+  legal_name: string;
 }
 
 export interface FilialSenior {

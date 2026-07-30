@@ -58,7 +58,10 @@ class SeniorRepository:
             name="list_companies",
             sql=queries.LIST_COMPANIES,
             params=pagination,
-            factory=lambda row: Company(company=self._integer(row, "EMPRESA")),
+            factory=lambda row: Company(
+                company=self._integer(row, "EMPRESA"),
+                legal_name=self._text(row, "RAZAO_SOCIAL"),
+            ),
         )
 
     def list_branches(
@@ -79,7 +82,7 @@ class SeniorRepository:
             factory=lambda row: Branch(
                 company=self._integer(row, "EMPRESA"),
                 branch=self._integer(row, "FILIAL"),
-                legal_name=self._text(row, "RAZAO_SOCIAL"),
+                legal_name=self._text(row, "NOME_FILIAL"),
             ),
         )
 
@@ -323,7 +326,7 @@ class SeniorRepository:
         return Employee(
             company=cls._integer(row, "EMPRESA"),
             branch=cls._integer(row, "FILIAL"),
-            legal_name=cls._text(row, "RAZAO_SOCIAL"),
+            legal_name=cls._text(row, "NOME_FILIAL"),
             employee_type=cls._integer(row, "TIPO_COLABORADOR"),
             employee_type_description=cls._text(
                 row,

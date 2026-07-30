@@ -306,7 +306,7 @@ configurados no workflow.
 Estado implementado no primeiro incremento da Fase 4:
 
 - snapshot próprio e imutável, sem model para objetos `VETORH`;
-- identificadores, razão social da filial, tipo, matrícula, nome, situação,
+- identificadores, nome da filial, tipo, matrícula, nome, situação,
   cargo, centro de custo, admissão, afastamento e `USU_DATALT` preservados;
 - instante da consulta ao Senior registrado;
 - CPF mascarado mantido apenas no snapshot interno e omitido da resposta da

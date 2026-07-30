@@ -7,6 +7,7 @@ from datetime import datetime
 @dataclass(frozen=True, slots=True)
 class Company:
     company: int
+    legal_name: str
 
 
 @dataclass(frozen=True, slots=True)

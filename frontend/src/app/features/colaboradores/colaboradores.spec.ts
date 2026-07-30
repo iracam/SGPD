@@ -56,7 +56,7 @@ describe('ColaboradoresPage', () => {
     httpMock.verify();
   });
 
-  function responderEmpresas(results = [{ company: 1 }]): void {
+  function responderEmpresas(results = [{ company: 1, legal_name: 'Empresa Um' }]): void {
     const request = httpMock.expectOne(
       (req) =>
         req.url === apiConfig.routes.referenceCompanies &&
@@ -141,7 +141,10 @@ describe('ColaboradoresPage', () => {
   });
 
   it('cancela a consulta anterior quando a empresa muda antes da resposta', () => {
-    responderEmpresas([{ company: 1 }, { company: 2 }]);
+    responderEmpresas([
+      { company: 1, legal_name: 'Empresa Um' },
+      { company: 2, legal_name: 'Empresa Dois' },
+    ]);
     component.empresa.setValue(1);
     const antiga = httpMock.expectOne(
       (req) =>

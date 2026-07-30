@@ -80,7 +80,7 @@ def employee_columns(*, detail: bool = False) -> list[str]:
     columns = [
         "EMPRESA",
         "FILIAL",
-        "RAZAO_SOCIAL",
+        "NOME_FILIAL",
         "TIPO_COLABORADOR",
         "DESCRICAO_TIPO_COLABORADOR",
         "MATRICULA",
@@ -130,7 +130,7 @@ def employee_row(*, detail: bool = False) -> list[object]:
 
 def test_list_branches_uses_bind_variables_and_restores_timeout() -> None:
     cursor = FakeCursor(
-        columns=["EMPRESA", "FILIAL", "RAZAO_SOCIAL"],
+        columns=["EMPRESA", "FILIAL", "NOME_FILIAL"],
         rows=[(1, 2, "Empresa de Teste")],
     )
     result = repository(cursor).list_branches(company=1, offset=10, limit=20)

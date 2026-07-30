@@ -37,7 +37,8 @@ END;
 
 SELECT COUNT(*) AS empresas_probe
   FROM (
-      SELECT c.numemp AS empresa
+      SELECT c.numemp AS empresa,
+             MIN(c.razsoc) KEEP (DENSE_RANK FIRST ORDER BY c.codfil) AS razao_social
         FROM vetorh.r030fil c
        WHERE EXISTS (
                  SELECT 1
@@ -53,7 +54,7 @@ SELECT COUNT(*) AS empresas_probe
 
 SELECT COUNT(*) AS filiais_probe
   FROM (
-      SELECT c.numemp, c.codfil, c.razsoc
+      SELECT c.numemp, c.codfil, c.nomfil
         FROM vetorh.r030fil c
        WHERE c.numemp = :empresa
          AND EXISTS (
@@ -63,7 +64,7 @@ SELECT COUNT(*) AS filiais_probe
                     AND a.codfil = c.codfil
                     AND a.sitafa <> 7
              )
-       GROUP BY c.numemp, c.codfil, c.razsoc
+       GROUP BY c.numemp, c.codfil, c.nomfil
        ORDER BY c.codfil
        OFFSET :offset_linhas ROWS
        FETCH NEXT :limite_linhas ROWS ONLY
@@ -86,7 +87,7 @@ SELECT COUNT(*) AS colaboradores_probe
   FROM (
       SELECT a.numemp AS empresa,
              a.codfil AS filial,
-             c.razsoc AS razao_social,
+             c.nomfil AS nome_filial,
              a.tipcol AS tipo_colaborador,
              CASE a.tipcol
                  WHEN 1 THEN 'Empregado'
@@ -141,7 +142,7 @@ SELECT COUNT(*) AS colaborador_detalhe_probe
   FROM (
       SELECT a.numemp AS empresa,
              a.codfil AS filial,
-             c.razsoc AS razao_social,
+             c.nomfil AS nome_filial,
              a.tipcol AS tipo_colaborador,
              CASE a.tipcol
                  WHEN 1 THEN 'Empregado'

@@ -56,7 +56,7 @@ def _iso_datetime(value: datetime | None) -> str | None:
 
 
 def _company_payload(company: Company) -> dict[str, object]:
-    return {"company": company.company}
+    return {"company": company.company, "legal_name": company.legal_name}
 
 
 def _branch_payload(branch: Branch) -> dict[str, object]:

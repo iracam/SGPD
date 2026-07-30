@@ -379,7 +379,7 @@ export class ColaboradoresPage {
       .subscribe({
         next: (pagina) =>
           this.empresas.set(
-            pagina.results.map((item) => ({ ...item, label: `Empresa ${item.company}` })),
+            pagina.results.map((item) => ({ ...item, label: `${item.company} - ${item.legal_name}` })),
           ),
         error: (error) =>
           this.erroEmpresas.set(

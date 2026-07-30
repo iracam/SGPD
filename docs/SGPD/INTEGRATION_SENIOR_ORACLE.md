@@ -56,7 +56,7 @@ NUMEMP + CODFIL + TIPCOL + NUMCAD
 |---|---|
 | empresa | `R034FUN.NUMEMP` |
 | filial | `R034FUN.CODFIL` |
-| razão social | `R030FIL.RAZSOC` |
+| nome da filial | `R030FIL.NOMFIL` |
 | tipo do colaborador | `R034FUN.TIPCOL` |
 | matrícula | `R034FUN.NUMCAD` |
 | nome | `R034FUN.NOMFUN` |

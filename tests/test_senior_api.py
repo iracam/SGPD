@@ -101,7 +101,10 @@ def test_company_endpoint_filters_results_by_role_scope(
     assignment.full_clean()
     assignment.save()
     repository = Mock(spec=SeniorRepository)
-    repository.list_companies.return_value = [Company(company=1), Company(company=2)]
+    repository.list_companies.return_value = [
+        Company(company=1, legal_name="Empresa Um"),
+        Company(company=2, legal_name="Empresa Dois"),
+    ]
     install_repository(monkeypatch, CompanyListAPIView, repository)
     client = APIClient()
     client.force_authenticate(user=user)
@@ -109,7 +112,7 @@ def test_company_endpoint_filters_results_by_role_scope(
     response = client.get(reverse("senior:companies"))
 
     assert response.status_code == 200
-    assert response.json()["results"] == [{"company": 1}]
+    assert response.json()["results"] == [{"company": 1, "legal_name": "Empresa Um"}]
 
 
 @pytest.mark.django_db
@@ -150,7 +153,7 @@ def test_company_endpoint_returns_paginated_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repository = Mock(spec=SeniorRepository)
-    repository.list_companies.return_value = [Company(company=1)]
+    repository.list_companies.return_value = [Company(company=1, legal_name="Empresa Um")]
     install_repository(monkeypatch, CompanyListAPIView, repository)
 
     response = authenticated_client.get(
@@ -163,7 +166,7 @@ def test_company_endpoint_returns_paginated_contract(
     assert response.json() == {
         "offset": 5,
         "limit": 10,
-        "results": [{"company": 1}],
+        "results": [{"company": 1, "legal_name": "Empresa Um"}],
     }
     assert response["X-Correlation-ID"] == "api-test"
     repository.list_companies.assert_called_once_with(offset=5, limit=10)
