@@ -36,7 +36,11 @@
 - identificação cadastral legível na cascata: empresa rotulada pela razão
   social e filial pelo nome próprio (`R030FIL.NOMFIL`);
 - pré-visualização do rascunho não salvo de template e de grupo no editor de
-  configuração.
+  configuração;
+- nova versão de grupo de validação clonada da versão publicada e exclusão
+  auditada de rascunhos de template e de grupo;
+- protocolo de conferência da ADR-047 exercido por todas as telas da SPA, com
+  cabeçalho de página global e selo de domínio.
 
 ## Estado corrente
 
@@ -121,8 +125,9 @@ Contrato Senior — legibilidade cadastral:
   as telas;
 - o usuário `homolog.visual` permanece no DEV desativado e com senha
   inutilizável: a FK da auditoria append-only impede a exclusão;
-- painel, setores e demais telas ainda não consomem o protocolo de conferência
-  da ADR-047; aplicar a linguagem nos próximos incrementos de cada tela.
+- a extensão da ADR-047 e os incrementos de edição de configuração de
+  2026-07-31 foram conferidos por build e testes, mas ainda não passaram por
+  varredura headless nas cinco larguras homologadas.
 
 ## Homologação funcional e visual das Fases 3 e 5
 
@@ -173,7 +178,44 @@ sobreposição de colunas em `md`/`lg`: cartão de tarefa com `min-width: 0` e
 linhas de ações com `flex-wrap`. Telas de execução novas devem consumir o
 parcial; o texto normativo é a ADR-047.
 
+Em 2026-07-31 a linguagem alcançou o restante da SPA: painel, setores,
+colaboradores, rascunho do processo, catálogo de workflow, auditoria e
+usuários. `p-tag` saiu de todas as telas — o chip do parcial é o único desenho
+de status de domínio — e nenhum enum cru (`USER_CREATED`, `GLOBAL`, `DP`,
+`COMPANY`, `PUBLISHED`) chega mais ao usuário. O trio selo/título/lead e as
+ações de página subiram para `styles.scss` como vocabulário global, junto com
+a correção do `.lista-tabela`, cujos descendentes absolutos `.sr-only`
+esticavam o body além do viewport (ADR-028). A ADR-047 foi estendida na mesma
+data para registrar esse alcance.
+
+## Ciclo de vida do rascunho na configuração (2026-07-31)
+
+O editor de configuração fechou o ciclo de vida das versões:
+
+- `Nova versão` de grupo de validação clona a versão publicada e repica cada
+  setor para a versão vigente do seu template, abrindo o rascunho para edição;
+  `CreateValidationGroupVersionService` guarda rascunho único, em paridade com
+  templates;
+- rascunhos de template e de grupo podem ser excluídos por `DELETE` na rota da
+  versão, com auditoria `TPL_DRAFT_DELETED` / `GROUP_DRAFT_DELETED`; versões
+  publicadas continuam imutáveis e o rascunho inicial é indelével, como o
+  cabeçalho;
+- as pré-visualizações passaram a espelhar `Minhas tarefas`: um cartão por
+  setor, prazo efetivo na mesma precedência do backend e checklist com os
+  controles reais.
+
+`templates_engine.0007` apenas amplia as opções de `EVENT_TYPE`: o
+`sqlmigrate` é `(no-op)` e a migration está aplicada no Oracle DEV.
+
 ## Baseline de qualidade
+
+Em 2026-07-31 a validação padrão foi executada por inteiro: 358 testes backend
+e 83 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations
+e build Angular sem avisos. A verificação encontrou dois arquivos fora do
+formato — `templates_engine/services.py` e a migration `0007` — remanescentes
+dos incrementos de exclusão de rascunho; foram formatados sem mudança de
+comportamento. A varredura headless de largura ainda não foi repetida sobre
+essas telas.
 
 Na homologação das Fases 3 e 5 passaram 355 testes backend e 81 frontend — o
 novo cobre a regressão do comentário e falha com `expected 'undefined' to be ''`
