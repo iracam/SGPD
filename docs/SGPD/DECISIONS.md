@@ -1701,9 +1701,11 @@ seguro enquanto não houver regras cadastradas.
 
 ### Estado
 
-Aceita e implementada em 2026-07-30 nas telas Minhas tarefas e Processos.
-Complementa a ADR-027 (PrimeNG e tokens) e a ADR-028 (mobile first) sem
-substituí-las.
+Aceita e implementada em 2026-07-30 nas telas Minhas tarefas e Processos;
+estendida na mesma data a todas as telas da SPA (rascunho do processo,
+abertura de processo, catálogo de workflow, auditoria, usuários,
+configurações). Complementa a ADR-027 (PrimeNG e tokens) e a ADR-028
+(mobile first) sem substituí-las.
 
 ### Contexto
 
@@ -1755,5 +1757,8 @@ não vaza desenho para telas administrativas que têm padrão próprio.
   componente; enum novo exige rótulo novo no mesmo incremento;
 - o CSS do parcial duplica por chunk lazy que o usa — aceito pelo tamanho
   (~2 kB) e pela ausência de estado global;
-- painel, setores e demais telas seguem candidatas à mesma linguagem em
-  incrementos futuros.
+- o cabeçalho de página (`.pagina-cabecalho`, `.pagina-acoes` e o selo de
+  domínio `.pagina-selo`) é vocabulário global em `styles.scss`, ao lado de
+  `.page-title`/`.page-lead`: toda tela abre com selo, título e lead;
+- `p-tag` saiu de todas as telas; o chip do parcial é o único desenho de
+  status de domínio na SPA.
