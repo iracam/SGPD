@@ -32,6 +32,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 045 | Vigente | Abertura sem gestor imediato |
 | 046 | Vigente | Regra de aplicabilidade como sugestão não vinculante |
 | 048 | Vigente | Segregação nos valores e SuperAdmin sem barreira |
+| 051 | Vigente | Estado formal persistido e situação funcional calculada |
 
 ## Integrações, identidade e frontend
 

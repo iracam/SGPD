@@ -1988,3 +1988,98 @@ operacional nem editar arquivo no host.
   abrir conexão viva com o servidor gravado na central;
 - a configuração de arquivos e evidências continua no `.env` e permanece como o
   próximo módulo previsto da central.
+
+## ADR-051 — Estado formal persistido e situação funcional calculada
+
+### Estado
+
+Aceita em 2026-07-31, na abertura da Fase 8. Governa prontidão, liberação,
+registro de processamento, encerramento, cancelamento e reabertura.
+
+### Contexto
+
+O `WORKFLOWS.md` §2 descreve nove estados do processo. Cinco deles —
+`EM_VALIDACAO`, `COM_PENDENCIAS`, `AGUARDANDO_REGULARIZACAO`,
+`AGUARDANDO_DECISAO` e `PRONTO_PARA_ANALISE_DP` — não são atos de ninguém: são
+consequências do que as tarefas, as pendências e as pretensões já registram. Só
+os quatro restantes nascem de uma decisão humana explícita e datada
+(`LIBERADO_PARA_RESCISAO`, `RESCISAO_PROCESSADA`, `ENCERRADO`, `CANCELADO`),
+somados aos dois já implementados (`RASCUNHO`, `INICIADO`).
+
+Persistir os cinco derivados obrigaria todo service de pendência, valor e tarefa
+a travar o processo e reescrever seu `STATUS` na mesma transação — acoplamento
+amplo, corrida entre setores que trabalham em paralelo (R51) e a possibilidade
+permanente de o estado gravado divergir do fato que ele afirma.
+
+### Decisão
+
+`SGPD_OFFBOARDING_PROCESS.STATUS` guarda **somente estado formal**:
+
+```text
+RASCUNHO → INICIADO → LIBERADO_PARA_RESCISAO → RESCISAO_PROCESSADA → ENCERRADO
+(RASCUNHO | INICIADO) → CANCELADO
+```
+
+A situação funcional é **calculada a cada leitura** por
+`evaluate_process_readiness()`, sobre tarefas, pendências e pretensões. Ela não
+é gravada, não é transição e não bloqueia nada por si: quem bloqueia é a
+verificação de prontidão dentro do service de liberação, refeita sob lock no
+instante do ato.
+
+Toda transição da fase é service transacional com lock do processo, versão
+otimista, `Idempotency-Key`, auditoria append-only e revalidação de autoridade
+depois do lock — o mesmo desenho do início e da conclusão de tarefa.
+
+### Autoridade
+
+| Transição | Quem pode |
+| --- | --- |
+| liberar | `DP` vigente no escopo ou SuperAdmin |
+| registrar processamento | `DP` vigente no escopo ou SuperAdmin |
+| encerrar | `DP` vigente no escopo ou SuperAdmin |
+| cancelar | `DP` vigente no escopo ou SuperAdmin |
+| reabrir | **somente SuperAdmin** |
+
+A reabertura desfaz um ato formal já concluído. A “permissão especial” do RF-032
+é a autoridade global da ADR-044 — o SGPD não cria papel novo para isso, o que
+contrariaria a ADR-034 e a ADR-036. O `DP` que liberou não desfaz o próprio ato
+sozinho.
+
+### Rescisão processada é declaração, não integração
+
+O Senior HCM continua sendo a fonte oficial e o SGPD não lê nem escreve a
+rescisão (ADR-020, RF-037). `RESCISAO_PROCESSADA` registra o que o `DP`
+**declara** ter processado no Senior: número, data e observação. O campo é
+prova de conferência humana, não espelho do Senior, e a API o identifica como
+tal. Quando a integração de retorno existir, ela passa a preencher os mesmos
+campos e esta ADR precisa ser revista.
+
+### Cancelamento é terminal
+
+Cancelar libera a chave do colaborador e cancela as tarefas ainda abertas. Não
+há reabertura de cancelado: ressuscitar tarefas canceladas e disputar a chave
+com um processo aberto depois seria ambiguidade sem ganho. Quem cancelou por
+engano abre outro processo — a auditoria preserva os dois e nada é apagado.
+
+### Chave do colaborador
+
+`ACTIVE_EMPLOYEE_KEY` é liberada — passa a `NULL` — no encerramento e no
+cancelamento, e só neles. É o que permite abrir um processo novo para o mesmo
+colaborador. A reabertura precisa retomá-la e é recusada quando outro processo
+já a tomou: a unicidade do banco é a árbitra, não a leitura prévia.
+
+### Consequências
+
+- a SPA e os relatórios passam a exibir duas coisas diferentes com nomes
+  diferentes: o estado formal (o que foi decidido) e a situação funcional (onde
+  o trabalho está). Confundi-las na interface anula a decisão;
+- a prontidão é sempre recalculada: nenhuma tela pode liberar com base no que
+  leu antes, porque o service refaz a verificação sob lock e pode recusar;
+- consultas por situação funcional não são filtros de coluna. Enquanto o volume
+  for de dezenas de processos, calcular na leitura é barato; se crescer, a saída
+  é materializar a leitura, nunca gravar o estado no domínio;
+- o encerramento passa a ser o marco confiável de contagem da retenção de
+  evidências (`SECURITY.md` §14), que até aqui não existia;
+- `SGPD_PROCESS_IDEMPOTENCY.ACTION` guarda ações curtas (`RELEASE`, `PROCESS`,
+  `CLOSE`, `CANCEL`, `REOPEN`) no mesmo espaço de 30 caracteres já usado por
+  `START` e pelas ações de tarefa.
