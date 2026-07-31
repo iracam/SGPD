@@ -12,6 +12,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 003 | Vigente com exceção 022 | Oracle principal |
 | 004 | Substituída por 020 | Sincronização local de referências |
 | 013–019 | Vigentes | DEV único, WhiteNoise, Redis sob demanda, validação local, secrets, SMTP e storage |
+| 049 | Vigente | Outbox no Oracle em vez de broker para notificações |
 | 022 | Vigente no DEV | Owner `SGPD` também como runtime |
 | 023 | Vigente | Fundação Python, Django e conexão Oracle |
 

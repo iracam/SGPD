@@ -1839,3 +1839,83 @@ controle.
 - se a operação sair do DEV único para um ambiente com segregação exigida por
   Jurídico ou Segurança da Informação, esta ADR precisa ser revista antes, não
   depois.
+
+## ADR-049 — Outbox no Oracle em vez de broker para notificações
+
+### Estado
+
+Aceita em 2026-07-31 por decisão explícita do responsável funcional, ao abrir a
+Fase 7. Implementada a partir da fatia 1 da fase.
+
+### Contexto
+
+A Fase 7 precisa enviar lembretes, avisos de atraso e escaladas por e-mail, com
+painel de falhas e reprocessamento (RF-027, RF-028, R07). O roadmap previa
+Redis em container com fila de e-mail, e a ADR-015 autoriza subir Redis quando
+uma funcionalidade exigir cache, fila ou lock distribuído.
+
+Ao desenhar a fase, três exigências apareceram antes do transporte:
+
+1. o painel de falhas e o reprocessamento exigem registro **durável** por
+   mensagem, com tentativa, erro e resultado — um broker não guarda esse
+   histórico;
+2. a varredura de prazos é periódica e precisa ser idempotente: varrer o mesmo
+   marco duas vezes não pode gerar dois e-mails, e a garantia natural disso é
+   uma chave única no banco;
+3. a mensagem nasce de uma mudança de domínio que já está numa transação
+   Oracle; publicá-la num broker fora dessa transação abre a janela clássica em
+   que o domínio confirma e a mensagem se perde, ou a mensagem sai e o domínio
+   é revertido.
+
+Um broker satisfaz nenhuma das três sozinho: em todos os desenhos avaliados a
+tabela de outbox continuava necessária.
+
+### Decisão
+
+A fila de notificações é uma tabela do schema SGPD — `SGPD_NOTIFICATION` —
+gravada na **mesma transação** do fato que a origina. O envio acontece depois,
+fora da requisição, por comando `manage.py` acionado pelo agendador do sistema
+operacional no DEV. Cada tentativa de entrega é uma linha append-only em
+`SGPD_NOTIFICATION_ATTEMPT`.
+
+Redis, broker, worker e scheduler dedicados **não** entram na Fase 7. Nenhuma
+dependência nova é adicionada ao projeto.
+
+### Decisões substituídas
+
+- o item “Redis em container” e “fila de e-mail” da Fase 7 do `ROADMAP.md` deixa
+  de valer como entrega desta fase;
+- a ADR-015 permanece vigente e não é contrariada: ela condiciona o Redis a uma
+  funcionalidade que o exija, e esta não exige. A ADR-010 também permanece — o
+  processamento continua assíncrono em relação à requisição, apenas sem broker.
+
+### Alternativas descartadas
+
+Redis com Celery e Celery Beat: dois processos de runtime a mais, duas
+dependências novas e um Compose a manter, num DEV único, sem CI/CD e sem
+supervisor — e ainda assim com o outbox no Oracle para o painel de falhas. O
+custo operacional não se pagava no volume desta fase.
+
+Django-Q2 com broker ORM: entrega worker e scheduler sem Redis, mas traz
+dependência, tabelas próprias fora do padrão de services e auditoria do projeto
+e comportamento não homologado sobre `python-oracledb` Thick.
+
+### Consequências
+
+- a periodicidade do envio passa a depender do agendador do sistema
+  operacional: um agendamento ausente ou parado significa silêncio, não erro
+  visível. O painel de falhas mostra a fila parada, mas alguém precisa olhar —
+  o runbook da fase precisa registrar a verificação;
+- a entrega é **ao menos uma vez**: se o processo morrer entre o envio SMTP e a
+  confirmação no banco, a mensagem fica em `ENVIANDO` e uma reabertura pode
+  duplicar o e-mail. Duplicar aviso é aceitável; perder aviso não é;
+- a latência é a do intervalo de varredura, não a de um broker. Para lembrete,
+  atraso e escalada isso é irrelevante — nenhum desses marcos é sensível a
+  minutos;
+- volume alto de notificações passa a ser carga no Oracle. Enquanto a fila for
+  medida em dezenas por dia, o custo é desprezível; se a operação crescer, a
+  troca do transporte é local ao despachante e não toca o domínio;
+- a condição de qualquer check constraint sobre coluna anulável do outbox
+  precisa decidir o caso ausente explicitamente, pelo motivo registrado na
+  homologação da Fase 6: no Oracle `full_clean()` não envolve a condição em
+  `Coalesce(..., True)`.
