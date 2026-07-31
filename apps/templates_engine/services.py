@@ -743,6 +743,15 @@ class CreateValidationGroupVersionService:
             raise ValidationError("O grupo foi alterado por outra sessão. Recarregue a página.")
         if not group.is_active:
             raise ValidationError("O grupo precisa estar ativo.")
+        draft_versions = list(
+            ValidationGroupVersion.objects.select_for_update()
+            .filter(group=group, status=VersionStatus.DRAFT)
+            .order_by("pk")
+        )
+        if draft_versions:
+            raise ValidationError(
+                "O grupo já possui uma versão em rascunho. Edite-a antes de criar outra."
+            )
         version = _create_group_version(
             group=group,
             actor=command.actor,

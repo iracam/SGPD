@@ -26,6 +26,7 @@ import {
   NovaRegraAplicabilidade,
   NovoGrupo,
   NovoTemplate,
+  NovaVersaoGrupo,
   NovaVersaoTemplate,
   RegraAplicabilidade,
   RegraGrupo,
@@ -439,6 +440,60 @@ export class WorkflowConfigPage {
         },
         error: (error) =>
           this.erro.set(errorMessage(error, 'Não foi possível salvar o grupo.')),
+      });
+  }
+
+  criarNovaVersaoGrupo(grupo: GrupoValidacao): void {
+    if (this.rascunhoGrupo(grupo) || this.salvandoGrupo()) {
+      return;
+    }
+    const published = grupo.versions.find(
+      (version) => version.id === grupo.current_version_id,
+    );
+    if (!published) {
+      return;
+    }
+    const payload: NovaVersaoGrupo = {
+      expected_version: grupo.version,
+      sectors: published.sectors.map((regra, index) => ({
+        sector_id: regra.sector.id,
+        template_version_id:
+          this.templates().find(
+            (template) => template.id === regra.template_version.template_id,
+          )?.current_version_id ?? regra.template_version.id,
+        is_required: regra.is_required,
+        blocks_process: regra.blocks_process,
+        due_hours_override: regra.due_hours_override,
+        display_order: index + 1,
+      })),
+    };
+    this.salvandoGrupo.set(true);
+    this.limparMensagens();
+    this.service
+      .criarVersaoGrupo(grupo.id, payload)
+      .pipe(
+        finalize(() => this.salvandoGrupo.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (draft) => {
+          const atualizado: GrupoValidacao = {
+            ...grupo,
+            version: grupo.version + 1,
+            versions: [draft, ...grupo.versions],
+          };
+          this.grupos.update((grupos) =>
+            grupos.map((item) => (item.id === grupo.id ? atualizado : item)),
+          );
+          this.editarRascunhoGrupo(atualizado);
+          this.aviso.set(
+            `Versão ${draft.version_number} do grupo #${grupo.code} criada em rascunho.`,
+          );
+        },
+        error: (error) =>
+          this.erro.set(
+            errorMessage(error, 'Não foi possível criar uma nova versão do grupo.'),
+          ),
       });
   }
 

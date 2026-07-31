@@ -11,6 +11,7 @@ import {
   NovaRegraAplicabilidade,
   NovoGrupo,
   NovoTemplate,
+  NovaVersaoGrupo,
   NovaVersaoTemplate,
   PaginaWorkflow,
   RegraAplicabilidade,
@@ -94,6 +95,16 @@ export class WorkflowConfigService {
   ): Observable<GrupoValidacao> {
     return this.http.put<GrupoValidacao>(
       `/api/v1/workflow-config/group-versions/${versionId}/`,
+      payload,
+    );
+  }
+
+  criarVersaoGrupo(
+    groupId: number,
+    payload: NovaVersaoGrupo,
+  ): Observable<VersaoGrupo> {
+    return this.http.post<VersaoGrupo>(
+      `/api/v1/workflow-config/groups/${groupId}/versions/`,
       payload,
     );
   }

@@ -161,6 +161,11 @@ export interface NovoGrupo {
   }>;
 }
 
+export interface NovaVersaoGrupo {
+  expected_version: number;
+  sectors: NovoGrupo['sectors'];
+}
+
 export interface AtualizacaoRascunhoGrupo extends NovoGrupo {
   expected_version: number;
 }

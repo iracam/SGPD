@@ -30,6 +30,8 @@ from apps.templates_engine.services import (
     CreateChecklistTemplateVersionService,
     CreateValidationGroupCommand,
     CreateValidationGroupService,
+    CreateValidationGroupVersionCommand,
+    CreateValidationGroupVersionService,
     GroupSectorValue,
     PublishChecklistTemplateVersionCommand,
     PublishChecklistTemplateVersionService,
@@ -738,6 +740,60 @@ def test_template_allows_only_one_draft_per_template(
         )
 
     assert template.versions.filter(status=VersionStatus.DRAFT).count() == 1
+
+
+def test_group_allows_only_one_draft_per_group(
+    actor: User,
+    sector: ValidationSector,
+) -> None:
+    template = publish_template(actor)
+    template_version = template.current_version
+    assert template_version is not None
+    sector_value = GroupSectorValue(
+        sector_id=sector.pk,
+        template_version_id=template_version.pk,
+        is_required=True,
+        blocks_process=True,
+        due_hours_override=None,
+        display_order=1,
+    )
+    group = CreateValidationGroupService().execute(
+        CreateValidationGroupCommand(
+            actor=actor,
+            name="Desligamento padrão",
+            description="",
+            sectors=(sector_value,),
+        )
+    )
+    PublishValidationGroupVersionService().execute(
+        PublishValidationGroupVersionCommand(
+            actor=actor,
+            version_id=group.versions.get().pk,
+            expected_group_version=group.version,
+        )
+    )
+    group.refresh_from_db()
+    CreateValidationGroupVersionService().execute(
+        CreateValidationGroupVersionCommand(
+            actor=actor,
+            group_id=group.pk,
+            expected_version=group.version,
+            sectors=(sector_value,),
+        )
+    )
+    group.refresh_from_db()
+
+    with pytest.raises(ValidationError, match="já possui uma versão em rascunho"):
+        CreateValidationGroupVersionService().execute(
+            CreateValidationGroupVersionCommand(
+                actor=actor,
+                group_id=group.pk,
+                expected_version=group.version,
+                sectors=(sector_value,),
+            )
+        )
+
+    assert group.versions.filter(status=VersionStatus.DRAFT).count() == 1
 
 
 @pytest.mark.parametrize(

@@ -592,6 +592,16 @@
               label="Publicar"
               (onClick)="publicarGrupo(grupo)"
             ></p-button>
+          } @else if (grupo.current_version_id) {
+            <p-button
+              type="button"
+              size="small"
+              [outlined]="true"
+              icon="pi pi-copy"
+              label="Nova versão"
+              [loading]="salvandoGrupo()"
+              (onClick)="criarNovaVersaoGrupo(grupo)"
+            ></p-button>
           }
         </div>
       </div>

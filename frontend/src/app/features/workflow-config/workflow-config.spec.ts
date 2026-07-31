@@ -361,6 +361,100 @@ describe('WorkflowConfigPage', () => {
     );
   });
 
+  it('clona a versão publicada do grupo repicando para o template vigente', () => {
+    component.templates.set([
+      {
+        id: 3,
+        code: 3,
+        name: 'Checklist compartilhado',
+        description: '',
+        is_active: true,
+        current_version_id: 13,
+        version: 3,
+        versions: [
+          {
+            id: 13,
+            version_number: 2,
+            status: 'PUBLISHED' as const,
+            default_due_hours: 12,
+            created_at: '2026-07-30T09:00:00-03:00',
+            published_at: '2026-07-30T09:10:00-03:00',
+            items: [],
+          },
+        ],
+      },
+    ]);
+    const grupo = {
+      id: 5,
+      code: '5',
+      name: 'Grupo publicado',
+      description: '',
+      is_active: true,
+      current_version_id: 50,
+      version: 2,
+      versions: [
+        {
+          id: 50,
+          version_number: 1,
+          status: 'PUBLISHED' as const,
+          created_at: '2026-07-29T12:00:00-03:00',
+          published_at: '2026-07-29T12:10:00-03:00',
+          sectors: [
+            {
+              id: 70,
+              sector: { id: 7, code: 'TECNOLOGIA', name: 'Tecnologia' },
+              template_version: {
+                id: 12,
+                template_id: 3,
+                template_code: 3,
+                version_number: 1,
+                status: 'PUBLISHED' as const,
+              },
+              is_required: true,
+              blocks_process: true,
+              due_hours_override: 6,
+              display_order: 1,
+            },
+          ],
+        },
+      ],
+    };
+    component.grupos.set([grupo]);
+
+    component.criarNovaVersaoGrupo(grupo);
+
+    const createVersion = httpMock.expectOne(
+      '/api/v1/workflow-config/groups/5/versions/',
+    );
+    expect(createVersion.request.method).toBe('POST');
+    expect(createVersion.request.body).toEqual({
+      expected_version: 2,
+      sectors: [
+        {
+          sector_id: 7,
+          template_version_id: 13,
+          is_required: true,
+          blocks_process: true,
+          due_hours_override: 6,
+          display_order: 1,
+        },
+      ],
+    });
+    createVersion.flush({
+      ...grupo.versions[0],
+      id: 51,
+      version_number: 2,
+      status: 'DRAFT',
+      published_at: null,
+    });
+
+    expect(component.grupoEmEdicao()?.version).toBe(3);
+    expect(component.formularioGrupo.controls.name.value).toBe('Grupo publicado');
+    expect(
+      component.formularioGrupo.controls.sectors.at(0).controls.sector_id.value,
+    ).toBe(7);
+  });
+
   it('cria a regra de aplicabilidade enviando curinga como nulo', () => {
     component.abrirNovaRegraAplicabilidade();
     component.formularioRegra.patchValue({
