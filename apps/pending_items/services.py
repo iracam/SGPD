@@ -30,6 +30,7 @@ from apps.offboarding.models import (
     SectorTaskStatus,
 )
 from apps.offboarding.services import (
+    PENDING_RESOLUTION_PROCESS_STATUSES,
     IdempotencyConflict,
     lock_sector_task_and_authority,
     processes_for_actor,
@@ -270,12 +271,20 @@ def _lock_pending_and_authority(
     pending_uuid: str,
     at: datetime,
 ) -> tuple[User, OffboardingProcess, ProcessSectorTask, PendingItem]:
+    """Travar a pendência existente e revalidar autoridade.
+
+    A janela de estados é a da resolução, não a da tarefa: depois da liberação a
+    tarefa congela, mas a pendência precisa poder terminar — o encerramento
+    formal exige que nada continue em curso (ADR-051).
+    """
+
     task_id = PendingItem.objects.values_list("task_id", flat=True).get(uuid=pending_uuid)
     locked_actor, process, task = lock_sector_task_and_authority(
         actor=actor,
         task_id=task_id,
         at=at,
         allow_process_coordinator=True,
+        allowed_process_statuses=PENDING_RESOLUTION_PROCESS_STATUSES,
     )
     pending_item = PendingItem.objects.select_for_update().get(
         uuid=pending_uuid,

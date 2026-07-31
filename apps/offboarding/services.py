@@ -59,13 +59,20 @@ from .models import (
     ProcessValidationGroup,
     SectorTaskStatus,
 )
+from .readiness import closing_blockers, evaluate_process_readiness
 
 PROCESS_OPENED_DESCRIPTION = "Abertura explícita de processo demissional por ator autorizado."
 DRAFT_SELECTION_DESCRIPTION = "Seleção de grupos e ajustes por ator autorizado."
 PROCESS_STARTED_DESCRIPTION = "Início explícito e idempotente por ator autorizado."
 SECTOR_TASK_STARTED_DESCRIPTION = "Início explícito da análise por ator autorizado."
 SECTOR_TASK_COMPLETED_DESCRIPTION = "Conclusão explícita da validação pelo setor."
+PROCESS_RELEASED_DESCRIPTION = "Liberação explícita para rescisão por ator autorizado."
+PROCESSING_REGISTERED_DESCRIPTION = "Registro declarado do processamento da rescisão no Senior."
+PROCESS_CLOSED_DESCRIPTION = "Encerramento formal do processo por ator autorizado."
 START_ACTION = "START"
+RELEASE_ACTION = "RELEASE"
+PROCESSING_ACTION = "PROCESSING"
+CLOSE_ACTION = "CLOSE"
 
 #: Estados em que a tarefa continua visível para o responsável do setor. Depois
 #: da liberação ela é só leitura — `lock_sector_task_and_authority` exige
@@ -76,6 +83,15 @@ TASK_VISIBLE_PROCESS_STATUSES = (
     ProcessStatus.RELEASED,
     ProcessStatus.PROCESSED,
     ProcessStatus.CLOSED,
+)
+
+#: Estados em que uma pendência já existente ainda pode ser resolvida. A tarefa
+#: congela na liberação, mas a pendência precisa poder terminar: o encerramento
+#: formal exige que nada continue em curso, e sem isto ele seria inalcançável.
+PENDING_RESOLUTION_PROCESS_STATUSES = (
+    ProcessStatus.STARTED,
+    ProcessStatus.RELEASED,
+    ProcessStatus.PROCESSED,
 )
 
 #: Estados formais que já saíram das mãos dos setores e vão para `Concluídos`.
@@ -1202,6 +1218,7 @@ def lock_sector_task_and_authority(
     task_id: int,
     at: datetime,
     allow_process_coordinator: bool = False,
+    allowed_process_statuses: tuple[str, ...] = (ProcessStatus.STARTED,),
 ) -> tuple[User, OffboardingProcess, ProcessSectorTask]:
     try:
         process_id = ProcessSectorTask.objects.values_list("process_id", flat=True).get(pk=task_id)
@@ -1245,8 +1262,10 @@ def lock_sector_task_and_authority(
         raise PermissionDenied(
             "O ator não possui responsabilidade vigente pelo setor no escopo do processo."
         )
-    if process.status != ProcessStatus.STARTED:
-        raise ValidationError("A tarefa só pode ser movimentada em processo iniciado.")
+    if process.status not in allowed_process_statuses:
+        if allowed_process_statuses == (ProcessStatus.STARTED,):
+            raise ValidationError("A tarefa só pode ser movimentada em processo iniciado.")
+        raise ValidationError("O processo não admite mais movimento nesta pendência.")
     return locked_actor, process, task
 
 
@@ -1604,3 +1623,338 @@ class CompleteSectorTaskService:
             request_hash=request_hash,
         )
         return SectorTaskMutationResult(task=task, replayed=False)
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseProcessCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    idempotency_key: str
+    notes: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterTerminationProcessingCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    idempotency_key: str
+    termination_reference: str
+    processed_on: date
+    notes: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class CloseProcessCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    idempotency_key: str
+    notes: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessTransitionResult:
+    process: OffboardingProcess
+    replayed: bool
+
+
+def _validated_notes(value: str, field: str, *, required: bool = False) -> str:
+    notes = value.strip()
+    if required and not notes:
+        raise ValidationError({field: "O texto é obrigatório."})
+    if len(notes) > 1000:
+        raise ValidationError({field: "O texto aceita até 1000 caracteres."})
+    return notes
+
+
+def _lock_process_for_transition(
+    actor: User,
+    process_uuid: str,
+) -> tuple[User, OffboardingProcess]:
+    """Travar processo e ator, nessa ordem, e revalidar a autoridade depois."""
+
+    process = _lock_process(process_uuid)
+    locked_actor = _lock_actor_and_dp_assignment(actor)
+    _require_process_dp(locked_actor, process)
+    return locked_actor, process
+
+
+def _process_idempotency_replay(
+    *,
+    process: OffboardingProcess,
+    actor: User,
+    action: str,
+    key: str,
+    request_hash: str,
+) -> ProcessTransitionResult | None:
+    previous_rows = list(
+        ProcessActionIdempotency.objects.select_for_update()
+        .filter(process=process, action=action, idempotency_key=key)
+        .order_by("pk")
+    )
+    if not previous_rows:
+        return None
+    previous = previous_rows[0]
+    if previous.actor_id != actor.pk or previous.request_hash != request_hash:
+        raise IdempotencyConflict("A chave de idempotência já foi usada com outro conteúdo.")
+    return ProcessTransitionResult(process=process, replayed=True)
+
+
+def _record_process_idempotency(
+    *,
+    process: OffboardingProcess,
+    actor: User,
+    action: str,
+    key: str,
+    request_hash: str,
+) -> None:
+    ProcessActionIdempotency.objects.create(
+        process=process,
+        action=action,
+        idempotency_key=key,
+        request_hash=request_hash,
+        response={
+            "process_uuid": str(process.uuid),
+            "status": process.status,
+            "version": process.version,
+        },
+        actor=actor,
+    )
+
+
+class ReleaseProcessService:
+    """Liberar o processo para rescisão (RF-029, RF-030, ADR-012).
+
+    A prontidão é refeita aqui, sob lock: a tela pode ter lido um estado que já
+    mudou, e é este cálculo — não o anterior — que decide.
+    """
+
+    @transaction.atomic
+    def execute(self, command: ReleaseProcessCommand) -> ProcessTransitionResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        notes = _validated_notes(command.notes, "notes")
+        request_hash = _canonical_hash(
+            {"expected_version": command.expected_version, "notes": notes}
+        )
+        actor, process = _lock_process_for_transition(command.actor, command.process_uuid)
+        replay = _process_idempotency_replay(
+            process=process,
+            actor=actor,
+            action=RELEASE_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if process.status != ProcessStatus.STARTED:
+            raise ValidationError("Somente um processo iniciado pode ser liberado para rescisão.")
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+
+        readiness = evaluate_process_readiness(process, lock=True)
+        if readiness.blockers:
+            raise ValidationError({"release": list(readiness.blockers)})
+
+        released_at = timezone.now()
+        process.status = ProcessStatus.RELEASED
+        process.released_at = released_at
+        process.released_by = actor
+        process.release_notes = notes
+        process.version += 1
+        process.full_clean(exclude={"active_employee_key"})
+        process.save(
+            update_fields=(
+                "status",
+                "released_at",
+                "released_by",
+                "release_notes",
+                "version",
+            )
+        )
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.RELEASED,
+            actor=actor,
+            description=PROCESS_RELEASED_DESCRIPTION,
+            data={
+                "status": process.status,
+                "task_count": readiness.task_count,
+                "required_task_count": readiness.required_task_count,
+                # O que não impedia mas merecia conferência fica registrado: é
+                # a prova de que o liberador viu o que estava aberto.
+                "warnings": list(readiness.warnings),
+                "process_version": process.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        _record_process_idempotency(
+            process=process,
+            actor=actor,
+            action=RELEASE_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        return ProcessTransitionResult(process=process, replayed=False)
+
+
+class RegisterTerminationProcessingService:
+    """Registrar o que o `DP` declara ter processado no Senior (ADR-051).
+
+    O SGPD não lê nem escreve a rescisão: isto é conferência humana registrada,
+    não integração.
+    """
+
+    @transaction.atomic
+    def execute(self, command: RegisterTerminationProcessingCommand) -> ProcessTransitionResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        notes = _validated_notes(command.notes, "notes")
+        reference = command.termination_reference.strip()
+        if not reference:
+            raise ValidationError(
+                {"termination_reference": "Informe o número declarado da rescisão."}
+            )
+        if len(reference) > 60:
+            raise ValidationError({"termination_reference": "O número aceita até 60 caracteres."})
+        if command.processed_on > timezone.localdate():
+            raise ValidationError({"processed_on": "A data do processamento não pode ser futura."})
+        request_hash = _canonical_hash(
+            {
+                "expected_version": command.expected_version,
+                "termination_reference": reference,
+                "processed_on": command.processed_on.isoformat(),
+                "notes": notes,
+            }
+        )
+        actor, process = _lock_process_for_transition(command.actor, command.process_uuid)
+        replay = _process_idempotency_replay(
+            process=process,
+            actor=actor,
+            action=PROCESSING_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if process.status != ProcessStatus.RELEASED:
+            raise ValidationError(
+                "Somente um processo liberado pode receber o registro do processamento."
+            )
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+        assert process.released_at is not None
+        if command.processed_on < timezone.localtime(process.released_at).date():
+            raise ValidationError(
+                {"processed_on": "O processamento não pode anteceder a liberação."}
+            )
+
+        process.status = ProcessStatus.PROCESSED
+        process.termination_reference = reference
+        process.termination_processed_on = command.processed_on
+        process.processing_registered_at = timezone.now()
+        process.processing_registered_by = actor
+        process.processing_notes = notes
+        process.version += 1
+        process.full_clean(exclude={"active_employee_key"})
+        process.save(
+            update_fields=(
+                "status",
+                "termination_reference",
+                "termination_processed_on",
+                "processing_registered_at",
+                "processing_registered_by",
+                "processing_notes",
+                "version",
+            )
+        )
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.PROCESSING_REGISTERED,
+            actor=actor,
+            description=PROCESSING_REGISTERED_DESCRIPTION,
+            data={
+                "status": process.status,
+                "termination_reference": reference,
+                "processed_on": command.processed_on.isoformat(),
+                "process_version": process.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        _record_process_idempotency(
+            process=process,
+            actor=actor,
+            action=PROCESSING_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        return ProcessTransitionResult(process=process, replayed=False)
+
+
+class CloseProcessService:
+    """Encerrar formalmente e liberar a chave do colaborador (ADR-051)."""
+
+    @transaction.atomic
+    def execute(self, command: CloseProcessCommand) -> ProcessTransitionResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        notes = _validated_notes(command.notes, "notes")
+        request_hash = _canonical_hash(
+            {"expected_version": command.expected_version, "notes": notes}
+        )
+        actor, process = _lock_process_for_transition(command.actor, command.process_uuid)
+        replay = _process_idempotency_replay(
+            process=process,
+            actor=actor,
+            action=CLOSE_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if process.status != ProcessStatus.PROCESSED:
+            raise ValidationError("Somente um processo com rescisão processada pode ser encerrado.")
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+        blockers = closing_blockers(process, lock=True)
+        if blockers:
+            raise ValidationError({"close": list(blockers)})
+
+        process.status = ProcessStatus.CLOSED
+        process.closed_at = timezone.now()
+        process.closed_by = actor
+        process.closing_notes = notes
+        # A chave só é liberada aqui e no cancelamento: é o que permite abrir um
+        # processo novo para o mesmo colaborador.
+        process.active_employee_key = None
+        process.version += 1
+        process.full_clean(exclude={"active_employee_key"})
+        process.save(
+            update_fields=(
+                "status",
+                "closed_at",
+                "closed_by",
+                "closing_notes",
+                "active_employee_key",
+                "version",
+            )
+        )
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.CLOSED,
+            actor=actor,
+            description=PROCESS_CLOSED_DESCRIPTION,
+            data={
+                "status": process.status,
+                "employee_key_released": True,
+                "process_version": process.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        _record_process_idempotency(
+            process=process,
+            actor=actor,
+            action=CLOSE_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        return ProcessTransitionResult(process=process, replayed=False)
