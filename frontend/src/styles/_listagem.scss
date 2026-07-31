@@ -229,6 +229,14 @@
   tbody tr:hover {
     background: var(--p-highlight-background);
   }
+
+  /* Botões dentro da linha não podem ditar a altura dela: sem isso, linhas
+     com ação ficam mais altas que as de texto puro (ex.: Auditoria). A margem
+     negativa compensa o padding do botão sem encolher a área de clique. */
+  td p-button {
+    display: inline-flex;
+    margin-block: -0.45rem;
+  }
 }
 
 .tabela__acoes {
