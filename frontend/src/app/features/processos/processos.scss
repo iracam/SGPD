@@ -73,6 +73,18 @@
   padding-inline-start: 0.5rem;
 }
 
+.processo-valores {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: var(--touch-target);
+  margin-block-start: 0.5rem;
+  color: var(--status-released-color);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 // Trilho de conferência do processo: um nó por tarefa de setor, ligado por um
 // fio; o nó preenche em verdigris quando o setor concluiu a validação.
 .tarefa-processo {

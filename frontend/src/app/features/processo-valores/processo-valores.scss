@@ -1,0 +1,141 @@
+@use 'breakpoints' as bp;
+@use 'conferencia';
+
+// Mesmo protocolo de conferência das telas de execução (ADR-047): seções com
+// régua em verdigris, chips sobre os tokens --status-* e dinheiro em mono.
+
+.voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--status-released-color);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cartao {
+  padding: 1rem;
+  margin-block-end: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.9rem;
+  background: var(--p-content-background);
+}
+
+.cartao h2,
+.cartao p {
+  margin-block: 0.2rem;
+}
+
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.rotulo {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+section.grupo {
+  margin-block-end: 1.75rem;
+}
+
+.totais {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.totais dt {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+}
+
+.totais dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.destaque {
+  color: var(--status-released-color);
+}
+
+.pretensoes {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pretensao {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--p-content-border-color);
+  border-inline-start-width: 3px;
+  border-inline-start-color: var(--status-review-color);
+  border-radius: 0.7rem;
+  background: var(--p-content-background);
+}
+
+.pretensao p {
+  margin: 0;
+}
+
+.pretensao > header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pretensao > header small {
+  display: block;
+  color: var(--p-text-muted-color);
+}
+
+.pretensao--override {
+  border-inline-start-color: var(--status-blocked-color);
+}
+
+.origem {
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+}
+
+.vazio-inline {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
+@include bp.from(bp.$md) {
+  .resumo {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .totais {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .pretensao > header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .resumo dl {
+    display: flex;
+    gap: 1.5rem;
+    margin: 0;
+  }
+}

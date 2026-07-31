@@ -999,3 +999,113 @@ def test_responsible_without_dp_sees_the_amount_but_not_the_analysis(
     )
     assert denied.status_code == 403
     assert "DP vigente" in denied.json()["message"]
+
+
+def test_process_consolidation_totals_by_currency_and_flags_overrides(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+    pending_item = register_amount(actor, pending_item)
+    decider = make_dp(actor, "dp-consolida")
+    pending_item = decide_amount(decider, pending_item, approved=Decimal("980.00"))
+
+    superadmin = User.objects.create_superuser(
+        username="super-consolida",
+        email="super-consolida@example.invalid",
+        password=PASSWORD,
+    )
+    outra = create_value_pending(actor, task, key="pending-value-2")
+    outra = register_amount(superadmin, outra, key="amount-register-2", amount=Decimal("300.00"))
+    # SuperAdmin decide a pretensão que ele mesmo informou: a ADR-048 permite e
+    # exige que a consolidação separe o caso.
+    decide_amount(
+        superadmin,
+        outra,
+        key="amount-decide-2",
+        decision=DecisionOutcome.WAIVED,
+        approved=None,
+    )
+
+    client.force_login(actor)
+    response = client.get(
+        reverse("offboarding-api:process-amounts", kwargs={"process_uuid": str(process.uuid)})
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["process"]["uuid"] == str(process.uuid)
+    assert body["totals"] == [
+        {
+            "currency": "BRL",
+            "informed": "1550.00",
+            "assessed": "0.00",
+            "contested": "0.00",
+            "approved": "980.00",
+            "processed": "0.00",
+        }
+    ]
+    assert body["undecided_count"] == 0
+    assert [row["status"] for row in body["pending_items"]] == [
+        PendingStatus.CHARGE_APPROVED,
+        PendingStatus.WAIVED,
+    ]
+    assert body["pending_items"][0]["sector"]["id"] == task.sector_id
+    assert len(body["segregation_overrides"]) == 1
+    override = body["segregation_overrides"][0]
+    assert override["decided_by"]["username"] == superadmin.username
+    assert override["decision"] == DecisionOutcome.WAIVED
+
+
+def test_process_consolidation_ignores_pendings_without_pretension_and_hides_from_sector(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+    CreatePendingItemService().execute(
+        CreatePendingItemCommand(
+            actor=actor,
+            task_id=task.pk,
+            expected_task_version=task.version,
+            idempotency_key="pending-sem-valor",
+            category=PendingCategory.EQUIPMENT,
+            title="Crachá não devolvido",
+            description="Devolução pendente do crachá corporativo.",
+            blocking_level=BlockingLevel.BLOCKING,
+            checklist_item_id=None,
+            items=(),
+        )
+    )
+    register_amount(actor, pending_item)
+
+    client.force_login(actor)
+    route = reverse(
+        "offboarding-api:process-amounts",
+        kwargs={"process_uuid": str(process.uuid)},
+    )
+    body = client.get(route).json()
+
+    # A pendência de equipamento e a de valor sem pretensão ficam fora da conta.
+    assert len(body["pending_items"]) == 1
+    assert body["undecided_count"] == 1
+    assert body["totals"][0]["informed"] == "1250.00"
+    assert body["segregation_overrides"] == []
+
+    responsible = User.objects.create_user(
+        username="responsavel-consolidacao",
+        email="responsavel-consolidacao@example.invalid",
+        password=PASSWORD,
+    )
+    SectorResponsible.objects.create(
+        sector=ValidationSector.objects.get(pk=task.sector_id),
+        user=responsible,
+        valid_from=timezone.now() - timedelta(hours=1),
+        assigned_by=actor,
+        updated_by=actor,
+    )
+    client.force_login(responsible)
+
+    # Conferência é do escopo do processo: responsabilidade de setor não alcança.
+    assert client.get(route).status_code == 404

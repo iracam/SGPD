@@ -7,8 +7,8 @@
 - Fases estabilizadas: 1, 2, 2.5, 2.7 e 3
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências; 6 — valores e
   decisões
-- Próximo incremento: **Fase 6, fatia 5** — consolidação de valores por
-  processo
+- Próximo incremento: **homologação da Fase 6** — exercício funcional no Oracle
+  DEV e varredura headless nas cinco larguras, sobre as fatias 3 a 5
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente; segregação de valores pela ADR-048
@@ -208,7 +208,9 @@ data para registrar esse alcance.
 ## Fase 6 — valores e decisões (em andamento)
 
 A fase foi fatiada em cinco: modelo, services, guard de bloqueio, API/SPA e
-consolidação. **As fatias 1 a 4 estão implementadas; falta a fatia 5.**
+consolidação. **As cinco fatias estão implementadas e passam a validação
+padrão; falta a homologação funcional e visual.** As fatias 3 e 4 estão
+comitadas; a fatia 5 aguarda revisão antes do commit.
 
 Fatia 1 — modelo, migration `pending_items.0002`, aplicada no Oracle DEV:
 
@@ -273,8 +275,23 @@ Fatia 4 — API e SPA do eixo de valor, sem migration:
   classificação `Bloqueante até decisão`, que a fatia 3 deixou de fora por não
   haver caminho de decisão.
 
-Falta a fatia 5: consolidação de valores por processo, com separação das
-decisões marcadas por `segregation_override` para conferência posterior.
+Fatia 5 — consolidação por processo, somente leitura, sem migration:
+
+- `consolidate_process_amounts()` (`apps/pending_items/services.py`) soma as
+  pretensões **por moeda** — juntar moedas diferentes numa linha seria falso —,
+  conta as que ainda aguardam decisão e separa as decisões com
+  `segregation_override`, como a ADR-048 exige da conferência;
+- `GET /api/v1/processes/<uuid>/amounts/` mora na rota de processo e a view no
+  app dono do dado; a visibilidade é a de `processes_for_actor`, então
+  responsabilidade de setor recebe 404: a conferência é do escopo do processo;
+- tela `/fe/processos/:uuid/valores` sobre o protocolo de conferência, com
+  totais em mono, uma linha por pretensão com o setor de origem e a seção
+  `Segregação rompida` destacada. A tela não decide nada — a decisão continua
+  em `Minhas tarefas`, sob a segregação da ADR-048 — e o hub de processos ganhou
+  o atalho `Conferir valores do processo` em cada processo expandido.
+
+Falta homologar a Fase 6: exercitar o ciclo no Oracle DEV e repetir a varredura
+headless nas cinco larguras sobre as telas novas.
 
 ## Ciclo de vida do rascunho na configuração (2026-07-31)
 
@@ -296,6 +313,14 @@ O editor de configuração fechou o ciclo de vida das versões:
 `sqlmigrate` é `(no-op)` e a migration está aplicada no Oracle DEV.
 
 ## Baseline de qualidade
+
+Na fatia 5 a validação padrão foi executada por inteiro: 383 testes backend e
+92 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e
+build Angular sem avisos. Nenhuma migration foi necessária — a consolidação é
+leitura. Os dois testes backend novos cobrem o total por moeda com a decisão do
+SuperAdmin separada e a consolidação que ignora pendência sem pretensão e
+responde 404 a quem só responde pelo setor; os três do frontend cobrem a soma
+exibida, a seção de segregação rompida e o processo sem pretensão.
 
 Na fatia 4 a validação padrão foi executada por inteiro: 381 testes backend e
 89 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e

@@ -1,0 +1,193 @@
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-dollar" aria-hidden="true"></i>
+      Conferência de valores
+    </span>
+    <h1 class="page-title">Valores do processo</h1>
+    <p class="page-lead">
+      Somatório das pretensões de cobrança do processo. O valor é análise, não desconto:
+      a decisão é registrada na tarefa e o valor processado vem do Senior.
+    </p>
+  </div>
+  <div class="pagina-acoes">
+    <a class="voltar" routerLink="/fe/processos">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      Processos
+    </a>
+  </div>
+</header>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+
+@if (carregando()) {
+  <section class="cartao"><p>Carregando consolidação…</p></section>
+} @else if (consolidacao(); as dados) {
+  <section class="cartao resumo" aria-labelledby="valores-colaborador">
+    <div>
+      <span class="rotulo">Colaborador</span>
+      <h2 id="valores-colaborador">{{ dados.process.employee_name }}</h2>
+      <p class="registro">
+        Matrícula {{ dados.process.employee_registration }} · Empresa
+        {{ dados.process.company_code }} · Filial {{ dados.process.branch_code }}
+      </p>
+    </div>
+    <dl>
+      <div>
+        <dt>Pretensões</dt>
+        <dd class="registro">{{ dados.pending_items.length }}</dd>
+      </div>
+      <div>
+        <dt>Aguardando decisão</dt>
+        <dd class="registro">{{ dados.undecided_count }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="grupo" aria-labelledby="titulo-totais">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-calculator" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-totais">Totais</h2>
+        <small>Uma linha por moeda; somar moedas diferentes seria falso.</small>
+      </span>
+      <span class="grupo__total">{{ dados.totals.length }}</span>
+    </header>
+
+    @for (total of dados.totals; track total.currency) {
+      <dl class="totais">
+        <div>
+          <dt>Informado</dt>
+          <dd class="registro">{{ valorFormatado(total.informed, total.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Apurado</dt>
+          <dd class="registro">{{ valorFormatado(total.assessed, total.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Contestado</dt>
+          <dd class="registro">{{ valorFormatado(total.contested, total.currency) }}</dd>
+        </div>
+        <div>
+          <dt>Aprovado</dt>
+          <dd class="registro destaque">
+            {{ valorFormatado(total.approved, total.currency) }}
+          </dd>
+        </div>
+        <div>
+          <dt>Processado no Senior</dt>
+          <dd class="registro">{{ valorFormatado(total.processed, total.currency) }}</dd>
+        </div>
+      </dl>
+    } @empty {
+      <p class="vazio-inline">Nenhuma pretensão de cobrança registrada neste processo.</p>
+    }
+  </section>
+
+  @if (dados.pending_items.length) {
+    <section class="grupo" aria-labelledby="titulo-pretensoes">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-list" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-pretensoes">Pretensões</h2>
+          <small>Da mais antiga para a mais nova, com o setor de origem.</small>
+        </span>
+        <span class="grupo__total">{{ dados.pending_items.length }}</span>
+      </header>
+
+      <ul class="pretensoes">
+        @for (item of dados.pending_items; track item.uuid) {
+          <li class="pretensao">
+            <header>
+              <span>
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.sector.name }}</small>
+              </span>
+              <span [class]="'chip chip--' + estadoStatus(item.status)">
+                {{ rotuloStatus(item.status) }}
+              </span>
+            </header>
+            @if (item.amount; as valor) {
+              <dl class="totais">
+                <div>
+                  <dt>Informado</dt>
+                  <dd class="registro">
+                    {{ valorFormatado(valor.amount_informed, valor.currency) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Apurado</dt>
+                  <dd class="registro">
+                    {{ valorFormatado(valor.amount_assessed, valor.currency) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Contestado</dt>
+                  <dd class="registro">
+                    {{ valorFormatado(valor.amount_contested, valor.currency) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Aprovado</dt>
+                  <dd class="registro destaque">
+                    {{ valorFormatado(valor.amount_approved, valor.currency) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Processado no Senior</dt>
+                  <dd class="registro">
+                    {{ valorFormatado(valor.amount_processed, valor.currency) }}
+                  </dd>
+                </div>
+              </dl>
+              <p class="origem">
+                Informado por <strong>{{ valor.informed_by.username }}</strong> em
+                {{ valor.informed_at | date: 'dd/MM/yyyy HH:mm' }}
+                @if (valor.approved_by) {
+                  · decidido por <strong>{{ valor.approved_by.username }}</strong> em
+                  {{ valor.approved_at | date: 'dd/MM/yyyy HH:mm' }}
+                }
+              </p>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (dados.segregation_overrides.length) {
+    <section class="grupo" aria-labelledby="titulo-segregacao">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-segregacao">Segregação rompida</h2>
+          <small>
+            Decisões tomadas por quem informou o valor, com autoridade global (ADR-048).
+          </small>
+        </span>
+        <span class="grupo__total">{{ dados.segregation_overrides.length }}</span>
+      </header>
+
+      <ul class="pretensoes">
+        @for (decisao of dados.segregation_overrides; track decisao.id) {
+          <li class="pretensao pretensao--override">
+            <header>
+              <span>
+                <strong>{{ decisao.pending_title }}</strong>
+                <small>{{ rotuloDecisao(decisao.decision) }}</small>
+              </span>
+              <span class="chip chip--review">Conferir</span>
+            </header>
+            <p>{{ decisao.opinion }}</p>
+            <p class="origem">
+              {{ decisao.decided_by.username }} ·
+              {{ decisao.decided_at | date: 'dd/MM/yyyy HH:mm' }}
+            </p>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+}

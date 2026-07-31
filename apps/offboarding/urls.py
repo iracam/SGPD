@@ -1,5 +1,7 @@
 from django.urls import path
 
+from apps.pending_items import api as pending_items_api
+
 from . import api
 
 app_name = "offboarding-api"
@@ -25,5 +27,12 @@ urlpatterns = [
         "<uuid:process_uuid>/start/",
         api.ProcessStartView.as_view(),
         name="process-start",
+    ),
+    # A consolidação é do domínio de pendências, mas a conferência é por
+    # processo: a rota mora aqui e a view continua no app dono do dado.
+    path(
+        "<uuid:process_uuid>/amounts/",
+        pending_items_api.ProcessAmountsView.as_view(),
+        name="process-amounts",
     ),
 ]

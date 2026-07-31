@@ -47,6 +47,14 @@ export const FE_ROUTES: Routes = [
             title: 'Rascunho do processo | SGPD',
           },
           {
+            path: 'processos/:uuid/valores',
+            loadComponent: () =>
+              import('./features/processo-valores/processo-valores').then(
+                (m) => m.ProcessoValoresPage,
+              ),
+            title: 'Valores do processo | SGPD',
+          },
+          {
             path: 'tarefas',
             loadComponent: () =>
               import('./features/tarefas/tarefas').then((m) => m.TarefasPage),

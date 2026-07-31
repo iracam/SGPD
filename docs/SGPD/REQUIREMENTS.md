@@ -605,6 +605,12 @@ pendência inteira:
 | `POST …/amount/assessment/` | registrar o valor apurado |
 | `POST …/amount/contestation/` | contestar o valor |
 | `POST …/amount/decision/` | decidir com parecer |
+| `GET /api/v1/processes/<uuid>/amounts/` | consolidação por processo |
+
+A consolidação soma por moeda, conta as pretensões sem decisão e separa as
+decisões com `segregation_override`, como a ADR-048 exige. Ela é somente
+leitura e visível a quem enxerga o processo — responsabilidade de setor não
+alcança a conferência.
 
 ### RF-027 — Notificações
 

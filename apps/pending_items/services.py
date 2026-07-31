@@ -34,6 +34,7 @@ from apps.sectors.models import ValidationSector
 from config.middleware import correlation_id
 
 from .models import (
+    DECIDED_STATUSES,
     BlockingLevel,
     DecisionOutcome,
     PendingAmount,
@@ -929,3 +930,83 @@ class DecidePendingAmountService:
             request_hash=request_hash,
         )
         return PendingMutationResult(pending_item=pending_item, replayed=False)
+
+
+@dataclass(frozen=True, slots=True)
+class AmountTotals:
+    """Somatório por moeda: consolidar moedas diferentes numa linha seria falso."""
+
+    currency: str
+    informed: Decimal
+    assessed: Decimal
+    contested: Decimal
+    approved: Decimal
+    processed: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessAmountConsolidation:
+    process: OffboardingProcess
+    pending_items: tuple[PendingItem, ...]
+    totals: tuple[AmountTotals, ...]
+    undecided_count: int
+    #: Decisões em que o decisor é quem informou o valor, pela exceção da ADR-048.
+    segregation_overrides: tuple[PendingDecision, ...]
+
+
+def consolidate_process_amounts(process: OffboardingProcess) -> ProcessAmountConsolidation:
+    """Consolidar as pretensões do processo para conferência, sem alterar nada.
+
+    Só entra na conta a pendência de categoria `VALOR` com pretensão lançada. A
+    decisão rejeitada e a abonada resolvem em zero no service, então somam sem
+    tratamento especial; `VALOR_PROCESSADO` continua vindo do Senior (ADR-009).
+    """
+
+    rows = tuple(
+        PendingItem.objects.filter(
+            process=process,
+            category=PendingCategory.VALUE,
+            amount__isnull=False,
+        )
+        .select_related("task", "amount__informed_by", "amount__approved_by")
+        .prefetch_related("decisions__decided_by")
+        .order_by("identified_at", "pk")
+    )
+    buckets: dict[str, list[Decimal]] = {}
+    for pending_item in rows:
+        amount = pending_item.amount
+        bucket = buckets.setdefault(amount.currency, [Decimal("0.00")] * 5)
+        for index, value in enumerate(
+            (
+                amount.amount_informed,
+                amount.amount_assessed,
+                amount.amount_contested,
+                amount.amount_approved,
+                amount.amount_processed,
+            )
+        ):
+            if value is not None:
+                bucket[index] += value
+    totals = tuple(
+        AmountTotals(
+            currency=currency,
+            informed=values[0],
+            assessed=values[1],
+            contested=values[2],
+            approved=values[3],
+            processed=values[4],
+        )
+        for currency, values in sorted(buckets.items())
+    )
+    return ProcessAmountConsolidation(
+        process=process,
+        pending_items=rows,
+        totals=totals,
+        undecided_count=sum(1 for row in rows if row.status not in DECIDED_STATUSES),
+        segregation_overrides=tuple(
+            decision
+            for row in rows
+            for decision in row.decisions.all()
+            if decision.segregation_override
+        ),
+    )

@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
-from apps.offboarding.services import IdempotencyConflict
+from apps.offboarding.services import IdempotencyConflict, processes_for_actor
 from config.api import api_error
 
 from .models import PendingItem
@@ -42,9 +42,11 @@ from .services import (
     DecidePendingAmountService,
     PendingLineValue,
     PendingMutationResult,
+    ProcessAmountConsolidation,
     RegisterPendingAmountCommand,
     RegisterPendingAmountService,
     can_analyse_amounts,
+    consolidate_process_amounts,
     pending_items_for_actor,
 )
 
@@ -422,3 +424,75 @@ class PendingAmountDecideView(_PendingAmountView):
                 amount_approved=data.get("amount_approved"),
             )
         )
+
+
+def process_amounts_payload(consolidation: ProcessAmountConsolidation) -> dict[str, Any]:
+    process = consolidation.process
+    return {
+        "process": {
+            "uuid": str(process.uuid),
+            "status": process.status,
+            "company_code": process.company_code,
+            "branch_code": process.branch_code,
+            "employee_name": process.employee_snapshot.employee_name,
+            "employee_registration": process.employee_registration,
+        },
+        "totals": [
+            {
+                "currency": total.currency,
+                "informed": _money(total.informed),
+                "assessed": _money(total.assessed),
+                "contested": _money(total.contested),
+                "approved": _money(total.approved),
+                "processed": _money(total.processed),
+            }
+            for total in consolidation.totals
+        ],
+        "undecided_count": consolidation.undecided_count,
+        "pending_items": [
+            {
+                "uuid": str(pending_item.uuid),
+                "title": pending_item.title,
+                "status": pending_item.status,
+                "blocking_level": pending_item.blocking_level,
+                "task_id": pending_item.task_id,
+                "sector": {
+                    "id": pending_item.task.sector_id,
+                    "code": pending_item.task.sector_code_snapshot,
+                    "name": pending_item.task.sector_name_snapshot,
+                },
+                "amount": amount_payload(pending_item),
+            }
+            for pending_item in consolidation.pending_items
+        ],
+        # A ADR-048 exige que a conferência separe a decisão tomada por quem
+        # informou o valor: a trilha é a única evidência do rompimento.
+        "segregation_overrides": [
+            {
+                "id": decision.pk,
+                "pending_uuid": str(decision.pending_item.uuid),
+                "pending_title": decision.pending_item.title,
+                "decision": decision.decision,
+                "opinion": decision.opinion,
+                "decided_by": {
+                    "id": decision.decided_by_id,
+                    "username": decision.decided_by.username,
+                },
+                "decided_at": decision.decided_at.isoformat(),
+            }
+            for decision in consolidation.segregation_overrides
+        ],
+    }
+
+
+class ProcessAmountsView(APIView):
+    """Consolidação somente leitura das pretensões do processo, para conferência do DP."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, process_uuid: str) -> Response:
+        process = get_object_or_404(
+            processes_for_actor(cast(User, request.user)).select_related("employee_snapshot"),
+            uuid=process_uuid,
+        )
+        return Response(process_amounts_payload(consolidate_process_amounts(process)))
