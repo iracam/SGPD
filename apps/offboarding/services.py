@@ -28,7 +28,11 @@ from apps.accounts.models import (
 from apps.integrations.senior.dto import EmployeeDetail
 from apps.integrations.senior.exceptions import SeniorContractError
 from apps.integrations.senior.repository import SeniorRepository
-from apps.notifications.triggers import notify_task_assigned
+from apps.notifications.triggers import (
+    notify_process_cancelled,
+    notify_process_reopened,
+    notify_task_assigned,
+)
 from apps.sectors.models import (
     SectorResponsible,
     SectorScope,
@@ -69,10 +73,16 @@ SECTOR_TASK_COMPLETED_DESCRIPTION = "Conclusão explícita da validação pelo s
 PROCESS_RELEASED_DESCRIPTION = "Liberação explícita para rescisão por ator autorizado."
 PROCESSING_REGISTERED_DESCRIPTION = "Registro declarado do processamento da rescisão no Senior."
 PROCESS_CLOSED_DESCRIPTION = "Encerramento formal do processo por ator autorizado."
+PROCESS_CANCELLED_DESCRIPTION = "Cancelamento justificado do processo por ator autorizado."
+PROCESS_REOPENED_DESCRIPTION = "Reabertura justificada do processo por SuperAdmin."
+SECTOR_TASK_CANCELLED_DESCRIPTION = "Tarefa cancelada junto com o processo."
+SECTOR_TASK_REOPENED_DESCRIPTION = "Tarefa devolvida ao setor pela reabertura do processo."
 START_ACTION = "START"
 RELEASE_ACTION = "RELEASE"
 PROCESSING_ACTION = "PROCESSING"
 CLOSE_ACTION = "CLOSE"
+CANCEL_ACTION = "CANCEL"
+REOPEN_ACTION = "REOPEN"
 
 #: Estados em que a tarefa continua visível para o responsável do setor. Depois
 #: da liberação ela é só leitura — `lock_sector_task_and_authority` exige
@@ -1957,4 +1967,300 @@ class CloseProcessService:
             key=key,
             request_hash=request_hash,
         )
+        return ProcessTransitionResult(process=process, replayed=False)
+
+
+@dataclass(frozen=True, slots=True)
+class CancelProcessCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    idempotency_key: str
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReopenProcessCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    idempotency_key: str
+    reason: str
+    #: Tarefas concluídas que voltam para análise. Vazio reabre só o processo,
+    #: para corrigir a marca formal sem devolver trabalho ao setor.
+    task_ids: tuple[int, ...] = ()
+
+
+class CancelProcessService:
+    """Cancelar o processo com justificativa (RF-031).
+
+    O cancelamento é terminal (ADR-051): cancela as tarefas ainda abertas,
+    libera a chave do colaborador e preserva integralmente pendências,
+    evidências e trilha.
+    """
+
+    @transaction.atomic
+    def execute(self, command: CancelProcessCommand) -> ProcessTransitionResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        reason = _validated_notes(command.reason, "reason", required=True)
+        request_hash = _canonical_hash(
+            {"expected_version": command.expected_version, "reason": reason}
+        )
+        actor, process = _lock_process_for_transition(command.actor, command.process_uuid)
+        replay = _process_idempotency_replay(
+            process=process,
+            actor=actor,
+            action=CANCEL_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if process.status not in (ProcessStatus.DRAFT, ProcessStatus.STARTED):
+            raise ValidationError("Somente um rascunho ou processo iniciado pode ser cancelado.")
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+
+        cancelled_at = timezone.now()
+        open_tasks = list(
+            ProcessSectorTask.objects.select_for_update()
+            .filter(process=process, status__in=OPEN_TASK_STATUSES)
+            .order_by("pk")
+        )
+        for task in open_tasks:
+            task.status = SectorTaskStatus.CANCELLED
+            task.version += 1
+            task.full_clean()
+            task.save(update_fields=("status", "version"))
+            ProcessAuditEvent.objects.create(
+                process=process,
+                event_type=ProcessEventType.SECTOR_TASK_CANCELLED,
+                actor=actor,
+                description=SECTOR_TASK_CANCELLED_DESCRIPTION,
+                data={
+                    "task_id": task.pk,
+                    "sector_id": task.sector_id,
+                    "status": task.status,
+                    "task_version": task.version,
+                },
+                correlation_id=correlation_id.get(),
+            )
+
+        process.status = ProcessStatus.CANCELLED
+        process.cancelled_at = cancelled_at
+        process.cancelled_by = actor
+        process.cancellation_reason = reason
+        process.active_employee_key = None
+        process.version += 1
+        process.full_clean(exclude={"active_employee_key"})
+        process.save(
+            update_fields=(
+                "status",
+                "cancelled_at",
+                "cancelled_by",
+                "cancellation_reason",
+                "active_employee_key",
+                "version",
+            )
+        )
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.CANCELLED,
+            actor=actor,
+            description=PROCESS_CANCELLED_DESCRIPTION,
+            data={
+                "status": process.status,
+                "reason": reason,
+                "cancelled_task_ids": [task.pk for task in open_tasks],
+                "employee_key_released": True,
+                "process_version": process.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        _record_process_idempotency(
+            process=process,
+            actor=actor,
+            action=CANCEL_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        # Quem tinha tarefa aberta precisa parar; quem já concluiu não é
+        # incomodado por um processo que morreu.
+        for task in open_tasks:
+            notify_process_cancelled(task)
+        return ProcessTransitionResult(process=process, replayed=False)
+
+
+class ReopenProcessService:
+    """Reabrir processo liberado, processado ou encerrado (RF-032).
+
+    A “permissão especial” é a autoridade global da ADR-044: o `DP` que liberou
+    não desfaz o próprio ato sozinho (ADR-051). O cancelamento é terminal e não
+    é alcançado por aqui.
+    """
+
+    @transaction.atomic
+    def execute(self, command: ReopenProcessCommand) -> ProcessTransitionResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        reason = _validated_notes(command.reason, "reason", required=True)
+        task_ids = tuple(sorted(set(command.task_ids)))
+        request_hash = _canonical_hash(
+            {
+                "expected_version": command.expected_version,
+                "reason": reason,
+                "task_ids": list(task_ids),
+            }
+        )
+        process = _lock_process(command.process_uuid)
+        actor = _lock_actor(command.actor)
+        if not has_global_authority(actor):
+            raise PermissionDenied("A reabertura do processo é exclusiva do SuperAdmin.")
+        replay = _process_idempotency_replay(
+            process=process,
+            actor=actor,
+            action=REOPEN_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if process.status not in FORMALLY_ADVANCED_PROCESS_STATUSES:
+            raise ValidationError(
+                "Somente um processo liberado, processado ou encerrado pode ser reaberto."
+            )
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+
+        tasks = list(
+            ProcessSectorTask.objects.select_for_update()
+            .filter(process=process, pk__in=task_ids)
+            .order_by("pk")
+        )
+        if len(tasks) != len(task_ids):
+            raise ValidationError({"task_ids": "Uma das tarefas não pertence ao processo."})
+        for task in tasks:
+            if task.status != SectorTaskStatus.COMPLETED:
+                raise ValidationError(
+                    {"task_ids": f"A tarefa de {task.sector_name_snapshot} não está concluída."}
+                )
+
+        previous_state = {
+            "status": process.status,
+            "released_at": process.released_at.isoformat() if process.released_at else None,
+            "released_by_id": process.released_by_id,
+            "termination_reference": process.termination_reference,
+            "termination_processed_on": (
+                process.termination_processed_on.isoformat()
+                if process.termination_processed_on
+                else None
+            ),
+            "processing_registered_at": (
+                process.processing_registered_at.isoformat()
+                if process.processing_registered_at
+                else None
+            ),
+            "closed_at": process.closed_at.isoformat() if process.closed_at else None,
+            "closed_by_id": process.closed_by_id,
+        }
+        # A trilha guarda o estado anterior (`WORKFLOWS.md` §8); a linha volta a
+        # ser a de um processo iniciado, para que o ciclo formal possa ser
+        # refeito por inteiro.
+        process.status = ProcessStatus.STARTED
+        process.released_at = None
+        process.released_by = None
+        process.release_notes = ""
+        process.termination_reference = ""
+        process.termination_processed_on = None
+        process.processing_registered_at = None
+        process.processing_registered_by = None
+        process.processing_notes = ""
+        process.closed_at = None
+        process.closed_by = None
+        process.closing_notes = ""
+        if process.active_employee_key is None:
+            process.active_employee_key = _employee_key(
+                process.company_code,
+                process.branch_code,
+                process.employee_type_code,
+                process.employee_registration,
+            )
+        process.version += 1
+        process.full_clean(exclude={"active_employee_key"})
+        try:
+            process.save(
+                update_fields=(
+                    "status",
+                    "released_at",
+                    "released_by",
+                    "release_notes",
+                    "termination_reference",
+                    "termination_processed_on",
+                    "processing_registered_at",
+                    "processing_registered_by",
+                    "processing_notes",
+                    "closed_at",
+                    "closed_by",
+                    "closing_notes",
+                    "active_employee_key",
+                    "version",
+                )
+            )
+        except IntegrityError as exc:
+            # A unicidade do banco é a árbitra: outro processo pode ter sido
+            # aberto para o mesmo colaborador depois do encerramento.
+            raise ValidationError(
+                "Já existe outro processo não encerrado para este colaborador."
+            ) from exc
+
+        reopening = (
+            ProcessAuditEvent.objects.filter(
+                process=process,
+                event_type=ProcessEventType.REOPENED,
+            ).count()
+            + 1
+        )
+        for task in tasks:
+            task.status = SectorTaskStatus.IN_ANALYSIS
+            task.completed_at = None
+            task.completed_by = None
+            task.version += 1
+            task.full_clean()
+            task.save(update_fields=("status", "completed_at", "completed_by", "version"))
+            ProcessAuditEvent.objects.create(
+                process=process,
+                event_type=ProcessEventType.SECTOR_TASK_REOPENED,
+                actor=actor,
+                description=SECTOR_TASK_REOPENED_DESCRIPTION,
+                data={
+                    "task_id": task.pk,
+                    "sector_id": task.sector_id,
+                    "status": task.status,
+                    "task_version": task.version,
+                },
+                correlation_id=correlation_id.get(),
+            )
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.REOPENED,
+            actor=actor,
+            description=PROCESS_REOPENED_DESCRIPTION,
+            data={
+                "status": process.status,
+                "reason": reason,
+                "previous_state": previous_state,
+                "reopened_task_ids": [task.pk for task in tasks],
+                "reopening": reopening,
+                "process_version": process.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+        _record_process_idempotency(
+            process=process,
+            actor=actor,
+            action=REOPEN_ACTION,
+            key=key,
+            request_hash=request_hash,
+        )
+        for task in tasks:
+            notify_process_reopened(task, reopening=reopening)
         return ProcessTransitionResult(process=process, replayed=False)

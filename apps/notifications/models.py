@@ -32,6 +32,8 @@ class NotificationEvent(models.TextChoices):
     PENDING_BLOCKING_REGISTERED = "PENDENCIA_BLOQUEANTE", "Pendência bloqueante registrada"
     AMOUNT_AWAITING_DECISION = "VALOR_AGUARDA_DECISAO", "Valor aguardando decisão"
     AMOUNT_DECIDED = "VALOR_DECIDIDO", "Valor decidido"
+    PROCESS_CANCELLED = "PROCESSO_CANCELADO", "Processo cancelado"
+    PROCESS_REOPENED = "PROCESSO_REABERTO", "Processo reaberto"
 
 
 class NotificationChannel(models.TextChoices):

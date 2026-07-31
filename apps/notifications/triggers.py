@@ -91,3 +91,39 @@ def notify_amount_decided(pending_item: PendingItem, *, decision_id: int) -> Non
             context={"pending_uuid": str(pending_item.uuid)},
         )
     )
+
+
+def notify_process_cancelled(task: ProcessSectorTask) -> None:
+    """Avisa o setor de que a tarefa aberta morreu com o cancelamento do processo."""
+
+    EnqueueNotificationService().execute(
+        EnqueueNotificationCommand(
+            event=NotificationEvent.PROCESS_CANCELLED,
+            process=task.process,
+            task=task,
+            sector=task.sector,
+            recipients=sector_responsibles(sector_id=task.sector_id, at=timezone.now()),
+            context={"task_id": task.pk},
+        )
+    )
+
+
+def notify_process_reopened(task: ProcessSectorTask, *, reopening: int) -> None:
+    """Avisa o setor de que a tarefa concluída voltou para análise.
+
+    A chave carrega a tarefa e a ordem da reabertura: sem a tarefa, dois setores
+    do mesmo responsável — ou dois processos reabertos pela primeira vez —
+    colidiriam e o segundo aviso seria engolido pela deduplicação do primeiro.
+    """
+
+    EnqueueNotificationService().execute(
+        EnqueueNotificationCommand(
+            event=NotificationEvent.PROCESS_REOPENED,
+            process=task.process,
+            task=task,
+            sector=task.sector,
+            recipients=sector_responsibles(sector_id=task.sector_id, at=timezone.now()),
+            scope=f"t{task.pk}r{reopening}",
+            context={"task_id": task.pk},
+        )
+    )

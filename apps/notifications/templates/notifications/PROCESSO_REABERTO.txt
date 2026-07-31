@@ -1,0 +1,10 @@
+Processo {{ process_ref }} reaberto — setor {{ sector_name }}
+
+{{ recipient_name }},
+
+O processo demissional {{ process_ref }} foi reaberto e a tarefa do setor
+{{ sector_name }} voltou para análise.
+
+Retome a análise em {{ tasks_url }}
+
+{% include "notifications/_rodape.txt" %}

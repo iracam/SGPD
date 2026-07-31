@@ -1,0 +1,11 @@
+Processo {{ process_ref }} cancelado — setor {{ sector_name }}
+
+{{ recipient_name }},
+
+O processo demissional {{ process_ref }} foi cancelado e a tarefa do setor
+{{ sector_name }} não precisa mais ser concluída.
+
+Nada mais é esperado do setor neste processo. O histórico continua disponível em
+{{ process_url }}
+
+{% include "notifications/_rodape.txt" %}

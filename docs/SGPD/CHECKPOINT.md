@@ -5,8 +5,9 @@
 - Projeto: SGPD / DesligaFlow
 - Ambiente: DEV único sobre Oracle 19c
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6 e 7
-- Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Próximo incremento: **Fase 8 — prontidão, liberação e encerramento formal**
+- Fases em andamento: 4 — workflow; 5 — pendências e evidências;
+  **8 — prontidão, liberação e encerramento** (fatias 1 a 3 implementadas)
+- Próximo incremento: **Fase 8, fatia 4 — API e SPA do ciclo formal**
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -65,8 +66,9 @@ que o Senior o registre.
 
 O card `Em Aberto` reúne processos iniciados com ao menos uma tarefa não
 concluída; ao concluir a última tarefa, o processo sai desse card e passa para
-`Concluídos`. A transição formal `ENCERRADO`, prontidão e liberação ainda não
-foram implementadas.
+`Concluídos`. O ciclo formal — prontidão, liberação, processamento declarado,
+encerramento, cancelamento e reabertura — existe no domínio desde a Fase 8, mas
+ainda não tem API nem tela: só é alcançável pelos services.
 
 As notificações saem por e-mail a partir de uma fila no Oracle. Nada é enviado
 dentro da requisição: o início do processo, a pendência bloqueante e o eixo de
@@ -125,7 +127,8 @@ Contrato Senior — legibilidade cadastral:
   TLS estiver selecionado;
 - evidências não podem ser servidas pelo WhiteNoise;
 - migrations exigem inspeção do SQL Oracle antes de aplicação;
-- não antecipar desconto automático, encerramento ou liberação;
+- não antecipar desconto automático; liberação e encerramento existem apenas
+  como ato humano explícito, nunca como consequência automática de estado;
 - e-mail de notificação não carrega nome do colaborador, CPF, valor nem
   parecer: o corpo diz o que fazer e onde, e o dado fica no sistema
   (`SECURITY.md` §13.1);
@@ -135,12 +138,13 @@ Contrato Senior — legibilidade cadastral:
 ## Riscos e pendências relevantes
 
 - homologar o limite de 10 MiB e o catálogo inicial PDF/PNG/JPEG;
-- o expurgo de evidências é manual: a retenção de 5 anos está definida, mas não
-  há rotina automática nem marco confiável de contagem enquanto a Fase 8 não
-  fechar o encerramento formal;
+- o expurgo de evidências é manual: a retenção de 5 anos está definida e o
+  encerramento formal já dá o marco de contagem, mas não há rotina automática;
 - validar a retenção de 5 anos com Jurídico, RH e Segurança da Informação;
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
-- o estado formal de encerramento e sua data aguardam a Fase 8;
+- processo cancelado não aparece em nenhum card do hub: sai de `Em Aberto` e não
+  entra em `Concluídos`. Enquanto a fatia 4 não lhe der lugar na SPA, ele só é
+  visível pela auditoria;
 - o DEV contém dados de homologação que não podem ser apagados (pendência é
   append-only): processos `5bfc0d3a` (rascunho), `9cbed216` e `8c5ff6bf`
   (iniciados), com seis pendências, quatro pretensões decididas e uma aguardando
@@ -155,9 +159,11 @@ Contrato Senior — legibilidade cadastral:
   que ele mesmo informou; o risco correspondente é o R62 e a auditoria é a
   única evidência do rompimento;
 - encerrar a pendência pelo endpoint genérico continua liberando a tarefa sem
-  decisão de valor: é ato explícito, auditado e necessário para a pendência que
-  nunca teve pretensão, mas contorna o guard e deve ser revisto na prontidão da
-  Fase 8;
+  decisão de valor, e a prontidão da Fase 8 adotou a mesma régua
+  (`DECIDED_STATUSES`): fechar a pendência também retira o impedimento da
+  liberação. É ato explícito, auditado e necessário para a pendência que nunca
+  teve pretensão — a revisão prevista terminou nessa escolha, não em um guard
+  novo;
 - o total por moeda soma o valor informado de toda pretensão, inclusive a
   rejeitada e a abonada; quem confere lê o aprovado para saber o que vira
   cobrança. Se o total informado passar a ser lido como cobrança pretendida,
@@ -650,6 +656,65 @@ Fatia 5 — gatilhos de domínio, sem migration:
   pendente — a versão da pretensão entra na chave, então a contestação reabre o
   aviso;
 - decisão avisa o setor que informou o valor.
+
+## Fase 8 — prontidão, liberação e encerramento formal
+
+A decisão que governa a fase é a **ADR-051**: o `STATUS` guarda somente estado
+formal e a situação funcional é calculada a cada leitura. A fase foi fatiada em
+quatro; as três primeiras estão implementadas em 2026-07-31 e nenhuma delas tem
+API ou tela — a fatia 4 é que leva o ciclo à SPA.
+
+Fatia 1 — estados formais, marcas e migration `offboarding.0009`, aplicada no
+Oracle DEV:
+
+- `LIBERADO_PARA_RESCISAO`, `RESCISAO_PROCESSADA`, `ENCERRADO` e `CANCELADO`
+  com data, ator e observação próprios, mais o número declarado da rescisão;
+- `ACTIVE_EMPLOYEE_KEY` anulável: é liberada no encerramento e no cancelamento,
+  e só neles;
+- check constraints por ramo de estado, no idioma anulável que o Oracle exige.
+
+Fatia 2 — prontidão calculada e as três transições do caminho feliz, sem
+migration:
+
+- `evaluate_process_readiness()` (`apps/offboarding/readiness.py`) resolve
+  situação, impedimentos e avisos sobre tarefas, pendências e pretensões, sem
+  gravar nada; a liberação a refaz sob lock, porque o que a tela leu não decide;
+- liberar exige processo iniciado e prontidão; registrar o processamento exige
+  processo liberado, número declarado e data nem futura nem anterior à
+  liberação; encerrar exige rescisão processada e nenhuma pendência em curso;
+- a liberação congela a tarefa mas não a pendência: sem isso o encerramento
+  seria inalcançável.
+
+Fatia 3 — cancelamento e reabertura, migrations `offboarding.0010` e
+`notifications.0002` (ambas `sqlmigrate` no-op) aplicadas:
+
+- `CancelProcessService` cancela as tarefas ainda abertas, libera a chave do
+  colaborador, exige justificativa e alcança tanto o rascunho quanto o processo
+  iniciado. É terminal: não há volta de `CANCELADO` (ADR-051);
+- `ReopenProcessService` é exclusivo do SuperAdmin — a “permissão especial” do
+  RF-032 é a autoridade global da ADR-044, e o `DP` que liberou não desfaz o
+  próprio ato sozinho. A trilha grava o estado anterior inteiro
+  (`WORKFLOWS.md` §8);
+- reabrir devolve à análise as tarefas concluídas que o SuperAdmin indicar;
+  lista vazia corrige só a marca formal, sem devolver trabalho ao setor;
+- a reabertura retoma a chave do colaborador e é recusada quando outro processo
+  já a tomou: quem arbitra é a unicidade do banco, não uma leitura prévia;
+- dois eventos de notificação novos avisam o setor. A chave de deduplicação da
+  reabertura carrega tarefa e ordem (`t<id>r<n>`): sem a tarefa, dois setores do
+  mesmo responsável — ou dois processos reabertos pela primeira vez — colidiriam
+  e o segundo aviso sumiria.
+
+Na fatia 3 a validação padrão foi executada por inteiro: 448 testes backend e
+99 frontend, Ruff, formatação, Mypy em 202 arquivos, Django check e verificação
+de migrations. Não houve mudança de frontend, então o build Angular não foi
+repetido. Os 13 testes novos cobrem o cancelamento com tarefa aberta, pendência
+preservada e chave liberada, o aviso ao setor, o cancelamento do rascunho, as
+recusas de motivo vazio, versão obsoleta e chave reusada, o cancelamento
+inalcançável a partir do liberado, o responsável de setor sem `DP`, a
+reabertura negada ao `DP`, a reabertura do encerrado com retomada da chave e
+trilha do estado anterior, a reabertura sem tarefa, o segundo aviso da segunda
+reabertura, as recusas de tarefa alheia e de tarefa não concluída, e a
+reabertura barrada pela chave já tomada por outro processo.
 
 ## Histórico
 

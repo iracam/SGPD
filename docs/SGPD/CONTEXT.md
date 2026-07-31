@@ -97,8 +97,10 @@ conclusão da tarefa e a consolidação por processo para conferência do `DP`.
 
 As notificações por e-mail cobrem os marcos de prazo de `WORKFLOWS.md` §7 e os
 eventos de domínio da Fase 7, com painel de falhas e reprocessamento auditado.
-A caixa de notificações por usuário, a prontidão, a liberação, o encerramento
-formal e os relatórios ainda pertencem aos incrementos seguintes.
+A prontidão calculada, a liberação, o processamento declarado, o encerramento,
+o cancelamento e a reabertura existem no domínio pela ADR-051, mas ainda sem API
+nem tela. A caixa de notificações por usuário e os relatórios continuam nos
+incrementos seguintes.
 
 ## Leitura por escopo
 

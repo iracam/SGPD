@@ -53,6 +53,7 @@ class ProcessEventType(models.TextChoices):
     SECTOR_TASK_STARTED = "SECTOR_TASK_STARTED", "Tarefa de setor iniciada"
     SECTOR_TASK_COMPLETED = "SECTOR_TASK_COMPLETED", "Tarefa de setor concluída"
     SECTOR_TASK_CANCELLED = "SECTOR_TASK_CANCELLED", "Tarefa de setor cancelada"
+    SECTOR_TASK_REOPENED = "SECTOR_TASK_REOPENED", "Tarefa de setor reaberta"
     RELEASED = "PROCESS_RELEASED", "Processo liberado para rescisão"
     PROCESSING_REGISTERED = "PROCESSING_REGISTERED", "Processamento da rescisão registrado"
     CLOSED = "PROCESS_CLOSED", "Processo encerrado"
