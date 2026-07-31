@@ -13,6 +13,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 004 | Substituída por 020 | Sincronização local de referências |
 | 013–019 | Vigentes | DEV único, WhiteNoise, Redis sob demanda, validação local, secrets, SMTP e storage |
 | 049 | Vigente | Outbox no Oracle em vez de broker para notificações |
+| 050 | Vigente | Configuração de e-mail na central, com `.env` como baseline |
 | 022 | Vigente no DEV | Owner `SGPD` também como runtime |
 | 023 | Vigente | Fundação Python, Django e conexão Oracle |
 
@@ -42,7 +43,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 025–028 | Vigentes | SPA Angular, mesma origem, PrimeNG e mobile first |
 | 029 | Vigente | AD com provisionamento explícito |
 | 030 | Exceção DEV | LDAP sem TLS, com aviso explícito |
-| 031–032 | Vigentes | Configuração dinâmica e transporte LDAP único |
+| 031–032 | Vigentes | Configuração dinâmica e transporte LDAP único; ler 050 |
 | 047 | Vigente | Protocolo de conferência como linguagem visual de execução |
 
 ## Regras de consulta

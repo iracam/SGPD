@@ -1919,3 +1919,72 @@ e comportamento não homologado sobre `python-oracledb` Thick.
   precisa decidir o caso ausente explicitamente, pelo motivo registrado na
   homologação da Fase 6: no Oracle `full_clean()` não envolve a condição em
   `Coalesce(..., True)`.
+
+## ADR-050 — Configuração de e-mail na central, com o `.env` como baseline
+
+### Estado
+
+Aceita em 2026-07-31 por decisão explícita do responsável funcional, entre a
+Fase 7 e a Fase 8. Implementada no módulo `E-mail e notificações` da central.
+
+### Contexto
+
+A ADR-031 criou a central técnica em `/fe/configuracoes` e a aplicou ao LDAP:
+singleton no schema SGPD, versão otimista, segredo cifrado, `.env` como baseline
+e configuração montada por uso, sem reinício. O card `E-mail e notificações`
+existia desde então marcado como “Em breve”.
+
+A Fase 7 tornou o e-mail operacional e expôs o custo de a configuração viver só
+no `.env`: mudar remetente, servidor, ritmo da fila ou os marcos de lembrete
+exigia acesso ao host e reinício do processo. A homologação terminou com uma
+pendência exatamente desse tipo — `SGPD_BASE_URL` vazio fez os links das
+mensagens saírem relativos.
+
+### Decisão
+
+Aplicar ao e-mail a mesma arquitetura da ADR-031. O singleton
+`SGPD_EMAIL_CONFIG` passa a ser a fonte efetiva de:
+
+- transporte SMTP: servidor, porta, TLS, usuário, senha e timeout;
+- identidade das mensagens: remetente padrão e URL base dos links;
+- ritmo da fila: tentativas, tamanho do lote e janela de reabertura;
+- marcos de lembrete e escalada de `WORKFLOWS.md` §7.
+
+O `EMAIL_BACKEND` do Django passa a ser `ConfiguredEmailBackend`, que lê a
+configuração vigente a cada envio. As variáveis do `.env` permanecem como
+baseline do primeiro boot e como contingência enquanto o registro não existir;
+elas não são apagadas e continuam válidas.
+
+### Chave de envio
+
+A central ganha um interruptor de envio. Desligado, a fila continua acumulando
+em `PENDENTE` e nada é entregue: nenhuma mensagem se perde e religar despacha o
+acumulado. É a forma de silenciar o sistema sem mexer no agendador do sistema
+operacional nem editar arquivo no host.
+
+### Segredos e prova
+
+- a senha SMTP é cifrada com Fernet pela mesma derivação do `DJANGO_SECRET_KEY`
+  usada no LDAP, e a rotação da chave exige regravá-la;
+- a API responde apenas se existe segredo configurado, nunca o valor nem o
+  ciphertext; campo em branco preserva a senha vigente;
+- a mensagem de prova vai obrigatoriamente para o endereço da própria conta que
+  pediu o teste — a central não é ferramenta de envio para terceiros — e o
+  resultado fica registrado no singleton e na auditoria;
+- servidor, porta, TLS e remetente entram na trilha de auditoria, porque
+  redirecionar o e-mail do sistema é ato relevante; a senha nunca entra.
+
+### Consequências
+
+- um SuperAdmin comprometido passa a poder redirecionar todo o e-mail do sistema
+  para outro servidor sem tocar no host. É extensão do risco R61 e tem registro
+  próprio como R64; a auditoria é a evidência;
+- a validação separa o que bloqueia do que apenas avisa: habilitar sem servidor
+  ou sem remetente é recusado, enquanto ausência de URL base, ausência de TLS e
+  porta fora do usual são avisos que não impedem salvar;
+- o `EMAIL_BACKEND` deixa de ser o backend SMTP direto. Código que precise do
+  transporte real deve continuar usando `get_connection()` sem fixar backend,
+  para que testes sigam usando o backend de memória — fixar o SMTP faria a suíte
+  abrir conexão viva com o servidor gravado na central;
+- a configuração de arquivos e evidências continua no `.env` e permanece como o
+  próximo módulo previsto da central.
