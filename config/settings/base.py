@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.evidence",
     "apps.integrations",
+    "apps.notifications",
     "apps.offboarding",
     "apps.pending_items",
     "apps.sectors",
