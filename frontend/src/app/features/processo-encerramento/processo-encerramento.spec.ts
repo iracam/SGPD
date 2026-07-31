@@ -142,6 +142,39 @@ describe('ProcessoEncerramentoPage', () => {
     expect(liberar.disabled).toBe(true);
   });
 
+  it('não lista impedimento da liberação em processo cancelado', () => {
+    // No terminal a liberação não é mais alcançável: repetir o que a impedia é
+    // ruído sobre um processo em que nada há a fazer.
+    carregar(
+      conferencia({
+        process: {
+          ...conferencia().process,
+          status: 'CANCELADO',
+          formal: {
+            ...conferencia().process.formal,
+            cancelled_at: '2026-07-31T22:42:51Z',
+            cancelled_by: { id: 1, username: 'macari' },
+            cancellation_reason: 'Abertura indevida.',
+          },
+        },
+        readiness: {
+          ...conferencia().readiness,
+          situation: 'CANCELADO',
+          is_ready: false,
+          blockers: ['O processo não possui tarefas de setor.'],
+        },
+      }),
+    );
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Cancelado');
+    expect(texto).toContain('Abertura indevida.');
+    expect(texto).not.toContain('O processo não possui tarefas de setor.');
+    expect(texto).not.toContain('Nenhum impedimento para a liberação.');
+    // As contagens continuam: são conferência, não impedimento.
+    expect(fixture.nativeElement.querySelector('.contagens')).not.toBeNull();
+  });
+
   it('libera com a versão esperada e chave de idempotência', () => {
     carregar(conferencia());
     preencher('textarea', 'Consolidado conferido.');

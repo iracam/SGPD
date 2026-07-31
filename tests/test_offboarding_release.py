@@ -46,6 +46,7 @@ from apps.pending_items.services import (
     ChangePendingStatusCommand,
     ChangePendingStatusService,
 )
+from apps.templates_engine.models import ChecklistResponseType
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
     actor,
@@ -233,6 +234,44 @@ def test_pending_and_undecided_amount_shape_the_calculated_situation(
     # classificação, e a pretensão não é contada duas vezes.
     assert any("aguarda a decisão" in blocker for blocker in with_amount.blockers)
     assert pending_item.status == PendingStatus.OPEN
+
+
+def test_optional_item_left_blank_is_not_an_inconsistency_but_an_answered_one_is(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """A prontidão usa a régua da conclusão, não uma mais dura que a dela.
+
+    Item opcional com `requires_evidence` que o setor legitimamente deixou em
+    branco é aceito por `_validated_answers` e não pode virar impedimento
+    permanente da liberação — o processo ficaria sem saída. Já o item opcional
+    que foi respondido sem a evidência exigida é divergência real do que a
+    conclusão validou, e continua impedindo.
+    """
+
+    process, task = ready_process(actor, process)
+    item = task.checklist_items.get()
+
+    # 1. Arquivo opcional sem evidência: a conclusão só exige arquivo do item
+    #    obrigatório (`services._validated_answers`).
+    item.response_type_snapshot = ChecklistResponseType.FILE
+    item.is_required = False
+    item.requires_evidence = True
+    item.response = None
+    item.save()
+    assert evaluate_process_readiness(process).is_ready
+
+    # 2. Item comum opcional, exigindo evidência, deixado em branco.
+    item.response_type_snapshot = ChecklistResponseType.BOOLEAN
+    item.save()
+    assert evaluate_process_readiness(process).is_ready
+
+    # 3. O mesmo item, agora respondido e sem a evidência exigida.
+    item.response = {"value": True}
+    item.save()
+    readiness = evaluate_process_readiness(process)
+    assert not readiness.is_ready
+    assert any("sem a evidência exigida" in blocker for blocker in readiness.blockers)
 
 
 def test_release_refuses_open_task_and_records_trail_when_ready(

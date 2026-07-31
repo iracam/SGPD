@@ -70,7 +70,9 @@
         <h2 class="grupo__titulo" id="titulo-prontidao">Prontidão</h2>
         <small>Calculada sobre tarefas, pendências e pretensões. Nada aqui é gravado.</small>
       </span>
-      <span class="grupo__total">{{ conferencia.readiness.blockers.length }}</span>
+      @if (conferencia.process.status === 'INICIADO') {
+        <span class="grupo__total">{{ conferencia.readiness.blockers.length }}</span>
+      }
     </header>
 
     <dl class="contagens">
@@ -95,22 +97,29 @@
       </div>
     </dl>
 
-    @if (conferencia.readiness.blockers.length) {
-      <ul class="impedimentos" aria-label="Impedimentos da liberação">
-        @for (impedimento of conferencia.readiness.blockers; track impedimento) {
-          <li class="impedimento">{{ impedimento }}</li>
-        }
-      </ul>
-    } @else {
-      <p class="vazio-inline">Nenhum impedimento para a liberação.</p>
-    }
+    <!--
+      As contagens valem em qualquer estado, mas impedimento e aviso falam da
+      liberação: fora do processo iniciado ela não é mais alcançável, e listar o
+      que a impede vira ruído — pior no cancelado, onde nada há a fazer.
+    -->
+    @if (conferencia.process.status === 'INICIADO') {
+      @if (conferencia.readiness.blockers.length) {
+        <ul class="impedimentos" aria-label="Impedimentos da liberação">
+          @for (impedimento of conferencia.readiness.blockers; track impedimento) {
+            <li class="impedimento">{{ impedimento }}</li>
+          }
+        </ul>
+      } @else {
+        <p class="vazio-inline">Nenhum impedimento para a liberação.</p>
+      }
 
-    @if (conferencia.readiness.warnings.length) {
-      <ul class="impedimentos" aria-label="Avisos de conferência">
-        @for (aviso of conferencia.readiness.warnings; track aviso) {
-          <li class="impedimento impedimento--aviso">{{ aviso }}</li>
-        }
-      </ul>
+      @if (conferencia.readiness.warnings.length) {
+        <ul class="impedimentos" aria-label="Avisos de conferência">
+          @for (aviso of conferencia.readiness.warnings; track aviso) {
+            <li class="impedimento impedimento--aviso">{{ aviso }}</li>
+          }
+        </ul>
+      }
     }
   </section>
 

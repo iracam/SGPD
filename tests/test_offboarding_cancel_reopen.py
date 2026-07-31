@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import connection
 
 from apps.accounts.models import User
 from apps.notifications.models import Notification, NotificationEvent
@@ -253,6 +254,42 @@ def test_reopen_is_exclusive_to_the_superadmin(
         process=process,
         event_type=ProcessEventType.REOPENED,
     ).exists()
+
+
+def test_reopening_retakes_the_key_even_when_it_reads_back_as_an_empty_string(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """A chave liberada volta do Oracle como `''`, não como `None`.
+
+    O Oracle guarda a chave liberada em NULL, mas o backend do Django devolve
+    string vazia ao ler um `CharField`. Uma reabertura que só reconhecesse
+    `None` deixaria o processo voltar à ativa sem retomar a chave, e a unicidade
+    do banco — a árbitra da ADR-051 — nunca seria consultada: dois processos
+    vivos para o mesmo colaborador. Aqui a leitura do Oracle é reproduzida
+    gravando a string vazia.
+    """
+
+    process, _task = ready_process(actor, process)
+    release(actor, process)
+    process.refresh_from_db()
+    register_processing(actor, process)
+    process.refresh_from_db()
+    close(actor, process)
+    process.refresh_from_db()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "UPDATE SGPD_OFFBOARDING_PROCESS SET ACTIVE_EMPLOYEE_KEY = '' WHERE ID = %s",
+            [process.pk],
+        )
+    process.refresh_from_db()
+    assert process.active_employee_key == ""
+
+    reopen(superadmin(), process, expected_version=process.version)
+    process.refresh_from_db()
+
+    assert process.status == ProcessStatus.STARTED
+    assert process.active_employee_key == "1:2:1:321"
 
 
 def test_reopening_a_closed_process_retakes_the_key_and_returns_the_task(

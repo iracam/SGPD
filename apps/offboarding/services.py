@@ -2177,7 +2177,12 @@ class ReopenProcessService:
         process.closed_at = None
         process.closed_by = None
         process.closing_notes = ""
-        if process.active_employee_key is None:
+        # `not` e não `is None`: o Oracle guarda a chave liberada como NULL, mas
+        # o backend do Django devolve `''` ao ler um `CharField`. Comparar com
+        # `None` aqui nunca é verdadeiro no Oracle, e a reabertura devolveria o
+        # processo à ativa sem retomar a chave — dois processos vivos para o
+        # mesmo colaborador, com a unicidade do banco nunca consultada.
+        if not process.active_employee_key:
             process.active_employee_key = _employee_key(
                 process.company_code,
                 process.branch_code,

@@ -4,11 +4,11 @@
 
 - Projeto: SGPD / DesligaFlow
 - Ambiente: DEV único sobre Oracle 19c
-- Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6 e 7
-- Fases em andamento: 4 — workflow; 5 — pendências e evidências;
-  **8 — prontidão, liberação e encerramento** (quatro fatias implementadas)
-- Próximo incremento: **homologação da Fase 8 no Oracle DEV**, com varredura
-  headless da tela nova
+- Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7 e 8
+- Fases em andamento: 4 — workflow; 5 — pendências e evidências
+- Próximo incremento: **Fase 9 — relatórios e operação** (indicadores,
+  exportações, monitoramento e runbook), com o agendamento das notificações
+  no DEV como primeira pendência operacional herdada
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -69,8 +69,8 @@ O card `Em Aberto` reúne processos iniciados com ao menos uma tarefa não
 concluída; ao concluir a última tarefa, o processo sai desse card e passa para
 `Concluídos`. O ciclo formal — prontidão, liberação, processamento declarado,
 encerramento, cancelamento e reabertura — está operacional ponta a ponta pela
-tela `/fe/processos/:uuid/encerramento`, e o processo cancelado tem card
-próprio no hub. Falta a homologação contra o Oracle DEV.
+tela `/fe/processos/:uuid/encerramento`, homologado no Oracle DEV, e o processo
+cancelado tem card próprio no hub.
 
 As notificações saem por e-mail a partir de uma fila no Oracle. Nada é enviado
 dentro da requisição: o início do processo, a pendência bloqueante e o eixo de
@@ -144,13 +144,13 @@ Contrato Senior — legibilidade cadastral:
   encerramento formal já dá o marco de contagem, mas não há rotina automática;
 - validar a retenção de 5 anos com Jurídico, RH e Segurança da Informação;
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
-- a tela do ciclo formal ainda não passou pela varredura headless nas cinco
-  larguras nem por exercício contra o Oracle DEV;
 - o DEV contém dados de homologação que não podem ser apagados (pendência é
-  append-only): processos `5bfc0d3a` (rascunho), `9cbed216` e `8c5ff6bf`
-  (iniciados), com seis pendências, quatro pretensões decididas e uma aguardando
-  decisão; Financeiro, Departamento Pessoal, Almoxarifado BSA e TI ficaram com
-  `PERMITE_VALOR` ligado para exercitar o eixo;
+  append-only): `5bfc0d3a` (rascunho), `8c5ff6bf` (iniciado), `9cbed216`
+  (encerrado, com o ciclo formal percorrido duas vezes), `c8787348` (cancelado)
+  e `d80327c7` (rascunho aberto para o mesmo colaborador do cancelado, prova de
+  que a chave foi liberada); seis pendências, quatro pretensões decididas e uma
+  aguardando decisão; Financeiro, Departamento Pessoal, Almoxarifado BSA e TI
+  ficaram com `PERMITE_VALOR` ligado para exercitar o eixo;
 - o usuário `homolog.visual` permanece no DEV desativado e com senha
   inutilizável: a FK da auditoria append-only impede a exclusão;
 - setores, catálogo de workflow, auditoria, usuários e colaboradores receberam a
@@ -184,7 +184,12 @@ Contrato Senior — legibilidade cadastral:
 - constraint de campo anulável precisa admitir o nulo na condição: no Oracle a
   comparação com `NULL` derruba `full_clean()`. O restante do projeto já seguia
   esse idioma e a Fase 6 era a única exceção — nenhuma outra tabela ficou
-  pendente dessa revisão.
+  pendente dessa revisão;
+- `CharField` anulável nunca volta como `None` no Oracle: o backend do Django
+  devolve `''` para a coluna em NULL. Regra que testa ausência precisa usar
+  `not valor`, não `valor is None`, sob pena de passar no SQLite e nunca valer
+  no DEV. A varredura de 2026-07-31 encontrou uma única ocorrência
+  (`ReopenProcessService`) e não há outra pendente.
 
 ## Homologação funcional e visual das Fases 3 e 5
 
@@ -455,6 +460,17 @@ e-mail, para que o resultado da suíte não dependa do `.env` da máquina.
 
 ## Baseline de qualidade
 
+Na homologação da Fase 8 a validação padrão foi executada por inteiro: 457
+testes backend e 106 frontend, Ruff, formatação, Mypy em 203 arquivos, Django
+check, verificação de migrations e build Angular sem avisos. Nenhuma migration
+foi necessária — os três defeitos são de regra calculada, idioma de leitura e
+template. Os dois testes backend novos cobrem o item opcional deixado em branco
+que não é inconsistência (com o item respondido sem evidência continuando a
+impedir) e a reabertura que precisa retomar a chave quando ela chega como string
+vazia — este falha com `assert '' == '1:2:1:321'` sem a correção. O teste novo
+do frontend garante que o processo cancelado não exibe impedimento da liberação
+nem o contador, preservando as contagens.
+
 Na central de e-mail a validação padrão foi executada por inteiro: 423 testes
 backend e 99 frontend, Ruff, formatação, Mypy em 196 arquivos, Django check,
 verificação de migrations e build Angular sem avisos. As duas migrations foram
@@ -662,8 +678,7 @@ Fatia 5 — gatilhos de domínio, sem migration:
 
 A decisão que governa a fase é a **ADR-051**: o `STATUS` guarda somente estado
 formal e a situação funcional é calculada a cada leitura. A fase foi fatiada em
-quatro, todas implementadas em 2026-07-31. Falta a homologação contra o Oracle
-DEV.
+quatro, todas implementadas e homologadas no Oracle DEV em 2026-07-31.
 
 Fatia 1 — estados formais, marcas e migration `offboarding.0009`, aplicada no
 Oracle DEV:
@@ -756,6 +771,67 @@ reabertura negada ao `DP`, a reabertura do encerrado com retomada da chave e
 trilha do estado anterior, a reabertura sem tarefa, o segundo aviso da segunda
 reabertura, as recusas de tarefa alheia e de tarefa não concluída, e a
 reabertura barrada pela chave já tomada por outro processo.
+
+## Homologação da Fase 8 (2026-07-31)
+
+O ciclo foi exercido pela própria API contra o Oracle DEV, com a sessão do
+usuário real em cada passo: nenhuma escrita direta em tabela. A varredura
+headless cobriu a tela nova em seis estados formais — iniciado com impedimento,
+pronto, liberado, rescisão processada, encerrado e cancelado — mais o hub, nas
+cinco larguras homologadas e nos dois temas: **74 combinações, sem rolagem
+horizontal e sem erro de console**.
+
+A homologação encontrou três defeitos, todos corrigidos:
+
+- **a prontidão exigia mais do que a conclusão da tarefa jamais exigiu.**
+  `_validated_answers` aceita o item `FILE` opcional sem arquivo e o item comum
+  com `requires_evidence` que o setor deixou em branco; `_checklist_inconsistencies`
+  exigia evidência sempre que `requires_evidence` estivesse ligado. Um item
+  opcional legitimamente vazio virava impedimento permanente, e o texto ainda o
+  chamava de inconsistência crítica — que, por definição, só apareceria se o
+  dado mudasse depois da conclusão. O processo `9cbed216`, com as nove tarefas
+  concluídas, nunca poderia ser liberado. A régua da prontidão passou a ser a
+  mesma da conclusão;
+- **a reabertura nunca retomava a chave do colaborador no Oracle.** O Oracle
+  guarda a chave liberada em NULL, mas o backend do Django devolve `''` ao ler
+  um `CharField`: o `if process.active_employee_key is None` do
+  `ReopenProcessService` é falso em toda leitura real. O processo voltava à
+  ativa com a chave solta, e a unicidade do banco — a árbitra da ADR-051 —
+  nunca era consultada, o que permitiria dois processos vivos para o mesmo
+  colaborador. Passou a `if not …`. É a terceira armadilha Oracle-only da série
+  (constraint anulável, `DISTINCT` sobre LOB, agora leitura de `CharField`);
+- **a tela listava impedimento da liberação em estado terminal.** No processo
+  cancelado, a prontidão exibia “O processo não possui tarefas de setor” com a
+  marca vermelha e o contador, sobre um processo em que nada há a fazer.
+  Impedimento e aviso passaram a aparecer só enquanto a liberação é alcançável;
+  as contagens ficam, porque são conferência.
+
+Exercitado e conferido, com os dados permanecendo no DEV:
+
+- ciclo completo em `9cbed216`: pronto → liberado → rescisão processada →
+  encerrado, com `DP` vigente no escopo, replay idempotente, 409 de chave
+  reusada com corpo diferente e versão obsoleta recusada;
+- recusas do processamento declarado: data futura, data anterior à liberação e
+  número ausente; encerramento negado antes do processamento. Nenhuma delas
+  alterou estado, versão ou chave;
+- reabertura pelo SuperAdmin devolvendo Almoxarifado BSA à análise: chave
+  retomada, marcas limpas, trilha com o estado anterior inteiro e a notificação
+  `PROCESSO_REABERTO` enfileirada com a chave `t66r1:44`;
+- **o ciclo formal refeito por inteiro depois da reabertura** — o setor concluiu
+  de novo pela API, e liberação, processamento e encerramento correram outra
+  vez até `v10`, confirmando a afirmação do `ReopenProcessService`;
+- `403` legível para o responsável de setor sem `DP` e para o `DP` que tenta
+  reabrir; a reabertura é exclusiva do SuperAdmin (ADR-044, ADR-051);
+- cancelamento de um rascunho aberto para isso (`c8787348`): motivo exigido,
+  chave liberada com `employee_key_released` na trilha, replay idempotente,
+  reabertura do cancelado recusada — é terminal — e, como prova de que a chave
+  saiu mesmo, um processo novo aberto para o mesmo colaborador (`d80327c7`);
+- hub com os quatro cards povoados e o atalho `Conferir encerramento do
+  processo` dentro do processo expandido.
+
+Observação sem defeito: o `<input type="date">` do processamento aparece em
+`MM/DD/AAAA` no Chromium headless porque o controle nativo segue a locale do
+navegador, não a da página — o documento declara `lang="pt-BR"`.
 
 ## Histórico
 

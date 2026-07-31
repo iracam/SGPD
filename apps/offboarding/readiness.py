@@ -139,7 +139,16 @@ def _checklist_inconsistencies(process: OffboardingProcess) -> list[str]:
                 f"O item obrigatório {item.code_snapshot} de {item.task.sector_name_snapshot} "
                 "está sem resposta."
             )
-        needs_evidence = item.requires_evidence or (is_file and item.is_required)
+        # A régua é a mesma de `_validated_answers`, e precisa ser: aqui se
+        # procura divergência do que a conclusão validou, não uma exigência
+        # própria. Item `FILE` só exige arquivo quando obrigatório; item comum
+        # só exige evidência quando obrigatório ou efetivamente respondido —
+        # item opcional deixado em branco é omissão legítima do setor, não
+        # inconsistência.
+        if is_file:
+            needs_evidence = item.is_required
+        else:
+            needs_evidence = item.requires_evidence and (item.is_required or answered)
         if needs_evidence and item.pk not in with_evidence:
             problems.append(
                 f"O item {item.code_snapshot} de {item.task.sector_name_snapshot} "
