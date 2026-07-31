@@ -24,6 +24,10 @@ class ProcessEventType(models.TextChoices):
     PENDING_CREATED = "PENDING_CREATED", "Pendência criada"
     PENDING_COMMENTED = "PENDING_COMMENTED", "Pendência comentada"
     PENDING_STATUS_CHANGED = "PENDING_STATUS_CHANGED", "Situação da pendência alterada"
+    PENDING_AMOUNT_INFORMED = "PENDING_AMOUNT_INFORMED", "Valor informado"
+    PENDING_AMOUNT_ASSESSED = "PENDING_AMOUNT_ASSESSED", "Valor apurado"
+    PENDING_AMOUNT_CONTESTED = "PENDING_AMOUNT_CONTESTED", "Valor contestado"
+    PENDING_AMOUNT_DECIDED = "PENDING_AMOUNT_DECIDED", "Valor decidido"
     EVIDENCE_UPLOADED = "EVIDENCE_UPLOADED", "Evidência enviada"
     EVIDENCE_DOWNLOADED = "EVIDENCE_DOWNLOADED", "Evidência baixada"
 

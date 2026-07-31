@@ -7,14 +7,15 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
-from apps.accounts.models import User
+from apps.accounts.authorization import has_effective_role, has_global_authority
+from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, RoleAssignment, User
 from apps.offboarding.models import (
     OffboardingProcess,
     ProcessActionIdempotency,
@@ -29,12 +30,16 @@ from apps.offboarding.services import (
     processes_for_actor,
     sector_tasks_for_actor,
 )
+from apps.sectors.models import ValidationSector
 from config.middleware import correlation_id
 
 from .models import (
     BlockingLevel,
+    DecisionOutcome,
+    PendingAmount,
     PendingCategory,
     PendingComment,
+    PendingDecision,
     PendingItem,
     PendingItemLine,
     PendingStatus,
@@ -43,12 +48,34 @@ from .models import (
 PENDING_CREATED_DESCRIPTION = "Registro explícito e idempotente de pendência setorial."
 PENDING_COMMENTED_DESCRIPTION = "Comentário append-only registrado na pendência."
 PENDING_STATUS_CHANGED_DESCRIPTION = "Transição explícita do estado de regularização."
+AMOUNT_INFORMED_DESCRIPTION = "Pretensão de cobrança informada para análise."
+AMOUNT_ASSESSED_DESCRIPTION = "Valor apurado registrado na análise da pretensão."
+AMOUNT_CONTESTED_DESCRIPTION = "Contestação do valor registrada na pretensão."
+AMOUNT_DECIDED_DESCRIPTION = "Decisão explícita sobre a pretensão de cobrança."
 
+#: Transições do eixo de regularização, únicas alcançáveis pelo endpoint genérico
+#: de situação. O eixo de decisão só é alcançado pelos services de valor, que
+#: exigem pretensão registrada; daqui ele só tem saída para o encerramento.
 ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     PendingStatus.OPEN: frozenset({PendingStatus.IN_REGULARIZATION}),
     PendingStatus.IN_REGULARIZATION: frozenset({PendingStatus.REGULARIZED}),
     PendingStatus.REGULARIZED: frozenset({PendingStatus.IN_REGULARIZATION, PendingStatus.CLOSED}),
+    PendingStatus.SUBMITTED_FOR_REVIEW: frozenset(),
+    PendingStatus.CONTESTED: frozenset(),
+    PendingStatus.CHARGE_APPROVED: frozenset({PendingStatus.CLOSED}),
+    PendingStatus.REJECTED: frozenset({PendingStatus.CLOSED}),
+    PendingStatus.WAIVED: frozenset({PendingStatus.CLOSED}),
     PendingStatus.CLOSED: frozenset(),
+}
+
+#: Estados em que a pretensão ainda aguarda decisão.
+UNDER_REVIEW_STATUSES = frozenset({PendingStatus.SUBMITTED_FOR_REVIEW, PendingStatus.CONTESTED})
+
+#: Situação da pendência resultante de cada decisão.
+DECISION_STATUS: dict[str, str] = {
+    DecisionOutcome.CHARGE_APPROVED: PendingStatus.CHARGE_APPROVED,
+    DecisionOutcome.REJECTED: PendingStatus.REJECTED,
+    DecisionOutcome.WAIVED: PendingStatus.WAIVED,
 }
 
 
@@ -96,6 +123,48 @@ class AddPendingCommentCommand:
     expected_version: int
     idempotency_key: str
     comment: str
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterPendingAmountCommand:
+    actor: User
+    pending_uuid: str
+    expected_version: int
+    idempotency_key: str
+    amount_informed: Decimal
+    justification: str
+    currency: str = "BRL"
+
+
+@dataclass(frozen=True, slots=True)
+class AssessPendingAmountCommand:
+    actor: User
+    pending_uuid: str
+    expected_version: int
+    idempotency_key: str
+    amount_assessed: Decimal
+    justification: str
+
+
+@dataclass(frozen=True, slots=True)
+class ContestPendingAmountCommand:
+    actor: User
+    pending_uuid: str
+    expected_version: int
+    idempotency_key: str
+    amount_contested: Decimal
+    justification: str
+
+
+@dataclass(frozen=True, slots=True)
+class DecidePendingAmountCommand:
+    actor: User
+    pending_uuid: str
+    expected_version: int
+    idempotency_key: str
+    decision: str
+    opinion: str
+    amount_approved: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -445,6 +514,405 @@ class ChangePendingStatusService:
                 "pending_version": pending_item.version,
             },
             correlation_id=correlation_id.get(),
+        )
+        _record_idempotency(
+            process=process,
+            pending_item=pending_item,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        return PendingMutationResult(pending_item=pending_item, replayed=False)
+
+
+def _require_coordinator(actor: User, process: OffboardingProcess) -> None:
+    """Exigir DP vigente no escopo do processo, ou a autoridade global (ADR-044)."""
+
+    if has_global_authority(actor):
+        return
+    list(RoleAssignment.objects.select_for_update().filter(user=actor).order_by("pk"))
+    if not has_effective_role(
+        actor,
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        company_code=process.company_code,
+        branch_code=process.branch_code,
+    ):
+        raise PermissionDenied("A análise de valores exige DP vigente no escopo do processo.")
+
+
+def _positive_amount(value: Decimal | None, field: str) -> Decimal:
+    if value is None or value <= 0:
+        raise ValidationError({field: "O valor informado deve ser maior que zero."})
+    return value
+
+
+def _locked_amount(pending_item: PendingItem) -> PendingAmount:
+    try:
+        return cast(
+            PendingAmount,
+            PendingAmount.objects.select_for_update().get(pending_item=pending_item),
+        )
+    except PendingAmount.DoesNotExist as exc:
+        raise ValidationError("A pendência ainda não possui pretensão registrada.") from exc
+
+
+def _amount_context(
+    *,
+    actor: User,
+    pending_uuid: str,
+    require_coordinator: bool,
+) -> tuple[User, OffboardingProcess, ProcessSectorTask, PendingItem]:
+    locked_actor, process, task, pending_item = _lock_pending_and_authority(
+        actor=actor,
+        pending_uuid=pending_uuid,
+        at=timezone.now(),
+    )
+    if require_coordinator:
+        _require_coordinator(locked_actor, process)
+    if pending_item.category != PendingCategory.VALUE:
+        raise ValidationError("Somente pendência de categoria Valor possui pretensão de cobrança.")
+    return locked_actor, process, task, pending_item
+
+
+def _register_amount_trail(
+    *,
+    process: OffboardingProcess,
+    task: ProcessSectorTask,
+    pending_item: PendingItem,
+    amount: PendingAmount,
+    actor: User,
+    text: str,
+    event_type: str,
+    description: str,
+    extra: dict[str, Any],
+) -> None:
+    """Comentar, versionar e auditar a pendência na mesma transação da pretensão."""
+
+    comment = PendingComment(pending_item=pending_item, author=actor, text=text)
+    comment.full_clean()
+    comment.save()
+    ProcessAuditEvent.objects.create(
+        process=process,
+        event_type=event_type,
+        actor=actor,
+        description=description,
+        data={
+            "pending_uuid": str(pending_item.uuid),
+            "task_id": task.pk,
+            "sector_id": task.sector_id,
+            "currency": amount.currency,
+            "status": pending_item.status,
+            "comment_id": comment.pk,
+            "pending_version": pending_item.version,
+            "amount_version": amount.version,
+            **extra,
+        },
+        correlation_id=correlation_id.get(),
+    )
+
+
+class RegisterPendingAmountService:
+    """Lançar a pretensão de cobrança: valor é solicitação de análise (ADR-009)."""
+
+    @transaction.atomic
+    def execute(self, command: RegisterPendingAmountCommand) -> PendingMutationResult:
+        key = _validated_key(command.idempotency_key)
+        justification = command.justification.strip()
+        request_hash = _canonical_hash(
+            {
+                "pending_uuid": command.pending_uuid,
+                "expected_version": command.expected_version,
+                "amount_informed": command.amount_informed,
+                "currency": command.currency,
+                "justification": justification,
+            }
+        )
+        actor, process, task, pending_item = _amount_context(
+            actor=command.actor,
+            pending_uuid=command.pending_uuid,
+            require_coordinator=False,
+        )
+        action = _action("PAMOUNT", pending_item.pk)
+        replay = _replay(
+            process=process,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if pending_item.version != command.expected_version:
+            raise ValidationError("A pendência foi alterada por outra sessão. Recarregue a página.")
+        if pending_item.status != PendingStatus.OPEN:
+            raise ValidationError("Somente uma pendência aberta aceita o lançamento do valor.")
+        sector = ValidationSector.objects.select_for_update().get(pk=task.sector_id)
+        if not sector.allows_amount:
+            raise ValidationError(
+                {"amount_informed": "O setor não está habilitado a lançar valores."}
+            )
+        if PendingAmount.objects.filter(pending_item=pending_item).exists():
+            raise ValidationError("A pendência já possui pretensão registrada.")
+
+        amount = PendingAmount(
+            pending_item=pending_item,
+            amount_informed=_positive_amount(command.amount_informed, "amount_informed"),
+            currency=command.currency,
+            justification=justification,
+            informed_by=actor,
+        )
+        amount.full_clean()
+        amount.save()
+        pending_item.status = PendingStatus.SUBMITTED_FOR_REVIEW
+        pending_item.version += 1
+        pending_item.full_clean()
+        pending_item.save(update_fields=("status", "version", "updated_at"))
+        _register_amount_trail(
+            process=process,
+            task=task,
+            pending_item=pending_item,
+            amount=amount,
+            actor=actor,
+            text=justification,
+            event_type=ProcessEventType.PENDING_AMOUNT_INFORMED,
+            description=AMOUNT_INFORMED_DESCRIPTION,
+            extra={"amount_informed": str(amount.amount_informed)},
+        )
+        _record_idempotency(
+            process=process,
+            pending_item=pending_item,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        return PendingMutationResult(pending_item=pending_item, replayed=False)
+
+
+class AssessPendingAmountService:
+    """Registrar o valor apurado na análise; a pretensão continua aguardando decisão."""
+
+    @transaction.atomic
+    def execute(self, command: AssessPendingAmountCommand) -> PendingMutationResult:
+        key = _validated_key(command.idempotency_key)
+        justification = command.justification.strip()
+        request_hash = _canonical_hash(
+            {
+                "pending_uuid": command.pending_uuid,
+                "expected_version": command.expected_version,
+                "amount_assessed": command.amount_assessed,
+                "justification": justification,
+            }
+        )
+        actor, process, task, pending_item = _amount_context(
+            actor=command.actor,
+            pending_uuid=command.pending_uuid,
+            require_coordinator=True,
+        )
+        action = _action("PASSESS", pending_item.pk)
+        replay = _replay(
+            process=process,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if pending_item.version != command.expected_version:
+            raise ValidationError("A pendência foi alterada por outra sessão. Recarregue a página.")
+        if pending_item.status not in UNDER_REVIEW_STATUSES:
+            raise ValidationError("Somente uma pretensão em análise aceita valor apurado.")
+        amount = _locked_amount(pending_item)
+        amount.amount_assessed = _positive_amount(command.amount_assessed, "amount_assessed")
+        amount.version += 1
+        amount.full_clean()
+        amount.save(update_fields=("amount_assessed", "version", "updated_at"))
+        previous_status = pending_item.status
+        pending_item.status = PendingStatus.SUBMITTED_FOR_REVIEW
+        pending_item.version += 1
+        pending_item.full_clean()
+        pending_item.save(update_fields=("status", "version", "updated_at"))
+        _register_amount_trail(
+            process=process,
+            task=task,
+            pending_item=pending_item,
+            amount=amount,
+            actor=actor,
+            text=justification,
+            event_type=ProcessEventType.PENDING_AMOUNT_ASSESSED,
+            description=AMOUNT_ASSESSED_DESCRIPTION,
+            extra={
+                "amount_assessed": str(amount.amount_assessed),
+                "previous_status": previous_status,
+            },
+        )
+        _record_idempotency(
+            process=process,
+            pending_item=pending_item,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        return PendingMutationResult(pending_item=pending_item, replayed=False)
+
+
+class ContestPendingAmountService:
+    """Registrar a contestação do valor, que devolve a pretensão à análise."""
+
+    @transaction.atomic
+    def execute(self, command: ContestPendingAmountCommand) -> PendingMutationResult:
+        key = _validated_key(command.idempotency_key)
+        justification = command.justification.strip()
+        request_hash = _canonical_hash(
+            {
+                "pending_uuid": command.pending_uuid,
+                "expected_version": command.expected_version,
+                "amount_contested": command.amount_contested,
+                "justification": justification,
+            }
+        )
+        actor, process, task, pending_item = _amount_context(
+            actor=command.actor,
+            pending_uuid=command.pending_uuid,
+            require_coordinator=False,
+        )
+        action = _action("PCONTEST", pending_item.pk)
+        replay = _replay(
+            process=process,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if pending_item.version != command.expected_version:
+            raise ValidationError("A pendência foi alterada por outra sessão. Recarregue a página.")
+        if pending_item.status != PendingStatus.SUBMITTED_FOR_REVIEW:
+            raise ValidationError(
+                "Somente uma pretensão encaminhada para análise pode ser contestada."
+            )
+        amount = _locked_amount(pending_item)
+        amount.amount_contested = _positive_amount(command.amount_contested, "amount_contested")
+        amount.version += 1
+        amount.full_clean()
+        amount.save(update_fields=("amount_contested", "version", "updated_at"))
+        pending_item.status = PendingStatus.CONTESTED
+        pending_item.version += 1
+        pending_item.full_clean()
+        pending_item.save(update_fields=("status", "version", "updated_at"))
+        _register_amount_trail(
+            process=process,
+            task=task,
+            pending_item=pending_item,
+            amount=amount,
+            actor=actor,
+            text=justification,
+            event_type=ProcessEventType.PENDING_AMOUNT_CONTESTED,
+            description=AMOUNT_CONTESTED_DESCRIPTION,
+            extra={"amount_contested": str(amount.amount_contested)},
+        )
+        _record_idempotency(
+            process=process,
+            pending_item=pending_item,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        return PendingMutationResult(pending_item=pending_item, replayed=False)
+
+
+class DecidePendingAmountService:
+    """Decidir a pretensão com parecer, sob segregação de função (ADR-048)."""
+
+    @transaction.atomic
+    def execute(self, command: DecidePendingAmountCommand) -> PendingMutationResult:
+        key = _validated_key(command.idempotency_key)
+        opinion = command.opinion.strip()
+        request_hash = _canonical_hash(
+            {
+                "pending_uuid": command.pending_uuid,
+                "expected_version": command.expected_version,
+                "decision": command.decision,
+                "opinion": opinion,
+                "amount_approved": command.amount_approved,
+            }
+        )
+        actor, process, task, pending_item = _amount_context(
+            actor=command.actor,
+            pending_uuid=command.pending_uuid,
+            require_coordinator=True,
+        )
+        action = _action("PDECIDE", pending_item.pk)
+        replay = _replay(
+            process=process,
+            actor=actor,
+            action=action,
+            key=key,
+            request_hash=request_hash,
+        )
+        if replay is not None:
+            return replay
+        if pending_item.version != command.expected_version:
+            raise ValidationError("A pendência foi alterada por outra sessão. Recarregue a página.")
+        if pending_item.status not in UNDER_REVIEW_STATUSES:
+            raise ValidationError("Somente uma pretensão em análise pode ser decidida.")
+        if command.decision not in DECISION_STATUS:
+            raise ValidationError({"decision": "A decisão sobre o valor é inválida."})
+        amount = _locked_amount(pending_item)
+
+        # Segregação de função: quem informou o valor não o aprova. O SuperAdmin
+        # rompe essa barra pela ADR-048, e a trilha registra que ele o fez.
+        decides_own_amount = amount.informed_by_id == actor.pk
+        segregation_override = decides_own_amount and has_global_authority(actor)
+        if decides_own_amount and not segregation_override:
+            raise PermissionDenied("Quem informou o valor não pode decidir a própria pretensão.")
+
+        if command.decision == DecisionOutcome.CHARGE_APPROVED:
+            approved = _positive_amount(command.amount_approved, "amount_approved")
+        else:
+            approved = Decimal("0.00")
+        decided_at = timezone.now()
+        amount.amount_approved = approved
+        amount.approved_by = actor
+        amount.approved_at = decided_at
+        amount.version += 1
+        amount.full_clean()
+        amount.save(
+            update_fields=("amount_approved", "approved_by", "approved_at", "version", "updated_at")
+        )
+        decision = PendingDecision(
+            pending_item=pending_item,
+            decision=command.decision,
+            opinion=opinion,
+            decided_by=actor,
+            segregation_override=segregation_override,
+        )
+        decision.full_clean()
+        decision.save()
+        pending_item.status = DECISION_STATUS[command.decision]
+        pending_item.version += 1
+        pending_item.full_clean()
+        pending_item.save(update_fields=("status", "version", "updated_at"))
+        _register_amount_trail(
+            process=process,
+            task=task,
+            pending_item=pending_item,
+            amount=amount,
+            actor=actor,
+            text=opinion,
+            event_type=ProcessEventType.PENDING_AMOUNT_DECIDED,
+            description=AMOUNT_DECIDED_DESCRIPTION,
+            extra={
+                "decision": command.decision,
+                "decision_id": decision.pk,
+                "amount_approved": str(amount.amount_approved),
+                "segregation_override": segregation_override,
+            },
         )
         _record_idempotency(
             process=process,

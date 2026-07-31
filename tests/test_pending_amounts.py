@@ -4,15 +4,23 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
 import pytest
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.accounts.models import User
+from apps.accounts.models import (
+    Role,
+    RoleAssignment,
+    ScopeType,
+    User,
+    build_scope_key,
+)
+from apps.offboarding.models import ProcessAuditEvent, ProcessEventType
 from apps.pending_items.models import (
     BlockingLevel,
     DecisionOutcome,
@@ -23,9 +31,20 @@ from apps.pending_items.models import (
     PendingStatus,
 )
 from apps.pending_items.services import (
+    AssessPendingAmountCommand,
+    AssessPendingAmountService,
+    ChangePendingStatusCommand,
+    ChangePendingStatusService,
+    ContestPendingAmountCommand,
+    ContestPendingAmountService,
     CreatePendingItemCommand,
     CreatePendingItemService,
+    DecidePendingAmountCommand,
+    DecidePendingAmountService,
+    RegisterPendingAmountCommand,
+    RegisterPendingAmountService,
 )
+from apps.sectors.models import SectorResponsible, ValidationSector
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
     actor,
@@ -254,3 +273,402 @@ def test_decision_axis_statuses_are_available_without_new_transitions(
     pending_item.refresh_from_db()
     assert pending_item.status == PendingStatus.CHARGE_APPROVED
     assert pending_item.updated_at <= timezone.now()
+
+
+def enable_amounts(task: Any) -> None:
+    sector = ValidationSector.objects.get(pk=task.sector_id)
+    sector.allows_amount = True
+    sector.save(update_fields=("allows_amount",))
+
+
+def value_pending_ready(actor: User, process: Any) -> tuple[Any, PendingItem]:
+    task = analysis_task(actor, process)
+    enable_amounts(task)
+    return task, create_value_pending(actor, task)
+
+
+def register_amount(
+    actor: User,
+    pending_item: PendingItem,
+    *,
+    key: str = "amount-register",
+    amount: Decimal = Decimal("1250.00"),
+) -> PendingItem:
+    return (
+        RegisterPendingAmountService()
+        .execute(
+            RegisterPendingAmountCommand(
+                actor=actor,
+                pending_uuid=str(pending_item.uuid),
+                expected_version=pending_item.version,
+                idempotency_key=key,
+                amount_informed=amount,
+                justification="Valor de mercado do equipamento não devolvido.",
+            )
+        )
+        .pending_item
+    )
+
+
+def decide_amount(
+    actor: User,
+    pending_item: PendingItem,
+    *,
+    key: str = "amount-decide",
+    decision: str = DecisionOutcome.CHARGE_APPROVED,
+    approved: Decimal | None = Decimal("980.00"),
+) -> PendingItem:
+    return (
+        DecidePendingAmountService()
+        .execute(
+            DecidePendingAmountCommand(
+                actor=actor,
+                pending_uuid=str(pending_item.uuid),
+                expected_version=pending_item.version,
+                idempotency_key=key,
+                decision=decision,
+                opinion="Parecer da análise sobre a pretensão de cobrança.",
+                amount_approved=approved,
+            )
+        )
+        .pending_item
+    )
+
+
+def make_dp(actor: User, username: str) -> User:
+    dp = User.objects.create_user(
+        username=username,
+        email=f"{username}@example.invalid",
+        password=PASSWORD,
+    )
+    RoleAssignment.objects.create(
+        user=dp,
+        role=Role.objects.get(code="DP"),
+        scope_type=ScopeType.GLOBAL,
+        scope_key=build_scope_key(ScopeType.GLOBAL, None, None),
+        valid_from=timezone.now() - timedelta(hours=1),
+        assigned_by=actor,
+    )
+    return dp
+
+
+def test_pretension_runs_from_informed_to_approved_with_trail(
+    actor: User,
+    process: Any,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+
+    pending_item = register_amount(actor, pending_item)
+    assert pending_item.status == PendingStatus.SUBMITTED_FOR_REVIEW
+    assert pending_item.amount.amount_informed == Decimal("1250.00")
+    assert pending_item.amount.informed_by == actor
+
+    pending_item = (
+        AssessPendingAmountService()
+        .execute(
+            AssessPendingAmountCommand(
+                actor=actor,
+                pending_uuid=str(pending_item.uuid),
+                expected_version=pending_item.version,
+                idempotency_key="amount-assess",
+                amount_assessed=Decimal("1100.00"),
+                justification="Apuração considerou a depreciação do equipamento.",
+            )
+        )
+        .pending_item
+    )
+    assert pending_item.status == PendingStatus.SUBMITTED_FOR_REVIEW
+
+    pending_item = (
+        ContestPendingAmountService()
+        .execute(
+            ContestPendingAmountCommand(
+                actor=actor,
+                pending_uuid=str(pending_item.uuid),
+                expected_version=pending_item.version,
+                idempotency_key="amount-contest",
+                amount_contested=Decimal("500.00"),
+                justification="Colaborador contesta o estado de conservação.",
+            )
+        )
+        .pending_item
+    )
+    assert pending_item.status == PendingStatus.CONTESTED
+
+    decider = make_dp(actor, "dp-decisor")
+    pending_item = decide_amount(decider, pending_item)
+
+    amount = pending_item.amount
+    amount.refresh_from_db()
+    assert pending_item.status == PendingStatus.CHARGE_APPROVED
+    assert amount.amount_assessed == Decimal("1100.00")
+    assert amount.amount_contested == Decimal("500.00")
+    assert amount.amount_approved == Decimal("980.00")
+    assert amount.approved_by == decider
+    assert amount.approved_at is not None
+    assert amount.amount_processed is None
+
+    decision = pending_item.decisions.get()
+    assert decision.decision == DecisionOutcome.CHARGE_APPROVED
+    assert decision.segregation_override is False
+
+    events = list(
+        ProcessAuditEvent.objects.filter(
+            process=task.process,
+            event_type__startswith="PENDING_AMOUNT_",
+        ).order_by("pk")
+    )
+    assert [event.event_type for event in events] == [
+        ProcessEventType.PENDING_AMOUNT_INFORMED,
+        ProcessEventType.PENDING_AMOUNT_ASSESSED,
+        ProcessEventType.PENDING_AMOUNT_CONTESTED,
+        ProcessEventType.PENDING_AMOUNT_DECIDED,
+    ]
+    assert events[-1].data["segregation_override"] is False
+    assert events[-1].data["amount_approved"] == "980.00"
+    assert pending_item.comments.count() == 4
+
+
+def test_rejection_and_waiver_settle_the_pretension_at_zero(
+    actor: User,
+    process: Any,
+) -> None:
+    _, pending_item = value_pending_ready(actor, process)
+    pending_item = register_amount(actor, pending_item)
+    decider = make_dp(actor, "dp-rejeita")
+
+    pending_item = decide_amount(
+        decider,
+        pending_item,
+        decision=DecisionOutcome.REJECTED,
+        approved=None,
+    )
+
+    amount = pending_item.amount
+    amount.refresh_from_db()
+    assert pending_item.status == PendingStatus.REJECTED
+    assert amount.amount_approved == Decimal("0.00")
+    assert amount.approved_by == decider
+
+
+def test_sector_without_allows_amount_cannot_inform_value(
+    actor: User,
+    process: Any,
+) -> None:
+    task = analysis_task(actor, process)
+    pending_item = create_value_pending(actor, task)
+
+    with pytest.raises(ValidationError, match="não está habilitado a lançar valores"):
+        register_amount(actor, pending_item)
+
+    assert not PendingAmount.objects.filter(pending_item=pending_item).exists()
+    pending_item.refresh_from_db()
+    assert pending_item.status == PendingStatus.OPEN
+
+
+def test_non_value_pending_has_no_pretension(actor: User, process: Any) -> None:
+    task = analysis_task(actor, process)
+    enable_amounts(task)
+    other = (
+        CreatePendingItemService()
+        .execute(
+            CreatePendingItemCommand(
+                actor=actor,
+                task_id=task.pk,
+                expected_task_version=task.version,
+                idempotency_key="pending-material",
+                category=PendingCategory.EQUIPMENT,
+                title="Crachá não devolvido",
+                description="Devolução pendente do crachá corporativo.",
+                blocking_level=BlockingLevel.BLOCKING,
+                checklist_item_id=None,
+                items=(),
+            )
+        )
+        .pending_item
+    )
+
+    with pytest.raises(ValidationError, match="categoria Valor"):
+        register_amount(actor, other)
+
+
+def test_informer_cannot_decide_but_superadmin_overrides_with_a_mark(
+    actor: User,
+    process: Any,
+) -> None:
+    _, pending_item = value_pending_ready(actor, process)
+    pending_item = register_amount(actor, pending_item)
+
+    with pytest.raises(PermissionDenied, match="não pode decidir a própria pretensão"):
+        decide_amount(actor, pending_item)
+
+    pending_item.refresh_from_db()
+    assert pending_item.status == PendingStatus.SUBMITTED_FOR_REVIEW
+    assert not pending_item.decisions.exists()
+
+    superadmin = User.objects.create_superuser(
+        username="super-valores",
+        email="super-valores@example.invalid",
+        password=PASSWORD,
+    )
+    superadmin_pending = create_value_pending(
+        superadmin,
+        pending_item.task,
+        key="pending-super",
+    )
+    superadmin_pending = register_amount(
+        superadmin,
+        superadmin_pending,
+        key="amount-super",
+    )
+    superadmin_pending = decide_amount(
+        superadmin,
+        superadmin_pending,
+        key="decide-super",
+    )
+
+    decision = superadmin_pending.decisions.get()
+    assert superadmin_pending.status == PendingStatus.CHARGE_APPROVED
+    assert decision.segregation_override is True
+    assert decision.decided_by == superadmin
+    event = ProcessAuditEvent.objects.filter(
+        event_type=ProcessEventType.PENDING_AMOUNT_DECIDED,
+        data__pending_uuid=str(superadmin_pending.uuid),
+    ).get()
+    assert event.data["segregation_override"] is True
+
+
+def test_sector_responsible_without_dp_cannot_assess_or_decide(
+    actor: User,
+    process: Any,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+    pending_item = register_amount(actor, pending_item)
+
+    responsible = User.objects.create_user(
+        username="responsavel-setor",
+        email="responsavel-setor@example.invalid",
+        password=PASSWORD,
+    )
+    SectorResponsible.objects.create(
+        sector=ValidationSector.objects.get(pk=task.sector_id),
+        user=responsible,
+        valid_from=timezone.now() - timedelta(hours=1),
+        assigned_by=actor,
+        updated_by=actor,
+    )
+
+    with pytest.raises(PermissionDenied, match="DP vigente no escopo"):
+        AssessPendingAmountService().execute(
+            AssessPendingAmountCommand(
+                actor=responsible,
+                pending_uuid=str(pending_item.uuid),
+                expected_version=pending_item.version,
+                idempotency_key="assess-responsavel",
+                amount_assessed=Decimal("900.00"),
+                justification="Tentativa de apuração pelo setor.",
+            )
+        )
+
+    with pytest.raises(PermissionDenied, match="DP vigente no escopo"):
+        decide_amount(responsible, pending_item, key="decide-responsavel")
+
+    assert not pending_item.decisions.exists()
+
+
+def test_amount_services_replay_and_refuse_stale_versions(
+    actor: User,
+    process: Any,
+) -> None:
+    _, pending_item = value_pending_ready(actor, process)
+    stale_version = pending_item.version
+
+    first = RegisterPendingAmountService().execute(
+        RegisterPendingAmountCommand(
+            actor=actor,
+            pending_uuid=str(pending_item.uuid),
+            expected_version=stale_version,
+            idempotency_key="amount-once",
+            amount_informed=Decimal("1250.00"),
+            justification="Valor de mercado do equipamento não devolvido.",
+        )
+    )
+    replay = RegisterPendingAmountService().execute(
+        RegisterPendingAmountCommand(
+            actor=actor,
+            pending_uuid=str(pending_item.uuid),
+            expected_version=stale_version,
+            idempotency_key="amount-once",
+            amount_informed=Decimal("1250.00"),
+            justification="Valor de mercado do equipamento não devolvido.",
+        )
+    )
+
+    assert not first.replayed
+    assert replay.replayed
+    assert PendingAmount.objects.filter(pending_item=pending_item).count() == 1
+
+    with pytest.raises(ValidationError, match="alterada por outra sessão"):
+        RegisterPendingAmountService().execute(
+            RegisterPendingAmountCommand(
+                actor=actor,
+                pending_uuid=str(pending_item.uuid),
+                expected_version=stale_version,
+                idempotency_key="amount-stale",
+                amount_informed=Decimal("1250.00"),
+                justification="Valor de mercado do equipamento não devolvido.",
+            )
+        )
+
+
+def test_decision_axis_is_unreachable_without_a_pretension(
+    actor: User,
+    process: Any,
+) -> None:
+    _, pending_item = value_pending_ready(actor, process)
+
+    with pytest.raises(ValidationError, match="não é permitida"):
+        ChangePendingStatusService().execute(
+            ChangePendingStatusCommand(
+                actor=actor,
+                pending_uuid=str(pending_item.uuid),
+                expected_version=pending_item.version,
+                idempotency_key="status-atalho",
+                status=PendingStatus.SUBMITTED_FOR_REVIEW,
+                comment="Tentativa de encaminhar sem valor.",
+            )
+        )
+
+    # A pendência sem pretensão continua ABERTA, e o guard de estado da decisão
+    # rejeita antes mesmo de procurar o valor.
+    with pytest.raises(ValidationError, match="em análise pode ser decidida"):
+        decide_amount(make_dp(actor, "dp-sem-valor"), pending_item)
+
+    pending_item.refresh_from_db()
+    assert pending_item.status == PendingStatus.OPEN
+
+
+def test_decided_pretension_only_leaves_towards_closure(
+    actor: User,
+    process: Any,
+) -> None:
+    _, pending_item = value_pending_ready(actor, process)
+    pending_item = register_amount(actor, pending_item)
+    pending_item = decide_amount(make_dp(actor, "dp-encerra"), pending_item)
+
+    with pytest.raises(ValidationError, match="em análise pode ser decidida"):
+        decide_amount(make_dp(actor, "dp-outro"), pending_item, key="decide-again")
+
+    closed = ChangePendingStatusService().execute(
+        ChangePendingStatusCommand(
+            actor=actor,
+            pending_uuid=str(pending_item.uuid),
+            expected_version=pending_item.version,
+            idempotency_key="status-encerrar",
+            status=PendingStatus.CLOSED,
+            comment="Cobrança aprovada e pendência encerrada.",
+        )
+    )
+
+    assert closed.pending_item.status == PendingStatus.CLOSED
+    assert closed.pending_item.decisions.count() == 1
