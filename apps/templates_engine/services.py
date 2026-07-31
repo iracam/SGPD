@@ -382,18 +382,13 @@ class DeleteChecklistTemplateDraftService:
         except ChecklistTemplateVersion.DoesNotExist as exc:
             raise ChecklistTemplateVersion.DoesNotExist from exc
         template = ChecklistTemplate.objects.select_for_update().get(pk=template_id)
-        version = (
-            ChecklistTemplateVersion.objects.select_for_update()
-            .get(pk=command.version_id)
-        )
+        version = ChecklistTemplateVersion.objects.select_for_update().get(pk=command.version_id)
         if template.version != command.expected_template_version:
             raise ValidationError("O template foi alterado por outra sessão. Recarregue a página.")
         if version.status != VersionStatus.DRAFT:
             raise ValidationError("Somente uma versão em rascunho pode ser excluída.")
         if template.current_version_id is None:
-            raise ValidationError(
-                "O rascunho inicial não pode ser excluído; inative o template."
-            )
+            raise ValidationError("O rascunho inicial não pode ser excluído; inative o template.")
         version_number = version.version_number
         for item in version.items.select_for_update().order_by("pk"):
             item.delete()
@@ -830,10 +825,7 @@ class DeleteValidationGroupDraftService:
         except ValidationGroupVersion.DoesNotExist as exc:
             raise ValidationGroupVersion.DoesNotExist from exc
         group = ValidationGroup.objects.select_for_update().get(pk=group_id)
-        version = (
-            ValidationGroupVersion.objects.select_for_update()
-            .get(pk=command.version_id)
-        )
+        version = ValidationGroupVersion.objects.select_for_update().get(pk=command.version_id)
         if group.version != command.expected_group_version:
             raise ValidationError("O grupo foi alterado por outra sessão. Recarregue a página.")
         if version.status != VersionStatus.DRAFT:
