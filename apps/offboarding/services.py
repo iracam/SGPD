@@ -44,6 +44,7 @@ from apps.templates_engine.models import (
 from config.middleware import correlation_id
 
 from .models import (
+    OPEN_TASK_STATUSES,
     DraftOverrideAction,
     EmployeeSnapshot,
     OffboardingProcess,
@@ -65,7 +66,24 @@ PROCESS_STARTED_DESCRIPTION = "Início explícito e idempotente por ator autoriz
 SECTOR_TASK_STARTED_DESCRIPTION = "Início explícito da análise por ator autorizado."
 SECTOR_TASK_COMPLETED_DESCRIPTION = "Conclusão explícita da validação pelo setor."
 START_ACTION = "START"
-FORMALLY_CLOSED_PROCESS_STATUS = "ENCERRADO"
+
+#: Estados em que a tarefa continua visível para o responsável do setor. Depois
+#: da liberação ela é só leitura — `lock_sector_task_and_authority` exige
+#: processo iniciado para qualquer movimento — e o cancelamento a retira da
+#: lista.
+TASK_VISIBLE_PROCESS_STATUSES = (
+    ProcessStatus.STARTED,
+    ProcessStatus.RELEASED,
+    ProcessStatus.PROCESSED,
+    ProcessStatus.CLOSED,
+)
+
+#: Estados formais que já saíram das mãos dos setores e vão para `Concluídos`.
+FORMALLY_ADVANCED_PROCESS_STATUSES = (
+    ProcessStatus.RELEASED,
+    ProcessStatus.PROCESSED,
+    ProcessStatus.CLOSED,
+)
 
 
 def _require_people_department_role(
@@ -1083,7 +1101,7 @@ def sector_tasks_for_actor(actor: User) -> QuerySet[ProcessSectorTask]:
     )
     return (
         ProcessSectorTask.objects.filter(
-            process__status=ProcessStatus.STARTED,
+            process__status__in=TASK_VISIBLE_PROCESS_STATUSES,
             sector__is_active=True,
         )
         .annotate(
@@ -1125,7 +1143,7 @@ def completed_processes_for_actor(actor: User) -> QuerySet[OffboardingProcess]:
     """Return formally closed processes or those with every sector task completed."""
 
     tasks = ProcessSectorTask.objects.filter(process_id=OuterRef("pk"))
-    unfinished_tasks = tasks.exclude(status=SectorTaskStatus.COMPLETED)
+    unfinished_tasks = tasks.filter(status__in=OPEN_TASK_STATUSES)
     last_task_completion = (
         tasks.filter(completed_at__isnull=False)
         .order_by("-completed_at", "-pk")
@@ -1139,7 +1157,7 @@ def completed_processes_for_actor(actor: User) -> QuerySet[OffboardingProcess]:
             completion_at=Subquery(last_task_completion),
         )
         .filter(
-            Q(status=FORMALLY_CLOSED_PROCESS_STATUS)
+            Q(status__in=FORMALLY_ADVANCED_PROCESS_STATUSES)
             | Q(
                 status=ProcessStatus.STARTED,
                 has_sector_tasks=True,
@@ -1154,7 +1172,8 @@ def open_processes_for_actor(actor: User) -> QuerySet[OffboardingProcess]:
 
     unfinished_tasks = ProcessSectorTask.objects.filter(
         process_id=OuterRef("pk"),
-    ).exclude(status=SectorTaskStatus.COMPLETED)
+        status__in=OPEN_TASK_STATUSES,
+    )
     return (
         processes_for_actor(actor)
         .annotate(has_unfinished_tasks=Exists(unfinished_tasks))

@@ -11,8 +11,39 @@ from django.db import models
 
 
 class ProcessStatus(models.TextChoices):
+    """Estado **formal** do processo: o que alguém decidiu, com data e ator.
+
+    A situação funcional — em validação, com pendências, aguardando decisão,
+    pronto para o DP — não mora aqui: é calculada na leitura sobre tarefas,
+    pendências e pretensões, pela ADR-051.
+    """
+
     DRAFT = "RASCUNHO", "Rascunho"
     STARTED = "INICIADO", "Iniciado"
+    RELEASED = "LIBERADO_PARA_RESCISAO", "Liberado para rescisão"
+    PROCESSED = "RESCISAO_PROCESSADA", "Rescisão processada"
+    CLOSED = "ENCERRADO", "Encerrado"
+    CANCELLED = "CANCELADO", "Cancelado"
+
+
+#: Estados em que o processo já foi iniciado e, portanto, exige data e ator de
+#: início. `CANCELADO` fica fora porque o rascunho também pode ser cancelado.
+STARTED_PROCESS_STATUSES = (
+    ProcessStatus.STARTED,
+    ProcessStatus.RELEASED,
+    ProcessStatus.PROCESSED,
+    ProcessStatus.CLOSED,
+)
+
+#: Estados que encerram o ciclo e liberam a chave do colaborador.
+TERMINAL_PROCESS_STATUSES = (ProcessStatus.CLOSED, ProcessStatus.CANCELLED)
+
+#: Estados que ainda não receberam nenhuma marca formal da Fase 8.
+UNRELEASED_PROCESS_STATUSES = (
+    ProcessStatus.DRAFT,
+    ProcessStatus.STARTED,
+    ProcessStatus.CANCELLED,
+)
 
 
 class ProcessEventType(models.TextChoices):
@@ -21,6 +52,12 @@ class ProcessEventType(models.TextChoices):
     STARTED = "PROCESS_STARTED", "Processo iniciado"
     SECTOR_TASK_STARTED = "SECTOR_TASK_STARTED", "Tarefa de setor iniciada"
     SECTOR_TASK_COMPLETED = "SECTOR_TASK_COMPLETED", "Tarefa de setor concluída"
+    SECTOR_TASK_CANCELLED = "SECTOR_TASK_CANCELLED", "Tarefa de setor cancelada"
+    RELEASED = "PROCESS_RELEASED", "Processo liberado para rescisão"
+    PROCESSING_REGISTERED = "PROCESSING_REGISTERED", "Processamento da rescisão registrado"
+    CLOSED = "PROCESS_CLOSED", "Processo encerrado"
+    CANCELLED = "PROCESS_CANCELLED", "Processo cancelado"
+    REOPENED = "PROCESS_REOPENED", "Processo reaberto"
     PENDING_CREATED = "PENDING_CREATED", "Pendência criada"
     PENDING_COMMENTED = "PENDING_COMMENTED", "Pendência comentada"
     PENDING_STATUS_CHANGED = "PENDING_STATUS_CHANGED", "Situação da pendência alterada"
@@ -42,6 +79,11 @@ class SectorTaskStatus(models.TextChoices):
     PENDING = "PENDENTE", "Pendente"
     IN_ANALYSIS = "EM_ANALISE", "Em análise"
     COMPLETED = "CONCLUIDA", "Concluída"
+    CANCELLED = "CANCELADA", "Cancelada"
+
+
+#: Situações em que a tarefa ainda espera trabalho do setor.
+OPEN_TASK_STATUSES = (SectorTaskStatus.PENDING, SectorTaskStatus.IN_ANALYSIS)
 
 
 class OffboardingProcessQuerySet(models.QuerySet["OffboardingProcess"]):
@@ -94,6 +136,71 @@ class OffboardingProcess(models.Model):
     reason = models.TextField("motivo")
     priority = models.CharField("prioridade", max_length=50)
     notes = models.TextField("observações", blank=True)
+    released_at = models.DateTimeField("liberado em", null=True, blank=True)
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="liberado por",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="released_offboarding_processes",
+    )
+    release_notes = models.CharField("parecer da liberação", max_length=1000, blank=True)
+    # Declaração do DP sobre o que foi processado no Senior HCM. O SGPD não lê
+    # nem escreve a rescisão (ADR-020, ADR-051): isto é prova de conferência
+    # humana, não espelho da fonte oficial.
+    termination_reference = models.CharField(
+        "número declarado da rescisão",
+        max_length=60,
+        blank=True,
+    )
+    termination_processed_on = models.DateField(
+        "data declarada do processamento",
+        null=True,
+        blank=True,
+    )
+    processing_registered_at = models.DateTimeField(
+        "processamento registrado em",
+        null=True,
+        blank=True,
+    )
+    processing_registered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="processamento registrado por",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="processed_offboarding_processes",
+    )
+    processing_notes = models.CharField(
+        "observação do processamento",
+        max_length=1000,
+        blank=True,
+    )
+    closed_at = models.DateTimeField("encerrado em", null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="encerrado por",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="closed_offboarding_processes",
+    )
+    closing_notes = models.CharField("observação do encerramento", max_length=1000, blank=True)
+    cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="cancelado por",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="cancelled_offboarding_processes",
+    )
+    cancellation_reason = models.CharField(
+        "motivo do cancelamento",
+        max_length=1000,
+        blank=True,
+    )
     version = models.PositiveIntegerField("versão de concorrência", default=1)
 
     objects = OffboardingProcessQuerySet.as_manager()
@@ -131,12 +238,90 @@ class OffboardingProcess(models.Model):
                         started_by__isnull=True,
                     )
                     | models.Q(
-                        status=ProcessStatus.STARTED,
+                        status__in=STARTED_PROCESS_STATUSES,
+                        started_at__isnull=False,
+                        started_by__isnull=False,
+                    )
+                    # Cancelar alcança tanto o rascunho quanto o iniciado, então
+                    # o par de início pode estar ausente ou presente — nunca pela
+                    # metade.
+                    | models.Q(
+                        status=ProcessStatus.CANCELLED,
+                        started_at__isnull=True,
+                        started_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.CANCELLED,
                         started_at__isnull=False,
                         started_by__isnull=False,
                     )
                 ),
                 name="SGPD_CK_PROCESS_START",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        status__in=UNRELEASED_PROCESS_STATUSES,
+                        released_at__isnull=True,
+                        released_by__isnull=True,
+                        processing_registered_at__isnull=True,
+                        processing_registered_by__isnull=True,
+                        closed_at__isnull=True,
+                        closed_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.RELEASED,
+                        released_at__isnull=False,
+                        released_by__isnull=False,
+                        processing_registered_at__isnull=True,
+                        processing_registered_by__isnull=True,
+                        closed_at__isnull=True,
+                        closed_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.PROCESSED,
+                        released_at__isnull=False,
+                        released_by__isnull=False,
+                        processing_registered_at__isnull=False,
+                        processing_registered_by__isnull=False,
+                        termination_reference__isnull=False,
+                        termination_processed_on__isnull=False,
+                        closed_at__isnull=True,
+                        closed_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.CLOSED,
+                        released_at__isnull=False,
+                        released_by__isnull=False,
+                        processing_registered_at__isnull=False,
+                        processing_registered_by__isnull=False,
+                        closed_at__isnull=False,
+                        closed_by__isnull=False,
+                    )
+                ),
+                name="SGPD_CK_PROCESS_FORMAL",
+            ),
+            models.CheckConstraint(
+                # O motivo entra somente no ramo do cancelamento: no Oracle a
+                # string vazia é NULL, então exigir ausência dele nos demais
+                # estados recusaria toda linha não cancelada no SQLite.
+                condition=(
+                    models.Q(
+                        status__in=(
+                            ProcessStatus.DRAFT,
+                            *STARTED_PROCESS_STATUSES,
+                        ),
+                        cancelled_at__isnull=True,
+                        cancelled_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.CANCELLED,
+                        cancelled_at__isnull=False,
+                        cancelled_by__isnull=False,
+                        cancellation_reason__isnull=False,
+                    )
+                ),
+                name="SGPD_CK_PROCESS_CANCEL",
             ),
         ]
         indexes = [
@@ -172,13 +357,66 @@ class OffboardingProcess(models.Model):
             raise ValidationError({"reason": "O motivo é obrigatório."})
         if not self.priority:
             raise ValidationError({"priority": "A prioridade é obrigatória."})
+        self.release_notes = self.release_notes.strip()
+        self.processing_notes = self.processing_notes.strip()
+        self.closing_notes = self.closing_notes.strip()
+        self.cancellation_reason = self.cancellation_reason.strip()
+        self.termination_reference = self.termination_reference.strip()
         started_values = (self.started_at is not None, self.started_by_id is not None)
         if any(started_values) and not all(started_values):
             raise ValidationError("O início exige data e ator.")
         if self.status == ProcessStatus.DRAFT and any(started_values):
             raise ValidationError("Um rascunho não pode possuir dados de início.")
-        if self.status == ProcessStatus.STARTED and not all(started_values):
+        if self.status in STARTED_PROCESS_STATUSES and not all(started_values):
             raise ValidationError("Um processo iniciado exige data e ator.")
+        self._clean_formal_marks()
+
+    def _clean_formal_marks(self) -> None:
+        """Cada marca formal exige data e ator, e só existe no estado que a produz."""
+
+        marks = {
+            "released": (self.released_at is not None, self.released_by_id is not None),
+            "processing_registered": (
+                self.processing_registered_at is not None,
+                self.processing_registered_by_id is not None,
+            ),
+            "closed": (self.closed_at is not None, self.closed_by_id is not None),
+            "cancelled": (self.cancelled_at is not None, self.cancelled_by_id is not None),
+        }
+        for name, values in marks.items():
+            if any(values) and not all(values):
+                raise ValidationError(f"A marca formal `{name}` exige data e ator.")
+        has_release = all(marks["released"])
+        has_processing = all(marks["processing_registered"])
+        has_closing = all(marks["closed"])
+        has_cancellation = all(marks["cancelled"])
+
+        if self.status in UNRELEASED_PROCESS_STATUSES and (
+            has_release or has_processing or has_closing
+        ):
+            raise ValidationError("O processo não liberado não pode possuir marcas de liberação.")
+        if self.status == ProcessStatus.RELEASED and (
+            not has_release or has_processing or has_closing
+        ):
+            raise ValidationError("A liberação exige data e ator e nada além dela.")
+        if self.status == ProcessStatus.PROCESSED:
+            if not has_release or not has_processing or has_closing:
+                raise ValidationError("O processamento exige a liberação anterior e nada além.")
+            if not self.termination_reference or self.termination_processed_on is None:
+                raise ValidationError(
+                    "O processamento exige o número declarado e a data da rescisão."
+                )
+        if self.status == ProcessStatus.CLOSED and not (
+            has_release and has_processing and has_closing
+        ):
+            raise ValidationError("O encerramento exige liberação e processamento registrados.")
+        if self.status == ProcessStatus.CANCELLED:
+            if not has_cancellation:
+                raise ValidationError("O cancelamento exige data e ator.")
+            if not self.cancellation_reason:
+                raise ValidationError({"cancellation_reason": "O motivo é obrigatório."})
+        elif has_cancellation:
+            raise ValidationError("Somente um processo cancelado possui marca de cancelamento.")
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Processos demissionais não podem ser excluídos.")
