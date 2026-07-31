@@ -1,4 +1,4 @@
-<header class="cabecalho">
+<header class="pagina-cabecalho">
   <div>
     <span class="pagina-selo">
       <i class="pi pi-file-edit" aria-hidden="true"></i>
@@ -25,7 +25,7 @@
     <div>
       <span class="rotulo">Colaborador</span>
       <h2 id="processo-colaborador">{{ dados.process.employee_snapshot.employee_name }}</h2>
-      <p>
+      <p class="registro">
         Matrícula {{ dados.process.employee_registration }} · Empresa
         {{ dados.process.company_code }} · Filial {{ dados.process.branch_code }}
       </p>
@@ -34,10 +34,13 @@
       <div>
         <dt>Situação</dt>
         <dd>
-          <p-tag
-            [severity]="dados.process.status === 'INICIADO' ? 'success' : 'warn'"
-            [value]="dados.process.status"
-          ></p-tag>
+          <span
+            [class]="
+              'chip ' + (dados.process.status === 'INICIADO' ? 'chip--released' : 'chip--pending')
+            "
+          >
+            {{ dados.process.status === 'INICIADO' ? 'Iniciado' : 'Rascunho' }}
+          </span>
         </dd>
       </div>
       <div>
@@ -52,14 +55,14 @@
   </section>
 
   @if (!iniciado()) {
-    <section class="cartao" aria-labelledby="titulo-grupos">
-      <div class="secao-titulo">
-        <div>
-          <span class="rotulo">Configuração versionada</span>
-          <h2 id="titulo-grupos">Grupos de validação</h2>
-        </div>
-        <p>Somente versões vigentes e publicadas podem entrar em uma nova seleção.</p>
-      </div>
+    <section class="grupo" aria-labelledby="titulo-grupos">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-sitemap" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-grupos">Grupos de validação</h2>
+          <small>Somente versões vigentes e publicadas podem entrar em uma nova seleção.</small>
+        </span>
+      </header>
 
       @if (sugestoes().length > 0) {
         <div class="sugestao" role="status">
@@ -112,15 +115,24 @@
     </section>
   }
 
-  <section class="cartao" aria-labelledby="titulo-setores">
-    <div class="secao-titulo">
-      <div>
-        <span class="rotulo">Resultado determinístico</span>
-        <h2 id="titulo-setores">
+  <section class="grupo" aria-labelledby="titulo-setores">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-building" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-setores">
           {{ iniciado() ? 'Tarefas geradas' : 'Setores que serão gerados' }}
         </h2>
-      </div>
-    </div>
+        <small>Resultado determinístico da seleção salva.</small>
+      </span>
+      <span
+        class="grupo__total"
+        [attr.aria-label]="
+          (iniciado() ? dados.tasks.length : dados.selection.resolved_sectors.length) + ' setores'
+        "
+      >
+        {{ iniciado() ? dados.tasks.length : dados.selection.resolved_sectors.length }}
+      </span>
+    </header>
 
     @if (iniciado()) {
       <div class="lista-setores">
@@ -128,12 +140,12 @@
           <article class="setor">
             <div>
               <strong>{{ tarefa.sector.name }}</strong>
-              <small>
+              <small class="registro">
                 {{ tarefa.template.code }} v{{ tarefa.template.version_number }} ·
                 {{ tarefa.checklist_item_count }} pergunta(s)
               </small>
             </div>
-            <span>Prazo {{ tarefa.due_at | date: 'dd/MM/yyyy HH:mm' }}</span>
+            <span class="registro">Prazo {{ tarefa.due_at | date: 'dd/MM/yyyy HH:mm' }}</span>
           </article>
         }
       </div>
@@ -143,17 +155,17 @@
           <article class="setor">
             <div>
               <strong>{{ setor.name }}</strong>
-              <small>
+              <small class="registro">
                 {{ setor.template_code }} v{{ setor.template_version_number }} ·
                 SLA {{ setor.sla_hours }}h
               </small>
             </div>
             <div class="marcadores">
               @if (setor.is_required) {
-                <p-tag severity="warn" value="Obrigatório"></p-tag>
+                <span class="chip chip--pending">Obrigatório</span>
               }
               @if (setor.blocks_process) {
-                <p-tag severity="danger" value="Bloqueante"></p-tag>
+                <span class="chip chip--blocked">Bloqueante</span>
               }
             </div>
           </article>

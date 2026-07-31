@@ -1,16 +1,14 @@
 @use 'breakpoints' as bp;
+@use 'conferencia';
 
-.cabecalho,
-.secao-titulo,
+// Mesmo protocolo de conferência das telas de execução (ADR-047): seções com
+// régua em verdigris, chips sobre os tokens --status-* e registro em mono.
+
 .resumo,
 .setor,
 .acoes {
   display: flex;
   flex-direction: column;
-}
-
-.cabecalho {
-  margin-block-end: 1.25rem;
 }
 
 .cartao {
@@ -19,6 +17,11 @@
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.9rem;
   background: var(--p-content-background);
+}
+
+// Grupos são seções, não caixas (ADR-047): régua do cabeçalho no lugar de borda.
+section.grupo {
+  margin-block-end: 1.75rem;
 }
 
 .cartao h2,
@@ -52,6 +55,8 @@
 
 .resumo dd {
   margin: 0.15rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
@@ -130,7 +135,6 @@ p-multiSelect {
 }
 
 @include bp.from(bp.$md) {
-  .secao-titulo,
   .resumo,
   .setor,
   .acoes {

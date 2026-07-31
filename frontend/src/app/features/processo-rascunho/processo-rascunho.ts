@@ -6,7 +6,6 @@ import { ActivatedRoute } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { MultiSelectModule } from 'primeng/multiselect';
-import { TagModule } from 'primeng/tag';
 import { finalize } from 'rxjs';
 
 import { errorMessage } from '../../core/api/api-error';
@@ -21,7 +20,6 @@ import { ProcessoRascunhoService } from './processo-rascunho.service';
     ButtonModule,
     MessageModule,
     MultiSelectModule,
-    TagModule,
   ],
   templateUrl: './processo-rascunho.html',
   styleUrl: './processo-rascunho.scss',
