@@ -32,6 +32,10 @@ from apps.templates_engine.services import (
     CreateValidationGroupService,
     CreateValidationGroupVersionCommand,
     CreateValidationGroupVersionService,
+    DeleteChecklistTemplateDraftCommand,
+    DeleteChecklistTemplateDraftService,
+    DeleteValidationGroupDraftCommand,
+    DeleteValidationGroupDraftService,
     GroupSectorValue,
     PublishChecklistTemplateVersionCommand,
     PublishChecklistTemplateVersionService,
@@ -192,7 +196,7 @@ def test_template_is_created_published_and_audited(
     checklist_item.question = "Alterada"
     with pytest.raises(ValidationError, match="imutáveis"):
         checklist_item.save()
-    with pytest.raises(ValidationError, match="não podem"):
+    with pytest.raises(ValidationError, match="Somente versões de template em rascunho"):
         published.delete()
 
 
@@ -740,6 +744,134 @@ def test_template_allows_only_one_draft_per_template(
         )
 
     assert template.versions.filter(status=VersionStatus.DRAFT).count() == 1
+
+
+def test_template_draft_can_be_deleted_but_published_and_initial_cannot(
+    actor: User,
+) -> None:
+    template = CreateChecklistTemplateService().execute(template_command(actor))
+    initial_draft = template.versions.get()
+    with pytest.raises(ValidationError, match="rascunho inicial"):
+        DeleteChecklistTemplateDraftService().execute(
+            DeleteChecklistTemplateDraftCommand(
+                actor=actor,
+                version_id=initial_draft.pk,
+                expected_template_version=template.version,
+            )
+        )
+
+    PublishChecklistTemplateVersionService().execute(
+        PublishChecklistTemplateVersionCommand(
+            actor=actor,
+            version_id=initial_draft.pk,
+            expected_template_version=template.version,
+        )
+    )
+    template.refresh_from_db()
+    with pytest.raises(ValidationError, match="rascunho pode ser excluída"):
+        DeleteChecklistTemplateDraftService().execute(
+            DeleteChecklistTemplateDraftCommand(
+                actor=actor,
+                version_id=initial_draft.pk,
+                expected_template_version=template.version,
+            )
+        )
+
+    draft = CreateChecklistTemplateVersionService().execute(
+        CreateChecklistTemplateVersionCommand(
+            actor=actor,
+            template_id=template.pk,
+            expected_version=template.version,
+            default_due_hours=8,
+            items=(item("VERSAO_2"),),
+        )
+    )
+    template.refresh_from_db()
+    expected_version_after_delete = template.version + 1
+
+    DeleteChecklistTemplateDraftService().execute(
+        DeleteChecklistTemplateDraftCommand(
+            actor=actor,
+            version_id=draft.pk,
+            expected_template_version=template.version,
+        )
+    )
+    template.refresh_from_db()
+
+    assert not template.versions.filter(pk=draft.pk).exists()
+    assert template.current_version_id == initial_draft.pk
+    assert template.version == expected_version_after_delete
+    assert WorkflowConfigurationAuditEvent.objects.filter(
+        event_type="TPL_DRAFT_DELETED",
+        entity_id=draft.pk,
+    ).exists()
+
+
+def test_group_draft_can_be_deleted_keeping_published_version(
+    actor: User,
+    sector: ValidationSector,
+) -> None:
+    template = publish_template(actor)
+    template_version = template.current_version
+    assert template_version is not None
+    sector_value = GroupSectorValue(
+        sector_id=sector.pk,
+        template_version_id=template_version.pk,
+        is_required=True,
+        blocks_process=True,
+        due_hours_override=None,
+        display_order=1,
+    )
+    group = CreateValidationGroupService().execute(
+        CreateValidationGroupCommand(
+            actor=actor,
+            name="Desligamento padrão",
+            description="",
+            sectors=(sector_value,),
+        )
+    )
+    published = group.versions.get()
+    with pytest.raises(ValidationError, match="rascunho inicial"):
+        DeleteValidationGroupDraftService().execute(
+            DeleteValidationGroupDraftCommand(
+                actor=actor,
+                version_id=published.pk,
+                expected_group_version=group.version,
+            )
+        )
+    PublishValidationGroupVersionService().execute(
+        PublishValidationGroupVersionCommand(
+            actor=actor,
+            version_id=published.pk,
+            expected_group_version=group.version,
+        )
+    )
+    group.refresh_from_db()
+    draft = CreateValidationGroupVersionService().execute(
+        CreateValidationGroupVersionCommand(
+            actor=actor,
+            group_id=group.pk,
+            expected_version=group.version,
+            sectors=(sector_value,),
+        )
+    )
+    group.refresh_from_db()
+
+    DeleteValidationGroupDraftService().execute(
+        DeleteValidationGroupDraftCommand(
+            actor=actor,
+            version_id=draft.pk,
+            expected_group_version=group.version,
+        )
+    )
+    group.refresh_from_db()
+
+    assert not group.versions.filter(pk=draft.pk).exists()
+    assert group.current_version_id == published.pk
+    assert WorkflowConfigurationAuditEvent.objects.filter(
+        event_type="GROUP_DRAFT_DELETED",
+        entity_id=draft.pk,
+    ).exists()
 
 
 def test_group_allows_only_one_draft_per_group(

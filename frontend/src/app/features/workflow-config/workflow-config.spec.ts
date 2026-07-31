@@ -5,7 +5,7 @@ import {
 } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiConfig } from '../../core/config/api.config';
 import { WorkflowConfigPage } from './workflow-config';
@@ -56,7 +56,10 @@ describe('WorkflowConfigPage', () => {
       .flush({ results: [] });
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    httpMock.verify();
+    vi.restoreAllMocks();
+  });
 
   it('cria o primeiro template sem inventar perguntas no cliente', () => {
     component.formularioTemplate.patchValue({
@@ -453,6 +456,57 @@ describe('WorkflowConfigPage', () => {
     expect(
       component.formularioGrupo.controls.sectors.at(0).controls.sector_id.value,
     ).toBe(7);
+  });
+
+  it('exclui o rascunho do grupo após confirmação enviando a versão otimista', () => {
+    const grupo = {
+      id: 5,
+      code: '5',
+      name: 'Grupo com rascunho',
+      description: '',
+      is_active: true,
+      current_version_id: 50,
+      version: 3,
+      versions: [
+        {
+          id: 51,
+          version_number: 2,
+          status: 'DRAFT' as const,
+          created_at: '2026-07-30T10:00:00-03:00',
+          published_at: null,
+          sectors: [],
+        },
+        {
+          id: 50,
+          version_number: 1,
+          status: 'PUBLISHED' as const,
+          created_at: '2026-07-29T12:00:00-03:00',
+          published_at: '2026-07-29T12:10:00-03:00',
+          sectors: [],
+        },
+      ],
+    };
+    component.grupos.set([grupo]);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    component.excluirRascunhoGrupo(grupo);
+
+    const remove = httpMock.expectOne('/api/v1/workflow-config/group-versions/51/');
+    expect(remove.request.method).toBe('DELETE');
+    expect(remove.request.body).toEqual({ expected_version: 3 });
+    remove.flush(null, { status: 204, statusText: 'No Content' });
+
+    httpMock.expectOne(apiConfig.routes.workflowSectors).flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowTemplates)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowGroups)
+      .flush({ results: [] });
+    httpMock
+      .expectOne((request) => request.url === apiConfig.routes.workflowApplicabilityRules)
+      .flush({ results: [] });
+    expect(component.aviso()).toContain('excluído');
   });
 
   it('cria a regra de aplicabilidade enviando curinga como nulo', () => {

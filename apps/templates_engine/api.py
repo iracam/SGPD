@@ -49,6 +49,10 @@ from .services import (
     CreateValidationGroupService,
     CreateValidationGroupVersionCommand,
     CreateValidationGroupVersionService,
+    DeleteChecklistTemplateDraftCommand,
+    DeleteChecklistTemplateDraftService,
+    DeleteValidationGroupDraftCommand,
+    DeleteValidationGroupDraftService,
     GroupSectorValue,
     PublishChecklistTemplateVersionCommand,
     PublishChecklistTemplateVersionService,
@@ -337,6 +341,20 @@ class ChecklistTemplateDraftUpdateView(WorkflowConfigurationAPIView):
             template_payload(template_queryset().get(pk=version.template_id)),
         )
 
+    def delete(self, request: Request, version_id: int) -> Response:
+        get_object_or_404(ChecklistTemplateVersion, pk=version_id)
+        serializer = PublishVersionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        DeleteChecklistTemplateDraftService().execute(
+            DeleteChecklistTemplateDraftCommand(
+                actor=self.actor(request),
+                version_id=version_id,
+                expected_template_version=data["expected_version"],
+            )
+        )
+        return Response(status=204)
+
 
 class ChecklistTemplatePublishView(WorkflowConfigurationAPIView):
     def post(self, request: Request, version_id: int) -> Response:
@@ -421,6 +439,20 @@ class ValidationGroupDraftUpdateView(WorkflowConfigurationAPIView):
         return Response(
             group_payload(group_queryset().get(pk=version.group_id)),
         )
+
+    def delete(self, request: Request, version_id: int) -> Response:
+        get_object_or_404(ValidationGroupVersion, pk=version_id)
+        serializer = PublishVersionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        DeleteValidationGroupDraftService().execute(
+            DeleteValidationGroupDraftCommand(
+                actor=self.actor(request),
+                version_id=version_id,
+                expected_group_version=data["expected_version"],
+            )
+        )
+        return Response(status=204)
 
 
 class ValidationGroupPublishView(WorkflowConfigurationAPIView):

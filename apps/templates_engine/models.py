@@ -31,10 +31,12 @@ class WorkflowConfigurationEventType(models.TextChoices):
     TEMPLATE_CREATED = "TEMPLATE_CREATED", "Template criado"
     TEMPLATE_VERSION_CREATED = "TPL_VERSION_CREATED", "Versão de template criada"
     TEMPLATE_DRAFT_UPDATED = "TPL_DRAFT_UPDATED", "Rascunho de template alterado"
+    TEMPLATE_DRAFT_DELETED = "TPL_DRAFT_DELETED", "Rascunho de template excluído"
     TEMPLATE_PUBLISHED = "TEMPLATE_PUBLISHED", "Template publicado"
     GROUP_CREATED = "GROUP_CREATED", "Grupo criado"
     GROUP_VERSION_CREATED = "GROUP_VERSION_CREATED", "Versão de grupo criada"
     GROUP_DRAFT_UPDATED = "GROUP_DRAFT_UPDATED", "Rascunho de grupo alterado"
+    GROUP_DRAFT_DELETED = "GROUP_DRAFT_DELETED", "Rascunho de grupo excluído"
     GROUP_PUBLISHED = "GROUP_PUBLISHED", "Grupo publicado"
     RULE_CREATED = "APPLICAB_RULE_CREATED", "Regra de aplicabilidade criada"
     RULE_UPDATED = "APPLICAB_RULE_UPDATED", "Regra de aplicabilidade alterada"
@@ -197,7 +199,10 @@ class ChecklistTemplateVersion(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
-        raise ValidationError("Versões de template não podem ser excluídas.")
+        status = type(self).objects.only("status").get(pk=self.pk).status
+        if status != VersionStatus.DRAFT:
+            raise ValidationError("Somente versões de template em rascunho podem ser excluídas.")
+        return super().delete(*args, **kwargs)
 
 
 class ChecklistTemplateItem(models.Model):
@@ -442,7 +447,10 @@ class ValidationGroupVersion(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
-        raise ValidationError("Versões de grupo não podem ser excluídas.")
+        status = type(self).objects.only("status").get(pk=self.pk).status
+        if status != VersionStatus.DRAFT:
+            raise ValidationError("Somente versões de grupo em rascunho podem ser excluídas.")
+        return super().delete(*args, **kwargs)
 
 
 class ValidationGroupSector(models.Model):

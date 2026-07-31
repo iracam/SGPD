@@ -364,6 +364,55 @@ class CreateChecklistTemplateVersionService:
 
 
 @dataclass(frozen=True, slots=True)
+class DeleteChecklistTemplateDraftCommand:
+    actor: User
+    version_id: int
+    expected_template_version: int
+
+
+class DeleteChecklistTemplateDraftService:
+    @transaction.atomic
+    def execute(self, command: DeleteChecklistTemplateDraftCommand) -> None:
+        _require_permission(command.actor)
+        try:
+            template_id = ChecklistTemplateVersion.objects.values_list(
+                "template_id",
+                flat=True,
+            ).get(pk=command.version_id)
+        except ChecklistTemplateVersion.DoesNotExist as exc:
+            raise ChecklistTemplateVersion.DoesNotExist from exc
+        template = ChecklistTemplate.objects.select_for_update().get(pk=template_id)
+        version = (
+            ChecklistTemplateVersion.objects.select_for_update()
+            .get(pk=command.version_id)
+        )
+        if template.version != command.expected_template_version:
+            raise ValidationError("O template foi alterado por outra sessão. Recarregue a página.")
+        if version.status != VersionStatus.DRAFT:
+            raise ValidationError("Somente uma versão em rascunho pode ser excluída.")
+        if template.current_version_id is None:
+            raise ValidationError(
+                "O rascunho inicial não pode ser excluído; inative o template."
+            )
+        version_number = version.version_number
+        for item in version.items.select_for_update().order_by("pk"):
+            item.delete()
+        _audit(
+            event_type=WorkflowConfigurationEventType.TEMPLATE_DRAFT_DELETED,
+            actor=command.actor,
+            entity_type="CHECKLIST_TEMPLATE_VERSION",
+            entity_id=version.pk,
+            data={
+                "template_id": template.pk,
+                "version_number": version_number,
+            },
+        )
+        version.delete()
+        template.version += 1
+        template.save(update_fields=("version", "updated_at"))
+
+
+@dataclass(frozen=True, slots=True)
 class PublishChecklistTemplateVersionCommand:
     actor: User
     version_id: int
@@ -760,6 +809,53 @@ class CreateValidationGroupVersionService:
         group.version += 1
         group.save(update_fields=("version", "updated_at"))
         return version
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteValidationGroupDraftCommand:
+    actor: User
+    version_id: int
+    expected_group_version: int
+
+
+class DeleteValidationGroupDraftService:
+    @transaction.atomic
+    def execute(self, command: DeleteValidationGroupDraftCommand) -> None:
+        _require_permission(command.actor)
+        try:
+            group_id = ValidationGroupVersion.objects.values_list(
+                "group_id",
+                flat=True,
+            ).get(pk=command.version_id)
+        except ValidationGroupVersion.DoesNotExist as exc:
+            raise ValidationGroupVersion.DoesNotExist from exc
+        group = ValidationGroup.objects.select_for_update().get(pk=group_id)
+        version = (
+            ValidationGroupVersion.objects.select_for_update()
+            .get(pk=command.version_id)
+        )
+        if group.version != command.expected_group_version:
+            raise ValidationError("O grupo foi alterado por outra sessão. Recarregue a página.")
+        if version.status != VersionStatus.DRAFT:
+            raise ValidationError("Somente uma versão em rascunho pode ser excluída.")
+        if group.current_version_id is None:
+            raise ValidationError("O rascunho inicial não pode ser excluído; inative o grupo.")
+        version_number = version.version_number
+        for rule in version.sector_rules.select_for_update().order_by("pk"):
+            rule.delete()
+        _audit(
+            event_type=WorkflowConfigurationEventType.GROUP_DRAFT_DELETED,
+            actor=command.actor,
+            entity_type="VALIDATION_GROUP_VERSION",
+            entity_id=version.pk,
+            data={
+                "group_id": group.pk,
+                "version_number": version_number,
+            },
+        )
+        version.delete()
+        group.version += 1
+        group.save(update_fields=("version", "updated_at"))
 
 
 @dataclass(frozen=True, slots=True)

@@ -209,10 +209,6 @@ export class WorkflowConfigPage {
     this.previewTemplate.set(false);
   }
 
-  rotuloTipoResposta(tipo: TipoRespostaChecklist): string {
-    return this.tiposResposta.find((opcao) => opcao.value === tipo)?.label ?? tipo;
-  }
-
   // Enum cru nunca chega ao usuário (ADR-047).
   rotuloVersao(status: 'DRAFT' | 'PUBLISHED' | 'RETIRED'): string {
     return status === 'PUBLISHED'
@@ -269,8 +265,51 @@ export class WorkflowConfigPage {
     return this.setores().find((setor) => setor.id === id)?.name ?? '—';
   }
 
-  rotuloTemplateVersao(id: number | null): string {
-    return this.versoesTemplatePublicadas().find((versao) => versao.id === id)?.label ?? '—';
+  versaoTemplateResolvida(
+    id: number | null,
+  ): { template: TemplateChecklist; versao: VersaoTemplate } | null {
+    if (id === null) {
+      return null;
+    }
+    for (const template of this.templates()) {
+      const versao = template.versions.find((item) => item.id === id);
+      if (versao) {
+        return { template, versao };
+      }
+    }
+    return null;
+  }
+
+  // Mesma precedência do backend: override do grupo > SLA do template > SLA do setor.
+  slaEfetivoRegra(regra: RegraForm): number | null {
+    const override = regra.controls.due_hours_override.value;
+    if (override) {
+      return override;
+    }
+    const resolvida = this.versaoTemplateResolvida(regra.controls.template_version_id.value);
+    if (resolvida?.versao.default_due_hours) {
+      return resolvida.versao.default_due_hours;
+    }
+    const setor = this.setores().find((item) => item.id === regra.controls.sector_id.value);
+    return setor?.default_due_hours ?? null;
+  }
+
+  opcoesEscolha(item: ItemTemplate): string[] {
+    const choices = item.config['choices'];
+    return Array.isArray(choices)
+      ? choices.filter((opcao): opcao is string => typeof opcao === 'string')
+      : [];
+  }
+
+  notasConfiguracao(blocksProcess: boolean, allowsPending: boolean): string {
+    const notas: string[] = [];
+    if (blocksProcess) {
+      notas.push('Bloqueia a conclusão do processo');
+    }
+    if (allowsPending) {
+      notas.push('Permite registrar pendência');
+    }
+    return notas.join(' · ');
   }
 
   cancelarEditorGrupo(): void {
@@ -370,6 +409,34 @@ export class WorkflowConfigPage {
           this.erro.set(
             errorMessage(error, 'Não foi possível criar uma nova versão do template.'),
           ),
+      });
+  }
+
+  excluirRascunhoTemplate(template: TemplateChecklist): void {
+    const draft = this.rascunhoTemplate(template);
+    if (!draft || this.salvandoTemplate()) {
+      return;
+    }
+    if (!confirm(`Excluir o rascunho v${draft.version_number} do template #${template.code}?`)) {
+      return;
+    }
+    this.salvandoTemplate.set(true);
+    this.limparMensagens();
+    this.service
+      .excluirRascunhoTemplate(draft.id, template.version)
+      .pipe(
+        finalize(() => this.salvandoTemplate.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          this.aviso.set(
+            `Rascunho v${draft.version_number} do template #${template.code} excluído.`,
+          );
+          this.carregar();
+        },
+        error: (error) =>
+          this.erro.set(errorMessage(error, 'Não foi possível excluir o rascunho.')),
       });
   }
 
@@ -494,6 +561,32 @@ export class WorkflowConfigPage {
           this.erro.set(
             errorMessage(error, 'Não foi possível criar uma nova versão do grupo.'),
           ),
+      });
+  }
+
+  excluirRascunhoGrupo(grupo: GrupoValidacao): void {
+    const draft = this.rascunhoGrupo(grupo);
+    if (!draft || this.salvandoGrupo()) {
+      return;
+    }
+    if (!confirm(`Excluir o rascunho v${draft.version_number} do grupo #${grupo.code}?`)) {
+      return;
+    }
+    this.salvandoGrupo.set(true);
+    this.limparMensagens();
+    this.service
+      .excluirRascunhoGrupo(draft.id, grupo.version)
+      .pipe(
+        finalize(() => this.salvandoGrupo.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          this.aviso.set(`Rascunho v${draft.version_number} do grupo #${grupo.code} excluído.`);
+          this.carregar();
+        },
+        error: (error) =>
+          this.erro.set(errorMessage(error, 'Não foi possível excluir o rascunho.')),
       });
   }
 

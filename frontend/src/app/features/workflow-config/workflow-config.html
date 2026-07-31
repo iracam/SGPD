@@ -164,47 +164,107 @@
 }
 
 <p-dialog
-  header="Pré-visualização do template (rascunho não salvo)"
+  header="Pré-visualização — como o setor verá a tarefa"
   [visible]="previewTemplate()"
   (visibleChange)="$event ? null : fecharPreviewTemplate()"
   [modal]="true"
   [draggable]="false"
   [dismissableMask]="true"
-  [style]="{ width: '95vw', maxWidth: '40rem' }"
+  [style]="{ width: '95vw', maxWidth: '44rem' }"
 >
-  <div class="preview">
-    <h3>{{ formularioTemplate.controls.name.value || '(sem nome)' }}</h3>
-    @if (formularioTemplate.controls.description.value) {
-      <p>{{ formularioTemplate.controls.description.value }}</p>
-    }
-    @if (formularioTemplate.controls.default_due_hours.value) {
-      <p><small>SLA padrão: {{ formularioTemplate.controls.default_due_hours.value }}h</small></p>
-    }
-    <ol class="preview__itens">
+  <p class="preview-nota">
+    Simulação da tela "Minhas tarefas" com este rascunho em análise. Setor e prazo reais
+    dependem do grupo que usar o template.
+  </p>
+  <article class="cartao preview-tarefa">
+    <header class="tarefa__cabecalho">
+      <div>
+        <span class="rotulo">Setor</span>
+        <h3>Setor designado no grupo</h3>
+      </div>
+      <span class="chip chip--review">Em análise</span>
+    </header>
+
+    <dl class="metadados">
+      <div>
+        <dt>Prazo</dt>
+        <dd>
+          @if (formularioTemplate.controls.default_due_hours.value; as sla) {
+            {{ sla }}h após o início
+          } @else {
+            SLA do setor
+          }
+        </dd>
+      </div>
+      <div>
+        <dt>Template</dt>
+        <dd>
+          @if (templateEmEdicao(); as template) {
+            {{ template.code }} · v{{ rascunhoTemplate(template)?.version_number }}
+          } @else {
+            novo · v1
+          }
+        </dd>
+      </div>
+    </dl>
+
+    <section class="checklist" aria-label="Checklist pré-visualizado">
+      <h4>Checklist</h4>
       @for (pergunta of formularioTemplate.controls.items.controls; track pergunta; let i = $index) {
-        <li>
-          <strong>{{ pergunta.controls.question.value || '(sem pergunta)' }}</strong>
-          <div class="preview__marcadores">
-            <span class="chip chip--review">
-              {{ rotuloTipoResposta(pergunta.controls.response_type.value) }}
-            </span>
+        <div class="pergunta">
+          <label [for]="'preview-item-' + i">
+            {{ pergunta.controls.question.value || '(sem pergunta)' }}
             @if (pergunta.controls.is_required.value) {
-              <span class="chip chip--pending">Obrigatória</span>
+              <span aria-label="obrigatório">*</span>
             }
-            @if (pergunta.controls.blocks_process.value) {
-              <span class="chip chip--blocked">Bloqueante</span>
+          </label>
+          @switch (pergunta.controls.response_type.value) {
+            @case ('BOOLEAN') {
+              <select [id]="'preview-item-' + i" disabled>
+                <option>Selecione</option>
+              </select>
             }
-            @if (pergunta.controls.requires_evidence.value) {
-              <span class="chip chip--canceled">Exige evidência</span>
+            @case ('TEXT') {
+              <textarea [id]="'preview-item-' + i" rows="3" disabled></textarea>
             }
-            @if (pergunta.controls.allows_pending.value) {
-              <span class="chip chip--canceled">Permite pendência</span>
+            @case ('NUMBER') {
+              <input [id]="'preview-item-' + i" type="number" disabled />
             }
-          </div>
-        </li>
+            @case ('DATE') {
+              <input [id]="'preview-item-' + i" type="date" disabled />
+            }
+            @case ('CONFIRMATION') {
+              <label class="confirmacao" [for]="'preview-item-' + i">
+                <input [id]="'preview-item-' + i" type="checkbox" disabled />
+                Confirmo a validação
+              </label>
+            }
+          }
+          @if (
+            pergunta.controls.requires_evidence.value ||
+            pergunta.controls.response_type.value === 'FILE'
+          ) {
+            <div class="evidencias">
+              <strong>Evidências privadas</strong>
+              <span class="upload">
+                <i class="pi pi-upload" aria-hidden="true"></i>
+                Selecionar PDF, PNG ou JPEG
+              </span>
+              <small>Nenhuma evidência anexada.</small>
+            </div>
+          }
+          @if (
+            notasConfiguracao(
+              pergunta.controls.blocks_process.value,
+              pergunta.controls.allows_pending.value
+            ); as notas
+          ) {
+            <small class="preview-config">{{ notas }}</small>
+          }
+        </div>
       }
-    </ol>
-  </div>
+    </section>
+  </article>
 </p-dialog>
 
 @if (exibirGrupo()) {
@@ -329,42 +389,129 @@
 }
 
 <p-dialog
-  header="Pré-visualização do grupo (rascunho não salvo)"
+  header="Pré-visualização — tarefas que o grupo criará"
   [visible]="previewGrupo()"
   (visibleChange)="$event ? null : fecharPreviewGrupo()"
   [modal]="true"
   [draggable]="false"
   [dismissableMask]="true"
-  [style]="{ width: '95vw', maxWidth: '40rem' }"
+  [style]="{ width: '95vw', maxWidth: '48rem' }"
 >
-  <div class="preview">
-    <h3>{{ formularioGrupo.controls.name.value || '(sem nome)' }}</h3>
-    @if (formularioGrupo.controls.description.value) {
-      <p>{{ formularioGrupo.controls.description.value }}</p>
-    }
-    <ol class="preview__itens">
-      @for (regra of formularioGrupo.controls.sectors.controls; track regra; let i = $index) {
-        <li>
-          <strong>
-            {{ rotuloSetor(regra.controls.sector_id.value) }} —
-            {{ rotuloTemplateVersao(regra.controls.template_version_id.value) }}
-          </strong>
-          <div class="preview__marcadores">
-            @if (regra.controls.is_required.value) {
-              <span class="chip chip--pending">Obrigatório</span>
-            }
-            @if (regra.controls.blocks_process.value) {
-              <span class="chip chip--blocked">Bloqueante</span>
-            }
-            @if (regra.controls.due_hours_override.value) {
-              <span class="chip chip--review">
-                SLA {{ regra.controls.due_hours_override.value }}h
-              </span>
-            }
+  <p class="preview-nota">
+    Simulação da tela "Minhas tarefas": ao iniciar um processo com o grupo
+    "{{ formularioGrupo.controls.name.value || 'sem nome' }}", cada setor recebe a tarefa abaixo.
+  </p>
+  <div class="preview-tarefas">
+    @for (regra of formularioGrupo.controls.sectors.controls; track regra; let i = $index) {
+      <article class="cartao preview-tarefa">
+        <header class="tarefa__cabecalho">
+          <div>
+            <span class="rotulo">Setor</span>
+            <h3>{{ rotuloSetor(regra.controls.sector_id.value) }}</h3>
           </div>
-        </li>
-      }
-    </ol>
+          <span class="chip chip--review">Em análise</span>
+        </header>
+
+        <dl class="metadados">
+          <div>
+            <dt>Prazo</dt>
+            <dd>
+              @if (slaEfetivoRegra(regra); as sla) {
+                {{ sla }}h após o início
+              } @else {
+                —
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Template</dt>
+            <dd>
+              @if (versaoTemplateResolvida(regra.controls.template_version_id.value); as resolvida) {
+                {{ resolvida.template.code }} · v{{ resolvida.versao.version_number }}
+              } @else {
+                —
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Validação</dt>
+            <dd>
+              {{ regra.controls.is_required.value ? 'Obrigatória' : 'Opcional' }}{{
+                regra.controls.blocks_process.value ? ' · bloqueante' : ''
+              }}
+            </dd>
+          </div>
+        </dl>
+
+        @if (versaoTemplateResolvida(regra.controls.template_version_id.value); as resolvida) {
+          <section class="checklist" [attr.aria-label]="'Checklist do setor ' + (i + 1)">
+            <h4>Checklist</h4>
+            @for (item of resolvida.versao.items; track item.id) {
+              <div class="pergunta">
+                <label [for]="'preview-grupo-' + i + '-' + item.id">
+                  {{ item.question }}
+                  @if (item.is_required) {
+                    <span aria-label="obrigatório">*</span>
+                  }
+                </label>
+                @switch (item.response_type) {
+                  @case ('BOOLEAN') {
+                    <select [id]="'preview-grupo-' + i + '-' + item.id" disabled>
+                      <option>Selecione</option>
+                    </select>
+                  }
+                  @case ('TEXT') {
+                    <textarea [id]="'preview-grupo-' + i + '-' + item.id" rows="3" disabled></textarea>
+                  }
+                  @case ('NUMBER') {
+                    <input [id]="'preview-grupo-' + i + '-' + item.id" type="number" disabled />
+                  }
+                  @case ('DATE') {
+                    <input [id]="'preview-grupo-' + i + '-' + item.id" type="date" disabled />
+                  }
+                  @case ('SINGLE_CHOICE') {
+                    <select [id]="'preview-grupo-' + i + '-' + item.id" disabled>
+                      <option>Selecione</option>
+                      @for (opcao of opcoesEscolha(item); track opcao) {
+                        <option>{{ opcao }}</option>
+                      }
+                    </select>
+                  }
+                  @case ('MULTIPLE_CHOICE') {
+                    <select [id]="'preview-grupo-' + i + '-' + item.id" multiple disabled>
+                      @for (opcao of opcoesEscolha(item); track opcao) {
+                        <option>{{ opcao }}</option>
+                      }
+                    </select>
+                  }
+                  @case ('CONFIRMATION') {
+                    <label class="confirmacao" [for]="'preview-grupo-' + i + '-' + item.id">
+                      <input [id]="'preview-grupo-' + i + '-' + item.id" type="checkbox" disabled />
+                      Confirmo a validação
+                    </label>
+                  }
+                }
+                @if (item.requires_evidence || item.response_type === 'FILE') {
+                  <div class="evidencias">
+                    <strong>Evidências privadas</strong>
+                    <span class="upload">
+                      <i class="pi pi-upload" aria-hidden="true"></i>
+                      Selecionar PDF, PNG ou JPEG
+                    </span>
+                    <small>Nenhuma evidência anexada.</small>
+                  </div>
+                }
+                @if (notasConfiguracao(item.blocks_process, item.allows_pending); as notas) {
+                  <small class="preview-config">{{ notas }}</small>
+                }
+              </div>
+            }
+          </section>
+        } @else {
+          <p class="preview-nota">Selecione o template para ver o checklist.</p>
+        }
+      </article>
+    }
   </div>
 </p-dialog>
 
@@ -525,6 +672,18 @@
               label="Editar rascunho"
               (onClick)="editarRascunho(template)"
             ></p-button>
+            @if (template.current_version_id) {
+              <p-button
+                type="button"
+                severity="danger"
+                size="small"
+                [outlined]="true"
+                icon="pi pi-trash"
+                label="Excluir rascunho"
+                [loading]="salvandoTemplate()"
+                (onClick)="excluirRascunhoTemplate(template)"
+              ></p-button>
+            }
             <p-button
               type="button"
               size="small"
@@ -585,6 +744,18 @@
               label="Editar rascunho"
               (onClick)="editarRascunhoGrupo(grupo)"
             ></p-button>
+            @if (grupo.current_version_id) {
+              <p-button
+                type="button"
+                severity="danger"
+                size="small"
+                [outlined]="true"
+                icon="pi pi-trash"
+                label="Excluir rascunho"
+                [loading]="salvandoGrupo()"
+                (onClick)="excluirRascunhoGrupo(grupo)"
+              ></p-button>
+            }
             <p-button
               type="button"
               size="small"

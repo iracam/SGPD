@@ -120,20 +120,176 @@
   align-items: flex-start;
 }
 
-.preview__itens {
-  display: grid;
-  gap: 0.7rem;
-  padding-inline-start: 1.2rem;
+// A pré-visualização espelha o cartão de tarefa de tarefas.scss (fonte visual).
+// ponytail: estilos duplicados aqui com escopo próprio; extrair partial
+// compartilhado se as duas telas começarem a divergir.
+.preview-nota {
+  margin-block: 0 1rem;
+  color: var(--p-text-muted-color);
 }
 
-.preview__marcadores {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-block-start: 0.35rem;
+.preview-tarefas {
+  display: grid;
+  gap: 1rem;
+}
+
+.preview-tarefa {
+  display: grid;
+  gap: 1rem;
+
+  .tarefa__cabecalho {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    h3 {
+      margin-block: 0.2rem;
+    }
+  }
+
+  .rotulo {
+    color: var(--p-text-muted-color);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .metadados {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+
+    dt {
+      color: var(--p-text-muted-color);
+      font-size: 0.78rem;
+    }
+
+    dd {
+      margin: 0.15rem 0 0;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+  }
+
+  .checklist {
+    display: grid;
+    gap: 0;
+
+    h4 {
+      margin-block: 0.2rem 0.35rem;
+    }
+  }
+
+  // Mesmo trilho de conferência da tela de tarefas: um nó por item ligado por fio.
+  .pergunta {
+    position: relative;
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.65rem 0 0.9rem 1.9rem;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0.78rem;
+      left: 0;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid var(--p-form-field-border-color);
+      border-radius: 0.3rem;
+      background: var(--p-content-background);
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 2.05rem;
+      bottom: -0.78rem;
+      left: calc(0.5rem - 1px);
+      width: 2px;
+      background: var(--p-content-border-color);
+    }
+
+    &:last-child::after {
+      display: none;
+    }
+
+    > label {
+      font-weight: 650;
+    }
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--p-form-field-border-color);
+    border-radius: var(--p-form-field-border-radius);
+    background: var(--p-form-field-background);
+    color: var(--p-form-field-color);
+    font: inherit;
+  }
+
+  select[multiple] {
+    min-height: 7rem;
+  }
+
+  .confirmacao {
+    display: flex;
+    gap: 0.65rem;
+    align-items: center;
+    min-height: 44px;
+
+    input {
+      width: 1.25rem;
+      min-height: 1.25rem;
+    }
+  }
+
+  .evidencias {
+    display: grid;
+    gap: 0.45rem;
+
+    small {
+      color: var(--p-text-muted-color);
+    }
+  }
+
+  .upload {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px dashed var(--p-primary-color);
+    border-radius: 0.55rem;
+    color: var(--p-primary-color);
+    font-weight: 650;
+    opacity: 0.75;
+  }
+
+  .preview-config {
+    color: var(--p-text-muted-color);
+  }
 }
 
 @include bp.from(bp.$md) {
+  .preview-tarefa {
+    .tarefa__cabecalho {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .metadados {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
   .subtitulo,
   .item,
   .item__acoes {

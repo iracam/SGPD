@@ -62,6 +62,13 @@ export class WorkflowConfigService {
     );
   }
 
+  excluirRascunhoTemplate(versionId: number, expectedVersion: number): Observable<void> {
+    return this.http.delete<void>(
+      `/api/v1/workflow-config/template-versions/${versionId}/`,
+      { body: { expected_version: expectedVersion } },
+    );
+  }
+
   criarVersaoTemplate(
     templateId: number,
     payload: NovaVersaoTemplate,
@@ -96,6 +103,13 @@ export class WorkflowConfigService {
     return this.http.put<GrupoValidacao>(
       `/api/v1/workflow-config/group-versions/${versionId}/`,
       payload,
+    );
+  }
+
+  excluirRascunhoGrupo(versionId: number, expectedVersion: number): Observable<void> {
+    return this.http.delete<void>(
+      `/api/v1/workflow-config/group-versions/${versionId}/`,
+      { body: { expected_version: expectedVersion } },
     );
   }
 
