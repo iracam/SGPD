@@ -1,4 +1,4 @@
-<header class="cabecalho">
+<header class="pagina-cabecalho">
   <div>
     <span class="pagina-selo">
       <i class="pi pi-list-check" aria-hidden="true"></i>
@@ -9,7 +9,7 @@
       Cadastre versões explícitas. Publicações novas não alteram processos já iniciados.
     </p>
   </div>
-  <div class="cabecalho__acoes">
+  <div class="pagina-acoes">
     <p-button
       type="button"
       [outlined]="true"
@@ -185,18 +185,20 @@
         <li>
           <strong>{{ pergunta.controls.question.value || '(sem pergunta)' }}</strong>
           <div class="preview__marcadores">
-            <p-tag severity="info" [value]="rotuloTipoResposta(pergunta.controls.response_type.value)"></p-tag>
+            <span class="chip chip--review">
+              {{ rotuloTipoResposta(pergunta.controls.response_type.value) }}
+            </span>
             @if (pergunta.controls.is_required.value) {
-              <p-tag severity="warn" value="Obrigatória"></p-tag>
+              <span class="chip chip--pending">Obrigatória</span>
             }
             @if (pergunta.controls.blocks_process.value) {
-              <p-tag severity="danger" value="Bloqueante"></p-tag>
+              <span class="chip chip--blocked">Bloqueante</span>
             }
             @if (pergunta.controls.requires_evidence.value) {
-              <p-tag severity="secondary" value="Exige evidência"></p-tag>
+              <span class="chip chip--canceled">Exige evidência</span>
             }
             @if (pergunta.controls.allows_pending.value) {
-              <p-tag severity="secondary" value="Permite pendência"></p-tag>
+              <span class="chip chip--canceled">Permite pendência</span>
             }
           </div>
         </li>
@@ -349,13 +351,15 @@
           </strong>
           <div class="preview__marcadores">
             @if (regra.controls.is_required.value) {
-              <p-tag severity="warn" value="Obrigatório"></p-tag>
+              <span class="chip chip--pending">Obrigatório</span>
             }
             @if (regra.controls.blocks_process.value) {
-              <p-tag severity="danger" value="Bloqueante"></p-tag>
+              <span class="chip chip--blocked">Bloqueante</span>
             }
             @if (regra.controls.due_hours_override.value) {
-              <p-tag severity="info" [value]="'SLA ' + regra.controls.due_hours_override.value + 'h'"></p-tag>
+              <span class="chip chip--review">
+                SLA {{ regra.controls.due_hours_override.value }}h
+              </span>
             }
           </div>
         </li>
@@ -489,23 +493,28 @@
 }
 
 <section class="catalogos" aria-label="Catálogo versionado">
-  <article class="cartao">
-    <div class="subtitulo">
-      <h2>Templates</h2>
-      <span>{{ templates().length }} cadastrado(s)</span>
-    </div>
+  <article class="grupo">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-file" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo">Templates</h2>
+        <small>Reutilizáveis entre setores; publicação é imutável.</small>
+      </span>
+      <span class="grupo__total" [attr.aria-label]="templates().length + ' templates'">
+        {{ templates().length }}
+      </span>
+    </header>
     @for (template of templates(); track template.id) {
-      <div class="registro">
+      <div class="item">
         <div>
           <strong>#{{ template.code }} — {{ template.name }}</strong>
-          <small>Reutilizável entre setores · versão de concorrência {{ template.version }}</small>
+          <small class="registro">Versão de concorrência {{ template.version }}</small>
         </div>
-        <div class="registro__acoes">
+        <div class="item__acoes">
           @for (version of template.versions; track version.id) {
-            <p-tag
-              [severity]="version.status === 'PUBLISHED' ? 'success' : version.status === 'DRAFT' ? 'warn' : 'secondary'"
-              [value]="'v' + version.version_number + ' · ' + version.status"
-            ></p-tag>
+            <span [class]="'chip chip--' + estadoVersao(version.status)">
+              v{{ version.version_number }} · {{ rotuloVersao(version.status) }}
+            </span>
           }
           @if (rascunhoTemplate(template)) {
             <p-button
@@ -541,26 +550,31 @@
     }
   </article>
 
-  <article class="cartao">
-    <div class="subtitulo">
-      <h2>Grupos de validação</h2>
-      <span>{{ grupos().length }} cadastrado(s)</span>
-    </div>
+  <article class="grupo">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-sitemap" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo">Grupos de validação</h2>
+        <small>Cada grupo resolve setores e templates publicados.</small>
+      </span>
+      <span class="grupo__total" [attr.aria-label]="grupos().length + ' grupos'">
+        {{ grupos().length }}
+      </span>
+    </header>
     @for (grupo of grupos(); track grupo.id) {
-      <div class="registro">
+      <div class="item">
         <div>
           <strong>#{{ grupo.code }} — {{ grupo.name }}</strong>
-          <small>
+          <small class="registro">
             {{ grupo.versions[0]?.sectors?.length || 0 }} setor(es) · versão de concorrência
             {{ grupo.version }}
           </small>
         </div>
-        <div class="registro__acoes">
+        <div class="item__acoes">
           @for (version of grupo.versions; track version.id) {
-            <p-tag
-              [severity]="version.status === 'PUBLISHED' ? 'success' : version.status === 'DRAFT' ? 'warn' : 'secondary'"
-              [value]="'v' + version.version_number + ' · ' + version.status"
-            ></p-tag>
+            <span [class]="'chip chip--' + estadoVersao(version.status)">
+              v{{ version.version_number }} · {{ rotuloVersao(version.status) }}
+            </span>
           }
           @if (rascunhoGrupo(grupo)) {
             <p-button
@@ -586,20 +600,25 @@
     }
   </article>
 
-  <article class="cartao">
-    <div class="subtitulo">
-      <h2>Regras de aplicabilidade</h2>
-      <span>{{ regrasAplicabilidade().length }} cadastrada(s)</span>
-    </div>
-    <p class="editor__nota">
-      Toda regra vigente que casa contribui seu grupo; nenhuma suprime outra. O
-      DP confirma a sugestão no rascunho antes de iniciar.
-    </p>
+  <article class="grupo">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-filter" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo">Regras de aplicabilidade</h2>
+        <small>
+          Toda regra vigente que casa contribui seu grupo; nenhuma suprime outra. O DP confirma a
+          sugestão no rascunho antes de iniciar.
+        </small>
+      </span>
+      <span class="grupo__total" [attr.aria-label]="regrasAplicabilidade().length + ' regras'">
+        {{ regrasAplicabilidade().length }}
+      </span>
+    </header>
     @for (regra of regrasAplicabilidade(); track regra.id) {
-      <div class="registro">
+      <div class="item">
         <div>
           <strong>{{ regra.name }} → {{ regra.group.name }}</strong>
-          <small>
+          <small class="registro">
             {{ descricaoFiltroRegra(regra) }} · prioridade {{ regra.priority }}
             @if (regra.valid_from || regra.valid_to) {
               · vigência {{ regra.valid_from || 'início livre' }} a
@@ -607,11 +626,10 @@
             }
           </small>
         </div>
-        <div class="registro__acoes">
-          <p-tag
-            [severity]="regra.is_active ? 'success' : 'secondary'"
-            [value]="regra.is_active ? 'Ativa' : 'Inativa'"
-          ></p-tag>
+        <div class="item__acoes">
+          <span [class]="'chip ' + (regra.is_active ? 'chip--released' : 'chip--canceled')">
+            {{ regra.is_active ? 'Ativa' : 'Inativa' }}
+          </span>
           <p-button
             type="button"
             size="small"

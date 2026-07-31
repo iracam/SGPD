@@ -14,7 +14,6 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
-import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 import { finalize, forkJoin } from 'rxjs';
 
@@ -66,7 +65,6 @@ type RegraForm = FormGroup<{
     InputTextModule,
     MessageModule,
     SelectModule,
-    TagModule,
     TextareaModule,
   ],
   templateUrl: './workflow-config.html',
@@ -212,6 +210,19 @@ export class WorkflowConfigPage {
 
   rotuloTipoResposta(tipo: TipoRespostaChecklist): string {
     return this.tiposResposta.find((opcao) => opcao.value === tipo)?.label ?? tipo;
+  }
+
+  // Enum cru nunca chega ao usuário (ADR-047).
+  rotuloVersao(status: 'DRAFT' | 'PUBLISHED' | 'RETIRED'): string {
+    return status === 'PUBLISHED'
+      ? 'Publicada'
+      : status === 'DRAFT'
+        ? 'Rascunho'
+        : 'Retirada';
+  }
+
+  estadoVersao(status: 'DRAFT' | 'PUBLISHED' | 'RETIRED'): string {
+    return status === 'PUBLISHED' ? 'released' : status === 'DRAFT' ? 'pending' : 'canceled';
   }
 
   cancelarEditorTemplate(): void {

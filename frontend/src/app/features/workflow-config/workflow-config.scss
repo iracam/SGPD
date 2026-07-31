@@ -1,21 +1,17 @@
 @use 'breakpoints' as bp;
+@use 'conferencia';
 
-.cabecalho,
-.cabecalho__acoes,
+// Catálogo versionado com o protocolo de conferência (ADR-047): seções com
+// régua e total em mono, chips sobre os tokens --status-* e códigos em mono.
+
 .subtitulo,
 .acoes,
-.registro,
-.registro__acoes {
+.item,
+.item__acoes {
   display: flex;
   flex-direction: column;
 }
 
-.cabecalho {
-  gap: 1rem;
-  margin-block-end: 1.25rem;
-}
-
-.cabecalho__acoes,
 .acoes {
   gap: 0.55rem;
 }
@@ -63,10 +59,15 @@
   margin-block: 1rem 0.65rem;
 }
 
-.linhas,
-.catalogos {
+.linhas {
   display: grid;
   gap: 0.8rem;
+}
+
+.catalogos {
+  display: grid;
+  gap: 1.75rem;
+  margin-block-start: 1.5rem;
 }
 
 .linha {
@@ -98,19 +99,23 @@
   margin-block-start: 1rem;
 }
 
-.registro {
+.item {
   gap: 0.7rem;
   padding-block: 0.8rem;
   border-block-start: 1px solid var(--p-content-border-color);
 }
 
-.registro small {
+.item:first-of-type {
+  border-block-start: 0;
+}
+
+.item small {
   display: block;
   margin-block-start: 0.2rem;
   color: var(--p-text-muted-color);
 }
 
-.registro__acoes {
+.item__acoes {
   gap: 0.45rem;
   align-items: flex-start;
 }
@@ -129,16 +134,19 @@
 }
 
 @include bp.from(bp.$md) {
-  .cabecalho,
   .subtitulo,
-  .registro,
-  .registro__acoes {
+  .item,
+  .item__acoes {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
   }
 
-  .cabecalho__acoes,
+  .item__acoes {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
   .acoes {
     flex-direction: row;
     justify-content: flex-end;
