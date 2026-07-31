@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.offboarding",
     "apps.pending_items",
+    "apps.reporting",
     "apps.sectors",
     "apps.system_settings",
     "apps.templates_engine",

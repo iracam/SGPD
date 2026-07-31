@@ -3,32 +3,152 @@
 
 // Protocolo de conferência (ADR-047): grupos como seções com régua e total em
 // mono no lugar dos cartões cinza; dado de registro (usuário, códigos) em mono.
+// Mobile first, sem `max-width` (ADR-028).
 
-.grupos {
+.grupo {
+  margin-block-start: 1.75rem;
+}
+
+.indicadores {
   display: grid;
-  gap: 1.75rem;
-  margin-top: 1.5rem;
-  grid-template-columns: 1fr;
-
-  @include bp.from(bp.$md) {
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  }
-}
-
-.sessao {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.itens {
+  gap: 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-inline-start-width: 3px;
+  border-inline-start-color: color-mix(in srgb, var(--sgpd-accent) 45%, transparent);
+  border-radius: 0.7rem;
+  background: var(--p-content-background);
+}
+
+// Vencido é fato consumado; próximo do prazo ainda dá para resolver. As duas
+// marcas usam os mesmos tokens de estado das telas de execução.
+.indicador--alerta {
+  border-inline-start-color: var(--status-blocked-color);
+
+  .indicador__valor {
+    color: var(--status-blocked-color);
+  }
+}
+
+.indicador--atencao {
+  border-inline-start-color: var(--status-pending-color);
+
+  .indicador__valor {
+    color: var(--status-pending-color);
+  }
+}
+
+.indicador__valor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.indicador__rotulo {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+}
+
+.recortes {
+  display: grid;
+  gap: 1.25rem;
+  margin-block-start: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  }
+}
+
+.recorte {
+  min-width: 0;
+}
+
+.recorte--largo {
+  margin-block-start: 1.25rem;
+}
+
+.recorte__titulo {
+  margin: 0 0 0.5rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.linhas {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-width: 0;
+  padding-block-end: 0.4rem;
+  border-block-end: 1px solid var(--p-content-border-color);
+}
+
+.linha--critica {
+  align-items: flex-start;
+
+  a {
+    color: inherit;
+  }
+
+  small {
+    flex-basis: 100%;
+    color: var(--p-text-muted-color);
+    overflow-wrap: anywhere;
+  }
+}
+
+.linha__total {
+  font-weight: 700;
+}
+
+.nota {
+  margin: 0.5rem 0 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+}
+
+.sessao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.itens {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 
   li {
     display: flex;

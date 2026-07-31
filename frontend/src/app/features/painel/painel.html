@@ -1,5 +1,6 @@
 @let user = authService.currentUser();
 @let context = authService.currentContext();
+@let dados = indicadores();
 
 <header class="pagina-cabecalho">
   <div>
@@ -9,81 +10,276 @@
     </span>
     <h1 class="page-title">Painel</h1>
     <p class="page-lead">
-      Bem-vindo, {{ user?.display_name }}. Os módulos do processo demissional entram
-      aqui conforme cada fase avança.
+      Bem-vindo, {{ user?.display_name }}. Os números abaixo são calculados a cada
+      leitura, sobre os processos e as tarefas que você enxerga.
     </p>
   </div>
 </header>
 
-<div class="grupos">
-  <section class="grupo" aria-label="Sessão">
-    <header class="grupo__cabecalho">
-      <i class="pi pi-user" aria-hidden="true"></i>
-      <span>
-        <h2 class="grupo__titulo">Sessão</h2>
-        <small>Identidade autenticada.</small>
-      </span>
-    </header>
-    <p class="sessao">
-      <strong>{{ user?.display_name }}</strong>
-      <span class="registro">{{ user?.username }} · {{ user?.email }}</span>
-    </p>
-  </section>
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
 
-  <section class="grupo" aria-label="Papéis">
-    <header class="grupo__cabecalho">
-      <i class="pi pi-id-card" aria-hidden="true"></i>
-      <span>
-        <h2 class="grupo__titulo">Papéis</h2>
-        <small>Funções atribuídas ao seu usuário.</small>
-      </span>
-      <span
-        class="grupo__total"
-        [attr.aria-label]="(context?.roles?.length ?? 0) + ' papéis'"
-      >
-        {{ context?.roles?.length ?? 0 }}
-      </span>
-    </header>
-    @if (context && context.roles.length) {
-      <ul class="itens">
-        @for (role of context.roles; track role) {
-          <li>{{ rotuloPapel(role) }}</li>
-        }
-      </ul>
-    } @else {
-      <p class="estado-vazio">Nenhum papel atribuído.</p>
-    }
-  </section>
-
-  <section class="grupo" aria-label="Escopos">
-    <header class="grupo__cabecalho">
-      <i class="pi pi-building" aria-hidden="true"></i>
-      <span>
-        <h2 class="grupo__titulo">Escopos</h2>
-        <small>Empresas e filiais do seu vínculo vigente.</small>
-      </span>
-      @if (!context?.scopes?.is_superuser) {
-        <span
-          class="grupo__total"
-          [attr.aria-label]="(context?.scopes?.assignments?.length ?? 0) + ' escopos'"
-        >
-          {{ context?.scopes?.assignments?.length ?? 0 }}
+@if (carregando()) {
+  <section class="grupo"><p class="vazio-inline">Carregando indicadores…</p></section>
+} @else if (dados) {
+  @if (dados.coordination; as dp) {
+    <section class="grupo" aria-labelledby="titulo-coordenacao">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-briefcase" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-coordenacao">Coordenação</h2>
+          <small>Processos sob o seu escopo de Departamento Pessoal.</small>
         </span>
-      }
-    </header>
-    @if (context?.scopes?.is_superuser) {
-      <p class="estado-vazio">Acesso global de contingência.</p>
-    } @else if (context && context.scopes.assignments.length) {
-      <ul class="itens">
-        @for (scope of context.scopes.assignments; track scope.role + scope.scope_type + scope.company_code + scope.branch_code) {
-          <li>
-            {{ rotuloPapel(scope.role) }}
-            <small class="registro">{{ registroEscopo(scope) }}</small>
-          </li>
-        }
+        <span class="grupo__total">{{ dp.open_processes }}</span>
+      </header>
+
+      <ul class="indicadores">
+        <li class="indicador">
+          <span class="indicador__valor registro">{{ dp.open_processes }}</span>
+          <span class="indicador__rotulo">Em aberto</span>
+        </li>
+        <li class="indicador">
+          <span class="indicador__valor registro">{{ dp.completed_processes }}</span>
+          <span class="indicador__rotulo">Concluídos</span>
+        </li>
+        <li class="indicador">
+          <span class="indicador__valor registro">{{ dp.draft_processes }}</span>
+          <span class="indicador__rotulo">Rascunhos</span>
+        </li>
+        <li class="indicador" [class.indicador--alerta]="dp.overdue_processes > 0">
+          <span class="indicador__valor registro">{{ dp.overdue_processes }}</span>
+          <span class="indicador__rotulo">Vencidos</span>
+        </li>
+        <li class="indicador" [class.indicador--atencao]="dp.due_soon_processes > 0">
+          <span class="indicador__valor registro">{{ dp.due_soon_processes }}</span>
+          <span class="indicador__rotulo">Próximos do prazo</span>
+        </li>
+        <li class="indicador">
+          <span class="indicador__valor registro">{{ dp.open_pending_items }}</span>
+          <span class="indicador__rotulo">Pendências abertas</span>
+        </li>
+        <li class="indicador" [class.indicador--alerta]="dp.blocking_pending_items > 0">
+          <span class="indicador__valor registro">{{ dp.blocking_pending_items }}</span>
+          <span class="indicador__rotulo">Bloqueantes</span>
+        </li>
+        <li class="indicador" [class.indicador--atencao]="dp.amounts_awaiting_decision > 0">
+          <span class="indicador__valor registro">{{ dp.amounts_awaiting_decision }}</span>
+          <span class="indicador__rotulo">Valores aguardando decisão</span>
+        </li>
       </ul>
-    } @else {
-      <p class="estado-vazio">Nenhum escopo ativo.</p>
-    }
-  </section>
-</div>
+
+      <div class="recortes">
+        <section class="recorte" aria-label="Processos por estado">
+          <h3 class="recorte__titulo">Por estado formal</h3>
+          @if (dp.by_status.length) {
+            <ul class="linhas">
+              @for (linha of dp.by_status; track linha.key) {
+                <li class="linha">
+                  <span [class]="'chip chip--' + estadoDoChip(linha.key)">{{ linha.label }}</span>
+                  <span class="linha__total registro">{{ linha.total }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="estado-vazio">Nenhum processo no seu escopo.</p>
+          }
+        </section>
+
+        <section class="recorte" aria-label="Setores em atraso">
+          <h3 class="recorte__titulo">Setores em atraso</h3>
+          @if (dp.delayed_sectors.length) {
+            <ul class="linhas">
+              @for (linha of dp.delayed_sectors; track linha.key) {
+                <li class="linha">
+                  <span>{{ linha.label }}</span>
+                  <span class="linha__total registro">{{ linha.total }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="estado-vazio">Nenhuma tarefa vencida.</p>
+          }
+        </section>
+
+        <section class="recorte" aria-label="Valores em análise">
+          <h3 class="recorte__titulo">Valores em análise</h3>
+          @if (dp.amount_totals.length) {
+            <ul class="linhas">
+              @for (total of dp.amount_totals; track total.currency) {
+                <li class="linha">
+                  <span>Informado</span>
+                  <span class="linha__total registro">{{ valorFormatado(total) }}</span>
+                </li>
+              }
+            </ul>
+            <p class="nota">
+              Pretensão sujeita a análise: o SGPD nunca aplica desconto (ADR-009).
+            </p>
+          } @else {
+            <p class="estado-vazio">Nenhuma pretensão aguardando decisão.</p>
+          }
+        </section>
+      </div>
+
+      @if (dp.critical_processes.length) {
+        <section class="recorte recorte--largo" aria-label="Processos críticos">
+          <h3 class="recorte__titulo">Processos críticos</h3>
+          <ul class="linhas">
+            @for (item of dp.critical_processes; track item.process_uuid) {
+              <li class="linha linha--critica">
+                <a [routerLink]="['/fe/processos', item.process_uuid, 'encerramento']">
+                  {{ item.employee_name }}
+                </a>
+                <small class="registro">
+                  {{ item.process_ref }} · Empresa {{ item.company_code }} · Filial
+                  {{ item.branch_code }} · limite {{ item.due_date }}
+                </small>
+                <span class="linha__total registro">{{ item.overdue_tasks }} vencidas</span>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </section>
+  }
+
+  @if (dados.sector; as setor) {
+    <section class="grupo" aria-labelledby="titulo-setor">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-list-check" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-setor">Meus setores</h2>
+          <small>Tarefas dos setores em que você é responsável vigente.</small>
+        </span>
+        <span class="grupo__total">{{ setor.pending_tasks }}</span>
+      </header>
+
+      <ul class="indicadores">
+        <li class="indicador">
+          <span class="indicador__valor registro">{{ setor.pending_tasks }}</span>
+          <span class="indicador__rotulo">Tarefas pendentes</span>
+        </li>
+        <li class="indicador" [class.indicador--alerta]="setor.overdue_tasks > 0">
+          <span class="indicador__valor registro">{{ setor.overdue_tasks }}</span>
+          <span class="indicador__rotulo">Vencidas</span>
+        </li>
+        <li class="indicador" [class.indicador--atencao]="setor.due_soon_tasks > 0">
+          <span class="indicador__valor registro">{{ setor.due_soon_tasks }}</span>
+          <span class="indicador__rotulo">A vencer</span>
+        </li>
+      </ul>
+
+      <div class="recortes">
+        <section class="recorte" aria-label="Tarefas por empresa">
+          <h3 class="recorte__titulo">Por empresa</h3>
+          @if (setor.by_company.length) {
+            <ul class="linhas">
+              @for (linha of setor.by_company; track linha.key) {
+                <li class="linha">
+                  <span>{{ linha.label }}</span>
+                  <span class="linha__total registro">{{ linha.total }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="estado-vazio">Nenhuma tarefa pendente.</p>
+          }
+        </section>
+
+        <section class="recorte" aria-label="Tarefas por filial">
+          <h3 class="recorte__titulo">Por filial</h3>
+          @if (setor.by_branch.length) {
+            <ul class="linhas">
+              @for (linha of setor.by_branch; track linha.key) {
+                <li class="linha">
+                  <span>{{ linha.label }}</span>
+                  <span class="linha__total registro">{{ linha.total }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="estado-vazio">Nenhuma tarefa pendente.</p>
+          }
+        </section>
+
+        <section class="recorte" aria-label="Processos críticos do setor">
+          <h3 class="recorte__titulo">Processos críticos</h3>
+          @if (setor.critical_processes.length) {
+            <ul class="linhas">
+              @for (item of setor.critical_processes; track item.process_uuid) {
+                <li class="linha linha--critica">
+                  <a routerLink="/fe/tarefas">{{ item.employee_name }}</a>
+                  <small class="registro">
+                    {{ item.process_ref }} · limite {{ item.due_date }}
+                  </small>
+                  <span class="linha__total registro">{{ item.overdue_tasks }} vencidas</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="estado-vazio">Nenhum processo com tarefa vencida.</p>
+          }
+        </section>
+      </div>
+    </section>
+  }
+
+  @if (!dados.coordination && !dados.sector) {
+    <section class="grupo" aria-label="Sem indicadores">
+      <p class="estado-vazio">
+        Você ainda não coordena processos nem responde por um setor. Assim que
+        receber o papel Departamento Pessoal ou um vínculo de setor, os indicadores
+        aparecem aqui.
+      </p>
+    </section>
+  }
+}
+
+<section class="grupo" aria-label="Seu acesso">
+  <header class="grupo__cabecalho">
+    <i class="pi pi-id-card" aria-hidden="true"></i>
+    <span>
+      <h2 class="grupo__titulo">Seu acesso</h2>
+      <small>Identidade autenticada, papéis e escopos vigentes.</small>
+    </span>
+  </header>
+  <p class="sessao">
+    <strong>{{ user?.display_name }}</strong>
+    <span class="registro">{{ user?.username }} · {{ user?.email }}</span>
+  </p>
+  <div class="recortes">
+    <section class="recorte" aria-label="Papéis">
+      <h3 class="recorte__titulo">Papéis</h3>
+      @if (context && context.roles.length) {
+        <ul class="itens">
+          @for (role of context.roles; track role) {
+            <li>{{ rotuloPapel(role) }}</li>
+          }
+        </ul>
+      } @else {
+        <p class="estado-vazio">Nenhum papel atribuído.</p>
+      }
+    </section>
+    <section class="recorte" aria-label="Escopos">
+      <h3 class="recorte__titulo">Escopos</h3>
+      @if (context?.scopes?.is_superuser) {
+        <p class="estado-vazio">Acesso global de contingência.</p>
+      } @else if (context && context.scopes.assignments.length) {
+        <ul class="itens">
+          @for (
+            scope of context.scopes.assignments;
+            track scope.role + scope.scope_type + scope.company_code + scope.branch_code
+          ) {
+            <li>
+              {{ rotuloPapel(scope.role) }}
+              <small class="registro">{{ registroEscopo(scope) }}</small>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="estado-vazio">Nenhum escopo ativo.</p>
+      }
+    </section>
+  </div>
+</section>

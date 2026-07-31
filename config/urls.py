@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/v1/notifications/", include("apps.notifications.urls")),
     path("api/v1/pending-items/", include("apps.pending_items.urls")),
     path("api/v1/processes/", include("apps.offboarding.urls")),
+    path("api/v1/reporting/", include("apps.reporting.urls")),
     path("api/v1/tasks/", include("apps.offboarding.task_urls")),
     path("api/v1/sectors/", include("apps.sectors.urls")),
     path("api/v1/settings/", include("apps.system_settings.urls")),
