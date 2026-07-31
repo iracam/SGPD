@@ -1,0 +1,11 @@
+Processo {{ process_ref }} próximo da data limite
+
+{{ recipient_name }},
+
+O processo demissional {{ process_ref }} tem data limite em
+{{ process_due_date|date:"d/m/Y" }} e ainda possui {{ open_task_count }} tarefa(s)
+de setor em aberto.
+
+Confira o andamento em {{ process_url }}
+
+{% include "notifications/_rodape.txt" %}

@@ -1,0 +1,10 @@
+Pretensão de cobrança decidida — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+A pretensão de cobrança do setor {{ sector_name }} foi decidida. O parecer e os
+valores estão registrados no sistema e não são reproduzidos por e-mail.
+
+Confira em {{ amounts_url }}
+
+{% include "notifications/_rodape.txt" %}

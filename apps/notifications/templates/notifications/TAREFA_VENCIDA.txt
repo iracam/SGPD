@@ -1,0 +1,10 @@
+Tarefa vencida no setor {{ sector_name }} — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+A tarefa do setor {{ sector_name }} venceu em {{ task_due_at|date:"d/m/Y H:i" }} e
+continua em aberto. O Departamento Pessoal também recebeu este aviso.
+
+Regularize em {{ tasks_url }}
+
+{% include "notifications/_rodape.txt" %}

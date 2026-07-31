@@ -1,0 +1,4 @@
+Processo: {{ process_ref }} — matrícula {{ employee_registration }}
+Data limite do processo: {{ process_due_date|date:"d/m/Y" }}
+
+Mensagem automática do SGPD / DesligaFlow. Não responda a este endereço.

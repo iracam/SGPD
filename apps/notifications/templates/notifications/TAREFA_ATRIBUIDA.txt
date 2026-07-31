@@ -1,0 +1,10 @@
+Nova tarefa para o setor {{ sector_name }} — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+O processo demissional {{ process_ref }} foi iniciado e gerou uma tarefa para o
+setor {{ sector_name }}, com prazo em {{ task_due_at|date:"d/m/Y H:i" }}.
+
+Inicie a análise em {{ tasks_url }}
+
+{% include "notifications/_rodape.txt" %}

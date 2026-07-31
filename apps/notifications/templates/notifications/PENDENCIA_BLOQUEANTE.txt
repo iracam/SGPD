@@ -1,0 +1,10 @@
+Pendência bloqueante registrada no setor {{ sector_name }} — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+Foi registrada uma pendência bloqueante na tarefa do setor {{ sector_name }}. A
+tarefa não pode ser concluída enquanto ela não for resolvida.
+
+Acompanhe em {{ tasks_url }}
+
+{% include "notifications/_rodape.txt" %}

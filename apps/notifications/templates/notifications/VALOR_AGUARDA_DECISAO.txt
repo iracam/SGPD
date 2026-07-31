@@ -1,0 +1,10 @@
+Pretensão de cobrança aguarda decisão — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+Uma pretensão de cobrança do setor {{ sector_name }} aguarda decisão do
+Departamento Pessoal. O valor não é informado por e-mail: consulte-o no sistema.
+
+Decida em {{ amounts_url }}
+
+{% include "notifications/_rodape.txt" %}

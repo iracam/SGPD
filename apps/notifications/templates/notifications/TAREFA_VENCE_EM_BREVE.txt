@@ -1,0 +1,11 @@
+Últimas horas da tarefa do setor {{ sector_name }} — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+A tarefa do setor {{ sector_name }} vence em {{ task_due_at|date:"d/m/Y H:i" }} e
+ainda não foi concluída. Todos os responsáveis do setor receberam este aviso e
+qualquer um deles pode concluí-la.
+
+Conclua a análise em {{ tasks_url }}
+
+{% include "notifications/_rodape.txt" %}

@@ -1,0 +1,9 @@
+Tarefa do setor {{ sector_name }} vence em breve — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+A tarefa do setor {{ sector_name }} vence em {{ task_due_at|date:"d/m/Y H:i" }}.
+
+Conclua a análise em {{ tasks_url }}
+
+{% include "notifications/_rodape.txt" %}

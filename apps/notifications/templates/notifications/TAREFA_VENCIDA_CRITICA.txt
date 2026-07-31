@@ -1,0 +1,11 @@
+Atraso crítico no setor {{ sector_name }} — processo {{ process_ref }}
+
+{{ recipient_name }},
+
+A tarefa do setor {{ sector_name }} venceu em {{ task_due_at|date:"d/m/Y H:i" }} e
+segue em aberto muito além do prazo. O aviso foi reforçado ao Departamento
+Pessoal e ao setor de escalada.
+
+Regularize em {{ tasks_url }}
+
+{% include "notifications/_rodape.txt" %}

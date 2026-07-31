@@ -4,11 +4,16 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+from io import StringIO
+from smtplib import SMTPException
 from typing import Any
 from unittest import mock
 
 import pytest
+from django.core import mail
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
@@ -18,6 +23,15 @@ from apps.notifications.models import (
     NotificationAttempt,
     NotificationEvent,
     NotificationStatus,
+)
+from apps.notifications.services import (
+    STALE_ATTEMPT_ERROR,
+    DispatchNotificationsCommand,
+    DispatchNotificationsService,
+    DispatchResult,
+    EnqueueNotificationCommand,
+    EnqueueNotificationService,
+    EnqueueResult,
 )
 from apps.offboarding.models import OffboardingProcess, ProcessSectorTask
 from tests.test_offboarding_start import (  # noqa: F401
@@ -163,3 +177,171 @@ def test_delivery_attempt_is_open_or_closed_as_a_whole(actor: User, process: Any
 
     with pytest.raises(ValidationError):
         attempt.delete()
+
+
+# --- Fatia 2: enfileiramento, mensagem e despacho ---------------------------
+
+
+def enqueue(
+    task: ProcessSectorTask,
+    recipients: tuple[User, ...],
+    *,
+    event: str = NotificationEvent.TASK_OVERDUE,
+    scope: str = "",
+) -> EnqueueResult:
+    return EnqueueNotificationService().execute(
+        EnqueueNotificationCommand(
+            event=event,
+            process=task.process,
+            task=task,
+            recipients=recipients,
+            scope=scope,
+        )
+    )
+
+
+def test_enqueue_writes_one_message_per_recipient_and_never_repeats_the_milestone(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+    other = User.objects.create_user(
+        username="setor.dois",
+        email="setor.dois@example.invalid",
+        password=PASSWORD,
+        first_name="Setor",
+        last_name="Dois",
+    )
+
+    first = enqueue(task, (actor, other, actor))
+    assert len(first.created) == 2
+    assert first.duplicated == 0
+
+    again = enqueue(task, (actor, other))
+    assert again.created == () and again.duplicated == 2
+    assert Notification.objects.count() == 2
+
+    message = Notification.objects.get(recipient=actor)
+    assert message.status == NotificationStatus.PENDING
+    assert message.subject.startswith("Tarefa vencida no setor")
+    assert str(task.process.uuid)[:8] in message.body
+    assert "/fe/tarefas" in message.body
+
+
+def test_enqueue_skips_recipient_without_address_without_losing_the_others(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+    silent = User.objects.create_user(
+        username="sem.email",
+        password=PASSWORD,
+        first_name="Sem",
+        last_name="Email",
+    )
+
+    result = enqueue(task, (actor, silent))
+
+    assert len(result.created) == 1
+    assert result.without_address == (silent.pk,)
+
+
+def test_enqueue_refuses_an_event_without_message_template(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+
+    with pytest.raises(ValidationError):
+        enqueue(task, (actor,), event="EVENTO_INEXISTENTE")
+
+
+def test_dispatch_sends_the_queue_and_closes_the_attempt(actor: User, process: Any) -> None:
+    task = started_task(actor, process)
+    enqueue(task, (actor,))
+
+    result = DispatchNotificationsService().execute(DispatchNotificationsCommand())
+
+    assert result.sent == 1 and result.failed == 0 and result.rescheduled == 0
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == [actor.email]
+
+    message = Notification.objects.get()
+    assert message.status == NotificationStatus.SENT
+    assert message.sent_at is not None and message.attempts == 1
+    attempt = message.delivery_attempts.get()
+    assert attempt.succeeded is True and attempt.finished_at is not None
+    assert attempt.error == ""
+
+    assert DispatchNotificationsService().execute(DispatchNotificationsCommand()).sent == 0
+    assert len(mail.outbox) == 1
+
+
+def test_dispatch_reschedules_with_backoff_and_gives_up_after_the_last_attempt(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+    enqueue(task, (actor,))
+    message = Notification.objects.get()
+    message.max_attempts = 2
+    message.save(update_fields=("max_attempts",))
+
+    with mock.patch(
+        "apps.notifications.services.EmailMessage.send",
+        side_effect=SMTPException("mailbox unavailable"),
+    ):
+        first = DispatchNotificationsService().execute(DispatchNotificationsCommand())
+        message.refresh_from_db()
+        assert first.rescheduled == 1 and first.failed == 0
+        assert message.status == NotificationStatus.PENDING
+        assert message.next_attempt_at > timezone.now()
+        assert "mailbox unavailable" in message.last_error
+
+        # A espera do backoff é real: sem avançar o relógio nada é tentado.
+        assert DispatchNotificationsService().execute(DispatchNotificationsCommand()) == (
+            DispatchResult(sent=0, failed=0, rescheduled=0, requeued=0)
+        )
+
+        message.next_attempt_at = timezone.now()
+        message.save(update_fields=("next_attempt_at",))
+        second = DispatchNotificationsService().execute(DispatchNotificationsCommand())
+
+    message.refresh_from_db()
+    assert second.failed == 1
+    assert message.status == NotificationStatus.FAILED
+    assert message.attempts == 2
+    assert message.delivery_attempts.count() == 2
+    assert all(attempt.succeeded is False for attempt in message.delivery_attempts.all())
+
+
+def test_dispatch_reopens_a_message_left_in_flight(actor: User, process: Any) -> None:
+    task = started_task(actor, process)
+    enqueue(task, (actor,))
+    message = Notification.objects.get()
+    message.status = NotificationStatus.SENDING
+    message.attempts = 1
+    message.save(update_fields=("status", "attempts"))
+    NotificationAttempt.objects.create(notification=message, attempt_number=1)
+
+    result = DispatchNotificationsService().execute(
+        DispatchNotificationsCommand(stale_after=timedelta(seconds=0))
+    )
+
+    message.refresh_from_db()
+    assert result.requeued == 1
+    assert message.status in {NotificationStatus.PENDING, NotificationStatus.SENT}
+    attempt = message.delivery_attempts.get(attempt_number=1)
+    assert attempt.succeeded is False
+    assert attempt.error == STALE_ATTEMPT_ERROR
+
+
+def test_dispatch_command_is_the_entry_point_of_the_queue(actor: User, process: Any) -> None:
+    task = started_task(actor, process)
+    enqueue(task, (actor,))
+    output = StringIO()
+
+    call_command("sgpd_dispatch_notifications", "--limit", "10", stdout=output)
+
+    assert "enviadas=1" in output.getvalue()
+    assert Notification.objects.get().status == NotificationStatus.SENT

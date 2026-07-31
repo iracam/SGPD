@@ -179,6 +179,15 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
 
 LOGIN_THROTTLE_RATE = os.getenv("LOGIN_THROTTLE_RATE", "10/min")
 
+# Notificações (ADR-049). A fila vive no Oracle e o despacho roda fora da
+# requisição, por comando acionado pelo agendador do sistema operacional.
+# `SGPD_BASE_URL` compõe os links das mensagens; vazio produz link relativo.
+SGPD_BASE_URL = os.getenv("SGPD_BASE_URL", "").rstrip("/")
+NOTIFICATION_MAX_ATTEMPTS = env_int("NOTIFICATION_MAX_ATTEMPTS", 5)
+NOTIFICATION_BATCH_SIZE = env_int("NOTIFICATION_BATCH_SIZE", 50)
+# Uma mensagem presa em `ENVIANDO` além disso perdeu o despachante que a tomou.
+NOTIFICATION_STALE_MINUTES = env_int("NOTIFICATION_STALE_MINUTES", 15)
+
 # Active Directory. Discovery and authentication have separate switches so
 # Infrastructure can validate connectivity and filters before changing login.
 LDAP_ENABLED = env_bool("LDAP_ENABLED")
