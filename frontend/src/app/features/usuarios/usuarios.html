@@ -1,5 +1,9 @@
 <header class="pagina-cabecalho">
   <div>
+    <span class="pagina-selo">
+      <i class="pi pi-users" aria-hidden="true"></i>
+      Contas e acessos
+    </span>
     <h1 class="page-title">Usuários</h1>
     <p class="page-lead">Contas locais do SGPD, papéis e vínculo com o Active Directory.</p>
   </div>
@@ -333,7 +337,7 @@
           @if (status.secure_transport) {
             <span class="selo selo--ativo">Conexão segura configurada</span>
           } @else {
-            <span class="selo selo--pendente">LDAP sem TLS</span>
+            <span class="selo selo--atencao">LDAP sem TLS</span>
           }
           <span class="selo selo--info">
             Login AD {{ status.authentication_enabled ? 'ativo' : 'ainda desativado' }}

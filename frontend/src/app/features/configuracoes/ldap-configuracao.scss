@@ -1,4 +1,5 @@
 @use 'breakpoints' as bp;
+@use 'conferencia';
 
 .voltar {
   display: inline-flex;
@@ -8,22 +9,6 @@
   color: var(--status-released-color);
   text-decoration: none;
   font-weight: 700;
-}
-
-.pagina-selo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-bottom: 0.45rem;
-  color: var(--status-review-color);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.pagina-cabecalho {
-  margin-bottom: 1.25rem;
 }
 
 .estado-grid {
@@ -360,10 +345,6 @@
   }
 }
 
-.mono {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-}
 
 .arquivo {
   min-height: var(--touch-target);

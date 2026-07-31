@@ -303,7 +303,7 @@
             <div><dt>Subject</dt><dd>{{ config.certificate.subject || '—' }}</dd></div>
             <div><dt>Issuer</dt><dd>{{ config.certificate.issuer || '—' }}</dd></div>
             <div><dt>Validade final</dt><dd>{{ formatarData(config.certificate.not_after) }}</dd></div>
-            <div><dt>SHA-256</dt><dd class="mono">{{ config.certificate.sha256 || '—' }}</dd></div>
+            <div><dt>SHA-256</dt><dd class="registro">{{ config.certificate.sha256 || '—' }}</dd></div>
           </dl>
         } @else {
           <p class="estado">Nenhum certificado de CA configurado.</p>

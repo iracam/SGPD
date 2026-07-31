@@ -103,6 +103,11 @@ export class UsuarioDetalhePage {
     { label: 'Filial', value: 'BRANCH' },
   ];
 
+  // Enum cru nunca chega ao usuário (ADR-047).
+  rotuloEscopo(escopo: string): string {
+    return this.escopos.find((opcao) => opcao.value === escopo)?.label ?? escopo;
+  }
+
   readonly formEditar = this.formBuilder.nonNullable.group({
     first_name: ['', [Validators.required]],
     last_name: ['', [Validators.required]],

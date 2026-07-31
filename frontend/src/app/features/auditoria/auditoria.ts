@@ -56,6 +56,11 @@ export class AuditoriaPage {
 
   readonly tipo = this.formBuilder.control<string | null>(null);
 
+  // Enum cru nunca chega ao usuário (ADR-047); tipo desconhecido cai no próprio código.
+  rotuloEvento(tipo: string): string {
+    return this.tipos.find((opcao) => opcao.value === tipo)?.label ?? tipo;
+  }
+
   constructor() {
     this.carregar();
     this.tipo.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
