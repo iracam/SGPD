@@ -1,5 +1,9 @@
 <header class="pagina-cabecalho">
   <div>
+    <span class="pagina-selo">
+      <i class="pi pi-folder-open" aria-hidden="true"></i>
+      Gestão demissional
+    </span>
     <h1 class="page-title">Abrir processo</h1>
     <p class="page-lead">
       Selecione o colaborador no Senior HCM e registre o rascunho do processo demissional.
@@ -7,22 +11,23 @@
   </div>
 </header>
 
-<section class="painel-consulta" aria-labelledby="titulo-consulta">
-  <div class="painel-consulta__cabecalho">
-    <div>
-      <h2 id="titulo-consulta">Seleção cadastral</h2>
-      <p>
-        As opções respeitam seu escopo de DP. O Senior nunca é alterado; o snapshot é
-        criado somente ao confirmar a abertura.
-      </p>
-    </div>
+<section class="painel-consulta grupo" aria-labelledby="titulo-consulta">
+  <header class="grupo__cabecalho">
+    <i class="pi pi-database" aria-hidden="true"></i>
+    <span>
+      <h2 class="grupo__titulo" id="titulo-consulta">Seleção cadastral</h2>
+      <small>
+        As opções respeitam seu escopo de DP. O Senior nunca é alterado; o snapshot é criado
+        somente ao confirmar a abertura.
+      </small>
+    </span>
     @if (consultando()) {
       <span class="consultando" role="status">
         <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
         Consultando o Senior HCM…
       </span>
     }
-  </div>
+  </header>
 
   <form class="cascata" autocomplete="off">
     <div class="campo">
@@ -213,7 +218,7 @@
     <div>
       <span class="resumo__rotulo">Colaborador selecionado</span>
       <h2 id="titulo-colaborador">{{ selecionado.name }}</h2>
-      <p>Matrícula {{ selecionado.registration }}</p>
+      <p class="registro">Matrícula {{ selecionado.registration }}</p>
     </div>
     <dl class="resumo__dados">
       <div>
@@ -246,17 +251,17 @@
     </dl>
   </section>
 
-  <section class="abertura" aria-labelledby="titulo-abertura">
-    <div class="abertura__cabecalho">
-      <div>
-        <span class="resumo__rotulo">Dados do processo</span>
-        <h2 id="titulo-abertura">Abertura do rascunho</h2>
-      </div>
-      <p>
-        O service consultará novamente o Senior e revalidará a autoridade do ator antes
-        de gravar.
-      </p>
-    </div>
+  <section class="abertura grupo" aria-labelledby="titulo-abertura">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-folder-plus" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-abertura">Abertura do rascunho</h2>
+        <small>
+          O service consultará novamente o Senior e revalidará a autoridade do ator antes de
+          gravar.
+        </small>
+      </span>
+    </header>
 
     <form
       class="formulario-abertura"
@@ -350,7 +355,7 @@
       <i class="pi pi-check-circle" aria-hidden="true"></i>
       <div>
         <h2>Processo aberto em rascunho</h2>
-        <p>
+        <p class="registro">
           Identificador {{ processo.uuid }} · prazo
           {{ processo.due_date | date: 'dd/MM/yyyy' }}
         </p>

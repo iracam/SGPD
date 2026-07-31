@@ -1,8 +1,8 @@
 @use 'breakpoints' as bp;
+@use 'conferencia';
 
-.pagina-cabecalho {
-  margin-bottom: 1.25rem;
-}
+// Abertura de processo com o protocolo de conferência (ADR-047): seções com
+// régua em verdigris e dado cadastral (matrícula) em mono.
 
 .painel-consulta,
 .resumo,
@@ -15,29 +15,6 @@
 
   @include bp.from(bp.$md) {
     padding: 1.25rem;
-  }
-}
-
-.painel-consulta__cabecalho {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-
-  h2,
-  p {
-    margin: 0;
-  }
-
-  p {
-    margin-top: 0.3rem;
-    color: var(--p-text-muted-color);
-  }
-
-  @include bp.from(bp.$md) {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
   }
 }
 
@@ -138,33 +115,6 @@
   margin-top: 1rem;
 }
 
-.abertura__cabecalho {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-
-  h2,
-  p {
-    margin: 0;
-  }
-
-  p {
-    color: var(--p-text-muted-color);
-  }
-
-  @include bp.from(bp.$md) {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
-
-    p {
-      max-width: 34rem;
-      text-align: right;
-    }
-  }
-}
-
 .formulario-abertura {
   display: grid;
   grid-template-columns: 1fr;
@@ -182,7 +132,7 @@
 }
 
 .erro-campo {
-  color: var(--p-red-600);
+  color: var(--status-blocked-color);
 }
 
 .acoes {
@@ -195,10 +145,10 @@
   gap: 0.75rem;
   align-items: flex-start;
   margin-top: 1rem;
-  border-color: var(--p-green-500);
+  border-color: var(--status-released-color);
 
   > i {
-    color: var(--p-green-600);
+    color: var(--status-released-color);
     font-size: 1.4rem;
   }
 
