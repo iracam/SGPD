@@ -8,10 +8,11 @@ import json
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
+from unittest import mock
 
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -178,6 +179,32 @@ def test_amount_pairs_approver_with_instant_and_refuses_negative_value(
     amount.amount_approved = Decimal("-1.00")
     with pytest.raises(IntegrityError), transaction.atomic():
         amount.save(update_fields=("amount_approved",))
+
+
+def test_amount_constraints_accept_the_absent_value_like_oracle_does(
+    actor: User,
+    process: Any,
+) -> None:
+    """Montante ausente não pode ser lido como violação onde o banco não compara booleano.
+
+    `Q.check()` só envolve a condição em `Coalesce(..., True)` quando
+    `supports_comparing_boolean_expr` é verdadeiro. No Oracle é falso, então
+    `NULL >= 0` fica desconhecido e `full_clean()` acusava as quatro constraints
+    dos montantes ainda não preenchidos — o eixo de valor inteiro parava no DEV.
+    """
+
+    task = analysis_task(actor, process)
+    pending_item = create_value_pending(actor, task)
+    amount = build_amount(pending_item, actor)
+
+    with mock.patch.object(connection.features, "supports_comparing_boolean_expr", False):
+        amount.full_clean()
+
+        amount.amount_assessed = Decimal("-1.00")
+        with pytest.raises(ValidationError) as negative_error:
+            amount.full_clean()
+
+    assert "SGPD_CK_PAMOUNT_ASSESSED" in str(negative_error.value)
 
 
 def test_amount_and_decision_reject_bulk_writes_and_deletion(

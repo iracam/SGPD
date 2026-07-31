@@ -343,24 +343,39 @@ class PendingAmount(models.Model):
                 condition=models.Q(version__gt=0),
                 name="SGPD_CK_PAMOUNT_VERSION",
             ),
+            # Cada montante é opcional e só nasce no seu passo do eixo. A condição
+            # precisa admitir o ausente explicitamente: o Oracle não avalia
+            # `NULL >= 0` como verdadeiro e, sem o `isnull`, `full_clean()` acusa
+            # violação em toda pretensão ainda não apurada (`Q.check()` só
+            # envolve a condição em `Coalesce` onde o banco compara booleano).
             models.CheckConstraint(
-                condition=models.Q(amount_informed__gte=0),
+                condition=(
+                    models.Q(amount_informed__isnull=True) | models.Q(amount_informed__gte=0)
+                ),
                 name="SGPD_CK_PAMOUNT_INFORMED",
             ),
             models.CheckConstraint(
-                condition=models.Q(amount_assessed__gte=0),
+                condition=(
+                    models.Q(amount_assessed__isnull=True) | models.Q(amount_assessed__gte=0)
+                ),
                 name="SGPD_CK_PAMOUNT_ASSESSED",
             ),
             models.CheckConstraint(
-                condition=models.Q(amount_contested__gte=0),
+                condition=(
+                    models.Q(amount_contested__isnull=True) | models.Q(amount_contested__gte=0)
+                ),
                 name="SGPD_CK_PAMOUNT_CONTESTED",
             ),
             models.CheckConstraint(
-                condition=models.Q(amount_approved__gte=0),
+                condition=(
+                    models.Q(amount_approved__isnull=True) | models.Q(amount_approved__gte=0)
+                ),
                 name="SGPD_CK_PAMOUNT_APPROVED",
             ),
             models.CheckConstraint(
-                condition=models.Q(amount_processed__gte=0),
+                condition=(
+                    models.Q(amount_processed__isnull=True) | models.Q(amount_processed__gte=0)
+                ),
                 name="SGPD_CK_PAMOUNT_PROCESSED",
             ),
         ]

@@ -597,8 +597,11 @@ transação.
 Implementado em `SGPD_PENDING_AMOUNT`, 1:1 com a pendência:
 
 - os cinco montantes são `NUMBER(12,2)` nulos, preenchidos ao longo do ciclo, e
-  cada um tem check constraint de não negatividade; o histórico de cada passo
-  fica na auditoria append-only e nos comentários da pendência;
+  cada um tem check constraint de não negatividade **que admite o valor
+  ausente** (`IS NULL OR >= 0`, migration `pending_items.0003`): no Oracle
+  `NULL >= 0` é desconhecido e a validação de modelo do Django acusaria violação
+  em toda pretensão ainda não apurada; o histórico de cada passo fica na
+  auditoria append-only e nos comentários da pendência;
 - `INFORMADO_POR_ID` não constava do desenho original e foi acrescentado porque
   a segregação da ADR-048 precisa saber quem lançou o valor — `APROVADO_POR_ID`
   sozinho não responde isso;

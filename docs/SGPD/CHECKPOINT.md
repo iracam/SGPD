@@ -4,11 +4,11 @@
 
 - Projeto: SGPD / DesligaFlow
 - Ambiente: DEV único sobre Oracle 19c
-- Fases estabilizadas: 1, 2, 2.5, 2.7 e 3
-- Fases em andamento: 4 — workflow; 5 — pendências e evidências; 6 — valores e
-  decisões
-- Próximo incremento: **homologação da Fase 6** — exercício funcional no Oracle
-  DEV e varredura headless nas cinco larguras, sobre as fatias 3 a 5
+- Fases estabilizadas: 1, 2, 2.5, 2.7, 3 e 6
+- Fases em andamento: 4 — workflow; 5 — pendências e evidências
+- Próximo incremento: **Fase 7 — notificações e escaladas**, ou a antecipação da
+  Fase 8 (prontidão, liberação e encerramento formal), conforme decisão do
+  responsável funcional
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente; segregação de valores pela ADR-048
@@ -127,14 +127,16 @@ Contrato Senior — legibilidade cadastral:
 - validar a retenção de 5 anos com Jurídico, RH e Segurança da Informação;
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
 - o estado formal de encerramento e sua data aguardam a Fase 8;
-- o DEV contém dados de homologação: processos `5bfc0d3a` (rascunho) e
-  `9cbed216` (iniciado, com pendência bloqueante aberta), criados para exercitar
-  as telas;
+- o DEV contém dados de homologação que não podem ser apagados (pendência é
+  append-only): processos `5bfc0d3a` (rascunho), `9cbed216` e `8c5ff6bf`
+  (iniciados), com seis pendências, quatro pretensões decididas e uma aguardando
+  decisão; Financeiro, Departamento Pessoal, Almoxarifado BSA e TI ficaram com
+  `PERMITE_VALOR` ligado para exercitar o eixo;
 - o usuário `homolog.visual` permanece no DEV desativado e com senha
   inutilizável: a FK da auditoria append-only impede a exclusão;
-- a extensão da ADR-047 e os incrementos de edição de configuração de
-  2026-07-31 foram conferidos por build e testes, mas ainda não passaram por
-  varredura headless nas cinco larguras homologadas;
+- setores, catálogo de workflow, auditoria, usuários e colaboradores receberam a
+  ADR-047 em 2026-07-31 e foram conferidos por build e testes, mas a varredura
+  headless de 2026-07-31 cobriu apenas painel, processos, tarefas e valores;
 - a ADR-048 aceita, por decisão explícita, que o SuperAdmin decida a pretensão
   que ele mesmo informou; o risco correspondente é o R62 e a auditoria é a
   única evidência do rompimento;
@@ -142,9 +144,14 @@ Contrato Senior — legibilidade cadastral:
   decisão de valor: é ato explícito, auditado e necessário para a pendência que
   nunca teve pretensão, mas contorna o guard e deve ser revisto na prontidão da
   Fase 8;
-- a SPA do eixo de valor ainda não passou por varredura headless nas cinco
-  larguras homologadas nem por exercício funcional no Oracle DEV; a conferência
-  até aqui é de testes e build.
+- o total por moeda soma o valor informado de toda pretensão, inclusive a
+  rejeitada e a abonada; quem confere lê o aprovado para saber o que vira
+  cobrança. Se o total informado passar a ser lido como cobrança pretendida,
+  vale separar as decididas em zero;
+- constraint de campo anulável precisa admitir o nulo na condição: no Oracle a
+  comparação com `NULL` derruba `full_clean()`. O restante do projeto já seguia
+  esse idioma e a Fase 6 era a única exceção — nenhuma outra tabela ficou
+  pendente dessa revisão.
 
 ## Homologação funcional e visual das Fases 3 e 5
 
@@ -205,12 +212,11 @@ a correção do `.lista-tabela`, cujos descendentes absolutos `.sr-only`
 esticavam o body além do viewport (ADR-028). A ADR-047 foi estendida na mesma
 data para registrar esse alcance.
 
-## Fase 6 — valores e decisões (em andamento)
+## Fase 6 — valores e decisões (homologada)
 
 A fase foi fatiada em cinco: modelo, services, guard de bloqueio, API/SPA e
-consolidação. **As cinco fatias estão implementadas e passam a validação
-padrão; falta a homologação funcional e visual.** As fatias 3 e 4 estão
-comitadas; a fatia 5 aguarda revisão antes do commit.
+consolidação. **As cinco fatias estão implementadas, comitadas e homologadas no
+Oracle DEV em 2026-07-31**, com varredura headless nas cinco larguras.
 
 Fatia 1 — modelo, migration `pending_items.0002`, aplicada no Oracle DEV:
 
@@ -290,8 +296,40 @@ Fatia 5 — consolidação por processo, somente leitura, sem migration:
   em `Minhas tarefas`, sob a segregação da ADR-048 — e o hub de processos ganhou
   o atalho `Conferir valores do processo` em cada processo expandido.
 
-Falta homologar a Fase 6: exercitar o ciclo no Oracle DEV e repetir a varredura
-headless nas cinco larguras sobre as telas novas.
+## Homologação da Fase 6 (2026-07-31)
+
+O ciclo foi exercido pela própria API contra o Oracle DEV, autenticando cada
+passo como o usuário real: nenhuma escrita direta em tabela.
+
+A homologação encontrou um defeito que só existe no Oracle e travava o eixo
+inteiro: as check constraints dos montantes comparavam `>= 0` sem admitir o
+valor ausente. O Django valida constraints no banco em `full_clean()` e só
+envolve a condição em `Coalesce(..., True)` onde `supports_comparing_boolean_expr`
+é verdadeiro — no Oracle é falso, então `NULL >= 0` fica desconhecido e toda
+pretensão ainda não apurada era recusada com quatro violações. A constraint do
+banco nunca foi violada; o Oracle aceita a linha. A migration
+`pending_items.0003` reescreve as cinco condições como `IS NULL OR >= 0`, o
+idioma que as demais constraints anuláveis do projeto já usavam, e o teste novo
+reproduz a falha no SQLite fixando o feature flag em falso.
+
+Exercitado e conferido, com os dados permanecendo no DEV:
+
+- ciclo completo informado → apurado → contestado → aprovado no Financeiro do
+  processo `8c5ff6bf`, com 403 legível quando o responsável de setor tenta
+  apurar;
+- `DP` que informou tentando decidir a própria pretensão: 403 absoluto; outro
+  `DP` decide e a rejeição resolve em zero;
+- guard da fatia 3: a conclusão da tarefa foi recusada com “pendência de valor à
+  espera da decisão” e liberada depois da decisão;
+- SuperAdmin informando e decidindo sem barreira, com `segregation_override`
+  gravado e destacado na conferência (ADR-048);
+- pretensão em USD ao lado das de BRL, para exercitar o total por moeda;
+- consolidação do processo com quatro pretensões, duas moedas e a seção
+  `Segregação rompida`; responsável de setor recebe 404, como especificado.
+
+A varredura headless cobriu Minhas tarefas, hub de processos, as duas telas de
+valores e o painel, nas cinco larguras e nos dois temas — 50 combinações, sem
+rolagem horizontal e sem erro de console.
 
 ## Ciclo de vida do rascunho na configuração (2026-07-31)
 
@@ -313,6 +351,16 @@ O editor de configuração fechou o ciclo de vida das versões:
 `sqlmigrate` é `(no-op)` e a migration está aplicada no Oracle DEV.
 
 ## Baseline de qualidade
+
+Na homologação da Fase 6 a validação padrão foi executada por inteiro: 384
+testes backend e 92 frontend, Ruff, formatação, Mypy, Django check, verificação
+de migrations e build Angular sem avisos. O teste novo fixa
+`supports_comparing_boolean_expr` em falso e falha sem a correção com as quatro
+violações que o Oracle produzia. O SQL de `pending_items.0003` foi revisado —
+cinco `DROP CONSTRAINT` e cinco `ADD CONSTRAINT` sobre tabela vazia, nomes
+dentro do limite de 30 caracteres — e aplicado no Oracle DEV; a verificação
+somente leitura confirmou as seis check constraints `ENABLED`/`VALIDATED` com a
+condição nova.
 
 Na fatia 5 a validação padrão foi executada por inteiro: 383 testes backend e
 92 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e
