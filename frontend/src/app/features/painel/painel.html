@@ -1,11 +1,19 @@
 @let user = authService.currentUser();
 @let context = authService.currentContext();
 
-<h1 class="page-title">Painel</h1>
-<p class="page-lead">
-  Bem-vindo, {{ user?.display_name }}. Os módulos do processo demissional entram
-  aqui conforme cada fase avança.
-</p>
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-compass" aria-hidden="true"></i>
+      Visão geral
+    </span>
+    <h1 class="page-title">Painel</h1>
+    <p class="page-lead">
+      Bem-vindo, {{ user?.display_name }}. Os módulos do processo demissional entram
+      aqui conforme cada fase avança.
+    </p>
+  </div>
+</header>
 
 <div class="grupos">
   <section class="grupo" aria-label="Sessão">

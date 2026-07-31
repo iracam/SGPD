@@ -8,24 +8,8 @@
  * das duas produz rolagem horizontal no `body`.
  */
 
-.pagina-cabecalho {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-
-  @include bp.from(bp.$md) {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
-}
-
-.pagina-acoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
+/* O cabeçalho de página (.pagina-cabecalho, .pagina-acoes, .pagina-selo) é
+   global em styles.scss: toda tela o usa, dentro ou fora da listagem. */
 
 .filtros {
   display: flex;
@@ -108,6 +92,9 @@
     display: block;
     // Se a tabela precisar rolar, ela rola dentro do próprio contêiner.
     overflow-x: auto;
+    // Contém descendentes absolutos (.sr-only nos th): sem isto eles ancoram
+    // no documento e esticam o body além do viewport (ADR-028).
+    position: relative;
   }
 }
 

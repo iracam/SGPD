@@ -5,28 +5,9 @@
 // registro em mono, chips sobre os tokens --status-* e, no processo expandido,
 // as tarefas de setor sobre o trilho — nó preenchido quando o setor concluiu.
 
-.cabecalho {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-block-end: 1.25rem;
-
-  @include bp.from(bp.$md) {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-}
-
-.cabecalho__acoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-
-  // O botão é uma âncora com pButton; sem isto herda o sublinhado global de link.
-  a {
-    text-decoration: none;
-  }
+// O botão é uma âncora com pButton; sem isto herda o sublinhado global de link.
+.pagina-acoes a {
+  text-decoration: none;
 }
 
 .processos-grid {

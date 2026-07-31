@@ -1,17 +1,5 @@
 @use 'breakpoints' as bp;
 
-.pagina-selo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-bottom: 0.55rem;
-  color: var(--status-review-color);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 .configuracoes-grid {
   display: grid;
   grid-template-columns: 1fr;
