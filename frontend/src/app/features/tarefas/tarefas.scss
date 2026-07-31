@@ -319,6 +319,76 @@ select[multiple] {
   display: block;
 }
 
+// Pretensão de cobrança: quadro de conferência do valor, com o dado em mono.
+.valor {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.7rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.6rem;
+  background: var(--p-content-hover-background);
+}
+
+.valor h5 {
+  margin: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.valor__quadro {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.valor__quadro dt {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+}
+
+.valor__quadro dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.valor__origem,
+.valor__aviso {
+  margin: 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+}
+
+.valor__decisoes {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.valor__decisoes li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem;
+  border-radius: 0.5rem;
+  background: var(--p-content-background);
+}
+
+.valor__override {
+  color: var(--status-review-color);
+  font-weight: 650;
+}
+
+.valor__acao {
+  display: grid;
+  gap: 0.45rem;
+  padding-block-start: 0.6rem;
+  border-block-start: 1px solid var(--p-content-border-color);
+}
+
 .upload {
   display: flex;
   align-items: center;

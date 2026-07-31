@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
@@ -11,6 +12,8 @@ from typing import Any
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
+from django.test import Client
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import (
@@ -774,3 +777,225 @@ def test_value_pending_below_blocking_does_not_hold_the_task(
 
     assert result.task.status == SectorTaskStatus.COMPLETED
     assert PendingItem.objects.get(pk=pending_item.pk).status == PendingStatus.SUBMITTED_FOR_REVIEW
+
+
+def api_post(
+    client: Client,
+    route: str,
+    pending_item: PendingItem,
+    body: dict[str, Any],
+    key: str,
+) -> Any:
+    return client.post(
+        reverse(route, kwargs={"pending_uuid": str(pending_item.uuid)}),
+        data=json.dumps(body),
+        content_type="application/json",
+        HTTP_IDEMPOTENCY_KEY=key,
+    )
+
+
+def test_amount_api_runs_the_axis_and_publishes_the_pretension(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+    client.force_login(actor)
+
+    informed = api_post(
+        client,
+        "pending-items-api:pending-amount",
+        pending_item,
+        {
+            "expected_version": pending_item.version,
+            "amount_informed": "1250.00",
+            "justification": "Valor de mercado do equipamento não devolvido.",
+        },
+        "api-amount-informar",
+    )
+    assert informed.status_code == 200
+    body = informed.json()
+    assert body["status"] == "ENCAMINHADA_ANALISE"
+    assert body["amount"]["amount_informed"] == "1250.00"
+    assert body["amount"]["currency"] == "BRL"
+    assert body["amount"]["informed_by"]["username"] == actor.username
+    assert body["amount"]["amount_approved"] is None
+    assert body["amount"]["decisions"] == []
+    assert body["can_analyse_amount"] is True
+
+    # Segregação da ADR-048: quem informou não decide, e o motivo chega legível.
+    denied = api_post(
+        client,
+        "pending-items-api:pending-amount-decision",
+        pending_item,
+        {
+            "expected_version": body["version"],
+            "decision": "APROVADA_COBRANCA",
+            "opinion": "Parecer de quem informou.",
+            "amount_approved": "980.00",
+        },
+        "api-amount-autoaprovar",
+    )
+    assert denied.status_code == 403
+    assert denied.json()["code"] == "permission_denied"
+    assert "não pode decidir" in denied.json()["message"]
+
+    client.force_login(make_dp(actor, "dp-api"))
+    assessed = api_post(
+        client,
+        "pending-items-api:pending-amount-assessment",
+        pending_item,
+        {
+            "expected_version": body["version"],
+            "amount_assessed": "1100.00",
+            "justification": "Apuração considerou a depreciação.",
+        },
+        "api-amount-apurar",
+    )
+    assert assessed.status_code == 200
+    decided = api_post(
+        client,
+        "pending-items-api:pending-amount-decision",
+        pending_item,
+        {
+            "expected_version": assessed.json()["version"],
+            "decision": "APROVADA_COBRANCA",
+            "opinion": "Cobrança aprovada pelo valor apurado.",
+            "amount_approved": "1100.00",
+        },
+        "api-amount-decidir",
+    )
+
+    assert decided.status_code == 200
+    amount = decided.json()["amount"]
+    assert decided.json()["status"] == "APROVADA_COBRANCA"
+    assert amount["amount_assessed"] == "1100.00"
+    assert amount["amount_approved"] == "1100.00"
+    assert amount["amount_processed"] is None
+    assert amount["decisions"][0]["decision"] == "APROVADA_COBRANCA"
+    assert amount["decisions"][0]["segregation_override"] is False
+
+
+def test_amount_api_rejects_broken_contracts_and_replays_by_key(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    _, pending_item = value_pending_ready(actor, process)
+    client.force_login(actor)
+
+    body = {
+        "expected_version": pending_item.version,
+        "amount_informed": "1250.00",
+        "justification": "Valor de mercado do equipamento não devolvido.",
+    }
+    first = api_post(client, "pending-items-api:pending-amount", pending_item, body, "api-replay")
+    replay = api_post(client, "pending-items-api:pending-amount", pending_item, body, "api-replay")
+    assert first.status_code == 200
+    assert replay.json()["idempotency_replayed"] is True
+
+    conflict = api_post(
+        client,
+        "pending-items-api:pending-amount",
+        pending_item,
+        {**body, "amount_informed": "2000.00"},
+        "api-replay",
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["code"] == "idempotency_conflict"
+
+    decider = make_dp(actor, "dp-contrato")
+    client.force_login(decider)
+    without_amount = api_post(
+        client,
+        "pending-items-api:pending-amount-decision",
+        pending_item,
+        {
+            "expected_version": first.json()["version"],
+            "decision": "APROVADA_COBRANCA",
+            "opinion": "Aprovação sem valor.",
+        },
+        "api-decidir-sem-valor",
+    )
+    assert without_amount.status_code == 400
+    assert "amount_approved" in without_amount.json()["details"]
+
+    waived_with_amount = api_post(
+        client,
+        "pending-items-api:pending-amount-decision",
+        pending_item,
+        {
+            "expected_version": first.json()["version"],
+            "decision": "ABONADA",
+            "opinion": "Abono com valor informado por engano.",
+            "amount_approved": "10.00",
+        },
+        "api-abonar-com-valor",
+    )
+    assert waived_with_amount.status_code == 400
+    assert PendingItem.objects.get(pk=pending_item.pk).status == PendingStatus.SUBMITTED_FOR_REVIEW
+
+
+def test_task_payload_carries_the_amount_and_the_sector_permission(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+    register_amount(actor, pending_item)
+    client.force_login(actor)
+
+    response = client.get(reverse("offboarding-task-api:task-list"))
+
+    assert response.status_code == 200
+    row = next(item for item in response.json()["results"] if item["id"] == task.pk)
+    assert row["sector"]["allows_amount"] is True
+    pending = row["pending_items"][0]
+    assert pending["amount"]["amount_informed"] == "1250.00"
+    assert pending["can_analyse_amount"] is True
+
+
+def test_responsible_without_dp_sees_the_amount_but_not_the_analysis(
+    actor: User,
+    process: Any,
+    client: Client,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+    register_amount(actor, pending_item)
+    responsible = User.objects.create_user(
+        username="responsavel-valor",
+        email="responsavel-valor@example.invalid",
+        password=PASSWORD,
+    )
+    SectorResponsible.objects.create(
+        sector=ValidationSector.objects.get(pk=task.sector_id),
+        user=responsible,
+        valid_from=timezone.now() - timedelta(hours=1),
+        assigned_by=actor,
+        updated_by=actor,
+    )
+    client.force_login(responsible)
+
+    listed = client.get(
+        reverse("pending-items-api:pending-list"),
+        {"task_id": task.pk},
+    )
+
+    assert listed.status_code == 200
+    pending = listed.json()["results"][0]
+    assert pending["amount"]["amount_informed"] == "1250.00"
+    assert pending["can_analyse_amount"] is False
+
+    denied = api_post(
+        client,
+        "pending-items-api:pending-amount-assessment",
+        pending_item,
+        {
+            "expected_version": pending["version"],
+            "amount_assessed": "900.00",
+            "justification": "Tentativa de apurar sem DP.",
+        },
+        "api-apurar-sem-dp",
+    )
+    assert denied.status_code == 403
+    assert "DP vigente" in denied.json()["message"]

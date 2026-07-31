@@ -163,7 +163,12 @@ def _checklist_item_payload(item: ProcessChecklistItem) -> dict[str, Any]:
     return payload
 
 
-def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> dict[str, Any]:
+def _task_payload(
+    task: ProcessSectorTask,
+    *,
+    include_items: bool = False,
+    viewer: User | None = None,
+) -> dict[str, Any]:
     payload = {
         "id": task.pk,
         "status": task.status,
@@ -171,6 +176,9 @@ def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> di
             "id": task.sector_id,
             "code": task.sector_code_snapshot,
             "name": task.sector_name_snapshot,
+            # Habilitação viva, não snapshot: o service lê a mesma coluna ao
+            # aceitar a pretensão de cobrança.
+            "allows_amount": task.sector.allows_amount,
         },
         "template": {
             "version_id": task.template_version_id,
@@ -190,6 +198,9 @@ def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> di
     if include_items:
         from apps.evidence.api import evidence_payload
         from apps.pending_items.api import pending_item_payload
+        from apps.pending_items.services import can_analyse_amounts
+
+        can_analyse_amount = viewer is not None and can_analyse_amounts(viewer, task.process)
 
         payload["process"] = {
             "uuid": str(task.process.uuid),
@@ -203,7 +214,8 @@ def _task_payload(task: ProcessSectorTask, *, include_items: bool = False) -> di
             _checklist_item_payload(item) for item in task.checklist_items.all()
         ]
         payload["pending_items"] = [
-            pending_item_payload(pending_item) for pending_item in task.pending_items.all()
+            pending_item_payload(pending_item, can_analyse_amount=can_analyse_amount)
+            for pending_item in task.pending_items.all()
         ]
         payload["evidences"] = [
             evidence_payload(evidence) for evidence in task.evidences.all() if evidence.is_active
@@ -591,6 +603,9 @@ def _responsible_task_queryset(actor: User) -> Any:
             "pending_items__items",
             "pending_items__comments__author",
             "pending_items__registered_by",
+            "pending_items__amount__informed_by",
+            "pending_items__amount__approved_by",
+            "pending_items__decisions__decided_by",
             "evidences__pending_item",
             "evidences__uploaded_by",
         )
@@ -618,7 +633,10 @@ class SectorTaskListView(APIView):
             {
                 "offset": offset,
                 "limit": data["limit"],
-                "results": [_task_payload(task, include_items=True) for task in rows],
+                "results": [
+                    _task_payload(task, include_items=True, viewer=cast(User, request.user))
+                    for task in rows
+                ],
             }
         )
 
@@ -631,7 +649,7 @@ class SectorTaskDetailView(APIView):
             _responsible_task_queryset(cast(User, request.user)),
             pk=task_id,
         )
-        return Response(_task_payload(task, include_items=True))
+        return Response(_task_payload(task, include_items=True, viewer=cast(User, request.user)))
 
 
 class SectorTaskStartView(APIView):
@@ -664,7 +682,7 @@ class SectorTaskStartView(APIView):
             _responsible_task_queryset(cast(User, request.user)),
             pk=result.task.pk,
         )
-        payload = _task_payload(task, include_items=True)
+        payload = _task_payload(task, include_items=True, viewer=cast(User, request.user))
         payload["idempotency_replayed"] = result.replayed
         return Response(payload)
 
@@ -707,6 +725,6 @@ class SectorTaskCompleteView(APIView):
             _responsible_task_queryset(cast(User, request.user)),
             pk=result.task.pk,
         )
-        payload = _task_payload(task, include_items=True)
+        payload = _task_payload(task, include_items=True, viewer=cast(User, request.user))
         payload["idempotency_replayed"] = result.replayed
         return Response(payload)

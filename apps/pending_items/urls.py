@@ -12,4 +12,24 @@ urlpatterns = [
         api.PendingCommentView.as_view(),
         name="pending-comment",
     ),
+    path(
+        "<uuid:pending_uuid>/amount/",
+        api.PendingAmountRegisterView.as_view(),
+        name="pending-amount",
+    ),
+    path(
+        "<uuid:pending_uuid>/amount/assessment/",
+        api.PendingAmountAssessView.as_view(),
+        name="pending-amount-assessment",
+    ),
+    path(
+        "<uuid:pending_uuid>/amount/contestation/",
+        api.PendingAmountContestView.as_view(),
+        name="pending-amount-contestation",
+    ),
+    path(
+        "<uuid:pending_uuid>/amount/decision/",
+        api.PendingAmountDecideView.as_view(),
+        name="pending-amount-decision",
+    ),
 ]

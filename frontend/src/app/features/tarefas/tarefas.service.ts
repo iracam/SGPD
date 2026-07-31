@@ -6,6 +6,7 @@ import { apiConfig } from '../../core/config/api.config';
 import {
   ConcluirTarefaPayload,
   CriarPendenciaPayload,
+  DecisaoValor,
   Evidencia,
   ListaTarefas,
   Pendencia,
@@ -81,6 +82,62 @@ export class TarefasService {
     );
   }
 
+  informarValor(
+    pendingUuid: string,
+    expectedVersion: number,
+    payload: { amount_informed: string; justification: string },
+    idempotencyKey: string,
+  ): Observable<Pendencia> {
+    return this.postValor(
+      pendingUuid,
+      '',
+      { ...payload, expected_version: expectedVersion },
+      idempotencyKey,
+    );
+  }
+
+  apurarValor(
+    pendingUuid: string,
+    expectedVersion: number,
+    payload: { amount_assessed: string; justification: string },
+    idempotencyKey: string,
+  ): Observable<Pendencia> {
+    return this.postValor(
+      pendingUuid,
+      'assessment/',
+      { ...payload, expected_version: expectedVersion },
+      idempotencyKey,
+    );
+  }
+
+  contestarValor(
+    pendingUuid: string,
+    expectedVersion: number,
+    payload: { amount_contested: string; justification: string },
+    idempotencyKey: string,
+  ): Observable<Pendencia> {
+    return this.postValor(
+      pendingUuid,
+      'contestation/',
+      { ...payload, expected_version: expectedVersion },
+      idempotencyKey,
+    );
+  }
+
+  decidirValor(
+    pendingUuid: string,
+    expectedVersion: number,
+    payload: { decision: DecisaoValor; opinion: string; amount_approved?: string },
+    idempotencyKey: string,
+  ): Observable<Pendencia> {
+    return this.postValor(
+      pendingUuid,
+      'decision/',
+      { ...payload, expected_version: expectedVersion },
+      idempotencyKey,
+    );
+  }
+
   enviarEvidencia(
     taskId: number,
     expectedTaskVersion: number,
@@ -103,6 +160,20 @@ export class TarefasService {
     return this.http.post<Evidencia>(apiConfig.routes.evidence, body, {
       headers: this.headers(idempotencyKey),
     });
+  }
+
+  /** O eixo de valor mora sob `<uuid>/amount/`; a resposta é sempre a pendência inteira. */
+  private postValor(
+    pendingUuid: string,
+    suffix: string,
+    body: Record<string, unknown>,
+    idempotencyKey: string,
+  ): Observable<Pendencia> {
+    return this.http.post<Pendencia>(
+      `${apiConfig.routes.pendingItems}${pendingUuid}/amount/${suffix}`,
+      body,
+      { headers: this.headers(idempotencyKey) },
+    );
   }
 
   private headers(idempotencyKey: string): HttpHeaders {

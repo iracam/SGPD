@@ -572,6 +572,12 @@ consumir o mesmo vocabulário.
 
 Áreas poderão informar valor estimado, mas não aplicar desconto diretamente.
 
+Estado implementado: a pretensão só é aceita em pendência de categoria `VALOR`
+aberta, em setor com `allows_amount`, e leva a pendência para
+`ENCAMINHADA_ANALISE`. Informar e contestar cabem a quem responde pelo setor;
+apurar e decidir exigem `DP` vigente no escopo (ADR-048). A SPA oferece a ação
+conforme `can_analyse_amount`, que o backend calcula e revalida sob lock.
+
 ### RF-026 — Aprovação de valores
 
 O sistema deverá registrar:
@@ -582,6 +588,23 @@ O sistema deverá registrar:
 - valor aprovado;
 - valor efetivamente processado;
 - justificativa.
+
+Estado implementado: os cinco montantes vivem em `SGPD_PENDING_AMOUNT`, com
+moeda e justificativa; cada parecer vira uma linha append-only em
+`SGPD_PENDING_DECISION`. Rejeição e abono resolvem o valor aprovado em zero e
+o contrato da API recusa valor aprovado nesses casos. `VALOR_PROCESSADO`
+continua sem escrita: só será preenchido a partir do registro do Senior
+(ADR-009).
+
+Endpoints, todos com `Idempotency-Key`, versão otimista e resposta com a
+pendência inteira:
+
+| Rota | Ação |
+| --- | --- |
+| `POST /api/v1/pending-items/<uuid>/amount/` | informar a pretensão |
+| `POST …/amount/assessment/` | registrar o valor apurado |
+| `POST …/amount/contestation/` | contestar o valor |
+| `POST …/amount/decision/` | decidir com parecer |
 
 ### RF-027 — Notificações
 

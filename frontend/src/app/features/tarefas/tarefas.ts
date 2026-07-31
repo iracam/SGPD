@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 
 import { errorMessage } from '../../core/api/api-error';
 import {
+  DecisaoValor,
   Evidencia,
   ItemChecklist,
   Pendencia,
@@ -34,6 +35,31 @@ interface RascunhoPendencia {
   blocking_level: string;
   checklist_item_id: number | null;
 }
+
+/** Um rascunho por pendência: cada ação do eixo de valor tem campo próprio. */
+interface RascunhoValor {
+  informed_amount: string;
+  informed_justification: string;
+  assessed_amount: string;
+  assessed_justification: string;
+  contested_amount: string;
+  contested_justification: string;
+  decision: DecisaoValor;
+  approved_amount: string;
+  opinion: string;
+}
+
+const RASCUNHO_VALOR_VAZIO: RascunhoValor = {
+  informed_amount: '',
+  informed_justification: '',
+  assessed_amount: '',
+  assessed_justification: '',
+  contested_amount: '',
+  contested_justification: '',
+  decision: 'APROVADA_COBRANCA',
+  approved_amount: '',
+  opinion: '',
+};
 
 function agruparPorProcesso(
   tarefas: TarefaSetor[],
@@ -87,6 +113,7 @@ export class TarefasPage {
   // Pendencia ainda sem rascunho de comentario nao tem chave no record: o tipo
   // precisa admitir undefined para o template nao renderizar a string literal.
   readonly comentariosPendencia = signal<Record<string, string | undefined>>({});
+  readonly rascunhosValor = signal<Record<string, RascunhoValor | undefined>>({});
   readonly grupos = computed(() => {
     const tarefas = this.tarefas();
     return [
@@ -308,6 +335,169 @@ export class TarefasPage {
       ),
       'Situação da pendência atualizada.',
     );
+  }
+
+  /** Rascunho do valor sempre definido, para o template nunca ligar a `undefined`. */
+  protected valor(pendencia: Pendencia): RascunhoValor {
+    return this.rascunhosValor()[pendencia.uuid] ?? RASCUNHO_VALOR_VAZIO;
+  }
+
+  protected atualizarValor(
+    pendingUuid: string,
+    field: keyof RascunhoValor,
+    event: Event,
+  ): void {
+    const target = event.target;
+    const value =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement
+        ? target.value
+        : '';
+    this.rascunhosValor.update((current) => ({
+      ...current,
+      [pendingUuid]: {
+        ...(current[pendingUuid] ?? RASCUNHO_VALOR_VAZIO),
+        [field]: value,
+      },
+    }));
+  }
+
+  /** Lançar pretensão exige pendência de valor aberta em setor habilitado. */
+  protected podeInformarValor(tarefa: TarefaSetor, pendencia: Pendencia): boolean {
+    return (
+      pendencia.category === 'VALOR' &&
+      pendencia.amount === null &&
+      pendencia.status === 'ABERTA' &&
+      tarefa.sector.allows_amount
+    );
+  }
+
+  protected valorEmAnalise(pendencia: Pendencia): boolean {
+    return pendencia.status === 'ENCAMINHADA_ANALISE' || pendencia.status === 'CONTESTADA';
+  }
+
+  /** Apurar e decidir são do DP no escopo; contestar é de quem responde pelo setor. */
+  protected podeAnalisarValor(pendencia: Pendencia): boolean {
+    return pendencia.can_analyse_amount && this.valorEmAnalise(pendencia);
+  }
+
+  protected podeContestarValor(pendencia: Pendencia): boolean {
+    return pendencia.status === 'ENCAMINHADA_ANALISE';
+  }
+
+  protected informarValor(tarefa: TarefaSetor, pendencia: Pendencia): void {
+    const draft = this.valor(pendencia);
+    if (!draft.informed_amount.trim() || !draft.informed_justification.trim()) {
+      this.erro.set('Informe o valor pretendido e a justificativa.');
+      return;
+    }
+    this.mutarPendencia(
+      tarefa,
+      pendencia,
+      this.service.informarValor(
+        pendencia.uuid,
+        pendencia.version,
+        {
+          amount_informed: draft.informed_amount.trim(),
+          justification: draft.informed_justification.trim(),
+        },
+        this.chaveUnica('amount'),
+      ),
+      'Pretensão de cobrança registrada para análise.',
+    );
+  }
+
+  protected apurarValor(tarefa: TarefaSetor, pendencia: Pendencia): void {
+    const draft = this.valor(pendencia);
+    if (!draft.assessed_amount.trim() || !draft.assessed_justification.trim()) {
+      this.erro.set('Informe o valor apurado e a justificativa.');
+      return;
+    }
+    this.mutarPendencia(
+      tarefa,
+      pendencia,
+      this.service.apurarValor(
+        pendencia.uuid,
+        pendencia.version,
+        {
+          amount_assessed: draft.assessed_amount.trim(),
+          justification: draft.assessed_justification.trim(),
+        },
+        this.chaveUnica('amount-assess'),
+      ),
+      'Valor apurado registrado; a pretensão segue aguardando decisão.',
+    );
+  }
+
+  protected contestarValor(tarefa: TarefaSetor, pendencia: Pendencia): void {
+    const draft = this.valor(pendencia);
+    if (!draft.contested_amount.trim() || !draft.contested_justification.trim()) {
+      this.erro.set('Informe o valor contestado e a justificativa.');
+      return;
+    }
+    this.mutarPendencia(
+      tarefa,
+      pendencia,
+      this.service.contestarValor(
+        pendencia.uuid,
+        pendencia.version,
+        {
+          amount_contested: draft.contested_amount.trim(),
+          justification: draft.contested_justification.trim(),
+        },
+        this.chaveUnica('amount-contest'),
+      ),
+      'Contestação registrada na pretensão.',
+    );
+  }
+
+  protected decidirValor(tarefa: TarefaSetor, pendencia: Pendencia): void {
+    const draft = this.valor(pendencia);
+    const aprovaCobranca = draft.decision === 'APROVADA_COBRANCA';
+    if (!draft.opinion.trim()) {
+      this.erro.set('Informe o parecer da decisão.');
+      return;
+    }
+    if (aprovaCobranca && !draft.approved_amount.trim()) {
+      this.erro.set('A aprovação de cobrança exige o valor aprovado.');
+      return;
+    }
+    this.mutarPendencia(
+      tarefa,
+      pendencia,
+      this.service.decidirValor(
+        pendencia.uuid,
+        pendencia.version,
+        {
+          decision: draft.decision,
+          opinion: draft.opinion.trim(),
+          // Rejeição e abono resolvem em zero no service: enviar valor é erro de contrato.
+          ...(aprovaCobranca ? { amount_approved: draft.approved_amount.trim() } : {}),
+        },
+        this.chaveUnica('amount-decide'),
+      ),
+      'Decisão registrada na trilha da pretensão.',
+    );
+  }
+
+  protected rotuloDecisao(decision: DecisaoValor): string {
+    return {
+      APROVADA_COBRANCA: 'Aprovada para cobrança',
+      REJEITADA: 'Rejeitada',
+      ABONADA: 'Abonada',
+    }[decision];
+  }
+
+  /** Valor legível em pt-BR; o dado bruto continua sendo o string do backend. */
+  protected valorFormatado(value: string | null, currency: string): string {
+    if (value === null) {
+      return '—';
+    }
+    return `${currency} ${Number(value).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
 
   protected enviarEvidencia(
@@ -563,6 +753,10 @@ export class TarefasPage {
           this.comentariosPendencia.update((current) => ({
             ...current,
             [pendencia.uuid]: '',
+          }));
+          this.rascunhosValor.update((current) => ({
+            ...current,
+            [pendencia.uuid]: RASCUNHO_VALOR_VAZIO,
           }));
           this.aviso.set(successMessage);
         },

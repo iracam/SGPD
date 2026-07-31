@@ -85,8 +85,11 @@ auditoria.
 
 Pendências e evidências possuem a primeira fatia vertical operacional:
 registro, comentários, regularização, bloqueio de conclusão, upload, hash e
-download autorizado. Valores, notificações, prontidão, liberação, encerramento
-formal e relatórios ainda pertencem aos incrementos seguintes.
+download autorizado. O eixo de valor está operacional ponta a ponta —
+informar, apurar, contestar e decidir, com o guard de `BLOQUEANTE_ATE_DECISAO`
+na conclusão da tarefa —, faltando a consolidação por processo. Notificações,
+prontidão, liberação, encerramento formal e relatórios ainda pertencem aos
+incrementos seguintes.
 
 ## Leitura por escopo
 

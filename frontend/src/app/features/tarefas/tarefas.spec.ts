@@ -11,7 +11,7 @@ function tarefa(status: TarefaSetor['status'] = 'PENDENTE'): TarefaSetor {
   return {
     id: 11,
     status,
-    sector: { id: 7, code: '7', name: 'Tecnologia da Informação' },
+    sector: { id: 7, code: '7', name: 'Tecnologia da Informação', allows_amount: true },
     template: { version_id: 20, code: '2', version_number: 1 },
     process: {
       uuid: '3ca25d06-ca5d-4a49-a9df-d42d74a1d6b2',
@@ -63,12 +63,47 @@ function pendencia(): Pendencia {
     description: 'Aguardar devolução.',
     status: 'ABERTA',
     blocking_level: 'BLOQUEANTE',
+    amount: null,
+    can_analyse_amount: false,
     identified_at: '2026-07-30T10:00:00-03:00',
     regularization_due_at: null,
     registered_by: { id: 1, username: 'responsavel' },
     version: 1,
     items: [],
     comments: [],
+  };
+}
+
+/** Evento de input com o alvo já preenchido, como o template entrega ao componente. */
+function inputEvent(value: string): Event {
+  const input = document.createElement('input');
+  input.value = value;
+  return { target: input } as unknown as Event;
+}
+
+function pendenciaValor(overrides: Partial<Pendencia> = {}): Pendencia {
+  return {
+    ...pendencia(),
+    category: 'VALOR',
+    blocking_level: 'BLOQUEANTE_ATE_DECISAO',
+    status: 'ENCAMINHADA_ANALISE',
+    version: 2,
+    amount: {
+      amount_informed: '1250.00',
+      amount_assessed: null,
+      amount_contested: null,
+      amount_approved: null,
+      amount_processed: null,
+      currency: 'BRL',
+      justification: 'Valor de mercado do equipamento.',
+      informed_by: { id: 1, username: 'responsavel' },
+      informed_at: '2026-07-30T10:00:00-03:00',
+      approved_by: null,
+      approved_at: null,
+      version: 1,
+      decisions: [],
+    },
+    ...overrides,
   };
 }
 
@@ -299,6 +334,122 @@ describe('TarefasPage', () => {
 
     expect(comentario).toBeTruthy();
     expect(comentario?.value).toBe('');
+  });
+
+  it('informa a pretensão de cobrança com versão e chave idempotente', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    const valor = pendenciaValor({ status: 'ABERTA', amount: null, version: 1 });
+    emAnalise.pending_items = [valor];
+    carregar(emAnalise);
+    const actions = component as unknown as {
+      atualizarValor(uuid: string, field: string, event: Event): void;
+      informarValor(task: TarefaSetor, pending: Pendencia): void;
+    };
+    actions.atualizarValor(valor.uuid, 'informed_amount', inputEvent('1250.00'));
+    actions.atualizarValor(
+      valor.uuid,
+      'informed_justification',
+      inputEvent('Valor de mercado do equipamento.'),
+    );
+
+    actions.informarValor(emAnalise, valor);
+
+    const request = httpMock.expectOne(
+      `/api/v1/pending-items/${valor.uuid}/amount/`,
+    );
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      expected_version: 1,
+      amount_informed: '1250.00',
+      justification: 'Valor de mercado do equipamento.',
+    });
+    expect(request.request.headers.get('Idempotency-Key')).toBeTruthy();
+    request.flush(pendenciaValor());
+
+    expect(component.tarefas()[0].pending_items[0].amount?.amount_informed).toBe('1250.00');
+  });
+
+  it('decide sem valor aprovado quando rejeita a pretensão', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    const valor = pendenciaValor({ can_analyse_amount: true });
+    emAnalise.pending_items = [valor];
+    carregar(emAnalise);
+    const actions = component as unknown as {
+      atualizarValor(uuid: string, field: string, event: Event): void;
+      decidirValor(task: TarefaSetor, pending: Pendencia): void;
+    };
+    actions.atualizarValor(valor.uuid, 'decision', inputEvent('REJEITADA'));
+    actions.atualizarValor(valor.uuid, 'opinion', inputEvent('Sem comprovação da perda.'));
+
+    actions.decidirValor(emAnalise, valor);
+
+    const request = httpMock.expectOne(
+      `/api/v1/pending-items/${valor.uuid}/amount/decision/`,
+    );
+    expect(request.request.body).toEqual({
+      expected_version: 2,
+      decision: 'REJEITADA',
+      opinion: 'Sem comprovação da perda.',
+    });
+    request.flush(pendenciaValor({ status: 'REJEITADA' }));
+  });
+
+  it('não oferece apuração nem decisão a quem não pode analisar o valor', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    emAnalise.pending_items = [pendenciaValor()];
+    carregar(emAnalise);
+
+    const rotulos = [...fixture.nativeElement.querySelectorAll('button')].map(
+      (button) => (button as HTMLButtonElement).textContent ?? '',
+    );
+
+    expect(fixture.nativeElement.textContent).toContain('Pretensão de cobrança');
+    expect(fixture.nativeElement.textContent).toContain('BRL 1.250,00');
+    expect(rotulos.some((label) => label.includes('Contestar valor'))).toBe(true);
+    expect(rotulos.some((label) => label.includes('Registrar apuração'))).toBe(false);
+    expect(rotulos.some((label) => label.includes('Registrar decisão'))).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('DP vigente no escopo');
+  });
+
+  it('oferece apuração e decisão ao DP no escopo', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    emAnalise.pending_items = [pendenciaValor({ can_analyse_amount: true })];
+    carregar(emAnalise);
+
+    const rotulos = [...fixture.nativeElement.querySelectorAll('button')].map(
+      (button) => (button as HTMLButtonElement).textContent ?? '',
+    );
+
+    expect(rotulos.some((label) => label.includes('Registrar apuração'))).toBe(true);
+    expect(rotulos.some((label) => label.includes('Registrar decisão'))).toBe(true);
+  });
+
+  it('mostra a decisão registrada e a marca de segregação rompida', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    const decidida = pendenciaValor({ status: 'APROVADA_COBRANCA' });
+    decidida.amount = {
+      ...decidida.amount!,
+      amount_approved: '980.00',
+      approved_by: { id: 9, username: 'super' },
+      approved_at: '2026-07-31T10:00:00-03:00',
+      decisions: [
+        {
+          id: 1,
+          decision: 'APROVADA_COBRANCA',
+          opinion: 'Cobrança aprovada pelo valor apurado.',
+          decided_by: { id: 9, username: 'super' },
+          decided_at: '2026-07-31T10:00:00-03:00',
+          segregation_override: true,
+        },
+      ],
+    };
+    emAnalise.pending_items = [decidida];
+    carregar(emAnalise);
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Aprovada para cobrança');
+    expect(texto).toContain('BRL 980,00');
+    expect(texto).toContain('Decidida por quem informou o valor');
   });
 
   it('rotula a pendência bloqueante até decisão e cada situação do eixo de valor', () => {

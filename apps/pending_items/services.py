@@ -526,18 +526,24 @@ class ChangePendingStatusService:
         return PendingMutationResult(pending_item=pending_item, replayed=False)
 
 
+def can_analyse_amounts(actor: User, process: OffboardingProcess) -> bool:
+    """Leitura sem lock de quem apura e decide valor, para a API oferecer a ação."""
+
+    return has_effective_role(
+        actor,
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        company_code=process.company_code,
+        branch_code=process.branch_code,
+    )
+
+
 def _require_coordinator(actor: User, process: OffboardingProcess) -> None:
     """Exigir DP vigente no escopo do processo, ou a autoridade global (ADR-044)."""
 
     if has_global_authority(actor):
         return
     list(RoleAssignment.objects.select_for_update().filter(user=actor).order_by("pk"))
-    if not has_effective_role(
-        actor,
-        PEOPLE_DEPARTMENT_ROLE_CODE,
-        company_code=process.company_code,
-        branch_code=process.branch_code,
-    ):
+    if not can_analyse_amounts(actor, process):
         raise PermissionDenied("A análise de valores exige DP vigente no escopo do processo.")
 
 

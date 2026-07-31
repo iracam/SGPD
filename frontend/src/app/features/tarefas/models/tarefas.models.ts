@@ -54,6 +54,36 @@ export type PendenciaStatus =
   | 'ABONADA'
   | 'ENCERRADA';
 
+export type DecisaoValor = 'APROVADA_COBRANCA' | 'REJEITADA' | 'ABONADA';
+
+export interface PendenciaDecisao {
+  id: number;
+  decision: DecisaoValor;
+  opinion: string;
+  decided_by: { id: number; username: string };
+  decided_at: string;
+  /** Verdadeiro quando o decisor é quem informou o valor (ADR-048). */
+  segregation_override: boolean;
+}
+
+/** Pretensão de cobrança: o SGPD registra análise, nunca desconto (ADR-009). */
+export interface PendenciaValor {
+  amount_informed: string | null;
+  amount_assessed: string | null;
+  amount_contested: string | null;
+  amount_approved: string | null;
+  /** Só chega preenchido do registro do Senior; a SPA nunca o edita. */
+  amount_processed: string | null;
+  currency: string;
+  justification: string;
+  informed_by: { id: number; username: string };
+  informed_at: string;
+  approved_by: { id: number; username: string } | null;
+  approved_at: string | null;
+  version: number;
+  decisions: PendenciaDecisao[];
+}
+
 /** Situações alcançáveis pelo endpoint genérico de situação; o eixo de valor tem serviços próprios. */
 export type PendenciaTransicao = Extract<
   PendenciaStatus,
@@ -74,6 +104,9 @@ export interface Pendencia {
     | 'NAO_BLOQUEANTE'
     | 'BLOQUEANTE'
     | 'BLOQUEANTE_ATE_DECISAO';
+  amount: PendenciaValor | null;
+  /** Espelha a autorização do backend: apurar e decidir exigem DP no escopo. */
+  can_analyse_amount: boolean;
   identified_at: string;
   regularization_due_at: string | null;
   registered_by: { id: number; username: string };
@@ -101,7 +134,7 @@ export interface Pendencia {
 export interface TarefaSetor {
   id: number;
   status: TarefaStatus;
-  sector: { id: number; code: string; name: string };
+  sector: { id: number; code: string; name: string; allows_amount: boolean };
   template: { version_id: number; code: string; version_number: number };
   process: {
     uuid: string;

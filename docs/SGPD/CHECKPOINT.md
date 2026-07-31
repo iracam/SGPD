@@ -7,7 +7,8 @@
 - Fases estabilizadas: 1, 2, 2.5, 2.7 e 3
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências; 6 — valores e
   decisões
-- Próximo incremento: **Fase 6, fatia 4** — API e SPA do eixo de valor
+- Próximo incremento: **Fase 6, fatia 5** — consolidação de valores por
+  processo
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente; segregação de valores pela ADR-048
@@ -54,7 +55,9 @@ tarefas e a primeira fatia vertical de pendências/evidências.
 Itens `FILE` e com evidência obrigatória podem concluir depois do upload
 privado. Pendência bloqueante aberta ou em regularização impede a conclusão da
 tarefa; a bloqueante até decisão só libera com a pretensão decidida ou a
-pendência encerrada.
+pendência encerrada. A pendência de valor percorre informar → apurar →
+contestar → decidir pela própria SPA, e o valor processado continua vazio até
+que o Senior o registre.
 
 O card `Em Aberto` reúne processos iniciados com ao menos uma tarefa não
 concluída; ao concluir a última tarefa, o processo sai desse card e passa para
@@ -139,10 +142,9 @@ Contrato Senior — legibilidade cadastral:
   decisão de valor: é ato explícito, auditado e necessário para a pendência que
   nunca teve pretensão, mas contorna o guard e deve ser revisto na prontidão da
   Fase 8;
-- enquanto a fatia 4 não chega, uma pendência `BLOQUEANTE_ATE_DECISAO` criada
-  pela API trava a tarefa sem caminho de decisão na SPA. O `select` de registro
-  não oferece essa classificação, então a armadilha só existe para quem chama a
-  API direto.
+- a SPA do eixo de valor ainda não passou por varredura headless nas cinco
+  larguras homologadas nem por exercício funcional no Oracle DEV; a conferência
+  até aqui é de testes e build.
 
 ## Homologação funcional e visual das Fases 3 e 5
 
@@ -206,8 +208,7 @@ data para registrar esse alcance.
 ## Fase 6 — valores e decisões (em andamento)
 
 A fase foi fatiada em cinco: modelo, services, guard de bloqueio, API/SPA e
-consolidação. **As fatias 1, 2 e 3 estão implementadas; a próxima é a fatia
-4.**
+consolidação. **As fatias 1 a 4 estão implementadas; falta a fatia 5.**
 
 Fatia 1 — modelo, migration `pending_items.0002`, aplicada no Oracle DEV:
 
@@ -251,9 +252,29 @@ Fatia 3 — guard de bloqueio, sem migration:
 - `PendenciaTransicao` fixa no tipo que o endpoint genérico de situação não
   alcança o eixo de decisão.
 
-Falta na fatia 4: API e SPA do eixo de valor sobre `_conferencia.scss` — a
-ADR-047 exige rótulo legível para cada estado novo no mesmo incremento — e
-depois a consolidação de valores por processo.
+Fatia 4 — API e SPA do eixo de valor, sem migration:
+
+- quatro rotas sob `pending-items/<uuid>/amount/` (informar, `assessment/`,
+  `contestation/`, `decision/`), todas com `Idempotency-Key`, versão otimista e
+  resposta com a pendência inteira; o serializer da decisão exige valor
+  aprovado só na aprovação de cobrança e o recusa na rejeição e no abono;
+- a negativa da ADR-048 volta como 403 com o motivo legível — as views de valor
+  tratam `PermissionDenied` localmente, porque o handler global responde
+  mensagem genérica e aqui a barra é regra de negócio, não sonda de existência;
+- o payload da pendência ganhou `amount` (cinco montantes, moeda, quem
+  informou, quem aprovou e as decisões) e `can_analyse_amount`, que
+  `can_analyse_amounts()` calcula com memo por processo; a tarefa passou a
+  publicar `sector.allows_amount`, leitura viva da mesma coluna que o service
+  consulta;
+- em `Minhas tarefas`, a pendência de valor mostra o quadro de conferência em
+  mono, as decisões com autor e a marca de `segregation_override`, e oferece
+  informar, apurar, contestar e decidir conforme o estado e a capacidade. O
+  formulário de registro passou a oferecer a categoria `Valor` e a
+  classificação `Bloqueante até decisão`, que a fatia 3 deixou de fora por não
+  haver caminho de decisão.
+
+Falta a fatia 5: consolidação de valores por processo, com separação das
+decisões marcadas por `segregation_override` para conferência posterior.
 
 ## Ciclo de vida do rascunho na configuração (2026-07-31)
 
@@ -275,6 +296,17 @@ O editor de configuração fechou o ciclo de vida das versões:
 `sqlmigrate` é `(no-op)` e a migration está aplicada no Oracle DEV.
 
 ## Baseline de qualidade
+
+Na fatia 4 a validação padrão foi executada por inteiro: 381 testes backend e
+89 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations e
+build Angular sem avisos. Nenhuma migration foi necessária. Os quatro testes
+backend novos exercem o ciclo pela API com trilha e replay, o 403 da
+segregação e o 403 de quem responde pelo setor sem `DP`, o 409 de chave
+reusada com corpo diferente, os dois erros de contrato da decisão e o payload
+de tarefa com `allows_amount` e pretensão. Os cinco do frontend cobrem o envio
+com versão e chave, a decisão sem valor aprovado, a ausência das ações para
+quem não pode analisar, a presença delas para o `DP` e a leitura da decisão
+com a marca de segregação.
 
 Na fatia 3 a validação padrão foi executada por inteiro: 377 testes backend e
 84 frontend, Ruff, formatação, Mypy em 169 arquivos, Django check, verificação

@@ -5,7 +5,10 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import BlockingLevel, PendingCategory, PendingStatus
+from .models import BlockingLevel, DecisionOutcome, PendingCategory, PendingStatus
+
+#: Menor pretensão aceita; o service recusa zero e negativo, o serializer recusa o formato.
+MINIMUM_AMOUNT = Decimal("0.01")
 
 
 class PendingLineSerializer(serializers.Serializer[dict[str, Any]]):
@@ -65,3 +68,53 @@ class ChangePendingStatusSerializer(serializers.Serializer[dict[str, Any]]):
 class AddPendingCommentSerializer(serializers.Serializer[dict[str, Any]]):
     expected_version = serializers.IntegerField(min_value=1)
     comment = serializers.CharField(max_length=4000, trim_whitespace=True)
+
+
+def _amount_field() -> serializers.DecimalField:
+    return serializers.DecimalField(max_digits=12, decimal_places=2, min_value=MINIMUM_AMOUNT)
+
+
+class RegisterPendingAmountSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
+    amount_informed = _amount_field()
+    currency = serializers.CharField(max_length=3, required=False, default="BRL")
+    justification = serializers.CharField(max_length=4000, trim_whitespace=True)
+
+
+class AssessPendingAmountSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
+    amount_assessed = _amount_field()
+    justification = serializers.CharField(max_length=4000, trim_whitespace=True)
+
+
+class ContestPendingAmountSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
+    amount_contested = _amount_field()
+    justification = serializers.CharField(max_length=4000, trim_whitespace=True)
+
+
+class DecidePendingAmountSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=1)
+    decision = serializers.ChoiceField(choices=DecisionOutcome.choices)
+    opinion = serializers.CharField(max_length=4000, trim_whitespace=True)
+    amount_approved = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=MINIMUM_AMOUNT,
+        required=False,
+        allow_null=True,
+    )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        # Aprovar cobrança sem valor é erro de contrato; rejeitar e abonar
+        # resolvem em zero no service e não aceitam valor aprovado.
+        approved = attrs.get("amount_approved")
+        if attrs["decision"] == DecisionOutcome.CHARGE_APPROVED and approved is None:
+            raise serializers.ValidationError(
+                {"amount_approved": "A aprovação de cobrança exige o valor aprovado."}
+            )
+        if attrs["decision"] != DecisionOutcome.CHARGE_APPROVED and approved is not None:
+            raise serializers.ValidationError(
+                {"amount_approved": "Rejeição e abono resolvem a pretensão em zero."}
+            )
+        return attrs

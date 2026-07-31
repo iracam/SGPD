@@ -251,6 +251,7 @@
                                 [value]="rascunhosPendencia()[tarefa.id]?.category ?? 'OUTRO'"
                                 (change)="atualizarCampoPendencia(tarefa.id, 'category', $event)"
                               >
+                                <option value="VALOR">Valor</option>
                                 <option value="MATERIAL">Material</option>
                                 <option value="FERRAMENTA">Ferramenta</option>
                                 <option value="EQUIPAMENTO">Equipamento</option>
@@ -280,6 +281,9 @@
                                 "
                               >
                                 <option value="BLOQUEANTE">Bloqueante</option>
+                                <option value="BLOQUEANTE_ATE_DECISAO">
+                                  Bloqueante até decisão
+                                </option>
                                 <option value="NAO_BLOQUEANTE">Não bloqueante</option>
                                 <option value="INFORMATIVA">Informativa</option>
                               </select>
@@ -355,6 +359,317 @@
                                 </span>
                               </header>
                               <p>{{ pendencia.description }}</p>
+
+                              @if (pendencia.amount; as valorPendencia) {
+                                <section class="valor">
+                                  <h5>Pretensão de cobrança</h5>
+                                  <dl class="valor__quadro">
+                                    <div>
+                                      <dt>Informado</dt>
+                                      <dd class="registro">
+                                        {{
+                                          valorFormatado(
+                                            valorPendencia.amount_informed,
+                                            valorPendencia.currency
+                                          )
+                                        }}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt>Apurado</dt>
+                                      <dd class="registro">
+                                        {{
+                                          valorFormatado(
+                                            valorPendencia.amount_assessed,
+                                            valorPendencia.currency
+                                          )
+                                        }}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt>Contestado</dt>
+                                      <dd class="registro">
+                                        {{
+                                          valorFormatado(
+                                            valorPendencia.amount_contested,
+                                            valorPendencia.currency
+                                          )
+                                        }}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt>Aprovado</dt>
+                                      <dd class="registro">
+                                        {{
+                                          valorFormatado(
+                                            valorPendencia.amount_approved,
+                                            valorPendencia.currency
+                                          )
+                                        }}
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt>Processado no Senior</dt>
+                                      <dd class="registro">
+                                        {{
+                                          valorFormatado(
+                                            valorPendencia.amount_processed,
+                                            valorPendencia.currency
+                                          )
+                                        }}
+                                      </dd>
+                                    </div>
+                                  </dl>
+                                  <p class="valor__origem">
+                                    Informado por
+                                    <strong>{{ valorPendencia.informed_by.username }}</strong>
+                                    em
+                                    {{ valorPendencia.informed_at | date: 'dd/MM/yyyy HH:mm' }}
+                                  </p>
+
+                                  @if (valorPendencia.decisions.length) {
+                                    <ul class="valor__decisoes">
+                                      @for (
+                                        decisao of valorPendencia.decisions;
+                                        track decisao.id
+                                      ) {
+                                        <li>
+                                          <span
+                                            [class]="
+                                              'chip chip--' +
+                                              (decisao.decision === 'APROVADA_COBRANCA'
+                                                ? 'released'
+                                                : 'canceled')
+                                            "
+                                          >
+                                            {{ rotuloDecisao(decisao.decision) }}
+                                          </span>
+                                          <span>{{ decisao.opinion }}</span>
+                                          <small>
+                                            {{ decisao.decided_by.username }} ·
+                                            {{
+                                              decisao.decided_at | date: 'dd/MM/yyyy HH:mm'
+                                            }}
+                                          </small>
+                                          @if (decisao.segregation_override) {
+                                            <small class="valor__override">
+                                              Decidida por quem informou o valor, com
+                                              autoridade global registrada na trilha.
+                                            </small>
+                                          }
+                                        </li>
+                                      }
+                                    </ul>
+                                  }
+
+                                  @if (podeAnalisarValor(pendencia)) {
+                                    <div class="valor__acao">
+                                      <label>
+                                        Valor apurado
+                                        <input
+                                          type="number"
+                                          min="0.01"
+                                          step="0.01"
+                                          [value]="valor(pendencia).assessed_amount"
+                                          (input)="
+                                            atualizarValor(
+                                              pendencia.uuid,
+                                              'assessed_amount',
+                                              $event
+                                            )
+                                          "
+                                        />
+                                      </label>
+                                      <label>
+                                        Justificativa da apuração
+                                        <textarea
+                                          rows="2"
+                                          maxlength="4000"
+                                          [value]="valor(pendencia).assessed_justification"
+                                          (input)="
+                                            atualizarValor(
+                                              pendencia.uuid,
+                                              'assessed_justification',
+                                              $event
+                                            )
+                                          "
+                                        ></textarea>
+                                      </label>
+                                      <div class="acoes">
+                                        <p-button
+                                          type="button"
+                                          severity="secondary"
+                                          icon="pi pi-calculator"
+                                          label="Registrar apuração"
+                                          [disabled]="tarefaEmMutacao() !== null"
+                                          (onClick)="apurarValor(tarefa, pendencia)"
+                                        ></p-button>
+                                      </div>
+                                    </div>
+                                  }
+
+                                  @if (podeContestarValor(pendencia)) {
+                                    <div class="valor__acao">
+                                      <label>
+                                        Valor contestado
+                                        <input
+                                          type="number"
+                                          min="0.01"
+                                          step="0.01"
+                                          [value]="valor(pendencia).contested_amount"
+                                          (input)="
+                                            atualizarValor(
+                                              pendencia.uuid,
+                                              'contested_amount',
+                                              $event
+                                            )
+                                          "
+                                        />
+                                      </label>
+                                      <label>
+                                        Justificativa da contestação
+                                        <textarea
+                                          rows="2"
+                                          maxlength="4000"
+                                          [value]="valor(pendencia).contested_justification"
+                                          (input)="
+                                            atualizarValor(
+                                              pendencia.uuid,
+                                              'contested_justification',
+                                              $event
+                                            )
+                                          "
+                                        ></textarea>
+                                      </label>
+                                      <div class="acoes">
+                                        <p-button
+                                          type="button"
+                                          severity="secondary"
+                                          icon="pi pi-flag"
+                                          label="Contestar valor"
+                                          [disabled]="tarefaEmMutacao() !== null"
+                                          (onClick)="contestarValor(tarefa, pendencia)"
+                                        ></p-button>
+                                      </div>
+                                    </div>
+                                  }
+
+                                  @if (podeAnalisarValor(pendencia)) {
+                                    <div class="valor__acao">
+                                      <label>
+                                        Decisão
+                                        <select
+                                          [value]="valor(pendencia).decision"
+                                          (change)="
+                                            atualizarValor(pendencia.uuid, 'decision', $event)
+                                          "
+                                        >
+                                          <option value="APROVADA_COBRANCA">
+                                            Aprovada para cobrança
+                                          </option>
+                                          <option value="REJEITADA">Rejeitada</option>
+                                          <option value="ABONADA">Abonada</option>
+                                        </select>
+                                      </label>
+                                      @if (valor(pendencia).decision === 'APROVADA_COBRANCA') {
+                                        <label>
+                                          Valor aprovado
+                                          <input
+                                            type="number"
+                                            min="0.01"
+                                            step="0.01"
+                                            [value]="valor(pendencia).approved_amount"
+                                            (input)="
+                                              atualizarValor(
+                                                pendencia.uuid,
+                                                'approved_amount',
+                                                $event
+                                              )
+                                            "
+                                          />
+                                        </label>
+                                      }
+                                      <label>
+                                        Parecer
+                                        <textarea
+                                          rows="2"
+                                          maxlength="4000"
+                                          [value]="valor(pendencia).opinion"
+                                          (input)="
+                                            atualizarValor(pendencia.uuid, 'opinion', $event)
+                                          "
+                                        ></textarea>
+                                      </label>
+                                      <div class="acoes">
+                                        <p-button
+                                          type="button"
+                                          icon="pi pi-gavel"
+                                          label="Registrar decisão"
+                                          [disabled]="tarefaEmMutacao() !== null"
+                                          (onClick)="decidirValor(tarefa, pendencia)"
+                                        ></p-button>
+                                      </div>
+                                    </div>
+                                  }
+
+                                  @if (valorEmAnalise(pendencia) && !pendencia.can_analyse_amount) {
+                                    <p class="valor__aviso">
+                                      A decisão sobre a pretensão é do DP vigente no escopo do
+                                      processo.
+                                    </p>
+                                  }
+                                </section>
+                              } @else if (podeInformarValor(tarefa, pendencia)) {
+                                <section class="valor">
+                                  <h5>Pretensão de cobrança</h5>
+                                  <p class="valor__aviso">
+                                    O valor é solicitação de análise: o SGPD não aplica
+                                    desconto e a decisão é registrada em separado.
+                                  </p>
+                                  <div class="valor__acao">
+                                    <label>
+                                      Valor pretendido
+                                      <input
+                                        type="number"
+                                        min="0.01"
+                                        step="0.01"
+                                        [value]="valor(pendencia).informed_amount"
+                                        (input)="
+                                          atualizarValor(
+                                            pendencia.uuid,
+                                            'informed_amount',
+                                            $event
+                                          )
+                                        "
+                                      />
+                                    </label>
+                                    <label>
+                                      Justificativa
+                                      <textarea
+                                        rows="2"
+                                        maxlength="4000"
+                                        [value]="valor(pendencia).informed_justification"
+                                        (input)="
+                                          atualizarValor(
+                                            pendencia.uuid,
+                                            'informed_justification',
+                                            $event
+                                          )
+                                        "
+                                      ></textarea>
+                                    </label>
+                                    <div class="acoes">
+                                      <p-button
+                                        type="button"
+                                        icon="pi pi-dollar"
+                                        label="Informar valor"
+                                        [disabled]="tarefaEmMutacao() !== null"
+                                        (onClick)="informarValor(tarefa, pendencia)"
+                                      ></p-button>
+                                    </div>
+                                  </div>
+                                </section>
+                              }
 
                               @if (pendencia.comments.length) {
                                 <ul class="comentarios">
