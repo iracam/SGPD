@@ -101,6 +101,10 @@
 
 .dados dd {
   margin: 0.15rem 0 0;
+  // Endereço de e-mail é uma palavra só: sem quebra forçada ele atravessa a
+  // coluna vizinha em 360 sem esticar o documento — a métrica de overflow
+  // horizontal não acusa, mas o texto fica ilegível.
+  overflow-wrap: anywhere;
 }
 
 .erro-entrega {

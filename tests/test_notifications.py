@@ -27,7 +27,11 @@ from apps.accounts.models import (
     User,
     build_scope_key,
 )
-from apps.notifications.deadlines import ScanDeadlinesCommand, ScanDeadlinesService
+from apps.notifications.deadlines import (
+    ScanDeadlinesCommand,
+    ScanDeadlinesService,
+    processes_with_open_tasks,
+)
 from apps.notifications.models import (
     Notification,
     NotificationAttempt,
@@ -761,3 +765,22 @@ def test_the_amount_warns_the_dp_to_decide_and_the_sector_of_the_decision(
 
     decided = Notification.objects.get(event=NotificationEvent.AMOUNT_DECIDED)
     assert decided.recipient == actor
+
+
+def test_the_process_scan_never_asks_oracle_to_distinct_a_lob(
+    actor: User,
+    process: Any,
+) -> None:
+    """`SELECT DISTINCT` sobre `reason`/`notes` é `ORA-00932` no Oracle.
+
+    O SQLite dos testes aceita e a varredura passava aqui enquanto quebrava no
+    DEV, na primeira execução real. A duplicidade do join tem de morrer numa
+    subconsulta, antes de projetar as colunas.
+    """
+
+    started_task(actor, process)
+
+    sql = str(processes_with_open_tasks().query)
+
+    assert "DISTINCT" not in sql.upper()
+    assert process.pk in {row.pk for row in processes_with_open_tasks()}

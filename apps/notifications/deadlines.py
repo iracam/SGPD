@@ -14,6 +14,7 @@ from datetime import datetime, time, timedelta
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -68,6 +69,20 @@ def _milestone_instants(task: ProcessSectorTask) -> tuple[tuple[str, datetime], 
             due_at + timedelta(hours=settings.NOTIFICATION_TASK_CRITICAL_HOURS),
         ),
     )
+
+
+def processes_with_open_tasks() -> QuerySet[OffboardingProcess]:
+    """Processos iniciados com ao menos uma tarefa em aberto.
+
+    Sem `distinct()`: o processo carrega `reason` e `notes` como NCLOB e o
+    Oracle recusa `SELECT DISTINCT` sobre LOB com `ORA-00932`. A subconsulta
+    resolve a duplicidade do join antes de projetar as colunas.
+    """
+
+    return OffboardingProcess.objects.filter(
+        status=ProcessStatus.STARTED,
+        pk__in=ProcessSectorTask.objects.filter(status__in=OPEN_TASK_STATUSES).values("process_id"),
+    ).order_by("due_date", "pk")
 
 
 def _process_deadline(process: OffboardingProcess) -> datetime:
@@ -135,12 +150,7 @@ class ScanDeadlinesService:
 
     def _scan_processes(self, now: datetime) -> tuple[int, int, int]:
         horizon = timedelta(hours=settings.NOTIFICATION_PROCESS_DUE_SOON_HOURS)
-        processes = (
-            OffboardingProcess.objects.filter(status=ProcessStatus.STARTED)
-            .filter(sector_tasks__status__in=OPEN_TASK_STATUSES)
-            .distinct()
-            .order_by("due_date", "pk")
-        )
+        processes = processes_with_open_tasks()
         scanned = queued = without_recipients = 0
         for process in processes:
             scanned += 1

@@ -160,6 +160,10 @@ Contrato Senior — legibilidade cadastral:
   vale separar as decididas em zero;
 - o agendamento das notificações no DEV ainda não foi instalado: enquanto não
   for, a varredura e o despacho só rodam quando alguém os chama à mão;
+- `SGPD_BASE_URL` vazio no `.env` do DEV faz o link da mensagem sair relativo e
+  não clicável no cliente de e-mail;
+- as 16 notificações entregues na homologação permanecem no DEV: a fila é
+  append-only e não pode ser apagada, como a auditoria e as pendências;
 - a entrega da notificação é ao menos uma vez: se o processo morrer entre o
   envio SMTP e a confirmação no banco, a mensagem volta para a fila e pode
   chegar duplicada. Duplicar aviso é aceitável; perder aviso não é;
@@ -368,9 +372,44 @@ O editor de configuração fechou o ciclo de vida das versões:
 `templates_engine.0007` apenas amplia as opções de `EVENT_TYPE`: o
 `sqlmigrate` é `(no-op)` e a migration está aplicada no Oracle DEV.
 
+## Homologação da Fase 7 (2026-07-31)
+
+A fase foi exercida contra o Oracle DEV com envio real pelo Microsoft 365,
+autorizado pelo responsável funcional: **16 e-mails entregues** aos
+responsáveis de sete setores do processo `8c5ff6bf`, oito de
+`TAREFA_A_VENCER` e oito de `TAREFA_VENCE_EM_BREVE`. As 16 tentativas fecharam
+com sucesso na primeira, a fila terminou inteira em `ENVIADA` e nada ficou
+pendente.
+
+A homologação encontrou um defeito que só existe no Oracle e derrubava a
+varredura: `_scan_processes` usava `distinct()` sobre `SGPD_OFFBOARDING_PROCESS`,
+cujas colunas `REASON` e `NOTES` são NCLOB, e o Oracle recusa `SELECT DISTINCT`
+sobre LOB com `ORA-00932`. O SQLite dos testes aceita, então a suíte passava
+enquanto o comando quebrava na primeira execução real. A duplicidade do join
+passou a morrer numa subconsulta (`processes_with_open_tasks()`), antes de
+projetar as colunas, e o teste novo garante que a consulta não volte a pedir
+`DISTINCT`.
+
+A falha aconteceu **depois** da varredura das tarefas, que já havia enfileirado
+as 16 mensagens: a execução seguinte não duplicou nada nem perdeu nada — a
+chave de deduplicação absorveu as linhas existentes e o despacho as enviou. O
+outbox provou o próprio desenho por acidente.
+
+A varredura headless cobriu a tela `/fe/notificacoes` nas cinco larguras
+homologadas e nos dois temas — 10 combinações, sem rolagem horizontal e sem
+erro de console, com as 16 mensagens reais e o detalhe expandido. Um defeito
+visual foi corrigido no caminho: o endereço do destinatário é uma palavra só e
+atravessava a coluna vizinha em 360 sem esticar o documento, então a métrica de
+overflow não o acusava; `.dados dd` ganhou `overflow-wrap: anywhere`.
+
+Ficou aberto: `SGPD_BASE_URL` está vazio no `.env` do DEV, então os links das
+mensagens saíram relativos (`/fe/tarefas`) e não são clicáveis no cliente de
+e-mail. É configuração, não código — basta preencher a variável com a URL
+externa do DEV antes do próximo envio.
+
 ## Baseline de qualidade
 
-Na Fase 7 a validação padrão foi executada por inteiro: 409 testes backend e 95
+Na Fase 7 a validação padrão foi executada por inteiro: 410 testes backend e 95
 frontend, Ruff, formatação, Mypy em 190 arquivos, Django check, verificação de
 migrations e build Angular sem avisos. As duas migrations foram revisadas e
 aplicadas no Oracle DEV: `notifications.0001` cria duas tabelas, dois índices
@@ -378,20 +417,23 @@ próprios e seis constraints — a verificação somente leitura confirmou 35
 constraints `ENABLED`/`VALIDATED`, 15 índices `VALID` e as tabelas vazias —, e
 `offboarding.0008` é `(no-op)`, apenas amplia as opções de `EVENT_TYPE`.
 
-Os 25 testes backend novos cobrem a armadilha do `full_clean()` no Oracle, a
+Os 26 testes backend novos cobrem a armadilha do `full_clean()` no Oracle, a
 deduplicação do marco, a imutabilidade da fila, a tentativa aberta ou fechada
 por inteiro, o envio com fechamento da tentativa, o backoff e a desistência, a
 reabertura do que ficou preso em envio, os dois comandos, cada marco de prazo e
 seus destinatários, o marco sem ninguém para avisar, o painel restrito ao
 escopo, o reprocessamento com trilha e replay, a recusa da mensagem já entregue
-e da versão obsoleta, e os quatro gatilhos de domínio. Os três do frontend
+e da versão obsoleta, os quatro gatilhos de domínio e a consulta de processos
+que não pode pedir `DISTINCT` ao Oracle. Os três do frontend
 cobrem a leitura da fila com o erro da última tentativa, o reprocessamento com
 versão e chave, e a ausência da ação para mensagem entregue.
 
 Dois defeitos apareceram na própria suíte e foram corrigidos antes do commit: a
 janela de reabertura zerada era descartada por `or` — um `timedelta(0)` é falsy
 — e o número da tentativa colidia depois do reprocessamento, porque reusava o
-contador de orçamento em vez de continuar a numeração histórica.
+contador de orçamento em vez de continuar a numeração histórica. Os outros dois
+— o `DISTINCT` sobre LOB e o endereço que atravessava a coluna — só apareceram
+na homologação, e estão registrados na seção correspondente.
 
 Na homologação da Fase 6 a validação padrão foi executada por inteiro: 384
 testes backend e 92 frontend, Ruff, formatação, Mypy, Django check, verificação
