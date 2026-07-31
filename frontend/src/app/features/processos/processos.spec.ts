@@ -135,6 +135,38 @@ describe('ProcessosPage', () => {
           },
         ],
       });
+    httpMock
+      .expectOne(
+        (candidate) =>
+          candidate.url === '/api/v1/processes/' &&
+          candidate.params.get('status') === 'CANCELADO' &&
+          candidate.params.get('limit') === '50',
+      )
+      .flush({
+        offset: 0,
+        limit: 50,
+        results: [
+          {
+            uuid: 'cancelado',
+            status: 'CANCELADO',
+            company_code: 1,
+            branch_code: 2,
+            employee_type_code: 1,
+            employee_registration: 555,
+            opened_at: '2026-07-28T12:00:00-03:00',
+            completion_at: null,
+            planned_termination_date: '2026-08-15',
+            due_date: '2026-08-14',
+            priority: 'Normal',
+            version: 4,
+            employee_snapshot: {
+              employee_name: 'Processo Cancelado',
+              registration: 555,
+              branch_legal_name: 'Empresa',
+            },
+          },
+        ],
+      });
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
@@ -144,6 +176,10 @@ describe('ProcessosPage', () => {
     expect(text).toContain('Concluídos');
     expect(text).toContain('Processo Em Aberto');
     expect(text).toContain('Processo Concluído');
+    // Cancelado não está em aberto nem entre os concluídos: sem card próprio,
+    // ele sumiria do hub.
+    expect(text).toContain('Cancelados');
+    expect(text).toContain('Processo Cancelado');
     expect(text.indexOf('Rascunho Novo')).toBeLessThan(text.indexOf('Rascunho Antigo'));
 
     const processButtons = fixture.nativeElement.querySelectorAll(

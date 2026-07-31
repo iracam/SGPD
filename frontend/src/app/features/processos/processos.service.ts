@@ -22,6 +22,12 @@ export class ProcessosService {
     return this.http.get<ListaProcessos>(apiConfig.routes.processes, { params });
   }
 
+  /** Cancelado não está em aberto nem entre os concluídos: é card próprio. */
+  listarCancelados(): Observable<ListaProcessos> {
+    const params = new HttpParams().set('status', 'CANCELADO').set('limit', 50);
+    return this.http.get<ListaProcessos>(apiConfig.routes.processes, { params });
+  }
+
   listarEmAberto(): Observable<ListaProcessos> {
     const params = new HttpParams().set('open', true).set('limit', 50);
     return this.http.get<ListaProcessos>(apiConfig.routes.processes, { params });

@@ -6,8 +6,9 @@
 - Ambiente: DEV único sobre Oracle 19c
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6 e 7
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências;
-  **8 — prontidão, liberação e encerramento** (fatias 1 a 3 implementadas)
-- Próximo incremento: **Fase 8, fatia 4 — API e SPA do ciclo formal**
+  **8 — prontidão, liberação e encerramento** (quatro fatias implementadas)
+- Próximo incremento: **homologação da Fase 8 no Oracle DEV**, com varredura
+  headless da tela nova
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -67,8 +68,9 @@ que o Senior o registre.
 O card `Em Aberto` reúne processos iniciados com ao menos uma tarefa não
 concluída; ao concluir a última tarefa, o processo sai desse card e passa para
 `Concluídos`. O ciclo formal — prontidão, liberação, processamento declarado,
-encerramento, cancelamento e reabertura — existe no domínio desde a Fase 8, mas
-ainda não tem API nem tela: só é alcançável pelos services.
+encerramento, cancelamento e reabertura — está operacional ponta a ponta pela
+tela `/fe/processos/:uuid/encerramento`, e o processo cancelado tem card
+próprio no hub. Falta a homologação contra o Oracle DEV.
 
 As notificações saem por e-mail a partir de uma fila no Oracle. Nada é enviado
 dentro da requisição: o início do processo, a pendência bloqueante e o eixo de
@@ -142,9 +144,8 @@ Contrato Senior — legibilidade cadastral:
   encerramento formal já dá o marco de contagem, mas não há rotina automática;
 - validar a retenção de 5 anos com Jurídico, RH e Segurança da Informação;
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
-- processo cancelado não aparece em nenhum card do hub: sai de `Em Aberto` e não
-  entra em `Concluídos`. Enquanto a fatia 4 não lhe der lugar na SPA, ele só é
-  visível pela auditoria;
+- a tela do ciclo formal ainda não passou pela varredura headless nas cinco
+  larguras nem por exercício contra o Oracle DEV;
 - o DEV contém dados de homologação que não podem ser apagados (pendência é
   append-only): processos `5bfc0d3a` (rascunho), `9cbed216` e `8c5ff6bf`
   (iniciados), com seis pendências, quatro pretensões decididas e uma aguardando
@@ -661,8 +662,8 @@ Fatia 5 — gatilhos de domínio, sem migration:
 
 A decisão que governa a fase é a **ADR-051**: o `STATUS` guarda somente estado
 formal e a situação funcional é calculada a cada leitura. A fase foi fatiada em
-quatro; as três primeiras estão implementadas em 2026-07-31 e nenhuma delas tem
-API ou tela — a fatia 4 é que leva o ciclo à SPA.
+quatro, todas implementadas em 2026-07-31. Falta a homologação contra o Oracle
+DEV.
 
 Fatia 1 — estados formais, marcas e migration `offboarding.0009`, aplicada no
 Oracle DEV:
@@ -703,6 +704,46 @@ Fatia 3 — cancelamento e reabertura, migrations `offboarding.0010` e
   reabertura carrega tarefa e ordem (`t<id>r<n>`): sem a tarefa, dois setores do
   mesmo responsável — ou dois processos reabertos pela primeira vez — colidiriam
   e o segundo aviso sumiria.
+
+Fatia 4 — API e SPA do ciclo formal, sem migration:
+
+- `GET …/readiness/` devolve estado formal, marcas de cada ato, situação
+  recalculada, impedimentos da liberação, impedimentos do encerramento e as
+  tarefas; cinco `POST` (`release`, `processing`, `close`, `cancel`, `reopen`)
+  respondem a mesma leitura, com `expected_version`, `Idempotency-Key` e
+  `idempotency_replayed`;
+- a recusa por regra volta em `details` e a tela mostra o impedimento
+  recalculado, não o rótulo genérico do envelope — é a informação que decide o
+  que fazer em seguida. A negativa de autoridade volta 403 com o motivo
+  legível, porque quem a recebe já enxerga o processo;
+- `process_payload` ganhou o bloco `formal`, e a listagem passou a trazer os
+  quatro atores das marcas no `select_related`: sem isso, cada linha custaria
+  quatro consultas;
+- tela `/fe/processos/:uuid/encerramento` sobre o protocolo de conferência
+  (ADR-047), separando o chip do **estado formal** do chip da **situação
+  calculada** — confundi-los anularia a ADR-051. Cada ato aparece conforme o
+  estado; a liberação fica indisponível enquanto houver impedimento, e o
+  encerramento enquanto houver pendência em curso;
+- a reabertura só é oferecida ao SuperAdmin, com seleção das tarefas concluídas
+  que voltam para análise; sem nenhuma marcada, corrige só a marca formal. A
+  SPA orienta, a API decide;
+- o hub ganhou o card `Cancelados` (`status=CANCELADO`) e o atalho
+  `Conferir encerramento do processo`: sem card próprio, o cancelado sumiria do
+  hub, já que não está em aberto nem entre os concluídos.
+
+Na fatia 4 a validação padrão foi executada por inteiro: 455 testes backend e
+105 frontend, Ruff, formatação, Mypy em 203 arquivos, Django check, verificação
+de migrations e build Angular sem avisos. Nenhuma migration foi necessária — a
+fatia é contrato e tela. Os 7 testes backend novos cobrem a leitura da situação
+sem efeito colateral, o ciclo inteiro pela API com replay, a recusa por
+impedimento, versão obsoleta e chave reusada, a data futura do processamento, o
+cancelamento sem motivo e o processo cancelado achável só pelo filtro de
+estado, o 403 legível da reabertura ao `DP` com a reabertura do SuperAdmin
+devolvendo a tarefa, e o ciclo inteiro fora do alcance de quem não é `DP`. Os 6
+do frontend cobrem a separação entre estado e situação com o botão travado, a
+liberação com versão e chave, o impedimento recalculado exibido na recusa, o
+cancelamento que exige motivo, a ausência da reabertura para quem não é
+SuperAdmin e a reabertura com as tarefas escolhidas.
 
 Na fatia 3 a validação padrão foi executada por inteiro: 448 testes backend e
 99 frontend, Ruff, formatação, Mypy em 202 arquivos, Django check e verificação

@@ -518,11 +518,13 @@ O `GET` lista somente processos cobertos pelos escopos `DP` vigentes do ator;
 SuperAdmin recebe todos. Aceita filtro pelos estados já implementados,
 paginação sem `COUNT(*)` e ordena pela abertura mais nova. O filtro
 `open=true` reúne processos `INICIADO` com ao menos uma tarefa não concluída.
-O filtro `completed=true` reúne processos
-formalmente `ENCERRADO` e processos `INICIADO` que possuem ao menos uma tarefa
-setorial e nenhuma tarefa não concluída. Nesse filtro, a conclusão setorial
-mais nova aparece primeiro; até existir a data formal de encerramento, um
-encerrado sem tarefa concluída usa a abertura como desempate. A consulta usa
+O filtro `completed=true` reúne processos que já saíram das mãos dos setores —
+`LIBERADO_PARA_RESCISAO`, `RESCISAO_PROCESSADA` e `ENCERRADO` — e processos
+`INICIADO` que possuem ao menos uma tarefa setorial e nenhuma tarefa não
+concluída. Nesse filtro, a conclusão setorial mais nova aparece primeiro, e um
+processo sem tarefa concluída usa a abertura como desempate. `CANCELADO` não
+entra em nenhum dos dois filtros: o hub o alcança por `status=CANCELADO`, em
+card próprio. A consulta usa
 subqueries correlacionadas e `EXISTS`, evitando agregação sobre os campos
 históricos `NCLOB` no Oracle. `status`, `open` e `completed` são mutuamente
 exclusivos. O `POST` cria somente `RASCUNHO`; não existe
@@ -550,14 +552,31 @@ responde `409`, tarefa fora do escopo responde `404` e falha de regra mantém o
 envelope padronizado da API. A SPA separa ativas de concluídas em dois cards;
 as concluídas são ordenadas por `COMPLETED_AT` decrescente.
 
-Endpoints de domínio planejados:
+Endpoints do ciclo formal implementados (Fase 8, ADR-051):
 
 ```text
-GET  /api/v1/processes/{uuid}/
+GET  /api/v1/processes/{uuid}/readiness/
 POST /api/v1/processes/{uuid}/release/
+POST /api/v1/processes/{uuid}/processing/
+POST /api/v1/processes/{uuid}/close/
 POST /api/v1/processes/{uuid}/cancel/
-
+POST /api/v1/processes/{uuid}/reopen/
 ```
+
+Todos exigem o papel `DP` vigente — SuperAdmin pela autoridade global — e o
+processo dentro do escopo do ator; fora dele a resposta é `404`. A leitura
+devolve o estado formal, as marcas de cada ato, a situação funcional
+recalculada, os impedimentos da liberação, os impedimentos do encerramento e as
+tarefas do processo. A situação nunca é gravada: o `STATUS` guarda somente
+estado formal.
+
+As cinco transições exigem `expected_version` e `Idempotency-Key`; a resposta é
+a mesma leitura de conferência, com `idempotency_replayed`. Chave reusada com
+corpo diferente responde `409`; regra de negócio recusada responde `400` com o
+impedimento em `details`; a negativa de autoridade responde `403` com o motivo
+legível — a reabertura é exclusiva do SuperAdmin, e a mensagem precisa dizê-lo.
+A prontidão que a leitura mostrou não autoriza nada: o service a refaz sob lock
+e pode recusar o que a tela exibia como pronto.
 
 Endpoints da Fase 5 implementados:
 

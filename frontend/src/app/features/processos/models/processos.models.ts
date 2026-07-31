@@ -1,4 +1,10 @@
-export type ProcessoStatus = 'RASCUNHO' | 'INICIADO' | 'ENCERRADO';
+export type ProcessoStatus =
+  | 'RASCUNHO'
+  | 'INICIADO'
+  | 'LIBERADO_PARA_RESCISAO'
+  | 'RESCISAO_PROCESSADA'
+  | 'ENCERRADO'
+  | 'CANCELADO';
 
 export interface ProcessoResumo {
   uuid: string;
@@ -28,7 +34,7 @@ export interface ListaProcessos {
 
 export interface TarefaProcesso {
   id: number;
-  status: 'PENDENTE' | 'EM_ANALISE' | 'CONCLUIDA';
+  status: 'PENDENTE' | 'EM_ANALISE' | 'CONCLUIDA' | 'CANCELADA';
   sector: { id: number; code: string; name: string };
   template: { version_id: number; code: string; version_number: number };
   due_at: string;

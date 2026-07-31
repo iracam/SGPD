@@ -55,6 +55,14 @@ export const FE_ROUTES: Routes = [
             title: 'Valores do processo | SGPD',
           },
           {
+            path: 'processos/:uuid/encerramento',
+            loadComponent: () =>
+              import('./features/processo-encerramento/processo-encerramento').then(
+                (m) => m.ProcessoEncerramentoPage,
+              ),
+            title: 'Encerramento do processo | SGPD',
+          },
+          {
             path: 'notificacoes',
             loadComponent: () =>
               import('./features/notificacoes/notificacoes').then((m) => m.NotificacoesPage),

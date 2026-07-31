@@ -1,0 +1,219 @@
+@use 'breakpoints' as bp;
+@use 'conferencia';
+
+// Mesmo protocolo de conferência das telas de execução (ADR-047): seções com
+// régua em verdigris, chips sobre os tokens --status-* e registro em mono.
+
+.voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--status-released-color);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cartao {
+  padding: 1rem;
+  margin-block-end: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.9rem;
+  background: var(--p-content-background);
+}
+
+.cartao h2,
+.cartao p {
+  margin-block: 0.2rem;
+}
+
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.rotulo {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.estados {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.estados dt,
+.contagens dt {
+  color: var(--p-text-muted-color);
+  font-size: 0.78rem;
+}
+
+.estados dd,
+.contagens dd {
+  margin: 0.25rem 0 0;
+}
+
+section.grupo {
+  margin-block-end: 1.75rem;
+}
+
+.grupo--terminal .grupo__cabecalho {
+  border-inline-start: 3px solid var(--status-blocked-color);
+  padding-inline-start: 0.6rem;
+}
+
+.contagens {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 0.9rem;
+}
+
+.contagens dd {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.impedimentos {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  list-style: none;
+}
+
+.impedimento {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-inline-start: 3px solid var(--status-blocked-color);
+  border-radius: 0.6rem;
+  background: var(--p-content-background);
+}
+
+.impedimento--aviso {
+  border-inline-start-color: var(--status-pending-color);
+}
+
+.marcas {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.marca {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--p-content-border-color);
+  border-inline-start: 3px solid var(--status-released-color);
+  border-radius: 0.7rem;
+  background: var(--p-content-background);
+}
+
+.marca--cancelada {
+  border-inline-start-color: var(--status-canceled-color);
+}
+
+.marca p {
+  margin: 0;
+}
+
+.declaracao {
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+}
+
+.campos {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.campo {
+  display: grid;
+  gap: 0.3rem;
+  margin-block-end: 0.75rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.85rem;
+}
+
+.campo input,
+.campo textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.55rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font: inherit;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-block-end: 0.5rem;
+}
+
+.tarefas {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  padding: 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.7rem;
+}
+
+.tarefas legend {
+  padding-inline: 0.35rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.tarefa {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+
+.tarefa small {
+  display: block;
+  color: var(--p-text-muted-color);
+}
+
+.vazio-inline {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
+@include bp.from(bp.$md) {
+  .resumo {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .estados {
+    grid-auto-flow: column;
+    gap: 1.5rem;
+  }
+
+  .contagens {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .campos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .campo-largo {
+    grid-column: 1 / -1;
+  }
+}

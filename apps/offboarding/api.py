@@ -37,17 +37,27 @@ from .models import (
     ProcessChecklistItem,
     ProcessSectorTask,
 )
+from .readiness import ProcessReadiness, closing_blockers, evaluate_process_readiness
 from .serializers import (
+    CancelProcessSerializer,
+    CloseProcessSerializer,
     CompleteSectorTaskSerializer,
     OpenOffboardingProcessSerializer,
     ProcessQuerySerializer,
+    RegisterTerminationProcessingSerializer,
+    ReleaseProcessSerializer,
+    ReopenProcessSerializer,
     SectorTaskQuerySerializer,
     StartOffboardingProcessSerializer,
     StartSectorTaskSerializer,
     UpdateDraftSelectionSerializer,
 )
 from .services import (
+    CancelProcessCommand,
+    CancelProcessService,
     ChecklistAnswerValue,
+    CloseProcessCommand,
+    CloseProcessService,
     CompleteSectorTaskCommand,
     CompleteSectorTaskService,
     DraftSectorOverrideValue,
@@ -55,6 +65,13 @@ from .services import (
     IdempotencyConflict,
     OpenOffboardingProcessCommand,
     OpenOffboardingProcessService,
+    ProcessTransitionResult,
+    RegisterTerminationProcessingCommand,
+    RegisterTerminationProcessingService,
+    ReleaseProcessCommand,
+    ReleaseProcessService,
+    ReopenProcessCommand,
+    ReopenProcessService,
     StartOffboardingProcessCommand,
     StartOffboardingProcessService,
     StartSectorTaskCommand,
@@ -68,6 +85,18 @@ from .services import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Tudo que `process_payload` projeta: sem isto, cada marca formal custaria uma
+#: consulta por linha da listagem.
+PROCESS_RELATED = (
+    "opened_by",
+    "started_by",
+    "released_by",
+    "processing_registered_by",
+    "closed_by",
+    "cancelled_by",
+    "employee_snapshot",
+)
 
 
 def _require_process_coordinator(actor: User) -> None:
@@ -103,6 +132,64 @@ def _snapshot_payload(snapshot: EmployeeSnapshot) -> dict[str, Any]:
     }
 
 
+def _actor_ref(process: OffboardingProcess, field: str) -> dict[str, Any] | None:
+    """Ator de uma marca formal, sem consultar o banco quando não há marca."""
+
+    actor_id = getattr(process, f"{field}_id")
+    if actor_id is None:
+        return None
+    actor = getattr(process, field)
+    return {"id": actor_id, "username": actor.username}
+
+
+def _formal_marks_payload(process: OffboardingProcess) -> dict[str, Any]:
+    """Datas, atores e textos de cada ato formal do ciclo (ADR-051)."""
+
+    return {
+        "released_at": process.released_at.isoformat() if process.released_at else None,
+        "released_by": _actor_ref(process, "released_by"),
+        "release_notes": process.release_notes,
+        # Declaração de conferência humana, não espelho do Senior.
+        "termination_reference": process.termination_reference,
+        "termination_processed_on": (
+            process.termination_processed_on.isoformat()
+            if process.termination_processed_on
+            else None
+        ),
+        "processing_registered_at": (
+            process.processing_registered_at.isoformat()
+            if process.processing_registered_at
+            else None
+        ),
+        "processing_registered_by": _actor_ref(process, "processing_registered_by"),
+        "processing_notes": process.processing_notes,
+        "closed_at": process.closed_at.isoformat() if process.closed_at else None,
+        "closed_by": _actor_ref(process, "closed_by"),
+        "closing_notes": process.closing_notes,
+        "cancelled_at": process.cancelled_at.isoformat() if process.cancelled_at else None,
+        "cancelled_by": _actor_ref(process, "cancelled_by"),
+        "cancellation_reason": process.cancellation_reason,
+    }
+
+
+def readiness_payload(readiness: ProcessReadiness) -> dict[str, Any]:
+    """Situação calculada e o que impede a liberação. Nada aqui é estado gravado."""
+
+    return {
+        "situation": readiness.situation,
+        "is_ready": readiness.is_ready,
+        "blockers": list(readiness.blockers),
+        "warnings": list(readiness.warnings),
+        "task_count": readiness.task_count,
+        "required_task_count": readiness.required_task_count,
+        "completed_task_count": readiness.completed_task_count,
+        "open_task_count": readiness.open_task_count,
+        "blocking_pending_count": readiness.blocking_pending_count,
+        "open_pending_count": readiness.open_pending_count,
+        "undecided_amount_count": readiness.undecided_amount_count,
+    }
+
+
 def process_payload(process: OffboardingProcess) -> dict[str, Any]:
     started_by: dict[str, Any] | None = None
     if process.started_by_id is not None:
@@ -133,6 +220,7 @@ def process_payload(process: OffboardingProcess) -> dict[str, Any]:
         "priority": process.priority,
         "notes": process.notes,
         "version": process.version,
+        "formal": _formal_marks_payload(process),
         "employee_snapshot": _snapshot_payload(process.employee_snapshot),
     }
 
@@ -423,11 +511,7 @@ class ProcessListCreateView(APIView):
             process_query = open_processes_for_actor(actor)
         else:
             process_query = processes_for_actor(actor)
-        processes = process_query.select_related(
-            "opened_by",
-            "started_by",
-            "employee_snapshot",
-        )
+        processes = process_query.select_related(*PROCESS_RELATED)
         if data["status"]:
             processes = processes.filter(status=data["status"])
         if data["completed"]:
@@ -481,10 +565,7 @@ class ProcessListCreateView(APIView):
                 status_code=502,
             )
 
-        process = OffboardingProcess.objects.select_related(
-            "opened_by",
-            "employee_snapshot",
-        ).get(pk=process.pk)
+        process = OffboardingProcess.objects.select_related(*PROCESS_RELATED).get(pk=process.pk)
         return Response(process_payload(process), status=201)
 
 
@@ -550,6 +631,199 @@ class ProcessStartView(APIView):
         payload = _draft_payload(cast(User, request.user), process_uuid)
         payload["idempotency_replayed"] = result.replayed
         return Response(payload)
+
+
+def _formal_payload(actor: User, process_uuid: Any) -> dict[str, Any]:
+    """Estado formal, situação calculada e as tarefas que a reabertura alcança.
+
+    A prontidão é recalculada em toda leitura: o que a tela mostra é sempre
+    derivado do que está gravado agora, nunca do que ela leu antes (ADR-051).
+    """
+
+    process = get_object_or_404(
+        processes_for_actor(actor).select_related(*PROCESS_RELATED),
+        uuid=process_uuid,
+    )
+    readiness = evaluate_process_readiness(process)
+    tasks = (
+        ProcessSectorTask.objects.filter(process=process)
+        .select_related("sector", "template_version")
+        .prefetch_related("checklist_items")
+        .order_by("sector_code_snapshot", "pk")
+    )
+    return {
+        "process": process_payload(process),
+        "readiness": readiness_payload(readiness),
+        # Impedimento do encerramento é outra pergunta: a liberação admite
+        # pendência que o encerramento não admite.
+        "closing_blockers": list(closing_blockers(process)),
+        "tasks": [_task_payload(task) for task in tasks],
+    }
+
+
+class ProcessReadinessView(APIView):
+    """Conferência do ciclo formal: o que já foi decidido e o que ainda impede."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, process_uuid: str) -> Response:
+        actor = cast(User, request.user)
+        _require_process_coordinator(actor)
+        return Response(_formal_payload(actor, process_uuid))
+
+
+class _ProcessTransitionView(APIView):
+    """Ato formal do ciclo: a view valida contrato, o service decide tudo o mais."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class: type[Any]
+
+    def execute(
+        self,
+        *,
+        actor: User,
+        process_uuid: str,
+        idempotency_key: str,
+        data: dict[str, Any],
+    ) -> ProcessTransitionResult:
+        raise NotImplementedError
+
+    def post(self, request: Request, process_uuid: str) -> Response:
+        actor = cast(User, request.user)
+        _require_process_coordinator(actor)
+        get_object_or_404(processes_for_actor(actor), uuid=process_uuid)
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            result = self.execute(
+                actor=actor,
+                process_uuid=process_uuid,
+                idempotency_key=request.headers.get("Idempotency-Key", ""),
+                data=cast(dict[str, Any], serializer.validated_data),
+            )
+        except IdempotencyConflict as exc:
+            return api_error(code="idempotency_conflict", message=str(exc), status_code=409)
+        except PermissionDenied as exc:
+            # A negativa é regra de negócio legível — falta de `DP` no escopo ou
+            # a exclusividade do SuperAdmin na reabertura —, e quem a recebe já
+            # enxerga o processo: não é sonda de existência.
+            return api_error(code="permission_denied", message=str(exc), status_code=403)
+        payload = _formal_payload(actor, process_uuid)
+        payload["idempotency_replayed"] = result.replayed
+        return Response(payload)
+
+
+class ProcessReleaseView(_ProcessTransitionView):
+    serializer_class = ReleaseProcessSerializer
+
+    def execute(
+        self,
+        *,
+        actor: User,
+        process_uuid: str,
+        idempotency_key: str,
+        data: dict[str, Any],
+    ) -> ProcessTransitionResult:
+        return ReleaseProcessService().execute(
+            ReleaseProcessCommand(
+                actor=actor,
+                process_uuid=process_uuid,
+                expected_version=data["expected_version"],
+                idempotency_key=idempotency_key,
+                notes=data["notes"],
+            )
+        )
+
+
+class ProcessTerminationProcessingView(_ProcessTransitionView):
+    serializer_class = RegisterTerminationProcessingSerializer
+
+    def execute(
+        self,
+        *,
+        actor: User,
+        process_uuid: str,
+        idempotency_key: str,
+        data: dict[str, Any],
+    ) -> ProcessTransitionResult:
+        return RegisterTerminationProcessingService().execute(
+            RegisterTerminationProcessingCommand(
+                actor=actor,
+                process_uuid=process_uuid,
+                expected_version=data["expected_version"],
+                idempotency_key=idempotency_key,
+                termination_reference=data["termination_reference"],
+                processed_on=data["processed_on"],
+                notes=data["notes"],
+            )
+        )
+
+
+class ProcessCloseView(_ProcessTransitionView):
+    serializer_class = CloseProcessSerializer
+
+    def execute(
+        self,
+        *,
+        actor: User,
+        process_uuid: str,
+        idempotency_key: str,
+        data: dict[str, Any],
+    ) -> ProcessTransitionResult:
+        return CloseProcessService().execute(
+            CloseProcessCommand(
+                actor=actor,
+                process_uuid=process_uuid,
+                expected_version=data["expected_version"],
+                idempotency_key=idempotency_key,
+                notes=data["notes"],
+            )
+        )
+
+
+class ProcessCancelView(_ProcessTransitionView):
+    serializer_class = CancelProcessSerializer
+
+    def execute(
+        self,
+        *,
+        actor: User,
+        process_uuid: str,
+        idempotency_key: str,
+        data: dict[str, Any],
+    ) -> ProcessTransitionResult:
+        return CancelProcessService().execute(
+            CancelProcessCommand(
+                actor=actor,
+                process_uuid=process_uuid,
+                expected_version=data["expected_version"],
+                idempotency_key=idempotency_key,
+                reason=data["reason"],
+            )
+        )
+
+
+class ProcessReopenView(_ProcessTransitionView):
+    serializer_class = ReopenProcessSerializer
+
+    def execute(
+        self,
+        *,
+        actor: User,
+        process_uuid: str,
+        idempotency_key: str,
+        data: dict[str, Any],
+    ) -> ProcessTransitionResult:
+        return ReopenProcessService().execute(
+            ReopenProcessCommand(
+                actor=actor,
+                process_uuid=process_uuid,
+                expected_version=data["expected_version"],
+                idempotency_key=idempotency_key,
+                reason=data["reason"],
+                task_ids=tuple(data["task_ids"]),
+            )
+        )
 
 
 class ProcessTaskListView(APIView):

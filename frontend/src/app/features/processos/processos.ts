@@ -23,6 +23,7 @@ export class ProcessosPage {
   readonly rascunhos = signal<ProcessoResumo[]>([]);
   readonly emAberto = signal<ProcessoResumo[]>([]);
   readonly concluidos = signal<ProcessoResumo[]>([]);
+  readonly cancelados = signal<ProcessoResumo[]>([]);
   readonly carregando = signal(true);
   readonly processoExpandido = signal<string | null>(null);
   readonly carregandoTarefas = signal<string | null>(null);
@@ -55,6 +56,18 @@ export class ProcessosPage {
       completedOnly: true,
       processes: this.concluidos(),
     },
+    {
+      key: 'cancelled',
+      title: 'Cancelados',
+      description: 'Cancelados com justificativa; o histórico permanece.',
+      icon: 'pi pi-ban',
+      loadingText: 'Carregando processos cancelados…',
+      emptyText: 'Nenhum processo cancelado.',
+      taskLoadingText: 'Carregando tarefas do processo…',
+      taskEmptyText: 'Nenhuma tarefa registrada para este processo.',
+      completedOnly: false,
+      processes: this.cancelados(),
+    },
   ]);
 
   constructor() {
@@ -62,6 +75,7 @@ export class ProcessosPage {
       rascunhos: this.service.listarRascunhos(),
       emAberto: this.service.listarEmAberto(),
       concluidos: this.service.listarConcluidos(),
+      cancelados: this.service.listarCancelados(),
     })
       .pipe(
         finalize(() => this.carregando.set(false)),
@@ -72,6 +86,7 @@ export class ProcessosPage {
           this.rascunhos.set(response.rascunhos.results);
           this.emAberto.set(response.emAberto.results);
           this.concluidos.set(response.concluidos.results);
+          this.cancelados.set(response.cancelados.results);
         },
         error: (error) =>
           this.erro.set(errorMessage(error, 'Não foi possível carregar os processos.')),
@@ -118,11 +133,17 @@ export class ProcessosPage {
       PENDENTE: 'Pendente',
       EM_ANALISE: 'Em análise',
       CONCLUIDA: 'Concluída',
+      CANCELADA: 'Cancelada',
     }[status];
   }
 
   /** Modificador do chip: reutiliza os tokens --status-* da identidade. */
   protected estadoTarefa(status: TarefaProcesso['status']): string {
-    return { PENDENTE: 'pending', EM_ANALISE: 'review', CONCLUIDA: 'released' }[status];
+    return {
+      PENDENTE: 'pending',
+      EM_ANALISE: 'review',
+      CONCLUIDA: 'released',
+      CANCELADA: 'canceled',
+    }[status];
   }
 }

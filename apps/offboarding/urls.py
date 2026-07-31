@@ -28,6 +28,36 @@ urlpatterns = [
         api.ProcessStartView.as_view(),
         name="process-start",
     ),
+    path(
+        "<uuid:process_uuid>/readiness/",
+        api.ProcessReadinessView.as_view(),
+        name="process-readiness",
+    ),
+    path(
+        "<uuid:process_uuid>/release/",
+        api.ProcessReleaseView.as_view(),
+        name="process-release",
+    ),
+    path(
+        "<uuid:process_uuid>/processing/",
+        api.ProcessTerminationProcessingView.as_view(),
+        name="process-processing",
+    ),
+    path(
+        "<uuid:process_uuid>/close/",
+        api.ProcessCloseView.as_view(),
+        name="process-close",
+    ),
+    path(
+        "<uuid:process_uuid>/cancel/",
+        api.ProcessCancelView.as_view(),
+        name="process-cancel",
+    ),
+    path(
+        "<uuid:process_uuid>/reopen/",
+        api.ProcessReopenView.as_view(),
+        name="process-reopen",
+    ),
     # A consolidação é do domínio de pendências, mas a conferência é por
     # processo: a rota mora aqui e a view continua no app dono do dado.
     path(

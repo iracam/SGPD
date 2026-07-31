@@ -1,0 +1,415 @@
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-flag" aria-hidden="true"></i>
+      Encerramento formal
+    </span>
+    <h1 class="page-title">Ciclo formal do processo</h1>
+    <p class="page-lead">
+      O que foi decidido e o que ainda impede. A prontidão é recalculada a cada leitura e
+      refeita no ato: o servidor pode recusar o que esta página mostrou como pronto.
+    </p>
+  </div>
+  <div class="pagina-acoes">
+    <a class="voltar" routerLink="/fe/processos">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      Processos
+    </a>
+  </div>
+</header>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+@if (aviso()) {
+  <p-message severity="success" [text]="aviso()"></p-message>
+}
+
+@if (carregando()) {
+  <section class="cartao"><p>Carregando conferência…</p></section>
+} @else if (dados(); as conferencia) {
+  <section class="cartao resumo" aria-labelledby="encerramento-colaborador">
+    <div>
+      <span class="rotulo">Colaborador</span>
+      <h2 id="encerramento-colaborador">
+        {{ conferencia.process.employee_snapshot.employee_name }}
+      </h2>
+      <p class="registro">
+        Matrícula {{ conferencia.process.employee_registration }} · Empresa
+        {{ conferencia.process.company_code }} · Filial {{ conferencia.process.branch_code }}
+      </p>
+      <p class="registro">
+        Prazo {{ conferencia.process.due_date | date: 'dd/MM/yyyy' }} · Desligamento previsto
+        {{ conferencia.process.planned_termination_date | date: 'dd/MM/yyyy' }}
+      </p>
+    </div>
+    <dl class="estados">
+      <div>
+        <dt>Estado formal</dt>
+        <dd>
+          <span [class]="'chip chip--' + estadoDoChip(conferencia.process.status)">
+            {{ rotuloEstado(conferencia.process.status) }}
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt>Situação calculada</dt>
+        <dd>
+          <span [class]="'chip chip--' + situacaoDoChip(conferencia.readiness.situation)">
+            {{ rotuloSituacao(conferencia.readiness.situation) }}
+          </span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="grupo" aria-labelledby="titulo-prontidao">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-verified" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-prontidao">Prontidão</h2>
+        <small>Calculada sobre tarefas, pendências e pretensões. Nada aqui é gravado.</small>
+      </span>
+      <span class="grupo__total">{{ conferencia.readiness.blockers.length }}</span>
+    </header>
+
+    <dl class="contagens">
+      <div>
+        <dt>Tarefas concluídas</dt>
+        <dd class="registro">
+          {{ conferencia.readiness.completed_task_count }} /
+          {{ conferencia.readiness.task_count }}
+        </dd>
+      </div>
+      <div>
+        <dt>Tarefas em aberto</dt>
+        <dd class="registro">{{ conferencia.readiness.open_task_count }}</dd>
+      </div>
+      <div>
+        <dt>Pendências bloqueantes</dt>
+        <dd class="registro">{{ conferencia.readiness.blocking_pending_count }}</dd>
+      </div>
+      <div>
+        <dt>Pretensões sem decisão</dt>
+        <dd class="registro">{{ conferencia.readiness.undecided_amount_count }}</dd>
+      </div>
+    </dl>
+
+    @if (conferencia.readiness.blockers.length) {
+      <ul class="impedimentos" aria-label="Impedimentos da liberação">
+        @for (impedimento of conferencia.readiness.blockers; track impedimento) {
+          <li class="impedimento">{{ impedimento }}</li>
+        }
+      </ul>
+    } @else {
+      <p class="vazio-inline">Nenhum impedimento para a liberação.</p>
+    }
+
+    @if (conferencia.readiness.warnings.length) {
+      <ul class="impedimentos" aria-label="Avisos de conferência">
+        @for (aviso of conferencia.readiness.warnings; track aviso) {
+          <li class="impedimento impedimento--aviso">{{ aviso }}</li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="grupo" aria-labelledby="titulo-marcas">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-bookmark" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-marcas">Atos registrados</h2>
+        <small>Cada marca tem data e ator; a trilha guarda o resto.</small>
+      </span>
+    </header>
+
+    <ul class="marcas">
+      @if (conferencia.process.formal.released_at) {
+        <li class="marca">
+          <strong>Liberado para rescisão</strong>
+          <span class="registro">
+            {{ conferencia.process.formal.released_at | date: 'dd/MM/yyyy HH:mm' }} ·
+            {{ conferencia.process.formal.released_by?.username }}
+          </span>
+          @if (conferencia.process.formal.release_notes) {
+            <p>{{ conferencia.process.formal.release_notes }}</p>
+          }
+        </li>
+      }
+      @if (conferencia.process.formal.processing_registered_at) {
+        <li class="marca">
+          <strong>Rescisão processada no Senior</strong>
+          <span class="registro">
+            Nº {{ conferencia.process.formal.termination_reference }} ·
+            {{ conferencia.process.formal.termination_processed_on | date: 'dd/MM/yyyy' }} ·
+            registrado por {{ conferencia.process.formal.processing_registered_by?.username }}
+          </span>
+          <p class="declaracao">
+            Declaração de conferência humana: o SGPD não lê nem escreve a rescisão.
+          </p>
+          @if (conferencia.process.formal.processing_notes) {
+            <p>{{ conferencia.process.formal.processing_notes }}</p>
+          }
+        </li>
+      }
+      @if (conferencia.process.formal.closed_at) {
+        <li class="marca">
+          <strong>Encerrado</strong>
+          <span class="registro">
+            {{ conferencia.process.formal.closed_at | date: 'dd/MM/yyyy HH:mm' }} ·
+            {{ conferencia.process.formal.closed_by?.username }}
+          </span>
+          @if (conferencia.process.formal.closing_notes) {
+            <p>{{ conferencia.process.formal.closing_notes }}</p>
+          }
+        </li>
+      }
+      @if (conferencia.process.formal.cancelled_at) {
+        <li class="marca marca--cancelada">
+          <strong>Cancelado</strong>
+          <span class="registro">
+            {{ conferencia.process.formal.cancelled_at | date: 'dd/MM/yyyy HH:mm' }} ·
+            {{ conferencia.process.formal.cancelled_by?.username }}
+          </span>
+          <p>{{ conferencia.process.formal.cancellation_reason }}</p>
+        </li>
+      }
+      @if (
+        !conferencia.process.formal.released_at && !conferencia.process.formal.cancelled_at
+      ) {
+        <li class="vazio-inline">Nenhum ato formal registrado até aqui.</li>
+      }
+    </ul>
+  </section>
+
+  @if (conferencia.process.status === 'INICIADO') {
+    <section class="grupo" aria-labelledby="titulo-liberar">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-unlock" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-liberar">Liberar para rescisão</h2>
+          <small>Exige prontidão; a verificação é refeita no ato.</small>
+        </span>
+      </header>
+      <label class="campo">
+        Observação da liberação
+        <textarea
+          rows="3"
+          maxlength="1000"
+          [value]="observacao()"
+          (input)="texto('observacao', $event)"
+        ></textarea>
+      </label>
+      <div class="acoes">
+        <p-button
+          type="button"
+          icon="pi pi-unlock"
+          label="Liberar para rescisão"
+          [loading]="enviando()"
+          [disabled]="enviando() || !conferencia.readiness.is_ready"
+          (onClick)="liberar()"
+        ></p-button>
+      </div>
+      @if (!conferencia.readiness.is_ready) {
+        <p class="vazio-inline">
+          A liberação fica indisponível enquanto houver impedimento acima.
+        </p>
+      }
+    </section>
+  }
+
+  @if (conferencia.process.status === 'LIBERADO_PARA_RESCISAO') {
+    <section class="grupo" aria-labelledby="titulo-processamento">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-file-check" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-processamento">Registrar processamento</h2>
+          <small>O que o DP declara ter processado no Senior, com número e data.</small>
+        </span>
+      </header>
+      <div class="campos">
+        <label class="campo">
+          Número declarado da rescisão
+          <input
+            type="text"
+            maxlength="60"
+            [value]="numeroRescisao()"
+            (input)="texto('numeroRescisao', $event)"
+          />
+        </label>
+        <label class="campo">
+          Data do processamento
+          <input type="date" [value]="dataProcessamento()" (input)="data($event)" />
+        </label>
+        <label class="campo campo-largo">
+          Observação
+          <textarea
+            rows="2"
+            maxlength="1000"
+            [value]="observacao()"
+            (input)="texto('observacao', $event)"
+          ></textarea>
+        </label>
+      </div>
+      <div class="acoes">
+        <p-button
+          type="button"
+          icon="pi pi-file-check"
+          label="Registrar processamento"
+          [loading]="enviando()"
+          [disabled]="enviando() || !numeroRescisao().trim()"
+          (onClick)="registrarProcessamento()"
+        ></p-button>
+      </div>
+    </section>
+  }
+
+  @if (conferencia.process.status === 'RESCISAO_PROCESSADA') {
+    <section class="grupo" aria-labelledby="titulo-encerrar">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-flag-fill" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-encerrar">Encerrar processo</h2>
+          <small>Exige que nenhuma pendência continue em curso.</small>
+        </span>
+      </header>
+      @if (conferencia.closing_blockers.length) {
+        <ul class="impedimentos" aria-label="Impedimentos do encerramento">
+          @for (impedimento of conferencia.closing_blockers; track impedimento) {
+            <li class="impedimento">{{ impedimento }}</li>
+          }
+        </ul>
+      }
+      <label class="campo">
+        Observação do encerramento
+        <textarea
+          rows="3"
+          maxlength="1000"
+          [value]="observacao()"
+          (input)="texto('observacao', $event)"
+        ></textarea>
+      </label>
+      <div class="acoes">
+        <p-button
+          type="button"
+          icon="pi pi-flag-fill"
+          label="Encerrar processo"
+          [loading]="enviando()"
+          [disabled]="enviando() || conferencia.closing_blockers.length > 0"
+          (onClick)="encerrar()"
+        ></p-button>
+      </div>
+    </section>
+  }
+
+  @if (
+    conferencia.process.status === 'RASCUNHO' || conferencia.process.status === 'INICIADO'
+  ) {
+    <section class="grupo grupo--terminal" aria-labelledby="titulo-cancelar">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-ban" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-cancelar">Cancelar processo</h2>
+          <small>
+            Cancela as tarefas abertas e libera o colaborador para um processo novo. Não há
+            volta: o histórico permanece inteiro.
+          </small>
+        </span>
+      </header>
+      <label class="campo">
+        Motivo do cancelamento
+        <textarea
+          rows="3"
+          maxlength="1000"
+          [value]="motivo()"
+          (input)="texto('motivo', $event)"
+        ></textarea>
+      </label>
+      <div class="acoes">
+        <p-button
+          type="button"
+          severity="danger"
+          icon="pi pi-ban"
+          label="Cancelar processo"
+          [loading]="enviando()"
+          [disabled]="enviando() || !motivo().trim()"
+          (onClick)="cancelar()"
+        ></p-button>
+      </div>
+    </section>
+  }
+
+  @if (conferencia.process.status === 'CANCELADO') {
+    <section class="grupo grupo--terminal">
+      <p class="vazio-inline">
+        O cancelamento é terminal. Para retomar o desligamento, abra um processo novo — a
+        trilha dos dois é preservada.
+      </p>
+    </section>
+  }
+
+  @if (
+    podeReabrir() &&
+    (conferencia.process.status === 'LIBERADO_PARA_RESCISAO' ||
+      conferencia.process.status === 'RESCISAO_PROCESSADA' ||
+      conferencia.process.status === 'ENCERRADO')
+  ) {
+    <section class="grupo grupo--terminal" aria-labelledby="titulo-reabrir">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-replay" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-reabrir">Reabrir processo</h2>
+          <small>
+            Exclusiva do SuperAdmin. Desfaz as marcas formais, registra o estado anterior na
+            trilha e devolve ao setor as tarefas escolhidas.
+          </small>
+        </span>
+      </header>
+      <label class="campo">
+        Motivo da reabertura
+        <textarea
+          rows="3"
+          maxlength="1000"
+          [value]="motivo()"
+          (input)="texto('motivo', $event)"
+        ></textarea>
+      </label>
+      @if (tarefasConcluidas().length) {
+        <fieldset class="tarefas">
+          <legend>Tarefas que voltam para análise</legend>
+          @for (tarefa of tarefasConcluidas(); track tarefa.id) {
+            <label class="tarefa">
+              <input
+                type="checkbox"
+                [checked]="tarefaSelecionada(tarefa)"
+                (change)="alternarTarefa(tarefa)"
+              />
+              <span>
+                <strong>{{ tarefa.sector.name }}</strong>
+                @if (tarefa.completed_at) {
+                  <small class="registro">
+                    Concluída em {{ tarefa.completed_at | date: 'dd/MM/yyyy HH:mm' }}
+                  </small>
+                }
+              </span>
+            </label>
+          }
+          <p class="vazio-inline">
+            Sem nenhuma marcada, a reabertura corrige só a marca formal.
+          </p>
+        </fieldset>
+      }
+      <div class="acoes">
+        <p-button
+          type="button"
+          severity="warn"
+          icon="pi pi-replay"
+          label="Reabrir processo"
+          [loading]="enviando()"
+          [disabled]="enviando() || !motivo().trim()"
+          (onClick)="reabrir()"
+        ></p-button>
+      </div>
+    </section>
+  }
+}
