@@ -11,6 +11,7 @@ from django.db import models
 
 
 class PendingCategory(models.TextChoices):
+    VALUE = "VALOR", "Valor"
     MATERIAL = "MATERIAL", "Material"
     TOOL = "FERRAMENTA", "Ferramenta"
     EQUIPMENT = "EQUIPAMENTO", "Equipamento"
@@ -28,13 +29,40 @@ class PendingStatus(models.TextChoices):
     OPEN = "ABERTA", "Aberta"
     IN_REGULARIZATION = "EM_REGULARIZACAO", "Em regularização"
     REGULARIZED = "REGULARIZADA", "Regularizada"
+    SUBMITTED_FOR_REVIEW = "ENCAMINHADA_ANALISE", "Encaminhada para análise"
+    CONTESTED = "CONTESTADA", "Contestada"
+    CHARGE_APPROVED = "APROVADA_COBRANCA", "Aprovada para cobrança"
+    REJECTED = "REJEITADA", "Rejeitada"
+    WAIVED = "ABONADA", "Abonada"
     CLOSED = "ENCERRADA", "Encerrada"
+
+
+#: Estados em que a decisão sobre o valor já foi tomada.
+DECIDED_STATUSES = frozenset(
+    {
+        PendingStatus.CHARGE_APPROVED,
+        PendingStatus.REJECTED,
+        PendingStatus.WAIVED,
+        PendingStatus.CLOSED,
+    }
+)
 
 
 class BlockingLevel(models.TextChoices):
     INFORMATIONAL = "INFORMATIVA", "Informativa"
     NON_BLOCKING = "NAO_BLOQUEANTE", "Não bloqueante"
     BLOCKING = "BLOQUEANTE", "Bloqueante"
+    BLOCKING_UNTIL_DECISION = "BLOQUEANTE_ATE_DECISAO", "Bloqueante até decisão"
+
+
+class DecisionType(models.TextChoices):
+    VALUE = "VALOR", "Valor"
+
+
+class DecisionOutcome(models.TextChoices):
+    CHARGE_APPROVED = "APROVADA_COBRANCA", "Aprovada para cobrança"
+    REJECTED = "REJEITADA", "Rejeitada"
+    WAIVED = "ABONADA", "Abonada"
 
 
 class ImmutableOperationalQuerySet(models.QuerySet[Any]):
@@ -78,7 +106,7 @@ class PendingItem(models.Model):
     )
     blocking_level = models.CharField(
         "classificação de bloqueio",
-        max_length=20,
+        max_length=24,
         choices=BlockingLevel.choices,
         default=BlockingLevel.BLOCKING,
     )
@@ -219,3 +247,174 @@ class PendingComment(models.Model):
         self.text = self.text.strip()
         if not self.text:
             raise ValidationError({"comment": "O comentário é obrigatório."})
+
+
+class PendingAmount(models.Model):
+    """Pretensão de cobrança de uma pendência (ADR-009): valor é análise, nunca desconto."""
+
+    pending_item = models.OneToOneField(
+        PendingItem,
+        verbose_name="pendência",
+        on_delete=models.PROTECT,
+        related_name="amount",
+    )
+    amount_informed = models.DecimalField(
+        "valor informado",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    amount_assessed = models.DecimalField(
+        "valor apurado",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    amount_contested = models.DecimalField(
+        "valor contestado",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    amount_approved = models.DecimalField(
+        "valor aprovado",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    amount_processed = models.DecimalField(
+        "valor processado",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    currency = models.CharField("moeda", max_length=3, default="BRL")
+    justification = models.TextField("justificativa")
+    informed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="informado por",
+        on_delete=models.PROTECT,
+        related_name="pending_amounts_informed",
+    )
+    informed_at = models.DateTimeField("informado em", auto_now_add=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="aprovado por",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="pending_amounts_approved",
+    )
+    approved_at = models.DateTimeField("aprovado em", null=True, blank=True)
+    updated_at = models.DateTimeField("atualizado em", auto_now=True)
+    version = models.PositiveIntegerField("versão de concorrência", default=1)
+
+    objects = ImmutableOperationalQuerySet.as_manager()
+
+    class Meta:
+        db_table = "SGPD_PENDING_AMOUNT"
+        ordering = ("pending_item_id",)
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(version__gt=0),
+                name="SGPD_CK_PAMOUNT_VERSION",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount_informed__gte=0),
+                name="SGPD_CK_PAMOUNT_INFORMED",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount_assessed__gte=0),
+                name="SGPD_CK_PAMOUNT_ASSESSED",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount_contested__gte=0),
+                name="SGPD_CK_PAMOUNT_CONTESTED",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount_approved__gte=0),
+                name="SGPD_CK_PAMOUNT_APPROVED",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount_processed__gte=0),
+                name="SGPD_CK_PAMOUNT_PROCESSED",
+            ),
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        self.currency = self.currency.strip().upper()
+        self.justification = self.justification.strip()
+        if len(self.currency) != 3 or not self.currency.isalpha():
+            raise ValidationError({"currency": "A moeda deve ter três letras, como BRL."})
+        if not self.justification:
+            raise ValidationError({"justification": "A justificativa do valor é obrigatória."})
+        if self.pending_item_id and self.pending_item.category != PendingCategory.VALUE:
+            raise ValidationError(
+                {"pending_item": "Somente pendência de categoria Valor aceita pretensão."}
+            )
+        if (self.approved_by_id is None) != (self.approved_at is None):
+            raise ValidationError(
+                {"approved_by": "Aprovador e instante da aprovação andam juntos."}
+            )
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Valores de pendência não podem ser excluídos.")
+
+
+class PendingDecision(models.Model):
+    """Decisão explícita sobre a pretensão, append-only para preservar cada parecer."""
+
+    pending_item = models.ForeignKey(
+        PendingItem,
+        verbose_name="pendência",
+        on_delete=models.PROTECT,
+        related_name="decisions",
+    )
+    decision_type = models.CharField(
+        "tipo da decisão",
+        max_length=20,
+        choices=DecisionType.choices,
+        default=DecisionType.VALUE,
+    )
+    decision = models.CharField("decisão", max_length=24, choices=DecisionOutcome.choices)
+    opinion = models.TextField("parecer")
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="decidida por",
+        on_delete=models.PROTECT,
+        related_name="pending_decisions_made",
+    )
+    decided_at = models.DateTimeField("decidida em", auto_now_add=True)
+    segregation_override = models.BooleanField(
+        "segregação dispensada",
+        default=False,
+        help_text="Verdadeiro quando o decisor é quem informou o valor.",
+    )
+
+    objects = ImmutableOperationalQuerySet.as_manager()
+
+    class Meta:
+        db_table = "SGPD_PENDING_DECISION"
+        # Sem índice composto: o índice automático da FK já lidera por pendência e
+        # cada pendência acumula poucas decisões.
+        ordering = ("decided_at", "id")
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if self.pk is not None:
+            raise ValidationError("Decisões de pendência são imutáveis.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Decisões de pendência não podem ser excluídas.")
+
+    def clean(self) -> None:
+        super().clean()
+        self.opinion = self.opinion.strip()
+        if not self.opinion:
+            raise ValidationError({"opinion": "O parecer da decisão é obrigatório."})
