@@ -1548,12 +1548,17 @@ A autoridade global substitui somente verificações de permissão, papel, setor
 e escopo. Ela não permite contornar:
 
 - estado e transições do workflow;
-- prontidão, segregação e decisões explícitas;
+- prontidão e decisões explícitas;
 - validação de entrada e integridade;
 - locks, versão otimista e idempotência;
 - imutabilidade de snapshots, versões publicadas e auditoria;
 - minimização de dados, restrições de evidência e logs seguros;
 - a proibição de DML no Senior HCM.
+
+A segregação de função constava desta lista até 2026-07-31, quando a ADR-048
+a removeu: o SuperAdmin decide a pretensão de cobrança que ele mesmo informou,
+e a auditoria registra o rompimento. Leia a ADR-048 antes de mudar qualquer
+regra de segregação.
 
 ### Compatibilidade e migrations
 
@@ -1762,3 +1767,75 @@ não vaza desenho para telas administrativas que têm padrão próprio.
   `.page-title`/`.page-lead`: toda tela abre com selo, título e lead;
 - `p-tag` saiu de todas as telas; o chip do parcial é o único desenho de
   status de domínio na SPA.
+
+## ADR-048 — Segregação de função nos valores, com SuperAdmin sem barreira
+
+### Estado
+
+Aceita em 2026-07-31 por decisão explícita do responsável funcional.
+Implementada nos services de valor da Fase 6; API e SPA seguem nas fatias
+seguintes.
+
+### Contexto
+
+A Fase 6 introduz a pretensão de cobrança. Diferente das demais mutações do
+SGPD, um valor aprovado vira desconto na rescisão de uma pessoa — o efeito
+recai sobre quem não opera o sistema e não pode conferir o registro. A ADR-009
+já reduzia esse risco tratando valor como solicitação de análise, mas não dizia
+quem analisa nem quem aprova.
+
+Duas normas vigentes afirmavam que a autoridade global não dispensa
+segregação: `CONTEXT.md`, entre os invariantes, e a ADR-044, entre os Limites.
+Nenhuma das duas foi escrita diante de um caso concreto de segregação — não
+havia nenhum no sistema até aqui.
+
+### Decisão
+
+Analisar e decidir valor exigem `DP` vigente no escopo do processo ou
+autoridade global. Responsabilidade de setor autoriza informar e contestar,
+não apurar nem decidir.
+
+Quem informou o valor não decide a própria pretensão. Para usuário funcional
+essa barra é absoluta e não há caminho de exceção.
+
+**O SuperAdmin não encontra barreira**: ele decide a pretensão que ele mesmo
+informou, sem confirmação adicional, sem etapa extra e sem depender de um
+segundo usuário. Quando isso acontece, `segregation_override` fica gravado na
+decisão append-only e no evento de auditoria, distinguindo permanentemente a
+decisão sobre valor de terceiro da decisão sobre o próprio lançamento.
+
+### Decisões substituídas
+
+- ADR-044 §Limites deixa de valer integralmente: a autoridade global continua
+  sem contornar estado, prontidão, validação, locks, idempotência,
+  imutabilidade e auditoria, mas passa a contornar a segregação de função;
+- o invariante correspondente de `CONTEXT.md` foi reescrito para remeter a esta
+  ADR.
+
+### Alternativas descartadas
+
+Exigir dois usuários sempre, inclusive SuperAdmin, foi a recomendação técnica e
+foi descartada por decisão do responsável funcional: no DEV único ela travaria
+a homologação da fase com o operador existente.
+
+Uma confirmação explícita no request (`confirm_self_approval`) foi desenhada
+como rede contra autoaprovação por distração e também descartada, por
+contrariar a orientação de que o SuperAdmin não deve encontrar etapa extra.
+
+Um gate por settings, ligado só em DEV, foi descartado porque o ambiente é DEV
+único e sem CI/CD: o gate estaria sempre ligado e daria falsa impressão de
+controle.
+
+### Consequências
+
+- uma conta SuperAdmin comprometida passa a poder lançar e aprovar cobrança
+  contra o colaborador sem segundo par de olhos; é extensão do risco R61 e tem
+  registro próprio no `RISK_REGISTER.md`;
+- a trilha é a única evidência do rompimento, o que torna a imutabilidade da
+  auditoria e das decisões condição da própria decisão — nenhuma delas pode ser
+  relaxada sem revisar esta ADR;
+- a consolidação de valores deve poder separar decisões com
+  `segregation_override` para conferência posterior;
+- se a operação sair do DEV único para um ambiente com segregação exigida por
+  Jurídico ou Segurança da Informação, esta ADR precisa ser revista antes, não
+  depois.

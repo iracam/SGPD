@@ -38,8 +38,9 @@ grants homologados.
 
 - `is_superuser=true` define a autoridade global do SuperAdmin ativo.
 - SuperAdmin não precisa de papel `DP` nem vínculo de setor, mas continua
-  sujeito a estados, validações, segregação, locks, idempotência, imutabilidade
-  e auditoria.
+  sujeito a estados, validações, locks, idempotência, imutabilidade e
+  auditoria. A segregação de função é a única exceção: pela ADR-048 ele decide
+  a pretensão de cobrança que informou, e a auditoria registra o rompimento.
 - `DP` é o único papel funcional atribuível.
 - `RESPONSAVEL_SETOR` é capacidade derivada do vínculo vigente com o setor.
 - Regras críticas vivem em services e operações compostas usam transação.
@@ -50,7 +51,8 @@ grants homologados.
 - Templates, perguntas e grupos são versionados; processos preservam a versão
   histórica.
 - Pendências são entidades próprias. Valores são pretensões sujeitas a análise
-  e aprovação segregada.
+  e a decisão explícita de `DP` vigente no escopo, que não pode ser quem
+  informou o valor (ADR-048).
 - Liberação é explícita e exige DP vigente no escopo ou SuperAdmin, prontidão e
   auditoria.
 - A SPA não implementa regras de negócio nem constitui barreira de autorização.

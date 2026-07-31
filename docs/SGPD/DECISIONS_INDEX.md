@@ -26,9 +26,10 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 037 | Vigente | Abertura transacional em rascunho |
 | 038 | Parcial por 044 | Responsabilidade derivada do setor |
 | 039–043 | Vigentes | Configuração versionada, templates, códigos e execução concorrente |
-| 044 | Vigente | SuperAdmin como autoridade global explícita |
+| 044 | Parcial por 048 | SuperAdmin como autoridade global explícita |
 | 045 | Vigente | Abertura sem gestor imediato |
 | 046 | Vigente | Regra de aplicabilidade como sugestão não vinculante |
+| 048 | Vigente | Segregação nos valores e SuperAdmin sem barreira |
 
 ## Integrações, identidade e frontend
 

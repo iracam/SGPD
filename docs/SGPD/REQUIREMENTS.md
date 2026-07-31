@@ -555,10 +555,11 @@ Setores, itens e pendências poderão ser:
 - bloqueantes;
 - bloqueantes até decisão.
 
-Estado implementado: `INFORMATIVA`, `NAO_BLOQUEANTE` e `BLOQUEANTE`.
-`BLOQUEANTE` impede a conclusão da tarefa enquanto não estiver
-`REGULARIZADA` ou `ENCERRADA`. A classificação dependente de decisão permanece
-na Fase 6.
+Estado implementado: `INFORMATIVA`, `NAO_BLOQUEANTE`, `BLOQUEANTE` e
+`BLOQUEANTE_ATE_DECISAO`. `BLOQUEANTE` impede a conclusão da tarefa enquanto
+não estiver `REGULARIZADA` ou `ENCERRADA`. `BLOQUEANTE_ATE_DECISAO` existe
+desde a Fase 6 e passará a impedir a conclusão até que a pretensão seja
+decidida; o guard correspondente ainda não foi implementado.
 
 ### RF-025 — Pretensão de cobrança
 

@@ -5,11 +5,13 @@
 - Projeto: SGPD / DesligaFlow
 - Ambiente: DEV único sobre Oracle 19c
 - Fases estabilizadas: 1, 2, 2.5, 2.7 e 3
-- Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Próximo incremento: Fase 6 — valores e decisões segregadas
+- Fases em andamento: 4 — workflow; 5 — pendências e evidências; 6 — valores e
+  decisões
+- Próximo incremento: **Fase 6, fatia 3** — guard de `BLOQUEANTE_ATE_DECISAO`
+  na conclusão da tarefa
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
-  derivada do vínculo vigente
+  derivada do vínculo vigente; segregação de valores pela ADR-048
 
 ## Baseline implementado
 
@@ -109,7 +111,9 @@ Contrato Senior — legibilidade cadastral:
   TLS estiver selecionado;
 - evidências não podem ser servidas pelo WhiteNoise;
 - migrations exigem inspeção do SQL Oracle antes de aplicação;
-- não antecipar desconto automático, encerramento ou liberação.
+- não antecipar desconto automático, encerramento ou liberação;
+- valor é pretensão sujeita a análise (ADR-009): o SGPD nunca aplica desconto,
+  e `VALOR_PROCESSADO` só é preenchido a partir do registro do Senior.
 
 ## Riscos e pendências relevantes
 
@@ -127,7 +131,10 @@ Contrato Senior — legibilidade cadastral:
   inutilizável: a FK da auditoria append-only impede a exclusão;
 - a extensão da ADR-047 e os incrementos de edição de configuração de
   2026-07-31 foram conferidos por build e testes, mas ainda não passaram por
-  varredura headless nas cinco larguras homologadas.
+  varredura headless nas cinco larguras homologadas;
+- a ADR-048 aceita, por decisão explícita, que o SuperAdmin decida a pretensão
+  que ele mesmo informou; o risco correspondente é o R62 e a auditoria é a
+  única evidência do rompimento.
 
 ## Homologação funcional e visual das Fases 3 e 5
 
@@ -188,6 +195,43 @@ a correção do `.lista-tabela`, cujos descendentes absolutos `.sr-only`
 esticavam o body além do viewport (ADR-028). A ADR-047 foi estendida na mesma
 data para registrar esse alcance.
 
+## Fase 6 — valores e decisões (em andamento)
+
+A fase foi fatiada em cinco: modelo, services, guard de bloqueio, API/SPA e
+consolidação. **As fatias 1 e 2 estão implementadas; a próxima é a fatia 3.**
+
+Fatia 1 — modelo, migration `pending_items.0002`, aplicada no Oracle DEV:
+
+- `SGPD_PENDING_AMOUNT` 1:1 com a pendência, com os cinco montantes do RF-026,
+  moeda, justificativa, `informed_by`, aprovador e versão otimista;
+- `SGPD_PENDING_DECISION` append-only, com parecer, decisor e
+  `segregation_override`;
+- categoria `VALOR`, os cinco estados do eixo de decisão e a classificação
+  `BLOQUEANTE_ATE_DECISAO`, que não cabia em `VARCHAR2(20)` — a coluna foi
+  alargada para 24, metadado no Oracle, sem rewrite.
+
+Fatia 2 — quatro services transacionais, migration `offboarding.0007`
+(`sqlmigrate` no-op) aplicada:
+
+- `RegisterPendingAmountService` exige pendência `VALOR` aberta em setor com
+  `allows_amount` — campo que existe desde a Fase 3 e até aqui nenhuma regra
+  lia;
+- `AssessPendingAmountService`, `ContestPendingAmountService` e
+  `DecidePendingAmountService` completam o eixo; a decisão é append-only e
+  resolve o valor aprovado em zero quando rejeitada ou abonada;
+- segregação da ADR-048: apurar e decidir exigem `DP` vigente no escopo; quem
+  informou não decide; o SuperAdmin decide sem barreira e a trilha grava
+  `segregation_override`;
+- o eixo de decisão não é alcançável pelo endpoint genérico de situação, que só
+  lhe dá saída para o encerramento.
+
+Falta na fatia 3: `apps/offboarding/services.py` ainda trata apenas
+`BLOQUEANTE` ao impedir a conclusão da tarefa. `BLOQUEANTE_ATE_DECISAO` precisa
+liberar em `DECIDED_STATUSES` (`apps/pending_items/models.py`), não em
+`REGULARIZADA`/`ENCERRADA`. Depois vêm API e SPA sobre `_conferencia.scss` — a
+ADR-047 exige rótulo legível para cada estado novo no mesmo incremento — e a
+consolidação de valores por processo.
+
 ## Ciclo de vida do rascunho na configuração (2026-07-31)
 
 O editor de configuração fechou o ciclo de vida das versões:
@@ -208,6 +252,14 @@ O editor de configuração fechou o ciclo de vida das versões:
 `sqlmigrate` é `(no-op)` e a migration está aplicada no Oracle DEV.
 
 ## Baseline de qualidade
+
+Nas fatias 1 e 2 da Fase 6 passaram 373 testes backend, Ruff, formatação, Mypy
+em 169 arquivos, Django check e verificação de migrations. Não houve mudança de
+frontend. Os 15 testes novos cobrem o ciclo informado → apurado → contestado →
+aprovado com trilha, rejeição e abono em zero, setor sem `allows_amount`,
+categoria errada, autoaprovação negada, override do SuperAdmin com marca,
+responsável de setor sem `DP` barrado, replay idempotente, versão obsoleta,
+atalho pelo endpoint genérico e dupla decisão.
 
 Em 2026-07-31 a validação padrão foi executada por inteiro: 358 testes backend
 e 83 frontend, Ruff, formatação, Mypy, Django check, verificação de migrations

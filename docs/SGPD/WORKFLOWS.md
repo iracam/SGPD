@@ -161,13 +161,28 @@ altera automaticamente o estado do processo.
 - ABONADA
 - ENCERRADA
 
-Implementado nesta fatia:
+Implementado no eixo de regularização:
 
 - `ABERTA → EM_REGULARIZACAO`;
 - `EM_REGULARIZACAO → REGULARIZADA`;
 - `REGULARIZADA → ENCERRADA`;
 - `REGULARIZADA → EM_REGULARIZACAO`, quando a regularização precisar ser
   retomada.
+
+Implementado no eixo de decisão, na Fase 6:
+
+- `ABERTA → ENCAMINHADA_ANALISE`, ao lançar a pretensão de cobrança;
+- `ENCAMINHADA_ANALISE → CONTESTADA` e `CONTESTADA → ENCAMINHADA_ANALISE`,
+  quando a contestação é registrada e a apuração é refeita;
+- `ENCAMINHADA_ANALISE` ou `CONTESTADA → APROVADA_COBRANCA`, `REJEITADA` ou
+  `ABONADA`, conforme a decisão;
+- `APROVADA_COBRANCA`, `REJEITADA` ou `ABONADA → ENCERRADA`.
+
+O eixo de decisão só é alcançado pelos services de valor, que exigem pretensão
+registrada em pendência de categoria `VALOR` e setor com `PERMITE_VALOR`. O
+endpoint genérico de situação não entra nele; dele só tem saída para o
+encerramento. `COMUNICADA` e `RECONHECIDA` permanecem na Fase 7, junto com a
+notificação que lhes dá sentido.
 
 As demais situações acima permanecem como fluxo alvo de comunicação e decisão
 dos incrementos posteriores. Toda transição implementada exige comentário e

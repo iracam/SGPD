@@ -538,9 +538,11 @@ vinculados ao ator e ao hash do corpo.
 Estado implementado em `SGPD_PENDING_ITEM` sem antecipar decisão financeira:
 
 - UUID público, processo, tarefa e item de checklist opcional;
-- categoria sem `VALOR`, título, descrição, classificação de bloqueio, prazo
-  opcional, ator, datas e versão otimista;
-- estados `ABERTA`, `EM_REGULARIZACAO`, `REGULARIZADA` e `ENCERRADA`;
+- categoria, título, descrição, classificação de bloqueio, prazo opcional,
+  ator, datas e versão otimista; a categoria `VALOR` entrou na Fase 6;
+- estados `ABERTA`, `EM_REGULARIZACAO`, `REGULARIZADA` e `ENCERRADA`, mais o
+  eixo de decisão da Fase 6 (`ENCAMINHADA_ANALISE`, `CONTESTADA`,
+  `APROVADA_COBRANCA`, `REJEITADA` e `ABONADA`);
 - pendências bloqueantes só deixam de impedir a conclusão quando
   `REGULARIZADA` ou `ENCERRADA`;
 - alteração e exclusão em lote são rejeitadas; mutações passam por services
@@ -588,8 +590,23 @@ transação.
 - `VALOR_PROCESSADO`
 - `MOEDA`
 - `JUSTIFICATIVA`
+- `INFORMADO_POR_ID`
 - `APROVADO_POR_ID`
 - `APROVADO_EM`
+
+Implementado em `SGPD_PENDING_AMOUNT`, 1:1 com a pendência:
+
+- os cinco montantes são `NUMBER(12,2)` nulos, preenchidos ao longo do ciclo, e
+  cada um tem check constraint de não negatividade; o histórico de cada passo
+  fica na auditoria append-only e nos comentários da pendência;
+- `INFORMADO_POR_ID` não constava do desenho original e foi acrescentado porque
+  a segregação da ADR-048 precisa saber quem lançou o valor — `APROVADO_POR_ID`
+  sozinho não responde isso;
+- só existe em pendência de categoria `VALOR`, em setor com `PERMITE_VALOR`;
+- `VALOR_APROVADO` é zero quando a decisão é `REJEITADA` ou `ABONADA`, para que
+  a consolidação some sem caso especial;
+- `VALOR_PROCESSADO` permanece nulo: o processamento efetivo é registro do
+  Senior e pertence à Fase 8.
 
 #### PENDENCIA_DECISAO
 
@@ -600,6 +617,12 @@ transação.
 - `PARECER`
 - `DECIDIDO_POR_ID`
 - `DECIDIDO_EM`
+- `SEGREGACAO_DISPENSADA`
+
+Implementado em `SGPD_PENDING_DECISION`, append-only: a contestação gera nova
+decisão sobre a mesma pendência e o parecer anterior não é sobrescrito.
+`SEGREGACAO_DISPENSADA` marca a decisão tomada pelo SuperAdmin sobre valor que
+ele mesmo informou (ADR-048) e é a única evidência durável do rompimento.
 
 ### Evidências
 
