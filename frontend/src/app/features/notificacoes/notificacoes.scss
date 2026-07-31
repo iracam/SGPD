@@ -1,0 +1,201 @@
+@use 'breakpoints' as bp;
+@use 'conferencia';
+
+// Mesmo protocolo de conferência das telas de execução (ADR-047): seções com
+// régua, chips sobre os tokens --status-* e dado técnico em mono.
+
+.resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block-end: 1.5rem;
+}
+
+.resumo__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.7rem;
+  background: var(--p-content-background);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.resumo__item--ativo {
+  border-color: var(--sgpd-accent);
+  box-shadow: inset 0 0 0 1px var(--sgpd-accent);
+}
+
+.resumo__rotulo {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.resumo__valor {
+  font-weight: 700;
+}
+
+.mensagens {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mensagem {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--p-content-border-color);
+  border-inline-start-width: 3px;
+  border-inline-start-color: var(--status-pending-color);
+  border-radius: 0.7rem;
+  background: var(--p-content-background);
+}
+
+.mensagem--blocked {
+  border-inline-start-color: var(--status-blocked-color);
+}
+
+.mensagem--released {
+  border-inline-start-color: var(--status-released-color);
+}
+
+.mensagem--review {
+  border-inline-start-color: var(--status-review-color);
+}
+
+.mensagem--canceled {
+  border-inline-start-color: var(--status-canceled-color);
+}
+
+.mensagem > header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mensagem > header small {
+  display: block;
+  color: var(--p-text-muted-color);
+}
+
+.dados {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.dados dt {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+}
+
+.dados dd {
+  margin: 0.15rem 0 0;
+}
+
+.erro-entrega {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--status-blocked-color) 12%, transparent);
+  color: var(--status-blocked-color);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.acao {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+.acao--primaria {
+  border-color: var(--sgpd-accent);
+  color: var(--status-released-color);
+}
+
+.acao:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.detalhe h3 {
+  margin: 0.5rem 0 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.corpo {
+  margin: 0;
+  padding: 0.65rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--p-text-color) 5%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tentativas {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tentativas li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tentativa__erro {
+  color: var(--p-text-muted-color);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.vazio-inline {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
+@include bp.from(bp.$md) {
+  .dados {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mensagem > header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+}

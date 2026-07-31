@@ -17,6 +17,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.template.exceptions import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -349,9 +350,14 @@ class DispatchNotificationsService:
         notification.status = NotificationStatus.SENDING
         notification.version += 1
         notification.save(update_fields=("attempts", "status", "version", "updated_at"))
+        # A numeração da tentativa é histórica e nunca se repete; `attempts` é o
+        # orçamento da rodada corrente e volta a zero quando alguém reprocessa.
+        last_number = NotificationAttempt.objects.filter(notification=notification).aggregate(
+            last=Max("attempt_number")
+        )["last"]
         attempt = NotificationAttempt(
             notification=notification,
-            attempt_number=notification.attempts,
+            attempt_number=(last_number or 0) + 1,
         )
         attempt.full_clean()
         attempt.save()

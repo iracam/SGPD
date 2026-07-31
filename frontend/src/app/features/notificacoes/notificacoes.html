@@ -1,0 +1,153 @@
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-send" aria-hidden="true"></i>
+      Operação da fila
+    </span>
+    <h1 class="page-title">Notificações</h1>
+    <p class="page-lead">
+      Lembretes, atrasos e escaladas enviados por e-mail. O envio é do despachante
+      agendado; aqui você confere o que saiu, o que falhou e devolve à fila o que desistiu.
+    </p>
+  </div>
+</header>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+@if (aviso()) {
+  <p-message severity="success" [text]="aviso()"></p-message>
+}
+
+<section class="resumo" aria-label="Resumo da fila">
+  <button
+    type="button"
+    class="resumo__item"
+    [class.resumo__item--ativo]="filtro() === ''"
+    (click)="filtrar('')"
+  >
+    <span class="resumo__rotulo">Todas</span>
+    <span class="resumo__valor registro">{{ (fila()?.results ?? []).length }}</span>
+  </button>
+  @for (status of situacoes; track status) {
+    <button
+      type="button"
+      class="resumo__item"
+      [class.resumo__item--ativo]="filtro() === status"
+      (click)="filtrar(status)"
+    >
+      <span [class]="'chip chip--' + estadoStatus(status)">{{ rotuloStatus(status) }}</span>
+      <span class="resumo__valor registro">{{ total(status) }}</span>
+    </button>
+  }
+</section>
+
+@if (carregando()) {
+  <section class="grupo"><p class="vazio-inline">Carregando fila…</p></section>
+} @else if (fila(); as dados) {
+  <section class="grupo" aria-labelledby="titulo-fila">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-inbox" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-fila">Mensagens</h2>
+        <small>Da mais recente para a mais antiga, com o histórico de tentativas.</small>
+      </span>
+      <span class="grupo__total">{{ dados.results.length }}</span>
+    </header>
+
+    <ul class="mensagens">
+      @for (item of dados.results; track item.uuid) {
+        <li [class]="'mensagem mensagem--' + estadoStatus(item.status)">
+          <header>
+            <span>
+              <strong>{{ item.subject }}</strong>
+              <small>
+                {{ rotuloEvento(item.event) }} · processo
+                <span class="registro">{{ item.process_ref }}</span>
+                @if (item.sector_name) {
+                  · {{ item.sector_name }}
+                }
+              </small>
+            </span>
+            <span [class]="'chip chip--' + estadoStatus(item.status)">
+              {{ rotuloStatus(item.status) }}
+            </span>
+          </header>
+
+          <dl class="dados">
+            <div>
+              <dt>Destinatário</dt>
+              <dd class="registro">{{ item.recipient.email }}</dd>
+            </div>
+            <div>
+              <dt>Tentativas</dt>
+              <dd class="registro">{{ item.attempts }} de {{ item.max_attempts }}</dd>
+            </div>
+            <div>
+              <dt>Enfileirada</dt>
+              <dd class="registro">{{ item.created_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
+            </div>
+            <div>
+              <dt>{{ item.sent_at ? 'Enviada' : 'Próxima tentativa' }}</dt>
+              <dd class="registro">
+                {{ (item.sent_at ?? item.next_attempt_at) | date: 'dd/MM/yyyy HH:mm' }}
+              </dd>
+            </div>
+          </dl>
+
+          @if (item.last_error) {
+            <p class="erro-entrega">{{ item.last_error }}</p>
+          }
+
+          <div class="acoes">
+            <button type="button" class="acao" (click)="alternar(item.uuid)">
+              {{ expandida() === item.uuid ? 'Ocultar detalhes' : 'Ver detalhes' }}
+            </button>
+            @if (item.status === 'FALHA') {
+              <button
+                type="button"
+                class="acao acao--primaria"
+                [disabled]="reprocessando() === item.uuid"
+                (click)="reprocessar(item)"
+              >
+                {{ reprocessando() === item.uuid ? 'Reprocessando…' : 'Reprocessar' }}
+              </button>
+            }
+          </div>
+
+          @if (expandida() === item.uuid) {
+            <div class="detalhe">
+              <h3>Mensagem</h3>
+              <pre class="corpo">{{ item.body }}</pre>
+              <h3>Tentativas</h3>
+              <ul class="tentativas">
+                @for (tentativa of item.delivery_attempts; track tentativa.attempt_number) {
+                  <li>
+                    <span class="registro">#{{ tentativa.attempt_number }}</span>
+                    <span class="registro">
+                      {{ tentativa.started_at | date: 'dd/MM/yyyy HH:mm:ss' }}
+                    </span>
+                    <span
+                      [class]="
+                        'chip chip--' + (tentativa.succeeded ? 'released' : 'blocked')
+                      "
+                    >
+                      {{ tentativa.succeeded ? 'Entregue' : 'Recusada' }}
+                    </span>
+                    @if (tentativa.error) {
+                      <span class="tentativa__erro">{{ tentativa.error }}</span>
+                    }
+                  </li>
+                } @empty {
+                  <li class="vazio-inline">Nenhuma tentativa registrada ainda.</li>
+                }
+              </ul>
+            </div>
+          }
+        </li>
+      } @empty {
+        <li class="vazio-inline">Nenhuma notificação nesta situação.</li>
+      }
+    </ul>
+  </section>
+}

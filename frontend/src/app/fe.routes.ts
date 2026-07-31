@@ -55,6 +55,12 @@ export const FE_ROUTES: Routes = [
             title: 'Valores do processo | SGPD',
           },
           {
+            path: 'notificacoes',
+            loadComponent: () =>
+              import('./features/notificacoes/notificacoes').then((m) => m.NotificacoesPage),
+            title: 'Notificações | SGPD',
+          },
+          {
             path: 'tarefas',
             loadComponent: () =>
               import('./features/tarefas/tarefas').then((m) => m.TarefasPage),

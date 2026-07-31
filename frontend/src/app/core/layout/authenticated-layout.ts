@@ -48,6 +48,13 @@ export class AuthenticatedLayout {
       role: 'RESPONSAVEL_SETOR',
     },
     {
+      label: 'Notificações',
+      route: '/fe/notificacoes',
+      icon: 'pi pi-send',
+      description: 'Fila de avisos por e-mail, falhas e reprocessamento',
+      role: 'DP',
+    },
+    {
       label: 'Setores',
       route: '/fe/setores',
       icon: 'pi pi-building',

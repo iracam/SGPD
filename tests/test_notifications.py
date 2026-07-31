@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from io import StringIO
 from smtplib import SMTPException
@@ -15,6 +16,7 @@ from django.core import mail
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
+from django.test import Client
 from django.utils import timezone
 
 from apps.accounts.models import (
@@ -41,7 +43,12 @@ from apps.notifications.services import (
     EnqueueNotificationService,
     EnqueueResult,
 )
-from apps.offboarding.models import OffboardingProcess, ProcessSectorTask
+from apps.offboarding.models import (
+    OffboardingProcess,
+    ProcessAuditEvent,
+    ProcessEventType,
+    ProcessSectorTask,
+)
 from apps.sectors.models import SectorResponsible, ValidationSector
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
@@ -502,3 +509,150 @@ def test_scan_command_can_dispatch_in_the_same_run(actor: User, process: Any) ->
     assert "enfileiradas=4" in output.getvalue()
     assert "enviadas=4" in output.getvalue()
     assert len(mail.outbox) == 4
+
+
+# --- Fatia 4: painel de falhas e reprocessamento ----------------------------
+
+
+def failed_notification(actor: User, process: Any) -> Notification:
+    task = overdue(started_task(actor, process), hours=72)
+    enqueue(task, (actor,), event=NotificationEvent.TASK_OVERDUE)
+    message = Notification.objects.get()
+    message.max_attempts = 1
+    message.save(update_fields=("max_attempts",))
+    with mock.patch(
+        "apps.notifications.services.EmailMessage.send",
+        side_effect=SMTPException("relay refused"),
+    ):
+        DispatchNotificationsService().execute(DispatchNotificationsCommand())
+    message.refresh_from_db()
+    assert message.status == NotificationStatus.FAILED
+    return message
+
+
+def logged_client(user: User) -> Client:
+    client = Client()
+    assert client.login(username=user.username, password=PASSWORD)
+    return client
+
+
+def test_queue_panel_lists_the_scope_with_its_summary(actor: User, process: Any) -> None:
+    message = failed_notification(actor, process)
+
+    response = logged_client(actor).get("/api/v1/notifications/")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"] == {NotificationStatus.FAILED: 1}
+    row = body["results"][0]
+    assert row["uuid"] == str(message.uuid)
+    assert row["status"] == NotificationStatus.FAILED
+    assert "relay refused" in row["last_error"]
+    assert row["delivery_attempts"][0]["succeeded"] is False
+    assert row["recipient"]["email"] == actor.email
+
+
+def test_sector_responsibility_alone_does_not_reach_the_queue_panel(
+    actor: User,
+    process: Any,
+) -> None:
+    failed_notification(actor, process)
+    responsible = User.objects.create_user(
+        username="setor.responsavel",
+        email="setor.responsavel@example.invalid",
+        password=PASSWORD,
+        first_name="Setor",
+        last_name="Responsável",
+    )
+    sector = ValidationSector.objects.get(code="TECNOLOGIA")
+    SectorResponsible.objects.create(
+        sector=sector,
+        user=responsible,
+        valid_from=timezone.now() - timedelta(hours=1),
+        assigned_by=actor,
+        updated_by=actor,
+    )
+
+    response = logged_client(responsible).get("/api/v1/notifications/")
+
+    assert response.status_code == 200
+    assert response.json()["results"] == []
+
+
+def test_reprocess_returns_the_message_to_the_queue_with_audit_and_replay(
+    actor: User,
+    process: Any,
+) -> None:
+    message = failed_notification(actor, process)
+    client = logged_client(actor)
+
+    response = client.post(
+        f"/api/v1/notifications/{message.uuid}/reprocess/",
+        data=json.dumps({"expected_version": message.version}),
+        content_type="application/json",
+        headers={"Idempotency-Key": "reprocessa-1"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == NotificationStatus.PENDING
+    assert body["attempts"] == 0
+    assert body["idempotency_replayed"] is False
+    assert body["delivery_attempts"][0]["error"].startswith("SMTPException")
+
+    event = ProcessAuditEvent.objects.get(event_type=ProcessEventType.NOTIFICATION_REPROCESSED)
+    assert event.data["notification_uuid"] == str(message.uuid)
+    assert event.data["attempts_before"] == 1
+
+    replay = client.post(
+        f"/api/v1/notifications/{message.uuid}/reprocess/",
+        data=json.dumps({"expected_version": message.version}),
+        content_type="application/json",
+        headers={"Idempotency-Key": "reprocessa-1"},
+    )
+    assert replay.status_code == 200
+    assert replay.json()["idempotency_replayed"] is True
+    assert (
+        ProcessAuditEvent.objects.filter(
+            event_type=ProcessEventType.NOTIFICATION_REPROCESSED
+        ).count()
+        == 1
+    )
+
+    message.refresh_from_db()
+    assert DispatchNotificationsService().execute(DispatchNotificationsCommand()).sent == 1
+    # A trilha de tentativas é histórica: a nova entrega não reusa o número.
+    assert list(
+        message.delivery_attempts.order_by("attempt_number").values_list(
+            "attempt_number", "succeeded"
+        )
+    ) == [(1, False), (2, True)]
+
+
+def test_reprocess_refuses_a_delivered_message_and_a_stale_version(
+    actor: User,
+    process: Any,
+) -> None:
+    message = failed_notification(actor, process)
+    client = logged_client(actor)
+
+    stale = client.post(
+        f"/api/v1/notifications/{message.uuid}/reprocess/",
+        data=json.dumps({"expected_version": message.version + 5}),
+        content_type="application/json",
+        headers={"Idempotency-Key": "versao-velha"},
+    )
+    assert stale.status_code == 400
+
+    message.status = NotificationStatus.SENT
+    message.sent_at = timezone.now()
+    message.save(update_fields=("status", "sent_at"))
+
+    delivered = client.post(
+        f"/api/v1/notifications/{message.uuid}/reprocess/",
+        data=json.dumps({"expected_version": message.version}),
+        content_type="application/json",
+        headers={"Idempotency-Key": "ja-entregue"},
+    )
+    assert delivered.status_code == 400
+    assert "falha" in str(delivered.json()["details"])
