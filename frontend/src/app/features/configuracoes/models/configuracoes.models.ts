@@ -106,3 +106,52 @@ export interface LdapConnectionTestResult {
   duration_ms: number;
   tested_at: string;
 }
+
+export interface EmailValidationResult {
+  readonly valid: boolean;
+  readonly errors: readonly string[];
+  readonly warnings: readonly string[];
+}
+
+export interface EmailDeliveryTest {
+  readonly tested_at: string | null;
+  readonly success: boolean | null;
+  readonly recipient: string | null;
+  readonly error: string | null;
+  readonly tested_by: string | null;
+}
+
+export interface EmailConfigurationPayload {
+  readonly version: number;
+  readonly enabled: boolean;
+  readonly host: string;
+  readonly port: number;
+  readonly use_tls: boolean;
+  readonly username: string;
+  readonly password?: string;
+  readonly timeout_seconds: number;
+  readonly default_from_email: string;
+  readonly base_url: string;
+  readonly max_attempts: number;
+  readonly batch_size: number;
+  readonly stale_minutes: number;
+  readonly task_due_soon_hours: number;
+  readonly task_due_imminent_hours: number;
+  readonly task_critical_hours: number;
+  readonly process_due_soon_hours: number;
+}
+
+export interface EmailConfiguration extends Omit<EmailConfigurationPayload, 'password'> {
+  readonly source: string;
+  readonly password_configured: boolean;
+  readonly validation: EmailValidationResult;
+  readonly delivery_test: EmailDeliveryTest;
+  readonly updated_at: string | null;
+  readonly updated_by: string | null;
+}
+
+export interface EmailDeliveryTestResult {
+  readonly success: boolean;
+  readonly recipient: string;
+  readonly tested_at: string;
+}

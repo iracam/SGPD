@@ -12,7 +12,6 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -25,6 +24,7 @@ from apps.offboarding.models import (
     SectorTaskStatus,
 )
 
+from .config import EmailConfig
 from .models import NotificationEvent
 from .recipients import people_department_users, sector_responsibles
 from .services import EnqueueNotificationCommand, EnqueueNotificationService
@@ -50,23 +50,26 @@ class ScanDeadlinesResult:
     without_recipients: int
 
 
-def _milestone_instants(task: ProcessSectorTask) -> tuple[tuple[str, datetime], ...]:
+def _milestone_instants(
+    task: ProcessSectorTask,
+    config: EmailConfig,
+) -> tuple[tuple[str, datetime], ...]:
     """Instante a partir do qual cada marco da tarefa passa a valer."""
 
     due_at = task.due_at
     return (
         (
             NotificationEvent.TASK_DUE_SOON,
-            due_at - timedelta(hours=settings.NOTIFICATION_TASK_DUE_SOON_HOURS),
+            due_at - timedelta(hours=config.task_due_soon_hours),
         ),
         (
             NotificationEvent.TASK_DUE_IMMINENT,
-            due_at - timedelta(hours=settings.NOTIFICATION_TASK_DUE_IMMINENT_HOURS),
+            due_at - timedelta(hours=config.task_due_imminent_hours),
         ),
         (NotificationEvent.TASK_OVERDUE, due_at),
         (
             NotificationEvent.TASK_OVERDUE_CRITICAL,
-            due_at + timedelta(hours=settings.NOTIFICATION_TASK_CRITICAL_HOURS),
+            due_at + timedelta(hours=config.task_critical_hours),
         ),
     )
 
@@ -101,6 +104,7 @@ class ScanDeadlinesService:
 
     def execute(self, command: ScanDeadlinesCommand) -> ScanDeadlinesResult:
         now = command.at or timezone.now()
+        config = EmailConfig.from_settings()
         queued = 0
         without_recipients = 0
         tasks = (
@@ -114,7 +118,7 @@ class ScanDeadlinesService:
         tasks_scanned = 0
         for task in tasks:
             tasks_scanned += 1
-            for event, instant in _milestone_instants(task):
+            for event, instant in _milestone_instants(task, config):
                 if now < instant:
                     continue
                 recipients = self._task_recipients(task, event=event, at=now)
@@ -140,7 +144,7 @@ class ScanDeadlinesService:
                     )
                 queued += len(result.created)
 
-        processes_scanned, process_queued, process_without = self._scan_processes(now)
+        processes_scanned, process_queued, process_without = self._scan_processes(now, config)
         return ScanDeadlinesResult(
             queued=queued + process_queued,
             tasks_scanned=tasks_scanned,
@@ -148,8 +152,8 @@ class ScanDeadlinesService:
             without_recipients=without_recipients + process_without,
         )
 
-    def _scan_processes(self, now: datetime) -> tuple[int, int, int]:
-        horizon = timedelta(hours=settings.NOTIFICATION_PROCESS_DUE_SOON_HOURS)
+    def _scan_processes(self, now: datetime, config: EmailConfig) -> tuple[int, int, int]:
+        horizon = timedelta(hours=config.process_due_soon_hours)
         processes = processes_with_open_tasks()
         scanned = queued = without_recipients = 0
         for process in processes:

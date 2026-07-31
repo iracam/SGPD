@@ -28,6 +28,21 @@ urlpatterns = [
         name="ldap-certificate-validate",
     ),
     path(
+        "email/",
+        api.EmailConfigurationView.as_view(),
+        name="email-configuration",
+    ),
+    path(
+        "email/validate/",
+        api.EmailConfigurationValidationView.as_view(),
+        name="email-configuration-validate",
+    ),
+    path(
+        "email/delivery-test/",
+        api.EmailDeliveryTestView.as_view(),
+        name="email-delivery-test",
+    ),
+    path(
         "ldap/connection-test/",
         api.LdapConnectionTestView.as_view(),
         name="ldap-connection-test",

@@ -1,0 +1,377 @@
+<a class="voltar" routerLink="/fe/configuracoes">
+  <i class="pi pi-arrow-left" aria-hidden="true"></i>
+  Configurações
+</a>
+
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo"><i class="pi pi-lock" aria-hidden="true"></i> SuperAdmin</span>
+    <h1 class="page-title">E-mail e notificações</h1>
+    <p class="page-lead">
+      Transporte SMTP, remetente, ritmo da fila e marcos de lembrete e escalada. O que
+      vale em execução é o que está salvo aqui; o arquivo de ambiente é só o ponto de
+      partida do primeiro boot.
+    </p>
+  </div>
+</header>
+
+@if (carregando()) {
+  <p class="estado">Carregando configuração…</p>
+} @else if (erroPagina()) {
+  <p-message severity="error" [text]="erroPagina()"></p-message>
+} @else if (configuracao(); as config) {
+  <section class="estado-grid" aria-label="Estado do envio">
+    <article class="estado-card">
+      <span>Origem efetiva</span>
+      <strong>{{ origemBanco() ? 'Schema SGPD' : 'Ambiente' }}</strong>
+      <small>Versão {{ config.version }}</small>
+    </article>
+    <article class="estado-card">
+      <span>Envio</span>
+      <strong [class.estado-ok]="config.enabled">
+        {{ config.enabled ? 'Habilitado' : 'Desabilitado' }}
+      </strong>
+      <small>{{ config.use_tls ? 'Com TLS' : 'Sem TLS' }}</small>
+    </article>
+    <article class="estado-card">
+      <span>Remetente</span>
+      <strong>{{ config.default_from_email || '—' }}</strong>
+      <small>{{ config.host || 'Servidor não informado' }}:{{ config.port }}</small>
+    </article>
+    <article class="estado-card">
+      <span>Última prova</span>
+      <strong [class.estado-ok]="config.delivery_test.success === true">
+        @if (config.delivery_test.success === true) {
+          Entregue
+        } @else if (config.delivery_test.success === false) {
+          Falhou
+        } @else {
+          Não executada
+        }
+      </strong>
+      <small>{{ formatarData(config.delivery_test.tested_at) }}</small>
+    </article>
+  </section>
+
+  @if (sucesso()) {
+    <p-message severity="success" [text]="sucesso()"></p-message>
+  }
+  @if (erroFormulario()) {
+    <p-message severity="error" [text]="erroFormulario()"></p-message>
+  }
+  @if (config.delivery_test.success === false && config.delivery_test.error) {
+    <p-message severity="warn" [text]="config.delivery_test.error"></p-message>
+  }
+  @if (resultadoValidacao(); as resultado) {
+    @if (!resultado.valid) {
+      <div class="painel-erros" role="alert">
+        <strong>A configuração precisa de ajustes:</strong>
+        <ul>
+          @for (erro of resultado.errors; track erro) {
+            <li>{{ erro }}</li>
+          }
+        </ul>
+      </div>
+    }
+    @if (resultado.warnings.length) {
+      <div class="painel-avisos">
+        <strong>Funciona, mas vale conferir:</strong>
+        <ul>
+          @for (aviso of resultado.warnings; track aviso) {
+            <li>{{ aviso }}</li>
+          }
+        </ul>
+      </div>
+    }
+  } @else if (config.validation.warnings.length) {
+    <div class="painel-avisos">
+      <strong>Funciona, mas vale conferir:</strong>
+      <ul>
+        @for (aviso of config.validation.warnings; track aviso) {
+          <li>{{ aviso }}</li>
+        }
+      </ul>
+    </div>
+  }
+
+  <form class="config-form" [formGroup]="formulario" (ngSubmit)="salvar()">
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">1</span>
+        <div>
+          <h2>Transporte SMTP</h2>
+          <p>A senha é recebida somente para atualização, cifrada e nunca devolvida pela API.</p>
+        </div>
+      </div>
+
+      <div class="campo campo--checkbox">
+        <p-checkbox inputId="enabled" formControlName="enabled" [binary]="true"></p-checkbox>
+        <label for="enabled">
+          <strong>Habilitar envio de e-mail</strong>
+          <small>
+            Desligado, a fila continua acumulando e nada é entregue — nenhuma mensagem
+            se perde.
+          </small>
+        </label>
+      </div>
+
+      <div class="servidor-grid">
+        <div class="campo">
+          <label for="host">Servidor SMTP</label>
+          <input
+            pInputText
+            id="host"
+            formControlName="host"
+            placeholder="smtp.office365.com"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          @for (erro of erros('host'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="port">Porta</label>
+          <input pInputText id="port" type="number" formControlName="port" />
+          @for (erro of erros('port'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo campo--checkbox">
+          <p-checkbox inputId="use_tls" formControlName="use_tls" [binary]="true"></p-checkbox>
+          <label for="use_tls">
+            <strong>Usar TLS/STARTTLS</strong>
+            <small>Sem TLS, usuário e senha trafegam sem criptografia.</small>
+          </label>
+        </div>
+
+        <div class="campo">
+          <label for="username">Usuário SMTP</label>
+          <input
+            pInputText
+            id="username"
+            formControlName="username"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          @for (erro of erros('username'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="password">
+            Senha SMTP
+            @if (senhaConfigurada()) {
+              <span class="campo__estado">configurada</span>
+            }
+          </label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            [feedback]="false"
+            [toggleMask]="true"
+            autocomplete="new-password"
+            placeholder="Deixe vazio para manter a atual"
+          ></p-password>
+          <small>A senha existente nunca é projetada no navegador.</small>
+          @for (erro of erros('password'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="timeout_seconds">Timeout em segundos</label>
+          <input
+            pInputText
+            id="timeout_seconds"
+            type="number"
+            formControlName="timeout_seconds"
+          />
+          @for (erro of erros('timeout_seconds'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">2</span>
+        <div>
+          <h2>Identidade das mensagens</h2>
+          <p>Remetente exibido e endereço base que torna os links clicáveis.</p>
+        </div>
+      </div>
+
+      <div class="servidor-grid">
+        <div class="campo">
+          <label for="default_from_email">Remetente padrão</label>
+          <input
+            pInputText
+            id="default_from_email"
+            formControlName="default_from_email"
+            placeholder="noreply@empresa.com.br"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          @for (erro of erros('default_from_email'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="base_url">URL base da aplicação</label>
+          <input
+            pInputText
+            id="base_url"
+            formControlName="base_url"
+            placeholder="https://sgpd.empresa.com.br"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <small>Vazio faz o link sair relativo e o cliente de e-mail não o torna clicável.</small>
+          @for (erro of erros('base_url'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">3</span>
+        <div>
+          <h2>Ritmo da fila</h2>
+          <p>Quantas mensagens cada despacho tenta, quantas vezes insiste e quando reabre.</p>
+        </div>
+      </div>
+
+      <div class="servidor-grid">
+        <div class="campo">
+          <label for="max_attempts">Tentativas por mensagem</label>
+          <input pInputText id="max_attempts" type="number" formControlName="max_attempts" />
+          @for (erro of erros('max_attempts'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="batch_size">Mensagens por despacho</label>
+          <input pInputText id="batch_size" type="number" formControlName="batch_size" />
+          @for (erro of erros('batch_size'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="stale_minutes">Minutos para reabrir envio preso</label>
+          <input pInputText id="stale_minutes" type="number" formControlName="stale_minutes" />
+          @for (erro of erros('stale_minutes'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao__cabecalho">
+        <span class="secao__numero">4</span>
+        <div>
+          <h2>Lembretes e escaladas</h2>
+          <p>Marcos de prazo em horas. Cada um dispara uma vez por tarefa e destinatário.</p>
+        </div>
+      </div>
+
+      <div class="servidor-grid">
+        <div class="campo">
+          <label for="task_due_soon_hours">Primeiro lembrete, antes do prazo</label>
+          <input
+            pInputText
+            id="task_due_soon_hours"
+            type="number"
+            formControlName="task_due_soon_hours"
+          />
+          <small>Vai aos responsáveis vigentes do setor.</small>
+          @for (erro of erros('task_due_soon_hours'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="task_due_imminent_hours">Lembrete final, antes do prazo</label>
+          <input
+            pInputText
+            id="task_due_imminent_hours"
+            type="number"
+            formControlName="task_due_imminent_hours"
+          />
+          <small>Precisa ser mais próximo do prazo que o primeiro.</small>
+          @for (erro of erros('task_due_imminent_hours'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="task_critical_hours">Atraso crítico, após o prazo</label>
+          <input
+            pInputText
+            id="task_critical_hours"
+            type="number"
+            formControlName="task_critical_hours"
+          />
+          <small>Alcança também o setor de escalada.</small>
+          @for (erro of erros('task_critical_hours'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+
+        <div class="campo">
+          <label for="process_due_soon_hours">Alerta do processo, antes do limite</label>
+          <input
+            pInputText
+            id="process_due_soon_hours"
+            type="number"
+            formControlName="process_due_soon_hours"
+          />
+          <small>Vai ao DP do escopo enquanto houver tarefa em aberto.</small>
+          @for (erro of erros('process_due_soon_hours'); track erro) {
+            <small class="campo__erro">{{ erro }}</small>
+          }
+        </div>
+      </div>
+    </section>
+
+    <div class="acoes">
+      <p-button
+        type="submit"
+        label="Salvar configuração"
+        [loading]="salvando()"
+        [disabled]="salvando()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Validar informações"
+        severity="secondary"
+        [outlined]="true"
+        [loading]="validando()"
+        (onClick)="validarInformacoes()"
+      ></p-button>
+      <p-button
+        type="button"
+        label="Enviar mensagem de prova"
+        severity="secondary"
+        [outlined]="true"
+        [loading]="testando()"
+        (onClick)="testarEnvio()"
+      ></p-button>
+    </div>
+    <p class="rodape-nota">
+      A prova é enviada para o endereço da sua própria conta e registrada na auditoria.
+      Salve antes de testar: a prova usa a configuração gravada.
+    </p>
+  </form>
+}

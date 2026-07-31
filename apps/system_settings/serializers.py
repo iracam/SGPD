@@ -76,3 +76,48 @@ class LdapCertificateUploadSerializer(serializers.Serializer[dict[str, Any]]):
         if value.size > MAX_CERTIFICATE_BYTES:
             raise serializers.ValidationError("O certificado deve ter no máximo 512 KiB.")
         return value
+
+
+class EmailConfigurationSerializer(serializers.Serializer[dict[str, Any]]):
+    version = serializers.IntegerField(min_value=0)
+    enabled = serializers.BooleanField()
+    host = serializers.CharField(max_length=255, allow_blank=True, trim_whitespace=True)
+    port = serializers.IntegerField(min_value=1, max_value=65535)
+    use_tls = serializers.BooleanField()
+    username = serializers.CharField(max_length=255, allow_blank=True, trim_whitespace=True)
+    # Em branco preserva a senha vigente; a API nunca devolve o valor.
+    password = serializers.CharField(
+        max_length=1024,
+        allow_blank=True,
+        required=False,
+        default="",
+        trim_whitespace=False,
+        write_only=True,
+    )
+    timeout_seconds = serializers.IntegerField(min_value=1, max_value=300)
+    default_from_email = serializers.CharField(
+        max_length=254,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
+    base_url = serializers.CharField(max_length=255, allow_blank=True, trim_whitespace=True)
+    max_attempts = serializers.IntegerField(min_value=1, max_value=20)
+    batch_size = serializers.IntegerField(min_value=1, max_value=500)
+    stale_minutes = serializers.IntegerField(min_value=1, max_value=1440)
+    task_due_soon_hours = serializers.IntegerField(min_value=1, max_value=720)
+    task_due_imminent_hours = serializers.IntegerField(min_value=1, max_value=720)
+    task_critical_hours = serializers.IntegerField(min_value=1, max_value=720)
+    process_due_soon_hours = serializers.IntegerField(min_value=1, max_value=720)
+
+    def validate(self, attrs: dict[str, object]) -> dict[str, object]:
+        imminent = int(attrs["task_due_imminent_hours"])  # type: ignore[call-overload]
+        due_soon = int(attrs["task_due_soon_hours"])  # type: ignore[call-overload]
+        if imminent >= due_soon:
+            raise serializers.ValidationError(
+                {
+                    "task_due_imminent_hours": (
+                        "O lembrete final precisa ser mais próximo do prazo que o primeiro."
+                    )
+                }
+            )
+        return attrs

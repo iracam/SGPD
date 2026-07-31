@@ -63,6 +63,14 @@ O repositório possui:
 Redis e worker continuam adiados: a Fase 7 resolveu notificações com outbox no
 Oracle e comandos agendados, sem broker (ADR-049).
 
+### Configuração de e-mail
+
+Desde a ADR-050, as variáveis `EMAIL_*`, `DEFAULT_FROM_EMAIL`, `SGPD_BASE_URL` e
+`NOTIFICATION_*` do `.env` são apenas o baseline do primeiro boot. O que vale em
+execução é o singleton `SGPD_EMAIL_CONFIG`, editado em
+`/fe/configuracoes/email` por SuperAdmin. Enquanto ninguém salvar a primeira
+vez, o `.env` continua governando — nada quebra por não haver registro.
+
 ### Agendamento das notificações no DEV
 
 A fila só anda quando o sistema operacional chama os comandos. Sugestão de

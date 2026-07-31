@@ -73,7 +73,9 @@ pendências estruturadas, evidências privadas, notificações por e-mail e pain
 iniciais.
 
 Notificações usam outbox no Oracle gravado na transação do domínio, com envio
-por comando agendado fora da requisição (ADR-049). Não há broker nem worker.
+por comando agendado fora da requisição (ADR-049). Não há broker nem worker. O
+transporte SMTP, o remetente, o ritmo da fila e os marcos de lembrete são
+configurados na central por SuperAdmin (ADR-050); o `.env` é só o baseline.
 
 ## Estado funcional resumido
 

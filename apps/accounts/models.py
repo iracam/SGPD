@@ -390,6 +390,8 @@ class AccountEventType(models.TextChoices):
     LDAP_CONFIG_UPDATED = "LDAP_CONFIG_UPDATED", "Configuração LDAP atualizada"
     LDAP_CERT_UPLOADED = "LDAP_CERT_UPLOADED", "Certificado LDAP enviado"
     LDAP_CONNECTION_TESTED = "LDAP_CONNECTION_TESTED", "Conexão LDAP testada"
+    EMAIL_CONFIG_UPDATED = "EMAIL_CONFIG_UPDATED", "Configuração de e-mail atualizada"
+    EMAIL_TEST_SENT = "EMAIL_TEST_SENT", "Mensagem de prova de e-mail enviada"
 
 
 class AccountAuditEventQuerySet(models.QuerySet["AccountAuditEvent"]):

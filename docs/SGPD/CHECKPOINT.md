@@ -7,6 +7,8 @@
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6 e 7
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Próximo incremento: **Fase 8 — prontidão, liberação e encerramento formal**
+- Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
+  o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente; segregação de valores pela ADR-048
@@ -42,7 +44,9 @@
 - protocolo de conferência da ADR-047 exercido por todas as telas da SPA, com
   cabeçalho de página global e selo de domínio;
 - notificações por e-mail com outbox no Oracle, varredura de prazos, escaladas,
-  painel de falhas e reprocessamento auditado.
+  painel de falhas e reprocessamento auditado;
+- central de configuração de e-mail: transporte SMTP, remetente, URL base, ritmo
+  da fila e marcos de lembrete editáveis por SuperAdmin, com prova de envio.
 
 ## Estado corrente
 
@@ -160,8 +164,8 @@ Contrato Senior — legibilidade cadastral:
   vale separar as decididas em zero;
 - o agendamento das notificações no DEV ainda não foi instalado: enquanto não
   for, a varredura e o despacho só rodam quando alguém os chama à mão;
-- `SGPD_BASE_URL` vazio no `.env` do DEV faz o link da mensagem sair relativo e
-  não clicável no cliente de e-mail;
+- a URL base continua vazia no DEV, então o link da mensagem sai relativo e não
+  clicável; agora é preenchível em `/fe/configuracoes/email`, sem tocar no host;
 - as 16 notificações entregues na homologação permanecem no DEV: a fila é
   append-only e não pode ser apagada, como a auditoria e as pendências;
 - a entrega da notificação é ao menos uma vez: se o processo morrer entre o
@@ -407,7 +411,58 @@ mensagens saíram relativos (`/fe/tarefas`) e não são clicáveis no cliente de
 e-mail. É configuração, não código — basta preencher a variável com a URL
 externa do DEV antes do próximo envio.
 
+## Central de configuração de e-mail (ADR-050)
+
+Entre a Fase 7 e a Fase 8, por decisão explícita, a configuração de e-mail saiu
+do `.env` para a central de `/fe/configuracoes`, no mesmo desenho que a ADR-031
+deu ao LDAP. O card `E-mail e notificações` deixou de ser `Em breve`.
+
+O singleton `SGPD_EMAIL_CONFIG` passou a governar transporte SMTP, remetente,
+URL base dos links, ritmo da fila e os marcos de lembrete e escalada. O
+`EMAIL_BACKEND` virou `ConfiguredEmailBackend`, que lê a configuração a cada
+envio: mudar servidor, remetente ou marco não exige reinício. As variáveis do
+`.env` continuam valendo como baseline enquanto o registro não existir — no DEV
+ele ainda não existe, e a tela mostra `Origem efetiva: Ambiente`.
+
+A central ganhou um interruptor de envio: desligado, a fila acumula em
+`PENDENTE` e nada é entregue; religar despacha o acumulado sem perder mensagem.
+A senha SMTP é cifrada como a de bind do LDAP e nunca volta pela API — campo em
+branco preserva a vigente. A prova de envio vai obrigatoriamente para o endereço
+da própria conta que pediu o teste.
+
+A validação separa o que bloqueia do que apenas avisa: habilitar sem servidor ou
+sem remetente é recusado; ausência de URL base, ausência de TLS e porta fora das
+usuais são avisos que não impedem salvar.
+
+O vocabulário visual da central virou o parcial `styles/_configuracao.scss`, e a
+tela de LDAP passou a consumi-lo em vez de manter cópia — a varredura headless
+repetiu as duas telas nas cinco larguras e nos dois temas, sem rolagem
+horizontal, sem erro de console e sem diferença de aparência no LDAP.
+
+Um defeito apareceu na própria suíte e foi corrigido antes do commit: a prova de
+envio fixava o backend SMTP, então o teste abriu conexão viva com o Microsoft
+365 e falhou com erro de autenticação real. A sonda passou a usar
+`get_connection()` sem fixar backend — em produção é o dinâmico, nos testes é o
+de memória. `config/settings/test.py` também passou a fixar o baseline de
+e-mail, para que o resultado da suíte não dependa do `.env` da máquina.
+
 ## Baseline de qualidade
+
+Na central de e-mail a validação padrão foi executada por inteiro: 423 testes
+backend e 99 frontend, Ruff, formatação, Mypy em 196 arquivos, Django check,
+verificação de migrations e build Angular sem avisos. As duas migrations foram
+revisadas e aplicadas no Oracle DEV: `system_settings.0003` cria
+`SGPD_EMAIL_CONFIG` com quatro check constraints próprias, todas
+`ENABLED`/`VALIDATED` sobre tabela vazia, e `accounts.0010` é `(no-op)`, apenas
+amplia as opções de `EVENT_TYPE`. Os 13 testes backend novos cobrem a
+substituição do baseline pelo registro, a cifra do segredo e a preservação da
+senha em branco, a trilha sem segredo, a barra de SuperAdmin na API e no
+service, a versão obsoleta, a recusa de habilitar sem servidor ou remetente, a
+separação entre erro e aviso, o payload que nunca devolve a senha, o contrato
+dos marcos, a prova bem-sucedida e a recusada, a fila retida com o envio
+desligado e o backend montado a partir do registro. Os quatro do frontend cobrem
+a leitura da configuração vigente, o envio com versão e senha vazia, o aviso de
+URL base e a prova de envio.
 
 Na Fase 7 a validação padrão foi executada por inteiro: 410 testes backend e 95
 frontend, Ruff, formatação, Mypy em 190 arquivos, Django check, verificação de

@@ -30,6 +30,9 @@ export const apiConfig = {
     sectors: '/api/v1/sectors/',
     sectorResponsibleCandidates: '/api/v1/sectors/responsible-candidates/',
 
+    settingsEmail: '/api/v1/settings/email/',
+    settingsEmailValidate: '/api/v1/settings/email/validate/',
+    settingsEmailDeliveryTest: '/api/v1/settings/email/delivery-test/',
     settingsLdap: '/api/v1/settings/ldap/',
     settingsLdapValidate: '/api/v1/settings/ldap/validate/',
     settingsLdapCertificate: '/api/v1/settings/ldap/certificate/',

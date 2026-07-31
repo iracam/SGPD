@@ -4,6 +4,10 @@ import { Observable } from 'rxjs';
 
 import { apiConfig } from '../../core/config/api.config';
 import {
+  EmailConfiguration,
+  EmailConfigurationPayload,
+  EmailDeliveryTestResult,
+  EmailValidationResult,
   LdapCertificateValidationResult,
   LdapConfiguration,
   LdapConfigurationPayload,
@@ -16,6 +20,28 @@ import {
 @Injectable({ providedIn: 'root' })
 export class ConfiguracoesService {
   private readonly http = inject(HttpClient);
+
+  carregarEmail(): Observable<EmailConfiguration> {
+    return this.http.get<EmailConfiguration>(apiConfig.routes.settingsEmail);
+  }
+
+  salvarEmail(payload: EmailConfigurationPayload): Observable<EmailConfiguration> {
+    return this.http.put<EmailConfiguration>(apiConfig.routes.settingsEmail, payload);
+  }
+
+  validarEmail(payload: EmailConfigurationPayload): Observable<EmailValidationResult> {
+    return this.http.post<EmailValidationResult>(
+      apiConfig.routes.settingsEmailValidate,
+      payload,
+    );
+  }
+
+  testarEnvioEmail(): Observable<EmailDeliveryTestResult> {
+    return this.http.post<EmailDeliveryTestResult>(
+      apiConfig.routes.settingsEmailDeliveryTest,
+      {},
+    );
+  }
 
   carregarLdap(): Observable<LdapConfiguration> {
     return this.http.get<LdapConfiguration>(apiConfig.routes.settingsLdap);

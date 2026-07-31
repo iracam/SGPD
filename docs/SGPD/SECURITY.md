@@ -532,7 +532,18 @@ booleana de papel inicial.
 - atualização de Angular ou PrimeNG somente após revisão explícita;
 - nenhum código de terceiros carregado de CDN em tempo de execução.
 
-## 13.1 Conteúdo das notificações
+## 13.1 Segredos da central de configurações
+
+A senha de bind do LDAP e a senha SMTP são cifradas com Fernet, por chave
+derivada do `DJANGO_SECRET_KEY`, e nunca são projetadas pela API: o payload diz
+apenas se existe segredo configurado. Campo em branco preserva o segredo
+vigente. Rotação do `DJANGO_SECRET_KEY` exige regravar as duas senhas.
+
+Alterar o transporte de e-mail é ato auditado: servidor, porta, TLS e remetente
+entram na trilha; a senha não. A mensagem de prova só é enviada ao endereço da
+própria conta que pediu o teste.
+
+## 13.2 Conteúdo das notificações
 
 O e-mail de notificação atravessa a rede corporativa e pode chegar a uma caixa
 errada; o sistema, não. Por isso o corpo da mensagem carrega apenas o que a

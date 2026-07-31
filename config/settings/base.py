@@ -169,12 +169,15 @@ CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE")
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# Backend dinâmico: lê a configuração da central por envio (ADR-050). As
+# variáveis abaixo continuam valendo como baseline do primeiro boot.
+EMAIL_BACKEND = "apps.notifications.mail.ConfiguredEmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST", "")
 EMAIL_PORT = env_int("EMAIL_PORT", 587)
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+EMAIL_TIMEOUT_SECONDS = env_int("EMAIL_TIMEOUT_SECONDS", 10)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
 
 LOGIN_THROTTLE_RATE = os.getenv("LOGIN_THROTTLE_RATE", "10/min")

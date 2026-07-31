@@ -177,3 +177,151 @@ class LdapConfiguration(models.Model):
         )
         if any(certificate_values) and not all(certificate_values):
             raise ValidationError("Os metadados do certificado LDAP estão incompletos.")
+
+
+EMAIL_CONFIGURATION_KEY = "PRIMARY"
+
+
+class EmailConfigurationQuerySet(models.QuerySet["EmailConfiguration"]):
+    def update(self, **kwargs: Any) -> int:
+        raise ValidationError("A configuração de e-mail deve ser alterada pelo service auditado.")
+
+    def delete(self) -> tuple[int, dict[str, int]]:
+        raise ValidationError("A configuração de e-mail deve ser atualizada, não excluída.")
+
+
+class EmailConfiguration(models.Model):
+    """Transporte SMTP, remetente e ritmo da fila de notificações (ADR-050)."""
+
+    key = models.CharField(
+        "chave",
+        max_length=16,
+        primary_key=True,
+        default=EMAIL_CONFIGURATION_KEY,
+        editable=False,
+    )
+    enabled = models.BooleanField("envio habilitado", default=False)
+    host = models.CharField("servidor SMTP", max_length=255, blank=True)
+    port = models.PositiveIntegerField("porta", default=587)
+    use_tls = models.BooleanField("usar TLS/STARTTLS", default=True)
+    username = models.CharField("usuário SMTP", max_length=255, blank=True)
+    password_ciphertext = models.TextField(  # noqa: DJ001
+        "senha SMTP cifrada",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    timeout_seconds = models.PositiveSmallIntegerField("timeout em segundos", default=10)
+    default_from_email = models.CharField("remetente padrão", max_length=254, blank=True)
+    # Compõe os links das mensagens. Vazio produz link relativo, que o cliente
+    # de e-mail não torna clicável.
+    base_url = models.CharField("URL base da aplicação", max_length=255, blank=True)
+
+    max_attempts = models.PositiveSmallIntegerField("tentativas máximas", default=5)
+    batch_size = models.PositiveSmallIntegerField("mensagens por despacho", default=50)
+    stale_minutes = models.PositiveSmallIntegerField("minutos para reabrir envio", default=15)
+
+    task_due_soon_hours = models.PositiveSmallIntegerField(
+        "horas do primeiro lembrete",
+        default=48,
+    )
+    task_due_imminent_hours = models.PositiveSmallIntegerField(
+        "horas do lembrete final",
+        default=24,
+    )
+    task_critical_hours = models.PositiveSmallIntegerField(
+        "horas para o atraso crítico",
+        default=48,
+    )
+    process_due_soon_hours = models.PositiveSmallIntegerField(
+        "horas do alerta do processo",
+        default=72,
+    )
+
+    last_tested_at = models.DateTimeField("último teste em", null=True, blank=True)
+    last_test_success = models.BooleanField("último teste passou", null=True, blank=True)
+    last_test_recipient = models.CharField("destinatário do teste", max_length=254, blank=True)
+    last_test_error = models.TextField("erro do último teste", blank=True)
+    last_tested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="último teste por",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="email_configurations_tested",
+    )
+
+    version = models.PositiveIntegerField("versão de concorrência", default=1)
+    updated_at = models.DateTimeField("atualizado em", auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="atualizado por",
+        on_delete=models.PROTECT,
+        related_name="email_configurations_updated",
+    )
+
+    objects = EmailConfigurationQuerySet.as_manager()
+
+    class Meta:
+        db_table = "SGPD_EMAIL_CONFIG"
+        verbose_name = "configuração de e-mail"
+        verbose_name_plural = "configurações de e-mail"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(version__gt=0),
+                name="SGPD_CK_EMAIL_VERSION",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(port__gte=1, port__lte=65535),
+                name="SGPD_CK_EMAIL_PORT",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    timeout_seconds__gt=0,
+                    max_attempts__gt=0,
+                    batch_size__gt=0,
+                    stale_minutes__gt=0,
+                ),
+                name="SGPD_CK_EMAIL_QUEUE",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    task_due_soon_hours__gt=0,
+                    task_due_imminent_hours__gt=0,
+                    task_critical_hours__gt=0,
+                    process_due_soon_hours__gt=0,
+                ),
+                name="SGPD_CK_EMAIL_MILESTONES",
+            ),
+        ]
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if self.pk and self.pk != EMAIL_CONFIGURATION_KEY:
+            raise ValidationError("A configuração de e-mail deve usar a chave singleton PRIMARY.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("A configuração de e-mail deve ser atualizada, não excluída.")
+
+    def clean(self) -> None:
+        super().clean()
+        if self.key != EMAIL_CONFIGURATION_KEY:
+            raise ValidationError("A configuração de e-mail deve usar a chave singleton PRIMARY.")
+        self.host = self.host.strip()
+        self.username = self.username.strip()
+        self.default_from_email = self.default_from_email.strip()
+        self.base_url = self.base_url.strip().rstrip("/")
+        if self.enabled and not self.host:
+            raise ValidationError({"host": "Informe o servidor SMTP para habilitar o envio."})
+        if self.enabled and not self.default_from_email:
+            raise ValidationError(
+                {"default_from_email": "Informe o remetente padrão para habilitar o envio."}
+            )
+        if self.task_due_imminent_hours >= self.task_due_soon_hours:
+            raise ValidationError(
+                {
+                    "task_due_imminent_hours": (
+                        "O lembrete final precisa ser mais próximo do prazo que o primeiro."
+                    )
+                }
+            )

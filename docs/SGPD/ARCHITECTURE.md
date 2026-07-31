@@ -88,6 +88,11 @@ sistema operacional:
 Ambos são idempotentes: a chave de deduplicação impede o aviso repetido e o
 lock impede o envio concorrente. A entrega é ao menos uma vez.
 
+O transporte é dinâmico: `EMAIL_BACKEND` é `ConfiguredEmailBackend`, que lê o
+singleton `SGPD_EMAIL_CONFIG` a cada envio (ADR-050). Mudar servidor, remetente,
+ritmo da fila ou marcos de lembrete não exige reinício, e o interruptor de envio
+segura a fila sem perder mensagem.
+
 Relatórios e reprocessamentos em massa continuam sem caso de uso assíncrono.
 
 ### Cache e filas

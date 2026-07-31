@@ -17,12 +17,24 @@ from apps.integrations.active_directory.exceptions import (
     DirectoryContractError,
     DirectoryUnavailableError,
 )
+from apps.notifications.config import EmailConfig
 from config.api import api_error
 
 from .certificates import validate_certificate_path
+from .email_services import (
+    EmailConfigurationCommand,
+    SendTestEmailService,
+    UpdateEmailConfigurationService,
+    ValidateEmailConfigurationService,
+    current_persisted_email_configuration,
+)
 from .exceptions import CertificateValidationError
 from .models import LdapConfiguration
-from .serializers import LdapCertificateUploadSerializer, LdapConfigurationSerializer
+from .serializers import (
+    EmailConfigurationSerializer,
+    LdapCertificateUploadSerializer,
+    LdapConfigurationSerializer,
+)
 from .services import (
     LdapConfigurationCommand,
     TestLdapConnectionService,
@@ -264,6 +276,111 @@ class LdapConnectionTestView(SuperAdminAPIView):
                 "user_search_base_source": result.user_search_base_source,
                 "group_search_base_source": result.group_search_base_source,
                 "duration_ms": result.duration_ms,
+                "tested_at": result.tested_at.isoformat(),
+            }
+        )
+
+
+def email_configuration_payload() -> dict[str, Any]:
+    config = EmailConfig.from_settings()
+    record = current_persisted_email_configuration()
+    return {
+        "source": config.source,
+        "version": record.version if record is not None else 0,
+        "enabled": config.enabled,
+        "host": config.host,
+        "port": config.port,
+        "use_tls": config.use_tls,
+        "username": config.username,
+        # Só a existência do segredo é publicada, nunca o valor nem o ciphertext.
+        "password_configured": config.secret_configured,
+        "timeout_seconds": config.timeout_seconds,
+        "default_from_email": config.default_from_email,
+        "base_url": config.base_url,
+        "max_attempts": config.max_attempts,
+        "batch_size": config.batch_size,
+        "stale_minutes": config.stale_minutes,
+        "task_due_soon_hours": config.task_due_soon_hours,
+        "task_due_imminent_hours": config.task_due_imminent_hours,
+        "task_critical_hours": config.task_critical_hours,
+        "process_due_soon_hours": config.process_due_soon_hours,
+        "validation": {
+            "valid": not config.validation_errors(),
+            "errors": config.validation_errors(),
+            "warnings": config.warnings(),
+        },
+        "delivery_test": {
+            "tested_at": _isoformat(record.last_tested_at) if record is not None else None,
+            "success": record.last_test_success if record is not None else None,
+            "recipient": record.last_test_recipient if record is not None else None,
+            "error": record.last_test_error if record is not None else None,
+            "tested_by": (
+                record.last_tested_by.username
+                if record is not None and record.last_tested_by
+                else None
+            ),
+        },
+        "updated_at": _isoformat(record.updated_at) if record is not None else None,
+        "updated_by": record.updated_by.username if record is not None else None,
+    }
+
+
+def _email_command(data: dict[str, Any], actor: User) -> EmailConfigurationCommand:
+    return EmailConfigurationCommand(
+        actor=actor,
+        expected_version=data["version"],
+        enabled=data["enabled"],
+        host=data["host"],
+        port=data["port"],
+        use_tls=data["use_tls"],
+        username=data["username"],
+        password=data.get("password", ""),
+        timeout_seconds=data["timeout_seconds"],
+        default_from_email=data["default_from_email"],
+        base_url=data["base_url"],
+        max_attempts=data["max_attempts"],
+        batch_size=data["batch_size"],
+        stale_minutes=data["stale_minutes"],
+        task_due_soon_hours=data["task_due_soon_hours"],
+        task_due_imminent_hours=data["task_due_imminent_hours"],
+        task_critical_hours=data["task_critical_hours"],
+        process_due_soon_hours=data["process_due_soon_hours"],
+    )
+
+
+class EmailConfigurationView(SuperAdminAPIView):
+    def get(self, request: Request) -> Response:
+        del request
+        return Response(email_configuration_payload())
+
+    def put(self, request: Request) -> Response:
+        serializer = EmailConfigurationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        UpdateEmailConfigurationService().execute(_email_command(data, self.actor(request)))
+        return Response(email_configuration_payload())
+
+
+class EmailConfigurationValidationView(SuperAdminAPIView):
+    def post(self, request: Request) -> Response:
+        serializer = EmailConfigurationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        errors, warnings = ValidateEmailConfigurationService().execute(
+            _email_command(data, self.actor(request))
+        )
+        return Response({"valid": not errors, "errors": errors, "warnings": warnings})
+
+
+class EmailDeliveryTestView(SuperAdminAPIView):
+    """Envia uma mensagem de prova ao próprio SuperAdmin autenticado."""
+
+    def post(self, request: Request) -> Response:
+        result = SendTestEmailService().execute(self.actor(request))
+        return Response(
+            {
+                "success": True,
+                "recipient": result.recipient,
                 "tested_at": result.tested_at.isoformat(),
             }
         )

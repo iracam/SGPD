@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.db import IntegrityError, transaction
@@ -27,6 +26,7 @@ from apps.offboarding.models import OffboardingProcess, ProcessSectorTask
 from apps.sectors.models import ValidationSector
 from config.middleware import correlation_id
 
+from .config import EmailConfig
 from .models import (
     Notification,
     NotificationAttempt,
@@ -82,14 +82,20 @@ class DispatchResult:
     failed: int
     rescheduled: int
     requeued: int
+    #: Verdadeiro quando a central está com o envio desligado: a fila continua
+    #: acumulando e nada é entregue.
+    disabled: bool = False
 
 
-def _url(path: str) -> str:
-    base: str = settings.SGPD_BASE_URL
+def _url(base: str, path: str) -> str:
     return f"{base}{path}"
 
 
-def message_context(command: EnqueueNotificationCommand, recipient: User) -> dict[str, Any]:
+def message_context(
+    command: EnqueueNotificationCommand,
+    recipient: User,
+    config: EmailConfig,
+) -> dict[str, Any]:
     """Contexto legível da mensagem.
 
     Nome do colaborador, CPF e valores ficam de fora por decisão: o e-mail
@@ -109,9 +115,9 @@ def message_context(command: EnqueueNotificationCommand, recipient: User) -> dic
         "sector_name": sector.name if sector is not None else "",
         "task_due_at": task.due_at if task is not None else None,
         "recipient_name": recipient.get_short_name() or recipient.get_username(),
-        "tasks_url": _url("/fe/tarefas"),
-        "process_url": _url("/fe/processos"),
-        "amounts_url": _url(f"/fe/processos/{process.uuid}/valores"),
+        "tasks_url": _url(config.base_url, "/fe/tarefas"),
+        "process_url": _url(config.base_url, "/fe/processos"),
+        "amounts_url": _url(config.base_url, f"/fe/processos/{process.uuid}/valores"),
     }
     context.update(command.context or {})
     return context
@@ -161,6 +167,9 @@ class EnqueueNotificationService:
     """
 
     def execute(self, command: EnqueueNotificationCommand) -> EnqueueResult:
+        # Uma leitura da central por lote: o orçamento de tentativas e a URL
+        # base valem para todas as mensagens deste marco.
+        config = EmailConfig.from_settings()
         scope = command.scope or _default_scope(command)
         channel = NotificationChannel.EMAIL
         created: list[Notification] = []
@@ -201,7 +210,9 @@ class EnqueueNotificationService:
                     extra={"recipient_id": recipient.pk, "event": command.event},
                 )
                 continue
-            subject, body = render_message(command.event, message_context(command, recipient))
+            subject, body = render_message(
+                command.event, message_context(command, recipient, config)
+            )
             notification = Notification(
                 event=command.event,
                 channel=channel,
@@ -214,7 +225,7 @@ class EnqueueNotificationService:
                 subject=subject,
                 body=body,
                 context=command.context or {},
-                max_attempts=settings.NOTIFICATION_MAX_ATTEMPTS,
+                max_attempts=config.max_attempts,
                 next_attempt_at=timezone.now(),
                 correlation_id=correlation_id.get() or "",
             )
@@ -252,12 +263,18 @@ class DispatchNotificationsService:
     """
 
     def execute(self, command: DispatchNotificationsCommand) -> DispatchResult:
-        limit = command.limit if command.limit is not None else settings.NOTIFICATION_BATCH_SIZE
+        config = EmailConfig.from_settings()
+        if not config.enabled:
+            # Desligar o envio não descarta mensagem: a fila espera em
+            # `PENDENTE` e sai inteira quando alguém religar.
+            logger.warning("notification.dispatch_disabled")
+            return DispatchResult(sent=0, failed=0, rescheduled=0, requeued=0, disabled=True)
+        limit = command.limit if command.limit is not None else config.batch_size
         # `is None` e não `or`: uma janela de zero é legítima e falsy.
         stale_after = (
             command.stale_after
             if command.stale_after is not None
-            else timedelta(minutes=settings.NOTIFICATION_STALE_MINUTES)
+            else timedelta(minutes=config.stale_minutes)
         )
         requeued = self._requeue_stale(timezone.now() - stale_after)
         # Sem `select_for_update` aqui: o Oracle não combina `FOR UPDATE` com
@@ -277,7 +294,7 @@ class DispatchNotificationsService:
             if claimed is None:
                 continue
             notification, attempt_pk = claimed
-            error = self._deliver(notification)
+            error = self._deliver(notification, config)
             status = self._close(notification.pk, attempt_pk, error=error)
             if status == NotificationStatus.SENT:
                 sent += 1
@@ -363,12 +380,12 @@ class DispatchNotificationsService:
         attempt.save()
         return notification, attempt.pk
 
-    def _deliver(self, notification: Notification) -> str:
+    def _deliver(self, notification: Notification, config: EmailConfig) -> str:
         try:
             message = EmailMessage(
                 subject=notification.subject,
                 body=notification.body,
-                from_email=settings.DEFAULT_FROM_EMAIL or None,
+                from_email=config.default_from_email or None,
                 to=[notification.recipient_email],
             )
             message.send(fail_silently=False)

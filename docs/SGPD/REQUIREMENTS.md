@@ -637,6 +637,16 @@ por `NOTIFICATION_REPROCESSED`.
 
 A caixa de notificações por usuário na SPA não pertence a esta fase.
 
+O transporte SMTP, o remetente, a URL base dos links, o ritmo da fila e os
+marcos de lembrete são administrados em `/fe/configuracoes/email`, exclusivos de
+SuperAdmin (ADR-050):
+
+| Rota | Ação |
+| --- | --- |
+| `GET/PUT /api/v1/settings/email/` | ler e gravar a configuração vigente |
+| `POST /api/v1/settings/email/validate/` | validar sem gravar, separando erro de aviso |
+| `POST /api/v1/settings/email/delivery-test/` | enviar mensagem de prova à própria conta |
+
 ### RF-028 — Escaladas
 
 O sistema escala tarefas próximas do vencimento ou vencidas. Os marcos, os
