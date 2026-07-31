@@ -17,7 +17,15 @@ from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
-from apps.accounts.models import User
+from apps.accounts.models import (
+    PEOPLE_DEPARTMENT_ROLE_CODE,
+    Role,
+    RoleAssignment,
+    ScopeType,
+    User,
+    build_scope_key,
+)
+from apps.notifications.deadlines import ScanDeadlinesCommand, ScanDeadlinesService
 from apps.notifications.models import (
     Notification,
     NotificationAttempt,
@@ -34,6 +42,7 @@ from apps.notifications.services import (
     EnqueueResult,
 )
 from apps.offboarding.models import OffboardingProcess, ProcessSectorTask
+from apps.sectors.models import SectorResponsible, ValidationSector
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
     actor,
@@ -345,3 +354,151 @@ def test_dispatch_command_is_the_entry_point_of_the_queue(actor: User, process: 
 
     assert "enviadas=1" in output.getvalue()
     assert Notification.objects.get().status == NotificationStatus.SENT
+
+
+# --- Fatia 3: varredura de prazos, lembretes e escaladas --------------------
+
+
+def overdue(task: ProcessSectorTask, *, hours: int) -> ProcessSectorTask:
+    task.due_at = timezone.now() - timedelta(hours=hours)
+    task.save(update_fields=("due_at",))
+    return task
+
+
+def queued_events(**filters: Any) -> set[str]:
+    return set(Notification.objects.filter(**filters).values_list("event", flat=True))
+
+
+def test_scan_queues_every_reached_milestone_once(actor: User, process: Any) -> None:
+    overdue(started_task(actor, process), hours=72)
+
+    first = ScanDeadlinesService().execute(ScanDeadlinesCommand())
+
+    assert queued_events() == {
+        NotificationEvent.TASK_DUE_SOON,
+        NotificationEvent.TASK_DUE_IMMINENT,
+        NotificationEvent.TASK_OVERDUE,
+        NotificationEvent.TASK_OVERDUE_CRITICAL,
+    }
+    assert first.queued == 4 and first.tasks_scanned == 1
+
+    again = ScanDeadlinesService().execute(ScanDeadlinesCommand())
+
+    assert again.queued == 0
+    assert Notification.objects.count() == 4
+
+
+def test_scan_stops_at_the_milestone_the_clock_reached(actor: User, process: Any) -> None:
+    task = started_task(actor, process)
+    task.due_at = timezone.now() + timedelta(hours=30)
+    task.save(update_fields=("due_at",))
+
+    ScanDeadlinesService().execute(ScanDeadlinesCommand())
+
+    assert queued_events() == {NotificationEvent.TASK_DUE_SOON}
+
+
+def test_overdue_reaches_people_department_and_critical_reaches_the_escalation_sector(
+    actor: User,
+    process: Any,
+) -> None:
+    task = overdue(started_task(actor, process), hours=72)
+    people = User.objects.create_user(
+        username="dp.escopo",
+        email="dp.escopo@example.invalid",
+        password=PASSWORD,
+        first_name="DP",
+        last_name="Escopo",
+    )
+    RoleAssignment.objects.create(
+        user=people,
+        role=Role.objects.get(code=PEOPLE_DEPARTMENT_ROLE_CODE),
+        scope_type=ScopeType.GLOBAL,
+        scope_key=build_scope_key(ScopeType.GLOBAL, None, None),
+        valid_from=timezone.now() - timedelta(days=1),
+        assigned_by=actor,
+    )
+    escalation_owner = User.objects.create_user(
+        username="escalada.dono",
+        email="escalada.dono@example.invalid",
+        password=PASSWORD,
+        first_name="Escalada",
+        last_name="Dono",
+    )
+    escalation = ValidationSector.objects.create(
+        code="ESCALADA",
+        name="Escalada",
+        default_due_hours=24,
+    )
+    SectorResponsible.objects.create(
+        sector=escalation,
+        user=escalation_owner,
+        valid_from=timezone.now() - timedelta(hours=1),
+        assigned_by=actor,
+        updated_by=actor,
+    )
+    task.sector.escalation_sector = escalation
+    task.sector.save(update_fields=("escalation_sector",))
+
+    ScanDeadlinesService().execute(ScanDeadlinesCommand())
+
+    def recipients(event: str) -> set[str]:
+        return set(
+            Notification.objects.filter(event=event).values_list("recipient__username", flat=True)
+        )
+
+    assert recipients(NotificationEvent.TASK_DUE_SOON) == {actor.username}
+    assert recipients(NotificationEvent.TASK_OVERDUE) == {actor.username, people.username}
+    assert recipients(NotificationEvent.TASK_OVERDUE_CRITICAL) == {
+        actor.username,
+        people.username,
+        escalation_owner.username,
+    }
+
+
+def test_milestone_without_anyone_to_warn_is_counted_and_queues_nothing(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+    task.due_at = timezone.now() + timedelta(hours=30)
+    task.save(update_fields=("due_at",))
+    responsibility = SectorResponsible.objects.get(sector=task.sector, user=actor)
+    responsibility.valid_until = timezone.now() - timedelta(minutes=1)
+    responsibility.save(update_fields=("valid_until",))
+
+    result = ScanDeadlinesService().execute(ScanDeadlinesCommand())
+
+    assert result.queued == 0
+    assert result.without_recipients == 1
+    assert not Notification.objects.exists()
+
+
+def test_process_near_its_deadline_warns_the_people_department(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+    task.due_at = timezone.now() + timedelta(days=30)
+    task.save(update_fields=("due_at",))
+    process.due_date = timezone.localdate()
+    process.save(update_fields=("due_date",))
+
+    result = ScanDeadlinesService().execute(ScanDeadlinesCommand())
+
+    message = Notification.objects.get(event=NotificationEvent.PROCESS_DUE_SOON)
+    assert result.processes_scanned == 1
+    assert message.recipient == actor
+    assert message.task_id is None
+    assert "1 tarefa(s)" in message.body
+
+
+def test_scan_command_can_dispatch_in_the_same_run(actor: User, process: Any) -> None:
+    overdue(started_task(actor, process), hours=72)
+    output = StringIO()
+
+    call_command("sgpd_scan_notifications", "--dispatch", stdout=output)
+
+    assert "enfileiradas=4" in output.getvalue()
+    assert "enviadas=4" in output.getvalue()
+    assert len(mail.outbox) == 4

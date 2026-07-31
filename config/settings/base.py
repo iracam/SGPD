@@ -187,6 +187,12 @@ NOTIFICATION_MAX_ATTEMPTS = env_int("NOTIFICATION_MAX_ATTEMPTS", 5)
 NOTIFICATION_BATCH_SIZE = env_int("NOTIFICATION_BATCH_SIZE", 50)
 # Uma mensagem presa em `ENVIANDO` além disso perdeu o despachante que a tomou.
 NOTIFICATION_STALE_MINUTES = env_int("NOTIFICATION_STALE_MINUTES", 15)
+# Marcos de prazo de WORKFLOWS.md §7, em horas. Os três primeiros são relativos
+# ao vencimento da tarefa; o último, à data limite do processo.
+NOTIFICATION_TASK_DUE_SOON_HOURS = env_int("NOTIFICATION_TASK_DUE_SOON_HOURS", 48)
+NOTIFICATION_TASK_DUE_IMMINENT_HOURS = env_int("NOTIFICATION_TASK_DUE_IMMINENT_HOURS", 24)
+NOTIFICATION_TASK_CRITICAL_HOURS = env_int("NOTIFICATION_TASK_CRITICAL_HOURS", 48)
+NOTIFICATION_PROCESS_DUE_SOON_HOURS = env_int("NOTIFICATION_PROCESS_DUE_SOON_HOURS", 72)
 
 # Active Directory. Discovery and authentication have separate switches so
 # Infrastructure can validate connectivity and filters before changing login.
