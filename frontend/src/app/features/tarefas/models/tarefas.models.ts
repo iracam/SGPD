@@ -47,7 +47,18 @@ export type PendenciaStatus =
   | 'ABERTA'
   | 'EM_REGULARIZACAO'
   | 'REGULARIZADA'
+  | 'ENCAMINHADA_ANALISE'
+  | 'CONTESTADA'
+  | 'APROVADA_COBRANCA'
+  | 'REJEITADA'
+  | 'ABONADA'
   | 'ENCERRADA';
+
+/** Situações alcançáveis pelo endpoint genérico de situação; o eixo de valor tem serviços próprios. */
+export type PendenciaTransicao = Extract<
+  PendenciaStatus,
+  'ABERTA' | 'EM_REGULARIZACAO' | 'REGULARIZADA' | 'ENCERRADA'
+>;
 
 export interface Pendencia {
   uuid: string;
@@ -58,7 +69,11 @@ export interface Pendencia {
   title: string;
   description: string;
   status: PendenciaStatus;
-  blocking_level: 'INFORMATIVA' | 'NAO_BLOQUEANTE' | 'BLOQUEANTE';
+  blocking_level:
+    | 'INFORMATIVA'
+    | 'NAO_BLOQUEANTE'
+    | 'BLOQUEANTE'
+    | 'BLOQUEANTE_ATE_DECISAO';
   identified_at: string;
   regularization_due_at: string | null;
   registered_by: { id: number; username: string };

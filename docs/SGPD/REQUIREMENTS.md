@@ -557,9 +557,16 @@ Setores, itens e pendências poderão ser:
 
 Estado implementado: `INFORMATIVA`, `NAO_BLOQUEANTE`, `BLOQUEANTE` e
 `BLOQUEANTE_ATE_DECISAO`. `BLOQUEANTE` impede a conclusão da tarefa enquanto
-não estiver `REGULARIZADA` ou `ENCERRADA`. `BLOQUEANTE_ATE_DECISAO` existe
-desde a Fase 6 e passará a impedir a conclusão até que a pretensão seja
-decidida; o guard correspondente ainda não foi implementado.
+não estiver `REGULARIZADA` ou `ENCERRADA`. `BLOQUEANTE_ATE_DECISAO` impede a
+conclusão até que a pretensão seja decidida: só liberam `APROVADA_COBRANCA`,
+`REJEITADA`, `ABONADA` e `ENCERRADA` — regularizar não basta, porque o valor
+segue aguardando parecer. O encerramento explícito e auditado continua sendo a
+saída de uma pendência de valor que não chegou a ter pretensão.
+
+As situações que liberam cada classificação vivem em
+`BLOCKING_RELEASE_STATUSES` (`apps/pending_items/models.py`); o guard da
+conclusão consome `unresolved_blocking_q()` e a prontidão da Fase 8 deve
+consumir o mesmo vocabulário.
 
 ### RF-025 — Pretensão de cobrança
 

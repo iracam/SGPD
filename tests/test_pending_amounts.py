@@ -20,8 +20,9 @@ from apps.accounts.models import (
     User,
     build_scope_key,
 )
-from apps.offboarding.models import ProcessAuditEvent, ProcessEventType
+from apps.offboarding.models import ProcessAuditEvent, ProcessEventType, SectorTaskStatus
 from apps.pending_items.models import (
+    DECIDED_STATUSES,
     BlockingLevel,
     DecisionOutcome,
     PendingAmount,
@@ -52,7 +53,7 @@ from tests.test_offboarding_start import (  # noqa: F401
     process,
     start,
 )
-from tests.test_offboarding_tasks import start_task, started_task
+from tests.test_offboarding_tasks import complete_task, start_task, started_task
 
 pytestmark = pytest.mark.django_db
 
@@ -672,3 +673,104 @@ def test_decided_pretension_only_leaves_towards_closure(
 
     assert closed.pending_item.status == PendingStatus.CLOSED
     assert closed.pending_item.decisions.count() == 1
+
+
+@pytest.mark.parametrize(
+    ("decision", "approved"),
+    (
+        (DecisionOutcome.CHARGE_APPROVED, Decimal("980.00")),
+        (DecisionOutcome.WAIVED, None),
+    ),
+)
+def test_blocking_until_decision_holds_the_task_until_the_pretension_is_decided(
+    actor: User,
+    process: Any,
+    decision: str,
+    approved: Decimal | None,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+
+    with pytest.raises(ValidationError, match="espera da decisão"):
+        complete_task(actor, task)
+
+    pending_item = register_amount(actor, pending_item)
+    with pytest.raises(ValidationError, match="espera da decisão"):
+        complete_task(actor, task, key="complete-em-analise")
+
+    pending_item = decide_amount(
+        make_dp(actor, "dp-libera"),
+        pending_item,
+        decision=decision,
+        approved=approved,
+    )
+
+    task.refresh_from_db()
+    result = complete_task(actor, task, key="complete-decidida")
+    assert pending_item.status in DECIDED_STATUSES
+    assert result.task.status == SectorTaskStatus.COMPLETED
+
+
+def test_regularization_alone_does_not_release_a_pending_blocked_until_decision(
+    actor: User,
+    process: Any,
+) -> None:
+    task, pending_item = value_pending_ready(actor, process)
+
+    for status, key in (
+        (PendingStatus.IN_REGULARIZATION, "status-em-regularizacao"),
+        (PendingStatus.REGULARIZED, "status-regularizada"),
+    ):
+        pending_item = (
+            ChangePendingStatusService()
+            .execute(
+                ChangePendingStatusCommand(
+                    actor=actor,
+                    pending_uuid=str(pending_item.uuid),
+                    expected_version=pending_item.version,
+                    idempotency_key=key,
+                    status=status,
+                    comment=f"Transição para {status}.",
+                )
+            )
+            .pending_item
+        )
+
+    # Regularizar basta para `BLOQUEANTE`, não para `BLOQUEANTE_ATE_DECISAO`.
+    with pytest.raises(ValidationError, match="espera da decisão"):
+        complete_task(actor, task)
+
+    # O encerramento explícito e auditado é a única saída sem decisão de valor.
+    ChangePendingStatusService().execute(
+        ChangePendingStatusCommand(
+            actor=actor,
+            pending_uuid=str(pending_item.uuid),
+            expected_version=pending_item.version,
+            idempotency_key="status-encerrada",
+            status=PendingStatus.CLOSED,
+            comment="Pendência encerrada sem pretensão de cobrança.",
+        )
+    )
+
+    task.refresh_from_db()
+    result = complete_task(actor, task, key="complete-encerrada")
+    assert result.task.status == SectorTaskStatus.COMPLETED
+
+
+def test_value_pending_below_blocking_does_not_hold_the_task(
+    actor: User,
+    process: Any,
+) -> None:
+    task = analysis_task(actor, process)
+    enable_amounts(task)
+    pending_item = create_value_pending(
+        actor,
+        task,
+        blocking_level=BlockingLevel.NON_BLOCKING,
+    )
+    register_amount(actor, pending_item)
+
+    task.refresh_from_db()
+    result = complete_task(actor, task)
+
+    assert result.task.status == SectorTaskStatus.COMPLETED
+    assert PendingItem.objects.get(pk=pending_item.pk).status == PendingStatus.SUBMITTED_FOR_REVIEW

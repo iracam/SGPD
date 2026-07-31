@@ -11,6 +11,7 @@ import {
   ItemChecklist,
   Pendencia,
   PendenciaStatus,
+  PendenciaTransicao,
   TarefaSetor,
   TarefaStatus,
 } from './models/tarefas.models';
@@ -352,7 +353,7 @@ export class TarefasPage {
       });
   }
 
-  protected transicoesDisponiveis(status: PendenciaStatus): PendenciaStatus[] {
+  protected transicoesDisponiveis(status: PendenciaStatus): PendenciaTransicao[] {
     if (status === 'ABERTA') {
       return ['EM_REGULARIZACAO'];
     }
@@ -365,7 +366,7 @@ export class TarefasPage {
     return [];
   }
 
-  protected rotuloTransicao(status: PendenciaStatus): string {
+  protected rotuloTransicao(status: PendenciaTransicao): string {
     return {
       ABERTA: 'Reabrir',
       EM_REGULARIZACAO: 'Iniciar regularização',
@@ -436,6 +437,11 @@ export class TarefasPage {
       ABERTA: 'Aberta',
       EM_REGULARIZACAO: 'Em regularização',
       REGULARIZADA: 'Regularizada',
+      ENCAMINHADA_ANALISE: 'Encaminhada para análise',
+      CONTESTADA: 'Contestada',
+      APROVADA_COBRANCA: 'Aprovada para cobrança',
+      REJEITADA: 'Rejeitada',
+      ABONADA: 'Abonada',
       ENCERRADA: 'Encerrada',
     }[status];
   }
@@ -445,6 +451,11 @@ export class TarefasPage {
       ABERTA: 'blocked',
       EM_REGULARIZACAO: 'pending',
       REGULARIZADA: 'released',
+      ENCAMINHADA_ANALISE: 'review',
+      CONTESTADA: 'review',
+      APROVADA_COBRANCA: 'released',
+      REJEITADA: 'canceled',
+      ABONADA: 'canceled',
       ENCERRADA: 'canceled',
     }[status];
   }
@@ -470,6 +481,7 @@ export class TarefasPage {
   protected rotuloBloqueio(level: Pendencia['blocking_level']): string {
     return {
       BLOQUEANTE: 'Bloqueante',
+      BLOQUEANTE_ATE_DECISAO: 'Bloqueante até decisão',
       NAO_BLOQUEANTE: 'Não bloqueante',
       INFORMATIVA: 'Informativa',
     }[level];

@@ -7,8 +7,7 @@
 - Fases estabilizadas: 1, 2, 2.5, 2.7 e 3
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências; 6 — valores e
   decisões
-- Próximo incremento: **Fase 6, fatia 3** — guard de `BLOQUEANTE_ATE_DECISAO`
-  na conclusão da tarefa
+- Próximo incremento: **Fase 6, fatia 4** — API e SPA do eixo de valor
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente; segregação de valores pela ADR-048
@@ -54,7 +53,8 @@ permanece inalterada. O fluxo de processo cobre abertura, seleção, início,
 tarefas e a primeira fatia vertical de pendências/evidências.
 Itens `FILE` e com evidência obrigatória podem concluir depois do upload
 privado. Pendência bloqueante aberta ou em regularização impede a conclusão da
-tarefa.
+tarefa; a bloqueante até decisão só libera com a pretensão decidida ou a
+pendência encerrada.
 
 O card `Em Aberto` reúne processos iniciados com ao menos uma tarefa não
 concluída; ao concluir a última tarefa, o processo sai desse card e passa para
@@ -134,7 +134,15 @@ Contrato Senior — legibilidade cadastral:
   varredura headless nas cinco larguras homologadas;
 - a ADR-048 aceita, por decisão explícita, que o SuperAdmin decida a pretensão
   que ele mesmo informou; o risco correspondente é o R62 e a auditoria é a
-  única evidência do rompimento.
+  única evidência do rompimento;
+- encerrar a pendência pelo endpoint genérico continua liberando a tarefa sem
+  decisão de valor: é ato explícito, auditado e necessário para a pendência que
+  nunca teve pretensão, mas contorna o guard e deve ser revisto na prontidão da
+  Fase 8;
+- enquanto a fatia 4 não chega, uma pendência `BLOQUEANTE_ATE_DECISAO` criada
+  pela API trava a tarefa sem caminho de decisão na SPA. O `select` de registro
+  não oferece essa classificação, então a armadilha só existe para quem chama a
+  API direto.
 
 ## Homologação funcional e visual das Fases 3 e 5
 
@@ -198,7 +206,8 @@ data para registrar esse alcance.
 ## Fase 6 — valores e decisões (em andamento)
 
 A fase foi fatiada em cinco: modelo, services, guard de bloqueio, API/SPA e
-consolidação. **As fatias 1 e 2 estão implementadas; a próxima é a fatia 3.**
+consolidação. **As fatias 1, 2 e 3 estão implementadas; a próxima é a fatia
+4.**
 
 Fatia 1 — modelo, migration `pending_items.0002`, aplicada no Oracle DEV:
 
@@ -225,12 +234,26 @@ Fatia 2 — quatro services transacionais, migration `offboarding.0007`
 - o eixo de decisão não é alcançável pelo endpoint genérico de situação, que só
   lhe dá saída para o encerramento.
 
-Falta na fatia 3: `apps/offboarding/services.py` ainda trata apenas
-`BLOQUEANTE` ao impedir a conclusão da tarefa. `BLOQUEANTE_ATE_DECISAO` precisa
-liberar em `DECIDED_STATUSES` (`apps/pending_items/models.py`), não em
-`REGULARIZADA`/`ENCERRADA`. Depois vêm API e SPA sobre `_conferencia.scss` — a
-ADR-047 exige rótulo legível para cada estado novo no mesmo incremento — e a
-consolidação de valores por processo.
+Fatia 3 — guard de bloqueio, sem migration:
+
+- `BLOCKING_RELEASE_STATUSES` e `unresolved_blocking_q()`
+  (`apps/pending_items/models.py`) passaram a ser a fonte única de quais
+  situações liberam cada classificação; `BLOQUEANTE` continua se satisfazendo
+  com `REGULARIZADA`/`ENCERRADA` e `BLOQUEANTE_ATE_DECISAO` só cede a
+  `DECIDED_STATUSES`;
+- `CompleteSectorTaskService` consulta as duas classificações numa única
+  passagem e responde com a mensagem da classificação encontrada — regularizar
+  não libera uma pendência bloqueante até decisão;
+- a SPA passou a nomear a classificação nova e as cinco situações do eixo de
+  valor (`_conferencia.scss`, ADR-047): sem isso, uma pendência criada pela API
+  já renderizava rótulo vazio. O `select` de registro continua oferecendo só
+  `BLOQUEANTE` e `NAO_BLOQUEANTE`, porque a tela de decisão é da fatia 4;
+- `PendenciaTransicao` fixa no tipo que o endpoint genérico de situação não
+  alcança o eixo de decisão.
+
+Falta na fatia 4: API e SPA do eixo de valor sobre `_conferencia.scss` — a
+ADR-047 exige rótulo legível para cada estado novo no mesmo incremento — e
+depois a consolidação de valores por processo.
 
 ## Ciclo de vida do rascunho na configuração (2026-07-31)
 
@@ -252,6 +275,16 @@ O editor de configuração fechou o ciclo de vida das versões:
 `sqlmigrate` é `(no-op)` e a migration está aplicada no Oracle DEV.
 
 ## Baseline de qualidade
+
+Na fatia 3 a validação padrão foi executada por inteiro: 377 testes backend e
+84 frontend, Ruff, formatação, Mypy em 169 arquivos, Django check, verificação
+de migrations e build Angular sem avisos. Nenhuma migration foi necessária — o
+guard só acrescenta constantes e uma `Q` ao módulo de models. Os quatro testes
+novos cobrem a tarefa travada com a pretensão informada e liberada por
+aprovação e por abono, a regularização que não libera, o encerramento que
+libera e a pendência de valor não bloqueante que nunca travou. O teste do
+frontend garante o rótulo da classificação nova e das situações do eixo de
+valor.
 
 Nas fatias 1 e 2 da Fase 6 passaram 373 testes backend, Ruff, formatação, Mypy
 em 169 arquivos, Django check e verificação de migrations. Não houve mudança de

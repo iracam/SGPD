@@ -55,6 +55,25 @@ class BlockingLevel(models.TextChoices):
     BLOCKING_UNTIL_DECISION = "BLOQUEANTE_ATE_DECISAO", "Bloqueante até decisão"
 
 
+#: Situações que liberam a conclusão da tarefa, por classificação de bloqueio.
+#: Quem não aparece aqui — informativa e não bloqueante — nunca impede a conclusão.
+#: `BLOQUEANTE` se satisfaz com a regularização; `BLOQUEANTE_ATE_DECISAO` só cede
+#: à decisão sobre a pretensão (RF-024).
+BLOCKING_RELEASE_STATUSES: dict[str, frozenset[str]] = {
+    BlockingLevel.BLOCKING: frozenset({PendingStatus.REGULARIZED, PendingStatus.CLOSED}),
+    BlockingLevel.BLOCKING_UNTIL_DECISION: DECIDED_STATUSES,
+}
+
+
+def unresolved_blocking_q() -> models.Q:
+    """Q das pendências cuja classificação de bloqueio ainda impede a conclusão."""
+
+    condition = models.Q()
+    for level, released in BLOCKING_RELEASE_STATUSES.items():
+        condition |= models.Q(blocking_level=level) & ~models.Q(status__in=released)
+    return condition
+
+
 class DecisionType(models.TextChoices):
     VALUE = "VALOR", "Valor"
 

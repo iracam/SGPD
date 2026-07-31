@@ -300,4 +300,24 @@ describe('TarefasPage', () => {
     expect(comentario).toBeTruthy();
     expect(comentario?.value).toBe('');
   });
+
+  it('rotula a pendência bloqueante até decisão e cada situação do eixo de valor', () => {
+    const emAnalise = tarefa('EM_ANALISE');
+    const valor = pendencia();
+    valor.category = 'VALOR';
+    valor.blocking_level = 'BLOQUEANTE_ATE_DECISAO';
+    valor.status = 'ENCAMINHADA_ANALISE';
+    emAnalise.pending_items = [valor];
+    carregar(emAnalise);
+
+    const cartao = fixture.nativeElement.querySelector(
+      '.pendencia--bloqueante_ate_decisao',
+    ) as HTMLElement | null;
+
+    expect(cartao).toBeTruthy();
+    expect(cartao?.textContent).toContain('Bloqueante até decisão');
+    expect(cartao?.querySelector('.chip--review')?.textContent).toContain(
+      'Encaminhada para análise',
+    );
+  });
 });

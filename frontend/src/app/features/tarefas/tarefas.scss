@@ -261,6 +261,10 @@ select[multiple] {
   border-inline-start-color: var(--status-blocked-color);
 }
 
+.pendencia--bloqueante_ate_decisao {
+  border-inline-start-color: var(--status-review-color);
+}
+
 .pendencia--nao_bloqueante {
   border-inline-start-color: var(--status-pending-color);
 }

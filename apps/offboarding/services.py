@@ -1511,17 +1511,23 @@ class CompleteSectorTaskService:
             .filter(task=task)
             .order_by("display_order", "pk")
         )
-        from apps.pending_items.models import BlockingLevel, PendingItem, PendingStatus
+        from apps.pending_items.models import (
+            BlockingLevel,
+            PendingItem,
+            unresolved_blocking_q,
+        )
 
-        if (
-            PendingItem.objects.filter(
-                task=task,
-                blocking_level=BlockingLevel.BLOCKING,
+        unresolved_levels = set(
+            PendingItem.objects.filter(unresolved_blocking_q(), task=task).values_list(
+                "blocking_level", flat=True
             )
-            .exclude(status__in=(PendingStatus.REGULARIZED, PendingStatus.CLOSED))
-            .exists()
-        ):
+        )
+        if BlockingLevel.BLOCKING in unresolved_levels:
             raise ValidationError("A tarefa possui pendência bloqueante ainda não regularizada.")
+        if BlockingLevel.BLOCKING_UNTIL_DECISION in unresolved_levels:
+            raise ValidationError(
+                "A tarefa possui pendência de valor à espera da decisão sobre a pretensão."
+            )
         normalized = _validated_answers(items, command.answers)
         for item in items:
             if item.pk not in normalized:
