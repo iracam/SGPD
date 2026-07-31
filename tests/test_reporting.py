@@ -1,4 +1,4 @@
-"""Fase 9, fatia 1: indicadores do painel (RF-034, RF-035)."""
+"""Fase 9: indicadores do painel (RF-034, RF-035) e relatórios (RF-036)."""
 
 # ruff: noqa: F811
 
@@ -16,7 +16,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.offboarding.models import OffboardingProcess, ProcessSectorTask, ProcessStatus
 from apps.sectors.models import SectorResponsible
-from tests.test_offboarding_release import second_coordinator
+from tests.test_offboarding_release import release, second_coordinator
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
     actor,
@@ -265,3 +265,155 @@ def test_the_dashboard_never_asks_oracle_to_distinct_a_lob(
     assert not [
         sql for sql in statements if "DISTINCT" in sql and "SGPD_OFFBOARDING_PROCESS" in sql
     ]
+
+
+REPORTS_URL = "/api/v1/reporting/reports/"
+
+
+def reports(user: User, **params: Any) -> Any:
+    response = logged_client(user).get(REPORTS_URL, data=params)
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_reports_measure_the_cycle_time_of_process_and_sector(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Média de duração é calculada em Python de propósito.
+
+    O Oracle guarda a subtração de dois `TIMESTAMP` como `INTERVAL DAY TO
+    SECOND` e `AVG` sobre intervalo é `ORA-00932`; o SQLite aceitaria e a suíte
+    passaria enquanto o relatório quebraria no DEV.
+    """
+
+    task = started_task(actor, process)
+    start_task(actor, task)
+    task.refresh_from_db()
+    complete_task(actor, task)
+    task.refresh_from_db()
+    concluida = task.completed_at
+    assert concluida is not None
+    # Doze horas entre o início e a conclusão da tarefa.
+    task.started_at = concluida - timedelta(hours=12)
+    task.save(update_fields=("started_at",))
+    process.refresh_from_db()
+    process.started_at = concluida - timedelta(days=4)
+    process.save(update_fields=("started_at",))
+
+    body = reports(actor)
+
+    assert body["process_cycle_time"]["processes"] == 1
+    assert body["process_cycle_time"]["average_days"] == 4.0
+    assert body["process_cycle_time"]["median_days"] == 4.0
+    linha = body["sector_cycle_time"][0]
+    assert linha["label"] == task.sector_name_snapshot
+    assert linha["total"] == 1
+    assert linha["average_hours"] == 12.0
+
+
+def test_reports_group_pendings_companies_and_amounts_in_the_period(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    task = analysis_task(actor, process)
+    enable_amounts(task)
+    create_pending(actor, task)
+    task.refresh_from_db()
+    register_amount(actor, create_value_pending(actor, task))
+
+    body = reports(actor)
+
+    categorias = {linha["label"]: linha for linha in body["pending_by_category"]}
+    assert categorias["Equipamento"]["total"] == 1
+    assert categorias["Equipamento"]["detail"] == 1
+    assert categorias["Valor"]["total"] == 1
+    assert body["processes_by_company"] == [
+        {"key": "1", "label": "Empresa 1", "total": 1, "detail": 0}
+    ]
+    assert body["amounts"] == [
+        {"currency": "BRL", "informed": "1250.00", "approved": "0.00", "undecided": 1}
+    ]
+
+
+def test_the_period_filters_the_fact_and_never_the_snapshot_of_delay(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Atraso não tem data própria: é o estado deste instante.
+
+    Um período antigo esvazia os relatórios de fato ocorrido, mas o processo
+    vencido e o setor atrasado continuam aparecendo — quem confere precisa
+    saber que existe atraso agora, não em julho passado.
+    """
+
+    task = overdue(started_task(actor, process))
+    process.refresh_from_db()
+    process.due_date = timezone.localdate() - timedelta(days=3)
+    process.save(update_fields=("due_date",))
+    antigo = (timezone.localdate() - timedelta(days=400)).isoformat()
+    quase_antigo = (timezone.localdate() - timedelta(days=390)).isoformat()
+
+    body = reports(actor, start=antigo, end=quase_antigo)
+
+    assert body["processes_by_company"] == []
+    assert body["pending_by_category"] == []
+    assert body["overdue_processes"]["total"] == 1
+    linha = body["overdue_processes"]["results"][0]
+    assert linha["process_uuid"] == str(process.uuid)
+    assert linha["days_overdue"] == 3
+    assert linha["open_tasks"] == 1
+    assert body["sector_delays"][0]["label"] == task.sector_name_snapshot
+    assert body["sector_delays"][0]["total"] == 1
+
+
+def test_released_processes_are_grouped_by_month(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    task = started_task(actor, process)
+    start_task(actor, task)
+    task.refresh_from_db()
+    complete_task(actor, task)
+    process.refresh_from_db()
+    release(actor, process)
+
+    body = reports(actor)
+
+    assert body["released_processes"]["total"] == 1
+    assert body["released_processes"]["results"][0]["total"] == 1
+
+
+def test_reports_refuse_the_actor_without_dp(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    task = started_task(actor, process)
+    responsible = User.objects.create_user(
+        username="setor.relatorio",
+        email="setor.relatorio@example.invalid",
+        password=PASSWORD,
+    )
+    SectorResponsible.objects.create(
+        sector_id=task.sector_id,
+        user=responsible,
+        valid_from=timezone.now() - timedelta(hours=1),
+        assigned_by=actor,
+        updated_by=actor,
+    )
+
+    response = logged_client(responsible).get(REPORTS_URL)
+
+    assert response.status_code == 403
+
+
+def test_reports_refuse_an_inverted_period(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    response = logged_client(actor).get(
+        REPORTS_URL,
+        data={"start": "2026-07-31", "end": "2026-07-01"},
+    )
+
+    assert response.status_code == 400

@@ -1,20 +1,23 @@
-"""API dos indicadores de operação (RF-034, RF-035).
+"""API dos indicadores e dos relatórios (RF-034, RF-035, RF-036).
 
-Somente leitura e sem parâmetro: o recorte é o do ator. A view não decide
-visibilidade — quem decide é `evaluate_dashboard`, sobre as mesmas funções que
-a listagem de processos e a de tarefas já usam.
+Somente leitura. O painel não recebe parâmetro — o recorte é o do ator; os
+relatórios recebem apenas o período. As views não decidem visibilidade: quem
+decide é `evaluate_dashboard`/`build_reports`, sobre as mesmas funções que a
+listagem de processos e a de tarefas já usam.
 """
 
 from __future__ import annotations
 
 from typing import Any, cast
 
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.models import User
+from apps.accounts.authorization import active_assignments, has_global_authority
+from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, User
 
 from .indicators import (
     CoordinationIndicators,
@@ -24,6 +27,15 @@ from .indicators import (
     SectorIndicators,
     evaluate_dashboard,
 )
+from .reports import (
+    AmountRow,
+    CountRow,
+    DurationRow,
+    OverdueRow,
+    Reports,
+    build_reports,
+)
+from .serializers import ReportQuerySerializer
 
 
 def _count_payload(row: KeyedCount) -> dict[str, Any]:
@@ -102,3 +114,91 @@ class DashboardView(APIView):
     def get(self, request: Request) -> Response:
         actor = cast(User, request.user)
         return Response(dashboard_payload(evaluate_dashboard(actor)))
+
+
+def _duration_payload(row: DurationRow) -> dict[str, Any]:
+    return {
+        "key": row.key,
+        "label": row.label,
+        "total": row.total,
+        "average_hours": row.average_hours,
+    }
+
+
+def _row_payload(row: CountRow) -> dict[str, Any]:
+    return {"key": row.key, "label": row.label, "total": row.total, "detail": row.detail}
+
+
+def _amount_payload(row: AmountRow) -> dict[str, Any]:
+    return {
+        "currency": row.currency,
+        "informed": f"{row.informed:.2f}",
+        "approved": f"{row.approved:.2f}",
+        "undecided": row.undecided,
+    }
+
+
+def _overdue_payload(row: OverdueRow) -> dict[str, Any]:
+    return {
+        "process_uuid": row.process_uuid,
+        "process_ref": row.process_uuid[:8],
+        "employee_name": row.employee_name,
+        "company_code": row.company_code,
+        "branch_code": row.branch_code,
+        "due_date": row.due_date.isoformat(),
+        "days_overdue": row.days_overdue,
+        "open_tasks": row.open_tasks,
+    }
+
+
+def reports_payload(reports: Reports) -> dict[str, Any]:
+    return {
+        "period": {
+            "start": reports.period.start.isoformat(),
+            "end": reports.period.end.isoformat(),
+        },
+        "process_cycle_time": {
+            "processes": reports.process_cycle_time.processes,
+            "average_days": reports.process_cycle_time.average_days,
+            "median_days": reports.process_cycle_time.median_days,
+        },
+        "sector_cycle_time": [_duration_payload(row) for row in reports.sector_cycle_time],
+        "pending_by_category": [_row_payload(row) for row in reports.pending_by_category],
+        "processes_by_company": [_row_payload(row) for row in reports.processes_by_company],
+        "overdue_processes": {
+            "total": reports.overdue_process_count,
+            "results": [_overdue_payload(row) for row in reports.overdue_processes],
+        },
+        "sector_delays": [_duration_payload(row) for row in reports.sector_delays],
+        "amounts": [_amount_payload(row) for row in reports.amounts],
+        "released_processes": {
+            "total": reports.released_total,
+            "results": [_row_payload(row) for row in reports.released_by_month],
+        },
+    }
+
+
+class ReportsView(APIView):
+    """Relatórios mínimos do RF-036, no recorte de período informado.
+
+    Aqui a negativa é explícita: relatório é conferência do escopo do `DP` e
+    atravessa todos os setores do processo, então quem só responde por um setor
+    não o alcança — a mesma régua da consolidação de valores e da fila de
+    notificações.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        actor = cast(User, request.user)
+        if (
+            not has_global_authority(actor)
+            and not active_assignments(actor)
+            .filter(role__code=PEOPLE_DEPARTMENT_ROLE_CODE)
+            .exists()
+        ):
+            raise PermissionDenied("O ator não possui o papel DP vigente.")
+        serializer = ReportQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        return Response(reports_payload(build_reports(actor, start=data["start"], end=data["end"])))

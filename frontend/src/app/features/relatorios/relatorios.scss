@@ -1,0 +1,74 @@
+@use 'breakpoints' as bp;
+@use 'conferencia';
+@use 'indicadores';
+
+// Mesmo vocabulário do painel (ADR-047): números em mono, recortes em seções.
+// Aqui entra apenas o formulário de período. Mobile first (ADR-028).
+
+.grupo {
+  margin-block-start: 1.75rem;
+}
+
+.periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-block: 1.25rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+
+  span {
+    color: var(--p-text-muted-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  input {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--p-content-border-color);
+    border-radius: 0.5rem;
+    background: var(--p-content-background);
+    color: inherit;
+    font: inherit;
+    font-family: var(--font-mono);
+  }
+}
+
+.acao {
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--sgpd-accent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--sgpd-accent) 16%, transparent);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.6;
+  }
+}
+
+.registro {
+  color: var(--p-text-muted-color);
+}
+
+.estado-vazio {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
+@include bp.from(bp.$md) {
+  .periodo {
+    gap: 1rem;
+  }
+}

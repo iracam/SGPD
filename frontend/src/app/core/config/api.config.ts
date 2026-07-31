@@ -23,6 +23,7 @@ export const apiConfig = {
     evidence: '/api/v1/evidence/',
     notifications: '/api/v1/notifications/',
     reportingDashboard: '/api/v1/reporting/dashboard/',
+    reportingReports: '/api/v1/reporting/reports/',
     workflowTemplates: '/api/v1/workflow-config/templates/',
     workflowGroups: '/api/v1/workflow-config/groups/',
     workflowSectors: '/api/v1/workflow-config/sectors/',

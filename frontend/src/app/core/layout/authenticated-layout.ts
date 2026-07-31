@@ -48,6 +48,13 @@ export class AuthenticatedLayout {
       role: 'RESPONSAVEL_SETOR',
     },
     {
+      label: 'Relatórios',
+      route: '/fe/relatorios',
+      icon: 'pi pi-chart-bar',
+      description: 'Tempo médio, atrasos, pendências e valores por período',
+      role: 'DP',
+    },
+    {
       label: 'Notificações',
       route: '/fe/notificacoes',
       icon: 'pi pi-send',

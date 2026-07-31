@@ -1,0 +1,219 @@
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-chart-bar" aria-hidden="true"></i>
+      Conferência do período
+    </span>
+    <h1 class="page-title">Relatórios</h1>
+    <p class="page-lead">
+      Tempo médio, atrasos, pendências e valores dos processos que você coordena.
+      Nada aqui decide: é leitura para conferência.
+    </p>
+  </div>
+</header>
+
+<form class="periodo" (ngSubmit)="consultar()">
+  <label class="campo">
+    <span>Início</span>
+    <input type="date" name="inicio" [(ngModel)]="inicio" />
+  </label>
+  <label class="campo">
+    <span>Fim</span>
+    <input type="date" name="fim" [(ngModel)]="fim" />
+  </label>
+  <button type="submit" class="acao" [disabled]="carregando()">Aplicar período</button>
+</form>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+
+@if (carregando()) {
+  <section class="grupo"><p class="vazio-inline">Calculando relatórios…</p></section>
+} @else if (relatorios(); as dados) {
+  <section class="grupo" aria-labelledby="titulo-ciclo">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-hourglass" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-ciclo">Tempo médio</h2>
+        <small>Processos concluídos entre {{ dados.period.start }} e {{ dados.period.end }}.</small>
+      </span>
+      <span class="grupo__total">{{ dados.process_cycle_time.processes }}</span>
+    </header>
+    <ul class="indicadores">
+      <li class="indicador">
+        <span class="indicador__valor registro">{{ dias(dados.process_cycle_time.average_days) }}</span>
+        <span class="indicador__rotulo">Média do processo</span>
+      </li>
+      <li class="indicador">
+        <span class="indicador__valor registro">{{ dias(dados.process_cycle_time.median_days) }}</span>
+        <span class="indicador__rotulo">Mediana do processo</span>
+      </li>
+      <li class="indicador">
+        <span class="indicador__valor registro">{{ dados.released_processes.total }}</span>
+        <span class="indicador__rotulo">Liberados no período</span>
+      </li>
+      <li class="indicador" [class.indicador--alerta]="dados.overdue_processes.total > 0">
+        <span class="indicador__valor registro">{{ dados.overdue_processes.total }}</span>
+        <span class="indicador__rotulo">Vencidos agora</span>
+      </li>
+    </ul>
+
+    <div class="recortes">
+      <section class="recorte" aria-label="Tempo médio por setor">
+        <h3 class="recorte__titulo">Por setor</h3>
+        @if (dados.sector_cycle_time.length) {
+          <ul class="linhas">
+            @for (linha of dados.sector_cycle_time; track linha.key) {
+              <li class="linha">
+                <span>{{ linha.label }}</span>
+                <span class="linha__total registro">{{ horas(linha) }} · {{ linha.total }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="estado-vazio">Nenhuma tarefa concluída no período.</p>
+        }
+      </section>
+
+      <section class="recorte" aria-label="Processos liberados por mês">
+        <h3 class="recorte__titulo">Liberados por mês</h3>
+        @if (dados.released_processes.results.length) {
+          <ul class="linhas">
+            @for (linha of dados.released_processes.results; track linha.key) {
+              <li class="linha">
+                <span>{{ linha.label }}</span>
+                <span class="linha__total registro">{{ linha.total }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="estado-vazio">Nenhuma liberação no período.</p>
+        }
+      </section>
+
+      <section class="recorte" aria-label="Processos por empresa">
+        <h3 class="recorte__titulo">Abertos por empresa</h3>
+        @if (dados.processes_by_company.length) {
+          <ul class="linhas">
+            @for (linha of dados.processes_by_company; track linha.key) {
+              <li class="linha">
+                <span>{{ linha.label }}</span>
+                <span class="linha__total registro">{{ linha.total }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="estado-vazio">Nenhum processo aberto no período.</p>
+        }
+      </section>
+    </div>
+  </section>
+
+  <section class="grupo" aria-labelledby="titulo-pendencias">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-flag" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-pendencias">Pendências e valores</h2>
+        <small>Registradas no período; o bloqueio é o que ainda impede a conclusão.</small>
+      </span>
+    </header>
+    <div class="recortes">
+      <section class="recorte" aria-label="Pendências por categoria">
+        <h3 class="recorte__titulo">Por categoria</h3>
+        @if (dados.pending_by_category.length) {
+          <ul class="linhas">
+            @for (linha of dados.pending_by_category; track linha.key) {
+              <li class="linha">
+                <span>{{ linha.label }}</span>
+                <span class="linha__total registro">
+                  {{ linha.total }}
+                  @if (linha.detail) {
+                    · {{ linha.detail }} bloqueando
+                  }
+                </span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="estado-vazio">Nenhuma pendência registrada no período.</p>
+        }
+      </section>
+
+      <section class="recorte" aria-label="Valores informados e aprovados">
+        <h3 class="recorte__titulo">Valores por moeda</h3>
+        @if (dados.amounts.length) {
+          <ul class="linhas">
+            @for (linha of dados.amounts; track linha.currency) {
+              <li class="linha">
+                <span>Informado</span>
+                <span class="linha__total registro">{{ totalMoeda(linha) }}</span>
+                <small class="registro">
+                  Aprovado {{ valor(linha.approved, linha.currency) }} ·
+                  {{ linha.undecided }} sem decisão
+                </small>
+              </li>
+            }
+          </ul>
+          <p class="nota">
+            Pretensão sujeita a análise: o SGPD nunca aplica desconto (ADR-009).
+          </p>
+        } @else {
+          <p class="estado-vazio">Nenhuma pretensão informada no período.</p>
+        }
+      </section>
+    </div>
+  </section>
+
+  <section class="grupo" aria-labelledby="titulo-atrasos">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-atrasos">Atrasos</h2>
+        <small>Fotografia deste instante: atraso não tem data própria e o período não o alcança.</small>
+      </span>
+      <span class="grupo__total">{{ dados.overdue_processes.total }}</span>
+    </header>
+    <div class="recortes">
+      <section class="recorte" aria-label="Processos vencidos">
+        <h3 class="recorte__titulo">Processos vencidos</h3>
+        @if (dados.overdue_processes.results.length) {
+          <ul class="linhas">
+            @for (linha of dados.overdue_processes.results; track linha.process_uuid) {
+              <li class="linha linha--critica">
+                <a [routerLink]="['/fe/processos', linha.process_uuid, 'encerramento']">
+                  {{ linha.employee_name }}
+                </a>
+                <small class="registro">
+                  {{ linha.process_ref }} · Empresa {{ linha.company_code }} · Filial
+                  {{ linha.branch_code }} · limite {{ linha.due_date }}
+                </small>
+                <span class="linha__total registro">
+                  {{ linha.days_overdue }} dias · {{ linha.open_tasks }} tarefas
+                </span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="estado-vazio">Nenhum processo vencido.</p>
+        }
+      </section>
+
+      <section class="recorte" aria-label="Setores com maior atraso">
+        <h3 class="recorte__titulo">Setores com maior atraso</h3>
+        @if (dados.sector_delays.length) {
+          <ul class="linhas">
+            @for (linha of dados.sector_delays; track linha.key) {
+              <li class="linha">
+                <span>{{ linha.label }}</span>
+                <span class="linha__total registro">{{ linha.total }} · {{ horas(linha) }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="estado-vazio">Nenhuma tarefa vencida.</p>
+        }
+      </section>
+    </div>
+  </section>
+}
