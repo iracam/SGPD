@@ -75,23 +75,26 @@ de autorização continua sendo do backend.
 
 ### Processamento assíncrono
 
-Quando o processamento assíncrono se tornar necessário, usar Celery ou Django-Q2 para:
+Implementado pela ADR-049, sem broker: a fila de notificações é a tabela
+`SGPD_NOTIFICATION`, gravada na mesma transação do fato que a origina, e o
+envio acontece fora da requisição por dois comandos acionados pelo agendador do
+sistema operacional:
 
-- envio de e-mails;
-- escaladas;
-- lembretes;
-- geração de relatórios;
-- reprocessamentos.
+- `manage.py sgpd_scan_notifications` varre prazos e enfileira lembretes,
+  atrasos e escaladas;
+- `manage.py sgpd_dispatch_notifications` envia o que está na fila, registra
+  cada tentativa em `SGPD_NOTIFICATION_ATTEMPT` e reabre o que ficou preso.
+
+Ambos são idempotentes: a chave de deduplicação impede o aviso repetido e o
+lock impede o envio concorrente. A entrega é ao menos uma vez.
+
+Relatórios e reprocessamentos em massa continuam sem caso de uso assíncrono.
 
 ### Cache e filas
 
-Redis será iniciado em container somente quando houver funcionalidade que dependa dele. Seus usos previstos são:
-
-- broker;
-- cache;
-- locks distribuídos;
-- controle de idempotência;
-- limitação de tarefas.
+Redis continua sem caso de uso (ADR-015 e ADR-049) e não faz parte do runtime.
+Se cache, lock distribuído ou limitação de taxa aparecerem, ele sobe em
+container conforme a ADR-015.
 
 ### Autenticação
 

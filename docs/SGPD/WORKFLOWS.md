@@ -270,18 +270,31 @@ ou persistência reverte tarefa, checklist e idempotência em conjunto.
 
 ## 7. Escalada
 
-Exemplo:
+Implementada na Fase 7. A varredura lê prazos e enfileira avisos; ela não
+movimenta nada no domínio.
 
-- 48 horas antes: lembrete ao responsável;
-- 24 horas antes: lembrete a todos os responsáveis do setor;
-- vencido: alerta a todos os responsáveis e aos responsáveis do Departamento
-  Pessoal;
-- vencido crítico: reforço aos mesmos destinatários;
-- processo próximo ao limite: alerta consolidado.
+| Marco | Quando dispara | Quem recebe |
+| --- | --- | --- |
+| `TAREFA_A_VENCER` | 48 h antes do prazo da tarefa | responsáveis vigentes do setor |
+| `TAREFA_VENCE_EM_BREVE` | 24 h antes do prazo | responsáveis vigentes do setor |
+| `TAREFA_VENCIDA` | no vencimento | responsáveis do setor e `DP` do escopo |
+| `TAREFA_VENCIDA_CRITICA` | 48 h após o vencimento | os anteriores e os responsáveis do setor de escalada |
+| `PROCESSO_PROXIMO_LIMITE` | 72 h antes da data limite, com tarefa em aberto | `DP` do escopo |
 
-Quando houver mais de um responsável, todos recebem os avisos e podem agir. A
-primeira transação válida movimenta a tarefa; tentativas posteriores observam
-o novo estado e não repetem efeitos.
+As janelas são configuráveis por variável de ambiente
+(`NOTIFICATION_TASK_*_HOURS`, `NOTIFICATION_PROCESS_DUE_SOON_HOURS`) e os
+valores acima são o padrão.
+
+Não há dono individual de tarefa: como a responsabilidade é do setor e todos os
+responsáveis vigentes têm a mesma autoridade (ADR-038), o lembrete de 48 h
+também vai ao conjunto inteiro. A primeira transação válida movimenta a tarefa;
+tentativas posteriores observam o novo estado e não repetem efeitos.
+
+Cada marco dispara uma única vez por tarefa e destinatário: a chave de
+deduplicação é única no banco, então repetir a varredura muda a latência do
+aviso, nunca a quantidade. `DP` ausente no escopo ou setor sem responsável
+vigente fazem o marco ser contado como “sem destinatário” e registrado em log —
+o aviso não sai e ninguém é avisado disso automaticamente.
 
 ## 8. Reabertura
 

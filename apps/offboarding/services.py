@@ -28,6 +28,7 @@ from apps.accounts.models import (
 from apps.integrations.senior.dto import EmployeeDetail
 from apps.integrations.senior.exceptions import SeniorContractError
 from apps.integrations.senior.repository import SeniorRepository
+from apps.notifications.triggers import notify_task_assigned
 from apps.sectors.models import (
     SectorResponsible,
     SectorScope,
@@ -1013,6 +1014,10 @@ class StartOffboardingProcessService:
             },
             actor=actor,
         )
+        # Aviso na mesma transação do início (ADR-049): setor sem tarefa não
+        # recebe nada e tarefa criada não fica sem aviso.
+        for task in task_rows:
+            notify_task_assigned(task)
         return StartOffboardingProcessResult(
             process=process,
             tasks=tuple(task_rows),

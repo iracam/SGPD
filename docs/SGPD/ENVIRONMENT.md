@@ -60,7 +60,25 @@ O repositório possui:
 - definição de storage de evidências;
 - health checks e logs JSON com correlation ID.
 
-Redis e worker continuam adiados até surgir um caso de uso.
+Redis e worker continuam adiados: a Fase 7 resolveu notificações com outbox no
+Oracle e comandos agendados, sem broker (ADR-049).
+
+### Agendamento das notificações no DEV
+
+A fila só anda quando o sistema operacional chama os comandos. Sugestão de
+`crontab` do usuário da aplicação, com o `.env` já carregado pelo projeto:
+
+```cron
+*/10 * * * * uv run manage.py sgpd_scan_notifications --dispatch >> var/log/sgpd-notificacoes.log 2>&1
+```
+
+A varredura é idempotente e barata; rodar de dez em dez minutos muda a latência
+do aviso, nunca a quantidade. Separar varredura e despacho em duas entradas é
+igualmente válido.
+
+Verificar periodicamente: o painel `/fe/notificacoes` mostra o volume por
+situação. Fila crescendo em `PENDENTE` sem nada em `ENVIADA` significa
+agendamento parado — é o risco R63.
 
 ## 4. Ambientes
 
@@ -126,12 +144,14 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 ## 7. Pendências operacionais
 
 1. Confirmar TLS/wallet da conexão única `SGPD`.
-2. Escolher Celery ou Django-Q2 quando houver processamento assíncrono.
+2. Instalar o agendamento das notificações no DEV e confirmar a primeira
+   execução (R63). Celery e Django-Q2 continuam sem caso de uso.
 3. Decidir operacionalmente entre TLS e LDAP simples. Para TLS, instalar a CA
    `BSA-AD-CA`; sem TLS, aceitar explicitamente o warning de credenciais e
    senhas sem criptografia. Bind, bases, grupo `BSA_SGPD` e descoberta já foram
    validados no DEV.
-4. Definir o Compose do Redis quando surgir a primeira dependência.
+4. Definir o Compose do Redis quando surgir a primeira dependência de cache,
+   lock distribuído ou limitação de taxa; notificações não exigem Redis.
 
 O procedimento de descoberta de domínio, OUs e grupos, os filtros LDAP e a
 sequência de ativação estão em `INTEGRATION_ACTIVE_DIRECTORY.md`.

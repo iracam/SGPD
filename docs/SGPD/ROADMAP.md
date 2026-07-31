@@ -367,18 +367,32 @@ Valores controlados sem desconto automático.
 
 ### Entregas
 
-- Redis em container;
-- fila de e-mail;
-- templates;
+- fila de e-mail durável no Oracle;
+- templates de mensagem;
 - lembretes;
 - atrasos;
 - escaladas;
 - painel de falhas;
 - reprocessamento.
 
+O item “Redis em container” saiu do escopo desta fase pela ADR-049: nenhuma das
+três exigências da fase — histórico durável para o painel de falhas,
+deduplicação da varredura e gravação na mesma transação do domínio — é atendida
+por um broker, e em todos os desenhos avaliados a tabela de outbox continuava
+necessária. A ADR-015 segue vigente e Redis volta quando cache, lock
+distribuído ou limitação de taxa aparecerem.
+
 ### Saída esperada
 
 O sistema conduz o processo proativamente.
+
+### Estado em 2026-07-31
+
+Implementada em cinco fatias: outbox e histórico de tentativas; enfileiramento,
+catálogo de mensagens e despacho SMTP; varredura de prazos com lembretes e
+escaladas; painel de falhas com reprocessamento auditado; gatilhos de domínio.
+O agendamento no DEV é responsabilidade do sistema operacional e ainda precisa
+ser instalado — sem ele a fila não anda.
 
 ## Fase 8 — Liberação e encerramento
 

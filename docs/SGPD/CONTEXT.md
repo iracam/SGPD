@@ -69,7 +69,11 @@ Senior usam repository SQL explícito, parametrizado, sem models e sem tabelas
 Módulos já ativos: contas e autorização, auditoria, integração Senior,
 configuração LDAP/AD, setores e responsáveis, templates e grupos versionados,
 regras de aplicabilidade, abertura e início do processo, tarefas setoriais,
-pendências estruturadas, evidências privadas e painéis iniciais.
+pendências estruturadas, evidências privadas, notificações por e-mail e painéis
+iniciais.
+
+Notificações usam outbox no Oracle gravado na transação do domínio, com envio
+por comando agendado fora da requisição (ADR-049). Não há broker nem worker.
 
 ## Estado funcional resumido
 
@@ -88,8 +92,11 @@ registro, comentários, regularização, bloqueio de conclusão, upload, hash e
 download autorizado. O eixo de valor está operacional ponta a ponta — informar,
 apurar, contestar e decidir, com o guard de `BLOQUEANTE_ATE_DECISAO` na
 conclusão da tarefa e a consolidação por processo para conferência do `DP`.
-Notificações, prontidão, liberação, encerramento formal e relatórios ainda
-pertencem aos incrementos seguintes.
+
+As notificações por e-mail cobrem os marcos de prazo de `WORKFLOWS.md` §7 e os
+eventos de domínio da Fase 7, com painel de falhas e reprocessamento auditado.
+A caixa de notificações por usuário, a prontidão, a liberação, o encerramento
+formal e os relatórios ainda pertencem aos incrementos seguintes.
 
 ## Leitura por escopo
 
@@ -101,6 +108,7 @@ pertencem aos incrementos seguintes.
 | Senior/Oracle cadastral | `INTEGRATION_SENIOR_ORACLE.md` |
 | autenticação, autorização, upload ou LGPD | `SECURITY.md` e integração aplicável |
 | Angular, layout ou entrega SPA | `ARCHITECTURE.md` e ADRs 025–028 |
+| notificação, fila ou agendamento | ADR-049, `WORKFLOWS.md` §7 e `ENVIRONMENT.md` §3 |
 | direção de produto | `VISION.md` |
 | planejamento futuro | `ROADMAP.md` |
 

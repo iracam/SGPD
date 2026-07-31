@@ -532,6 +532,21 @@ booleana de papel inicial.
 - atualização de Angular ou PrimeNG somente após revisão explícita;
 - nenhum código de terceiros carregado de CDN em tempo de execução.
 
+## 13.1 Conteúdo das notificações
+
+O e-mail de notificação atravessa a rede corporativa e pode chegar a uma caixa
+errada; o sistema, não. Por isso o corpo da mensagem carrega apenas o que a
+pessoa precisa para agir: referência curta do processo, matrícula, setor,
+prazo e o link da tela.
+
+Nome do colaborador, CPF, valores de pretensão, pareceres e justificativas não
+são reproduzidos por e-mail. O endereço efetivamente usado no envio é congelado
+na linha da fila, para que a conferência saiba para onde a mensagem foi mesmo
+que o cadastro mude depois.
+
+O corpo enviado fica visível no painel da fila, que é restrito a quem enxerga o
+processo — `DP` no escopo e SuperAdmin.
+
 ## 14. Retenção
 
 O prazo operacional de retenção é de **5 anos**, definido pelo projeto em

@@ -614,11 +614,33 @@ alcança a conferência.
 
 ### RF-027 — Notificações
 
-O sistema deverá enviar notificações por e-mail e no painel.
+O sistema envia notificações por e-mail a partir de uma fila durável no Oracle
+(ADR-049). Cada mensagem nasce na mesma transação do fato que a origina, guarda
+o texto que foi enviado e registra cada tentativa de entrega.
+
+Eventos de domínio implementados: tarefa atribuída no início do processo,
+pendência bloqueante registrada, pretensão de cobrança aguardando decisão e
+pretensão decidida.
+
+O corpo da mensagem não carrega nome do colaborador, CPF nem valores: o e-mail
+diz o que fazer e onde, e o dado fica no sistema, com autorização.
+
+| Rota | Ação |
+| --- | --- |
+| `GET /api/v1/notifications/` | fila do escopo, com resumo por situação |
+| `POST /api/v1/notifications/<uuid>/reprocess/` | devolver à fila uma mensagem em falha |
+
+O painel da fila é conferência do processo: quem só responde por setor não o
+alcança. Só a mensagem em `FALHA` pode ser reprocessada — reenviar uma entregue
+duplicaria o e-mail. O reprocessamento é ato explícito, idempotente e auditado
+por `NOTIFICATION_REPROCESSED`.
+
+A caixa de notificações por usuário na SPA não pertence a esta fase.
 
 ### RF-028 — Escaladas
 
-O sistema deverá escalar tarefas próximas do vencimento ou vencidas.
+O sistema escala tarefas próximas do vencimento ou vencidas. Os marcos, os
+destinatários e as janelas estão em `WORKFLOWS.md` §7.
 
 ### RF-029 — Liberação final
 

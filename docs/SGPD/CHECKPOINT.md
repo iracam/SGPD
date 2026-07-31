@@ -4,11 +4,9 @@
 
 - Projeto: SGPD / DesligaFlow
 - Ambiente: DEV único sobre Oracle 19c
-- Fases estabilizadas: 1, 2, 2.5, 2.7, 3 e 6
+- Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6 e 7
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Próximo incremento: **Fase 7 — notificações e escaladas**, ou a antecipação da
-  Fase 8 (prontidão, liberação e encerramento formal), conforme decisão do
-  responsável funcional
+- Próximo incremento: **Fase 8 — prontidão, liberação e encerramento formal**
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
   derivada do vínculo vigente; segregação de valores pela ADR-048
@@ -42,7 +40,9 @@
 - nova versão de grupo de validação clonada da versão publicada e exclusão
   auditada de rascunhos de template e de grupo;
 - protocolo de conferência da ADR-047 exercido por todas as telas da SPA, com
-  cabeçalho de página global e selo de domínio.
+  cabeçalho de página global e selo de domínio;
+- notificações por e-mail com outbox no Oracle, varredura de prazos, escaladas,
+  painel de falhas e reprocessamento auditado.
 
 ## Estado corrente
 
@@ -63,6 +63,13 @@ O card `Em Aberto` reúne processos iniciados com ao menos uma tarefa não
 concluída; ao concluir a última tarefa, o processo sai desse card e passa para
 `Concluídos`. A transição formal `ENCERRADO`, prontidão e liberação ainda não
 foram implementadas.
+
+As notificações saem por e-mail a partir de uma fila no Oracle. Nada é enviado
+dentro da requisição: o início do processo, a pendência bloqueante e o eixo de
+valor gravam a mensagem na mesma transação do fato, e dois comandos agendados
+varrem prazos e despacham. Sem agendamento instalado, a fila acumula em
+`PENDENTE` e ninguém é avisado — é o risco R63 e a primeira pendência
+operacional da fase.
 
 ## Incremento autorizado implementado
 
@@ -115,6 +122,9 @@ Contrato Senior — legibilidade cadastral:
 - evidências não podem ser servidas pelo WhiteNoise;
 - migrations exigem inspeção do SQL Oracle antes de aplicação;
 - não antecipar desconto automático, encerramento ou liberação;
+- e-mail de notificação não carrega nome do colaborador, CPF, valor nem
+  parecer: o corpo diz o que fazer e onde, e o dado fica no sistema
+  (`SECURITY.md` §13.1);
 - valor é pretensão sujeita a análise (ADR-009): o SGPD nunca aplica desconto,
   e `VALOR_PROCESSADO` só é preenchido a partir do registro do Senior.
 
@@ -148,6 +158,14 @@ Contrato Senior — legibilidade cadastral:
   rejeitada e a abonada; quem confere lê o aprovado para saber o que vira
   cobrança. Se o total informado passar a ser lido como cobrança pretendida,
   vale separar as decididas em zero;
+- o agendamento das notificações no DEV ainda não foi instalado: enquanto não
+  for, a varredura e o despacho só rodam quando alguém os chama à mão;
+- a entrega da notificação é ao menos uma vez: se o processo morrer entre o
+  envio SMTP e a confirmação no banco, a mensagem volta para a fila e pode
+  chegar duplicada. Duplicar aviso é aceitável; perder aviso não é;
+- marco de prazo sem destinatário — setor sem responsável vigente ou processo
+  sem `DP` no escopo — é contado e registrado em log, mas ninguém é avisado
+  automaticamente de que o aviso não saiu;
 - constraint de campo anulável precisa admitir o nulo na condição: no Oracle a
   comparação com `NULL` derruba `full_clean()`. O restante do projeto já seguia
   esse idioma e a Fase 6 era a única exceção — nenhuma outra tabela ficou
@@ -352,6 +370,29 @@ O editor de configuração fechou o ciclo de vida das versões:
 
 ## Baseline de qualidade
 
+Na Fase 7 a validação padrão foi executada por inteiro: 409 testes backend e 95
+frontend, Ruff, formatação, Mypy em 190 arquivos, Django check, verificação de
+migrations e build Angular sem avisos. As duas migrations foram revisadas e
+aplicadas no Oracle DEV: `notifications.0001` cria duas tabelas, dois índices
+próprios e seis constraints — a verificação somente leitura confirmou 35
+constraints `ENABLED`/`VALIDATED`, 15 índices `VALID` e as tabelas vazias —, e
+`offboarding.0008` é `(no-op)`, apenas amplia as opções de `EVENT_TYPE`.
+
+Os 25 testes backend novos cobrem a armadilha do `full_clean()` no Oracle, a
+deduplicação do marco, a imutabilidade da fila, a tentativa aberta ou fechada
+por inteiro, o envio com fechamento da tentativa, o backoff e a desistência, a
+reabertura do que ficou preso em envio, os dois comandos, cada marco de prazo e
+seus destinatários, o marco sem ninguém para avisar, o painel restrito ao
+escopo, o reprocessamento com trilha e replay, a recusa da mensagem já entregue
+e da versão obsoleta, e os quatro gatilhos de domínio. Os três do frontend
+cobrem a leitura da fila com o erro da última tentativa, o reprocessamento com
+versão e chave, e a ausência da ação para mensagem entregue.
+
+Dois defeitos apareceram na própria suíte e foram corrigidos antes do commit: a
+janela de reabertura zerada era descartada por `or` — um `timedelta(0)` é falsy
+— e o número da tentativa colidia depois do reprocessamento, porque reusava o
+contador de orçamento em vez de continuar a numeração histórica.
+
 Na homologação da Fase 6 a validação padrão foi executada por inteiro: 384
 testes backend e 92 frontend, Ruff, formatação, Mypy, Django check, verificação
 de migrations e build Angular sem avisos. O teste novo fixa
@@ -445,6 +486,73 @@ O replay idempotente de pendências/evidências materializa consultas
 `select_for_update()` sem paginação, devido à incompatibilidade do Oracle com
 `FOR UPDATE` combinado a `FETCH FIRST`. A regressão foi validada também por
 consulta bloqueada somente leitura no Oracle DEV.
+
+## Fase 7 — notificações e escaladas
+
+A fase foi fatiada em cinco, todas implementadas e comitadas em 2026-07-31. A
+decisão de transporte está na **ADR-049**: a fila é a tabela `SGPD_NOTIFICATION`
+no Oracle, gravada na mesma transação do fato que a origina, e o envio roda
+fora da requisição por comando agendado. Redis, broker e worker ficaram fora —
+nenhuma das três exigências da fase (histórico durável para o painel de falhas,
+deduplicação da varredura, gravação na transação do domínio) é atendida por um
+broker, e em todos os desenhos a tabela de outbox continuava necessária.
+Nenhuma dependência nova entrou no projeto.
+
+Fatia 1 — modelo, migration `notifications.0001`, aplicada no Oracle DEV:
+
+- `SGPD_NOTIFICATION` com chave de deduplicação única, evento, canal,
+  destinatário, endereço congelado, assunto e corpo, situação, tentativas,
+  backoff, último erro e versão otimista;
+- `SGPD_NOTIFICATION_ATTEMPT` append-only, aberta antes do envio e fechada uma
+  única vez depois dele: é o que distingue “nunca tentou” de “tentou e o SMTP
+  recusou”;
+- as condições anuláveis já nasceram no idioma da Fase 6 (`IS NULL OR …`), e o
+  teste correspondente fixa `supports_comparing_boolean_expr` em falso.
+
+Fatia 2 — enfileiramento, mensagens e despacho, sem migration:
+
+- `EnqueueNotificationService` roda dentro da transação de quem o chama; varrer
+  o mesmo marco de novo é o caso normal e é resolvido por uma consulta, com o
+  savepoint e a unicidade do banco como rede da corrida;
+- nove templates em `apps/notifications/templates/notifications/`, um por
+  evento, com a primeira linha como assunto e o rodapé compartilhado;
+- `DispatchNotificationsService` toma cada mensagem sob lock, envia fora da
+  transação e confirma depois; sem `FOR UPDATE` combinado a `FETCH FIRST`, como
+  o Oracle exige. Backoff de 1 min a 1 h e desistência em `max_attempts`;
+- comando `sgpd_dispatch_notifications`.
+
+Fatia 3 — varredura de prazos, sem migration:
+
+- os cinco marcos de `WORKFLOWS.md` §7, com janelas configuráveis por ambiente;
+- destinatários por responsável vigente do setor, `DP` do escopo e setor de
+  escalada; SuperAdmin não entra por autoridade global — receber todo atraso do
+  sistema seria ruído, não visibilidade;
+- comando `sgpd_scan_notifications`, com `--dispatch` para varrer e enviar na
+  mesma execução.
+
+Fatia 4 — painel de falhas e reprocessamento, migration `offboarding.0008`
+(`sqlmigrate` no-op) aplicada:
+
+- `GET /api/v1/notifications/` com resumo por situação e
+  `POST …/<uuid>/reprocess/` com `Idempotency-Key`, versão otimista e evento
+  `NOTIFICATION_REPROCESSED`;
+- visibilidade de `processes_for_actor`: quem só responde por setor não alcança
+  a fila, pela mesma régua da consolidação de valores;
+- só a mensagem em `FALHA` volta para a fila — reenviar uma entregue duplicaria
+  o e-mail. O reprocessamento zera o orçamento de tentativas sem apagar
+  nenhuma: a numeração da tentativa é histórica e nunca se repete;
+- tela `/fe/notificacoes` sobre o protocolo de conferência (ADR-047), com o
+  resumo clicável, o erro da última tentativa e o corpo enviado.
+
+Fatia 5 — gatilhos de domínio, sem migration:
+
+- início do processo avisa cada setor da tarefa nova;
+- pendência bloqueante avisa o `DP` do escopo; informativa e não bloqueante não
+  geram aviso;
+- pretensão informada e pretensão contestada avisam o `DP` de que há decisão
+  pendente — a versão da pretensão entra na chave, então a contestação reabre o
+  aviso;
+- decisão avisa o setor que informou o valor.
 
 ## Histórico
 

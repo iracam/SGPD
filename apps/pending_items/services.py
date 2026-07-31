@@ -16,6 +16,11 @@ from django.utils import timezone
 
 from apps.accounts.authorization import has_effective_role, has_global_authority
 from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, RoleAssignment, User
+from apps.notifications.triggers import (
+    notify_amount_awaiting_decision,
+    notify_amount_decided,
+    notify_blocking_pending,
+)
 from apps.offboarding.models import (
     OffboardingProcess,
     ProcessActionIdempotency,
@@ -34,6 +39,7 @@ from apps.sectors.models import ValidationSector
 from config.middleware import correlation_id
 
 from .models import (
+    BLOCKING_RELEASE_STATUSES,
     DECIDED_STATUSES,
     BlockingLevel,
     DecisionOutcome,
@@ -395,6 +401,10 @@ class CreatePendingItemService:
             key=key,
             request_hash=request_hash,
         )
+        if pending_item.blocking_level in BLOCKING_RELEASE_STATUSES:
+            # Só o que trava a conclusão vira aviso; informativa e não
+            # bloqueante viveriam na tela sem nada a cobrar de ninguém.
+            notify_blocking_pending(pending_item)
         return PendingMutationResult(pending_item=pending_item, replayed=False)
 
 
@@ -694,6 +704,7 @@ class RegisterPendingAmountService:
             key=key,
             request_hash=request_hash,
         )
+        notify_amount_awaiting_decision(pending_item, amount_version=amount.version)
         return PendingMutationResult(pending_item=pending_item, replayed=False)
 
 
@@ -830,6 +841,9 @@ class ContestPendingAmountService:
             key=key,
             request_hash=request_hash,
         )
+        # A contestação devolve a decisão ao `DP`: a versão nova da pretensão
+        # abre chave nova e o aviso sai outra vez.
+        notify_amount_awaiting_decision(pending_item, amount_version=amount.version)
         return PendingMutationResult(pending_item=pending_item, replayed=False)
 
 
@@ -929,6 +943,7 @@ class DecidePendingAmountService:
             key=key,
             request_hash=request_hash,
         )
+        notify_amount_decided(pending_item, decision_id=decision.pk)
         return PendingMutationResult(pending_item=pending_item, replayed=False)
 
 

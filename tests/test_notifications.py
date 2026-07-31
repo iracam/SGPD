@@ -49,6 +49,7 @@ from apps.offboarding.models import (
     ProcessEventType,
     ProcessSectorTask,
 )
+from apps.pending_items.models import BlockingLevel
 from apps.sectors.models import SectorResponsible, ValidationSector
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
@@ -58,6 +59,13 @@ from tests.test_offboarding_start import (  # noqa: F401
     start,
 )
 from tests.test_offboarding_tasks import started_task
+from tests.test_pending_amounts import (
+    analysis_task,
+    create_value_pending,
+    decide_amount,
+    register_amount,
+    value_pending_ready,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -198,6 +206,10 @@ def test_delivery_attempt_is_open_or_closed_as_a_whole(actor: User, process: Any
 # --- Fatia 2: enfileiramento, mensagem e despacho ---------------------------
 
 
+# `started_task` inicia o processo e o início já enfileira `TAREFA_ATRIBUIDA`
+# para o setor (fatia 5). Os testes abaixo filtram pelo evento que exercitam.
+
+
 def enqueue(
     task: ProcessSectorTask,
     recipients: tuple[User, ...],
@@ -235,9 +247,12 @@ def test_enqueue_writes_one_message_per_recipient_and_never_repeats_the_mileston
 
     again = enqueue(task, (actor, other))
     assert again.created == () and again.duplicated == 2
-    assert Notification.objects.count() == 2
+    assert Notification.objects.filter(event=NotificationEvent.TASK_OVERDUE).count() == 2
 
-    message = Notification.objects.get(recipient=actor)
+    message = Notification.objects.get(
+        recipient=actor,
+        event=NotificationEvent.TASK_OVERDUE,
+    )
     assert message.status == NotificationStatus.PENDING
     assert message.subject.startswith("Tarefa vencida no setor")
     assert str(task.process.uuid)[:8] in message.body
@@ -278,11 +293,12 @@ def test_dispatch_sends_the_queue_and_closes_the_attempt(actor: User, process: A
 
     result = DispatchNotificationsService().execute(DispatchNotificationsCommand())
 
-    assert result.sent == 1 and result.failed == 0 and result.rescheduled == 0
-    assert len(mail.outbox) == 1
-    assert mail.outbox[0].to == [actor.email]
+    # Duas: a atribuição do início e a que este teste enfileirou.
+    assert result.sent == 2 and result.failed == 0 and result.rescheduled == 0
+    assert len(mail.outbox) == 2
+    assert {message.to[0] for message in mail.outbox} == {actor.email}
 
-    message = Notification.objects.get()
+    message = Notification.objects.get(event=NotificationEvent.TASK_OVERDUE)
     assert message.status == NotificationStatus.SENT
     assert message.sent_at is not None and message.attempts == 1
     attempt = message.delivery_attempts.get()
@@ -290,7 +306,7 @@ def test_dispatch_sends_the_queue_and_closes_the_attempt(actor: User, process: A
     assert attempt.error == ""
 
     assert DispatchNotificationsService().execute(DispatchNotificationsCommand()).sent == 0
-    assert len(mail.outbox) == 1
+    assert len(mail.outbox) == 2
 
 
 def test_dispatch_reschedules_with_backoff_and_gives_up_after_the_last_attempt(
@@ -299,7 +315,7 @@ def test_dispatch_reschedules_with_backoff_and_gives_up_after_the_last_attempt(
 ) -> None:
     task = started_task(actor, process)
     enqueue(task, (actor,))
-    message = Notification.objects.get()
+    message = Notification.objects.get(event=NotificationEvent.TASK_OVERDUE)
     message.max_attempts = 2
     message.save(update_fields=("max_attempts",))
 
@@ -309,7 +325,7 @@ def test_dispatch_reschedules_with_backoff_and_gives_up_after_the_last_attempt(
     ):
         first = DispatchNotificationsService().execute(DispatchNotificationsCommand())
         message.refresh_from_db()
-        assert first.rescheduled == 1 and first.failed == 0
+        assert first.rescheduled == 2 and first.failed == 0
         assert message.status == NotificationStatus.PENDING
         assert message.next_attempt_at > timezone.now()
         assert "mailbox unavailable" in message.last_error
@@ -334,7 +350,7 @@ def test_dispatch_reschedules_with_backoff_and_gives_up_after_the_last_attempt(
 def test_dispatch_reopens_a_message_left_in_flight(actor: User, process: Any) -> None:
     task = started_task(actor, process)
     enqueue(task, (actor,))
-    message = Notification.objects.get()
+    message = Notification.objects.get(event=NotificationEvent.TASK_OVERDUE)
     message.status = NotificationStatus.SENDING
     message.attempts = 1
     message.save(update_fields=("status", "attempts"))
@@ -359,8 +375,11 @@ def test_dispatch_command_is_the_entry_point_of_the_queue(actor: User, process: 
 
     call_command("sgpd_dispatch_notifications", "--limit", "10", stdout=output)
 
-    assert "enviadas=1" in output.getvalue()
-    assert Notification.objects.get().status == NotificationStatus.SENT
+    assert "enviadas=2" in output.getvalue()
+    assert (
+        Notification.objects.get(event=NotificationEvent.TASK_OVERDUE).status
+        == NotificationStatus.SENT
+    )
 
 
 # --- Fatia 3: varredura de prazos, lembretes e escaladas --------------------
@@ -382,6 +401,7 @@ def test_scan_queues_every_reached_milestone_once(actor: User, process: Any) -> 
     first = ScanDeadlinesService().execute(ScanDeadlinesCommand())
 
     assert queued_events() == {
+        NotificationEvent.TASK_ASSIGNED,
         NotificationEvent.TASK_DUE_SOON,
         NotificationEvent.TASK_DUE_IMMINENT,
         NotificationEvent.TASK_OVERDUE,
@@ -392,7 +412,7 @@ def test_scan_queues_every_reached_milestone_once(actor: User, process: Any) -> 
     again = ScanDeadlinesService().execute(ScanDeadlinesCommand())
 
     assert again.queued == 0
-    assert Notification.objects.count() == 4
+    assert Notification.objects.count() == 5
 
 
 def test_scan_stops_at_the_milestone_the_clock_reached(actor: User, process: Any) -> None:
@@ -402,7 +422,10 @@ def test_scan_stops_at_the_milestone_the_clock_reached(actor: User, process: Any
 
     ScanDeadlinesService().execute(ScanDeadlinesCommand())
 
-    assert queued_events() == {NotificationEvent.TASK_DUE_SOON}
+    assert queued_events() == {
+        NotificationEvent.TASK_ASSIGNED,
+        NotificationEvent.TASK_DUE_SOON,
+    }
 
 
 def test_overdue_reaches_people_department_and_critical_reaches_the_escalation_sector(
@@ -478,7 +501,7 @@ def test_milestone_without_anyone_to_warn_is_counted_and_queues_nothing(
 
     assert result.queued == 0
     assert result.without_recipients == 1
-    assert not Notification.objects.exists()
+    assert not Notification.objects.filter(event=NotificationEvent.TASK_DUE_SOON).exists()
 
 
 def test_process_near_its_deadline_warns_the_people_department(
@@ -507,8 +530,8 @@ def test_scan_command_can_dispatch_in_the_same_run(actor: User, process: Any) ->
     call_command("sgpd_scan_notifications", "--dispatch", stdout=output)
 
     assert "enfileiradas=4" in output.getvalue()
-    assert "enviadas=4" in output.getvalue()
-    assert len(mail.outbox) == 4
+    assert "enviadas=5" in output.getvalue()
+    assert len(mail.outbox) == 5
 
 
 # --- Fatia 4: painel de falhas e reprocessamento ----------------------------
@@ -517,7 +540,7 @@ def test_scan_command_can_dispatch_in_the_same_run(actor: User, process: Any) ->
 def failed_notification(actor: User, process: Any) -> Notification:
     task = overdue(started_task(actor, process), hours=72)
     enqueue(task, (actor,), event=NotificationEvent.TASK_OVERDUE)
-    message = Notification.objects.get()
+    message = Notification.objects.get(event=NotificationEvent.TASK_OVERDUE)
     message.max_attempts = 1
     message.save(update_fields=("max_attempts",))
     with mock.patch(
@@ -543,8 +566,8 @@ def test_queue_panel_lists_the_scope_with_its_summary(actor: User, process: Any)
 
     assert response.status_code == 200
     body = response.json()
-    assert body["summary"] == {NotificationStatus.FAILED: 1}
-    row = body["results"][0]
+    assert body["summary"][NotificationStatus.FAILED] == 1
+    row = next(item for item in body["results"] if item["status"] == NotificationStatus.FAILED)
     assert row["uuid"] == str(message.uuid)
     assert row["status"] == NotificationStatus.FAILED
     assert "relay refused" in row["last_error"]
@@ -620,7 +643,9 @@ def test_reprocess_returns_the_message_to_the_queue_with_audit_and_replay(
     )
 
     message.refresh_from_db()
-    assert DispatchNotificationsService().execute(DispatchNotificationsCommand()).sent == 1
+    DispatchNotificationsService().execute(DispatchNotificationsCommand())
+    message.refresh_from_db()
+    assert message.status == NotificationStatus.SENT
     # A trilha de tentativas é histórica: a nova entrega não reusa o número.
     assert list(
         message.delivery_attempts.order_by("attempt_number").values_list(
@@ -656,3 +681,83 @@ def test_reprocess_refuses_a_delivered_message_and_a_stale_version(
     )
     assert delivered.status_code == 400
     assert "falha" in str(delivered.json()["details"])
+
+
+# --- Fatia 5: gatilhos de domínio -------------------------------------------
+
+
+def test_starting_the_process_warns_the_sector_of_its_new_task(
+    actor: User,
+    process: Any,
+) -> None:
+    task = started_task(actor, process)
+
+    message = Notification.objects.get(event=NotificationEvent.TASK_ASSIGNED)
+    assert message.recipient == actor
+    assert message.task_id == task.pk
+    assert task.sector.name in message.subject
+
+
+def test_only_a_blocking_pending_warns_the_people_department(
+    actor: User,
+    process: Any,
+) -> None:
+    task = analysis_task(actor, process)
+
+    create_value_pending(
+        actor,
+        task,
+        key="pendencia-informativa",
+        blocking_level=BlockingLevel.NON_BLOCKING,
+    )
+    assert not Notification.objects.filter(
+        event=NotificationEvent.PENDING_BLOCKING_REGISTERED
+    ).exists()
+
+    task.refresh_from_db()
+    blocking = create_value_pending(
+        actor,
+        task,
+        key="pendencia-bloqueante",
+        blocking_level=BlockingLevel.BLOCKING,
+    )
+
+    message = Notification.objects.get(event=NotificationEvent.PENDING_BLOCKING_REGISTERED)
+    assert message.recipient == actor
+    assert message.context["pending_uuid"] == str(blocking.uuid)
+
+
+def test_the_amount_warns_the_dp_to_decide_and_the_sector_of_the_decision(
+    actor: User,
+    process: Any,
+) -> None:
+    other_dp = User.objects.create_user(
+        username="dp.decisor",
+        email="dp.decisor@example.invalid",
+        password=PASSWORD,
+        first_name="DP",
+        last_name="Decisor",
+    )
+    RoleAssignment.objects.create(
+        user=other_dp,
+        role=Role.objects.get(code=PEOPLE_DEPARTMENT_ROLE_CODE),
+        scope_type=ScopeType.GLOBAL,
+        scope_key=build_scope_key(ScopeType.GLOBAL, None, None),
+        valid_from=timezone.now() - timedelta(days=1),
+        assigned_by=actor,
+    )
+    _, pending_item = value_pending_ready(actor, process)
+
+    pending_item = register_amount(actor, pending_item)
+
+    awaiting = Notification.objects.filter(event=NotificationEvent.AMOUNT_AWAITING_DECISION)
+    assert set(awaiting.values_list("recipient__username", flat=True)) == {
+        actor.username,
+        other_dp.username,
+    }
+    assert all("não é informado por e-mail" in message.body for message in awaiting)
+
+    decide_amount(other_dp, pending_item)
+
+    decided = Notification.objects.get(event=NotificationEvent.AMOUNT_DECIDED)
+    assert decided.recipient == actor
