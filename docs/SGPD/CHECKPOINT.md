@@ -7,9 +7,8 @@
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7, 8 e **9 — implementada e
   homologada no Oracle DEV em 2026-08-01**
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Próximo incremento: resolver os dois atos operacionais que não são código —
-  instalar o agendamento das notificações (R63, já denunciado pela sonda) e
-  validar backup/restauração com o DBA
+- Próximo incremento: validar backup e restauração com o DBA (`RUNBOOK.md` §6);
+  o agendamento das notificações foi instalado no DEV em 2026-08-01
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -172,10 +171,9 @@ Contrato Senior — legibilidade cadastral:
   rejeitada e a abonada; quem confere lê o aprovado para saber o que vira
   cobrança. Se o total informado passar a ser lido como cobrança pretendida,
   vale separar as decididas em zero;
-- o agendamento das notificações no DEV ainda não foi instalado: enquanto não
-  for, a varredura e o despacho só rodam quando alguém os chama à mão — a
-  diferença é que agora `/fe/operacao` e `sgpd_operations_check` dizem isso em
-  voz alta (R63);
+- o agendamento das notificações foi instalado no DEV em 2026-08-01 e a sonda
+  passou a acusar parada em trinta minutos (R63); o resíduo agora é o inverso —
+  ninguém confere o log do `cron`, então a sonda é a única testemunha;
 - a URL base continua vazia no DEV, então o link da mensagem sai relativo e não
   clicável; agora é preenchível em `/fe/configuracoes/email`, sem tocar no host;
 - as 16 notificações entregues na homologação permanecem no DEV, mais a
@@ -984,12 +982,27 @@ console**. Três acabamentos foram corrigidos no caminho:
   headless — o controle nativo segue a locale do navegador, não a da página,
   como já observado na Fase 8.
 
+## Agendamento instalado no DEV (2026-08-01)
+
+Autorizado explicitamente e instalado no `crontab` do usuário da aplicação:
+varredura com despacho a cada dez minutos e sonda a cada trinta. As entradas
+estão no `RUNBOOK.md` §2, com caminho absoluto do `uv` e `cd` explícito — o
+`cron` roda a partir do `HOME` e com `PATH` mínimo, e sem isso `uv run
+manage.py` falha com `Failed to spawn`.
+
+A primeira execução fez o que estava represado desde a Fase 8: **23 e-mails
+reais saíram** para dez destinatários da empresa — a notificação
+`PROCESSO_REABERTO` que aguardava desde 2026-07-31 19:41, mais 22 marcos de
+prazo que a varredura enfileirou na hora (as sete tarefas vencidas do processo
+`8c5ff6bf`, que nunca haviam sido varridas). Nenhuma falha: a fila terminou
+inteira em `ENVIADA`, com 39 mensagens acumuladas no DEV.
+
+O volume foi consequência do represamento, não do desenho: a chave de
+deduplicação garante que cada marco dispare uma única vez por tarefa e
+destinatário, então a varredura seguinte não repete nada.
+
 ### Aberto na Fase 9
 
-- **o agendamento continua não instalado** no DEV: a sonda existe e o
-  procedimento está no runbook, mas enquanto ninguém instalar o `crontab`, a
-  varredura e o despacho só rodam à mão — e agora a sonda dirá isso em voz
-  alta;
 - **backup não validado**: o `RUNBOOK.md` §6 define o que cobrir e como provar
   a restauração, inclusive a conferência de SHA-256 entre banco e storage, mas
   a execução com o DBA não aconteceu;

@@ -27,12 +27,17 @@ A fila é uma tabela no Oracle e o envio roda fora da requisição (ADR-049). Se
 agendamento instalado, **nada é enviado e nada quebra** — as mensagens se
 acumulam em `PENDENTE` e o sistema segue respondendo. É o risco R63.
 
-Entrada sugerida no `crontab` do usuário da aplicação:
+Entradas instaladas no `crontab` do usuário da aplicação em 2026-08-01:
 
 ```cron
-*/10 * * * * cd /home/macari/dev/SGPD && uv run manage.py sgpd_scan_notifications --dispatch >> var/log/sgpd-notificacoes.log 2>&1
-*/30 * * * * cd /home/macari/dev/SGPD && uv run manage.py sgpd_operations_check --quiet >> var/log/sgpd-operacao.log 2>&1
+*/10 * * * * cd /home/macari/dev/SGPD && /home/macari/.local/bin/uv run manage.py sgpd_scan_notifications --dispatch >> /home/macari/dev/SGPD/var/log/sgpd-notificacoes.log 2>&1
+*/30 * * * * cd /home/macari/dev/SGPD && /home/macari/.local/bin/uv run manage.py sgpd_operations_check --quiet >> /home/macari/dev/SGPD/var/log/sgpd-operacao.log 2>&1
 ```
+
+Caminho absoluto do `uv` e `cd` explícito não são preciosismo: o `cron` roda com
+`PATH` mínimo e a partir do `HOME`, e `uv run manage.py` fora da raiz do projeto
+falha com `Failed to spawn: manage.py`. Redirecionar o log por caminho absoluto
+pela mesma razão.
 
 A varredura é idempotente: rodar de dez em dez minutos muda a latência do
 aviso, nunca a quantidade. Separar varredura e despacho em duas entradas é

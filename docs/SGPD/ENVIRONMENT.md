@@ -74,9 +74,10 @@ vez, o `.env` continua governando — nada quebra por não haver registro.
 ### Agendamento das notificações no DEV
 
 A fila só anda quando o sistema operacional chama os comandos, e a sonda
-`sgpd_operations_check` é quem torna o agendamento parado visível (R63). As
-entradas sugeridas de `crontab`, a verificação e o que fazer quando a fila
-empaca estão no `RUNBOOK.md` §2 — fonte canônica do procedimento.
+`sgpd_operations_check` é quem torna o agendamento parado visível (R63). O
+`crontab` foi instalado em 2026-08-01; as entradas exatas, a verificação e o que
+fazer quando a fila empaca estão no `RUNBOOK.md` §2 — fonte canônica do
+procedimento.
 
 ## 4. Ambientes
 
@@ -142,9 +143,10 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 ## 7. Pendências operacionais
 
 1. Confirmar TLS/wallet da conexão única `SGPD`.
-2. Instalar o agendamento das notificações no DEV e confirmar a primeira
-   execução (R63). Celery e Django-Q2 continuam sem caso de uso. O
-   procedimento e a sonda estão no `RUNBOOK.md` §2.
+2. ~~Instalar o agendamento das notificações no DEV~~ — feito em 2026-08-01:
+   varredura com despacho a cada dez minutos e sonda a cada trinta, ambas no
+   `crontab` do usuário da aplicação (`RUNBOOK.md` §2). Celery e Django-Q2
+   continuam sem caso de uso.
 3. Decidir operacionalmente entre TLS e LDAP simples. Para TLS, instalar a CA
    `BSA-AD-CA`; sem TLS, aceitar explicitamente o warning de credenciais e
    senhas sem criptografia. Bind, bases, grupo `BSA_SGPD` e descoberta já foram
