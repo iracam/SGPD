@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -20,7 +21,7 @@ import { PainelService } from './painel.service';
  */
 @Component({
   selector: 'app-painel-page',
-  imports: [MessageModule, RouterLink],
+  imports: [DatePipe, MessageModule, RouterLink],
   templateUrl: './painel.html',
   styleUrl: './painel.scss',
 })

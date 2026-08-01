@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,7 @@ import { RelatoriosService } from './relatorios.service';
  */
 @Component({
   selector: 'app-relatorios-page',
-  imports: [FormsModule, MessageModule, RouterLink],
+  imports: [DatePipe, FormsModule, MessageModule, RouterLink],
   templateUrl: './relatorios.html',
   styleUrl: './relatorios.scss',
 })

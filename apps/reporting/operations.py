@@ -80,10 +80,12 @@ def _queue_health(now: datetime) -> QueueHealth:
     limit = now - timedelta(minutes=STALE_QUEUE_MINUTES)
     is_stalled = oldest_pending is not None and oldest_pending < limit
     if is_stalled:
+        # Texto puro: a mensagem é lida na tela e no log do agendador, e nenhum
+        # dos dois interpreta marcação.
         verdict = (
             "Há mensagem pendente há mais de "
             f"{STALE_QUEUE_MINUTES} minutos: o agendamento provavelmente parou. "
-            "Confira o `crontab` do usuário da aplicação (ENVIRONMENT.md §3)."
+            "Confira o agendamento do usuário da aplicação — RUNBOOK.md, seção 2."
         )
     elif oldest_pending is not None:
         verdict = "Fila com mensagem recente aguardando o próximo despacho."

@@ -6,11 +6,11 @@
 - Ambiente: DEV único sobre Oracle 19c
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7 e 8
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Fase 9 — relatórios e operação: **implementada e comitada em 2026-08-01**,
-  pendente de homologação no Oracle DEV (funcional e varredura headless)
-- Próximo incremento: homologar a Fase 9 contra o Oracle DEV e resolver os dois
-  atos operacionais que não são código — instalar o agendamento das
-  notificações (R63) e validar backup/restauração com o DBA
+- Fases estabilizadas também na 9: implementada e **homologada no Oracle DEV em
+  2026-08-01**
+- Próximo incremento: resolver os dois atos operacionais que não são código —
+  instalar o agendamento das notificações (R63, já denunciado pela sonda) e
+  validar backup/restauração com o DBA
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -174,11 +174,17 @@ Contrato Senior — legibilidade cadastral:
   cobrança. Se o total informado passar a ser lido como cobrança pretendida,
   vale separar as decididas em zero;
 - o agendamento das notificações no DEV ainda não foi instalado: enquanto não
-  for, a varredura e o despacho só rodam quando alguém os chama à mão;
+  for, a varredura e o despacho só rodam quando alguém os chama à mão — a
+  diferença é que agora `/fe/operacao` e `sgpd_operations_check` dizem isso em
+  voz alta (R63);
 - a URL base continua vazia no DEV, então o link da mensagem sai relativo e não
   clicável; agora é preenchível em `/fe/configuracoes/email`, sem tocar no host;
-- as 16 notificações entregues na homologação permanecem no DEV: a fila é
-  append-only e não pode ser apagada, como a auditoria e as pendências;
+- as 16 notificações entregues na homologação permanecem no DEV, mais a
+  notificação da reabertura que ficou pendente desde 2026-07-31 19:41 por falta
+  de agendamento: a fila é append-only e não pode ser apagada, como a auditoria
+  e as pendências;
+- as três exportações da homologação da Fase 9 deixaram três linhas permanentes
+  em `SGPD_REPORT_EXPORT`, também append-only;
 - a entrega da notificação é ao menos uma vez: se o processo morrer entre o
   envio SMTP e a confirmação no banco, a mensagem volta para a fila e pode
   chegar duplicada. Duplicar aviso é aceitável; perder aviso não é;
@@ -927,11 +933,60 @@ redundante, duas check constraints nomeadas e um índice; a verificação soment
 leitura confirmou 13 constraints `ENABLED`/`VALIDATED`, índice `VALID` e tabela
 vazia.
 
+## Homologação da Fase 9 (2026-08-01)
+
+Exercida pela própria API contra o Oracle DEV, com a sessão de cada usuário
+real: `macari` (DP global e responsável de TI), `fernando.martins` (só
+responsável de setor) e `admin` (SuperAdmin). Nenhuma escrita direta em tabela.
+
+Conferido, com os dados permanecendo no DEV:
+
+- painel do `DP` com os cinco processos do DEV: 1 em aberto, 1 concluído, 2
+  rascunhos, 1 cancelado, nenhum vencido — e `SILVINO CARLOS ALVES` como
+  processo crítico com 7 tarefas vencidas. **Processo vencido e tarefa vencida
+  são perguntas diferentes**: a data limite do processo é 2026-08-07 e ainda
+  não passou, enquanto as tarefas, de SLA em horas, venceram;
+- pendências abertas, bloqueantes e valores aguardando decisão em zero, o que
+  confere com o banco: as sete pendências do DEV estão todas regularizadas ou
+  decididas;
+- quem só responde por setor recebe o bloco de setor e `null` na coordenação;
+- relatórios na janela padrão: ciclo médio de 1,1 dia sobre o processo
+  encerrado, nove setores no tempo médio, 6 pendências de valor e 1 de
+  equipamento, duas empresas, dois totais por moeda (BRL 2.720,00 informado com
+  BRL 990,00 aprovado; USD 150,00) e 1 liberação em jul/2026;
+- **período de 2020 esvazia o fato e preserva a fotografia**: empresas e
+  pendências vazias, sete setores atrasados intactos — a distinção do desenho
+  provada com dado real;
+- as três exportações com BOM, `;`, decimal com vírgula e data pt-BR: 5
+  processos, 18 tarefas e 7 pendências, cada uma com sua linha na trilha
+  `SGPD_REPORT_EXPORT` (ator, período, linhas e correlation ID). Nenhum
+  cabeçalho com CPF, justificativa ou parecer; recorte grande demais recusado
+  em 400 sem gravar trilha;
+- 403 legível para o responsável de setor nos relatórios e na exportação, 403
+  para o `DP` na sonda de operação, 404 para conjunto desconhecido e 400 no
+  período invertido;
+- **a sonda encontrou o R63 em campo**: a fila do DEV tem 16 enviadas e 1
+  pendente desde 2026-07-31 19:41 — a notificação da reabertura da Fase 8, que
+  nunca foi despachada porque o agendamento não está instalado. O veredito saiu
+  exatamente como projetado.
+
+A varredura headless cobriu painel, relatórios e operação nas cinco larguras e
+nos dois temas — **30 combinações, sem rolagem horizontal e sem erro de
+console**. Três acabamentos foram corrigidos no caminho:
+
+- o veredito da fila aparecia duas vezes na tela parada, no aviso e na nota
+  abaixo dos dados; a nota passou a existir só quando não há problema;
+- a mensagem do veredito trazia crase de Markdown e apontava para
+  `ENVIRONMENT.md` §3, de onde o procedimento saiu; virou texto puro apontando
+  o `RUNBOOK.md`, porque ela é lida na tela e no log do agendador, e nenhum dos
+  dois interpreta marcação;
+- datas em prosa saíam em ISO no painel e nos relatórios; passaram a
+  `dd/MM/yyyy`. O `<input type="date">` continua em `MM/DD/AAAA` no Chromium
+  headless — o controle nativo segue a locale do navegador, não a da página,
+  como já observado na Fase 8.
+
 ### Aberto na Fase 9
 
-- **homologação no Oracle DEV ainda não foi feita**: nem o exercício funcional
-  pela API com sessão real, nem a varredura headless das telas novas
-  (`/fe/relatorios` e `/fe/operacao`) nas cinco larguras e nos dois temas;
 - **o agendamento continua não instalado** no DEV: a sonda existe e o
   procedimento está no runbook, mas enquanto ninguém instalar o `crontab`, a
   varredura e o despacho só rodam à mão — e agora a sonda dirá isso em voz

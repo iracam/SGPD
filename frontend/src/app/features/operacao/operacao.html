@@ -71,7 +71,11 @@
         <dd class="registro">{{ dados.queue.stale_minutes }} min</dd>
       </div>
     </dl>
-    <p class="nota">{{ dados.queue.verdict }}</p>
+    @if (!dados.queue.is_stalled) {
+      <!-- Com a fila parada o veredito já está no aviso acima; repetir só
+           gasta a atenção de quem precisa agir. -->
+      <p class="nota">{{ dados.queue.verdict }}</p>
+    }
   </section>
 
   <section class="grupo" aria-labelledby="titulo-armazenamento">

@@ -36,7 +36,10 @@
       <i class="pi pi-hourglass" aria-hidden="true"></i>
       <span>
         <h2 class="grupo__titulo" id="titulo-ciclo">Tempo médio</h2>
-        <small>Processos concluídos entre {{ dados.period.start }} e {{ dados.period.end }}.</small>
+        <small>
+          Processos concluídos entre {{ dados.period.start | date: 'dd/MM/yyyy' }} e
+          {{ dados.period.end | date: 'dd/MM/yyyy' }}.
+        </small>
       </span>
       <span class="grupo__total">{{ dados.process_cycle_time.processes }}</span>
     </header>
@@ -208,7 +211,7 @@
                 </a>
                 <small class="registro">
                   {{ linha.process_ref }} · Empresa {{ linha.company_code }} · Filial
-                  {{ linha.branch_code }} · limite {{ linha.due_date }}
+                  {{ linha.branch_code }} · limite {{ linha.due_date | date: 'dd/MM/yyyy' }}
                 </small>
                 <span class="linha__total registro">
                   {{ linha.days_overdue }} dias · {{ linha.open_tasks }} tarefas
