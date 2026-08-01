@@ -1,0 +1,117 @@
+<header class="pagina-cabecalho">
+  <div>
+    <span class="pagina-selo">
+      <i class="pi pi-heart-fill" aria-hidden="true"></i>
+      SuperAdmin
+    </span>
+    <h1 class="page-title">Operação e monitoramento</h1>
+    <p class="page-lead">
+      Estado do ambiente neste instante: fila de avisos, armazenamento de evidências
+      e retenção. A tela só lê — nada aqui envia, reprocessa ou apaga.
+    </p>
+  </div>
+</header>
+
+@if (erro()) {
+  <p-message severity="error" [text]="erro()"></p-message>
+}
+
+@if (carregando()) {
+  <section class="grupo"><p class="vazio-inline">Consultando o ambiente…</p></section>
+} @else if (operacao(); as dados) {
+  @if (dados.queue.is_stalled) {
+    <p-message severity="error" [text]="dados.queue.verdict"></p-message>
+  }
+
+  <section class="grupo" aria-labelledby="titulo-fila">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-send" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-fila">Fila de avisos</h2>
+        <small>
+          O envio é do agendador do sistema operacional; sem ele, a fila acumula em
+          Pendente e ninguém é avisado disso.
+        </small>
+      </span>
+    </header>
+
+    <ul class="linhas">
+      @for (situacao of situacoes(dados.queue.counts); track situacao) {
+        <li class="linha">
+          <span [class]="'chip chip--' + estadoDoChip(situacao)">
+            {{ rotuloSituacao(situacao) }}
+          </span>
+          <span class="linha__total registro">{{ dados.queue.counts[situacao] }}</span>
+        </li>
+      }
+      @if (!situacoes(dados.queue.counts).length) {
+        <li class="linha"><span class="estado-vazio">Nenhuma mensagem na fila.</span></li>
+      }
+    </ul>
+
+    <dl class="dados">
+      <div>
+        <dt>Último envio</dt>
+        <dd class="registro">
+          {{ dados.queue.last_sent_at ? (dados.queue.last_sent_at | date: 'dd/MM/yyyy HH:mm') : 'Nunca' }}
+        </dd>
+      </div>
+      <div>
+        <dt>Pendente mais antiga</dt>
+        <dd class="registro">
+          {{
+            dados.queue.oldest_pending_at
+              ? (dados.queue.oldest_pending_at | date: 'dd/MM/yyyy HH:mm')
+              : 'Nenhuma'
+          }}
+        </dd>
+      </div>
+      <div>
+        <dt>Tolerância</dt>
+        <dd class="registro">{{ dados.queue.stale_minutes }} min</dd>
+      </div>
+    </dl>
+    <p class="nota">{{ dados.queue.verdict }}</p>
+  </section>
+
+  <section class="grupo" aria-labelledby="titulo-armazenamento">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-database" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-armazenamento">Armazenamento e retenção</h2>
+        <small>
+          Evidências ficam fora do Oracle, em storage privado. O expurgo é ato humano
+          autorizado: nenhuma rotina apaga arquivo.
+        </small>
+      </span>
+    </header>
+    <ul class="indicadores">
+      <li class="indicador">
+        <span class="indicador__valor registro">{{ dados.storage.evidence_count }}</span>
+        <span class="indicador__rotulo">Evidências ativas</span>
+      </li>
+      <li class="indicador">
+        <span class="indicador__valor registro">{{ tamanho(dados.storage.evidence_bytes) }}</span>
+        <span class="indicador__rotulo">Ocupação</span>
+      </li>
+      <li class="indicador">
+        <span class="indicador__valor registro">{{ dados.retention.closed_processes }}</span>
+        <span class="indicador__rotulo">Processos encerrados</span>
+      </li>
+      <li class="indicador" [class.indicador--atencao]="dados.retention.beyond_retention > 0">
+        <span class="indicador__valor registro">{{ dados.retention.beyond_retention }}</span>
+        <span class="indicador__rotulo">
+          Além de {{ dados.retention.retention_years }} anos
+        </span>
+      </li>
+    </ul>
+    <p class="nota">
+      Verificado em {{ dados.checked_at | date: 'dd/MM/yyyy HH:mm' }}.
+      O procedimento de conferência e de expurgo está no runbook.
+    </p>
+  </section>
+
+  <p class="voltar">
+    <a routerLink="/fe/configuracoes">Voltar às configurações</a>
+  </p>
+}

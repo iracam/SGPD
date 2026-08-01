@@ -1,0 +1,52 @@
+@use 'breakpoints' as bp;
+@use 'conferencia';
+@use 'indicadores';
+
+// Mesmo protocolo de conferência das telas de execução (ADR-047): seções com
+// régua, chips sobre os tokens --status-* e dado técnico em mono.
+// Mobile first, sem `max-width` (ADR-028).
+
+.grupo {
+  margin-block-start: 1.75rem;
+}
+
+.dados {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1rem 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  @include bp.from(bp.$md) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  dt {
+    color: var(--p-text-muted-color);
+    font-size: 0.75rem;
+  }
+
+  dd {
+    margin: 0.15rem 0 0;
+    // Data e hora numa palavra só atravessariam a coluna vizinha em 360 sem
+    // esticar o documento: a métrica de overflow não acusaria.
+    overflow-wrap: anywhere;
+  }
+}
+
+.registro {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.estado-vazio {
+  margin: 0;
+  color: var(--p-text-muted-color);
+}
+
+.voltar {
+  margin-block-start: 1.75rem;
+
+  a {
+    color: inherit;
+  }
+}

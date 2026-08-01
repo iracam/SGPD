@@ -180,8 +180,10 @@ apps/
 ├── accounts/
 ├── core/
 ├── evidence/
+├── notifications/
 ├── offboarding/
 ├── pending_items/
+├── reporting/
 ├── sectors/
 ├── system_settings/
 ├── templates_engine/
@@ -220,6 +222,11 @@ regularização, classificação de bloqueio, concorrência, idempotência e
 auditoria. `evidence` mantém metadados e SHA-256 no Oracle, grava os bytes no
 storage privado, valida extensão/MIME/assinatura e expõe somente upload e
 download autorizados; nenhum caminho privado é projetado.
+`reporting` é somente leitura: indicadores do painel, os relatórios do RF-036,
+a exportação CSV e a sonda de operação. Não tem service de domínio nem
+mutação — a única tabela é `SGPD_REPORT_EXPORT`, trilha append-only do ato de
+exportar. Ele consome a visibilidade dos outros apps (`processes_for_actor`,
+`sector_tasks_for_actor`) em vez de reinventá-la.
 
 Setores, templates, grupos e perguntas são entidades configuráveis locais e
 usam o próprio `ID` como código público numérico. O service cria o registro,
@@ -653,6 +660,20 @@ Com a ADR-025 e a conclusão da Fase G, a API é a única superfície funcional 
 aplicação. Comandos de gestão também podem chamar services diretamente,
 preservando a autorização no limite do caso de uso.
 
+Endpoints de indicadores, relatórios e operação:
+
+```text
+GET /api/v1/reporting/dashboard/
+GET /api/v1/reporting/reports/?start=&end=
+GET /api/v1/reporting/exports/{processos|tarefas|pendencias}.csv?start=&end=
+GET /api/v1/reporting/operations/
+```
+
+O painel responde a qualquer autenticado e devolve `null` no bloco que não se
+aplica ao ator; relatórios e exportações exigem `DP` vigente no escopo ou
+autoridade global; a sonda de operação é exclusiva do SuperAdmin. A exportação
+grava a trilha antes de responder e recusa recorte acima de 5000 linhas.
+
 ## 7. Observabilidade
 
 Implementado:
@@ -666,11 +687,17 @@ Implementado:
   metadados técnicos seguros para diferenciar ausência de requisição de falha
   transacional.
 
+- sonda operacional `GET /api/v1/reporting/operations/` e comando
+  `sgpd_operations_check`, que declara a fila parada e sai com código 1 —
+  a evidência do agendamento morto é a própria fila, não um heartbeat que
+  também poderia parar em silêncio (R63);
+- trilha append-only de exportações, com ator, recorte, linhas e correlation
+  ID.
+
 Planejado com os módulos de workflow e processamento assíncrono:
 
 - métricas de tarefas;
-- monitoramento de filas;
-- alertas para e-mails falhos;
+- alertas ativos para e-mails falhos, hoje visíveis apenas por consulta;
 - métricas de latência, timeout e indisponibilidade das consultas ao Senior.
 
 ## 8. Ambientes

@@ -6,9 +6,11 @@
 - Ambiente: DEV único sobre Oracle 19c
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7 e 8
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Próximo incremento: **Fase 9 — relatórios e operação** (indicadores,
-  exportações, monitoramento e runbook), com o agendamento das notificações
-  no DEV como primeira pendência operacional herdada
+- Fase 9 — relatórios e operação: **implementada e comitada em 2026-08-01**,
+  pendente de homologação no Oracle DEV (funcional e varredura headless)
+- Próximo incremento: homologar a Fase 9 contra o Oracle DEV e resolver os dois
+  atos operacionais que não são código — instalar o agendamento das
+  notificações (R63) e validar backup/restauração com o DBA
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -48,7 +50,9 @@
 - notificações por e-mail com outbox no Oracle, varredura de prazos, escaladas,
   painel de falhas e reprocessamento auditado;
 - central de configuração de e-mail: transporte SMTP, remetente, URL base, ritmo
-  da fila e marcos de lembrete editáveis por SuperAdmin, com prova de envio.
+  da fila e marcos de lembrete editáveis por SuperAdmin, com prova de envio;
+- indicadores do painel, relatórios por período, exportação CSV auditada e sonda
+  de operação, todos somente leitura em `apps/reporting`.
 
 ## Estado corrente
 
@@ -832,6 +836,114 @@ Exercitado e conferido, com os dados permanecendo no DEV:
 Observação sem defeito: o `<input type="date">` do processamento aparece em
 `MM/DD/AAAA` no Chromium headless porque o controle nativo segue a locale do
 navegador, não a da página — o documento declara `lang="pt-BR"`.
+
+## Fase 9 — relatórios e operação (2026-08-01)
+
+A fase foi fatiada em quatro, todas implementadas e comitadas. O app novo
+`apps/reporting` é somente leitura: nada nele decide, enfileira ou apaga. Todo
+número é calculado na consulta, como a situação funcional da ADR-051 —
+contador guardado envelhece e passa a mentir. A visibilidade não foi
+reinventada: `processes_for_actor` e `sector_tasks_for_actor` são as mesmas
+funções das listagens.
+
+Fatia 1 — indicadores do painel (RF-034, RF-035), sem migration:
+
+- `GET /api/v1/reporting/dashboard/` devolve dois blocos **por capacidade**:
+  coordenação exige `DP` vigente ou autoridade global; setor exige enxergar ao
+  menos uma tarefa. Sem bloco algum a resposta é `null` nos dois, não 403 — é
+  informação, não negativa;
+- as janelas de “próximo do prazo” vêm da mesma configuração que a varredura
+  usa (`WORKFLOWS.md` §7): o painel e o e-mail não podem discordar sobre o que
+  é urgente;
+- o painel da SPA passou a exercer o protocolo de conferência (ADR-047), com o
+  processo crítico levando à conferência do encerramento.
+
+Fatia 2 — os oito relatórios do RF-036, sem migration:
+
+- `GET /api/v1/reporting/reports/?start=&end=` com tempo médio do processo e
+  por setor, pendências por categoria, processos por empresa, processos
+  vencidos, setores com maior atraso, valores informados e aprovados e
+  processos liberados por mês;
+- duas naturezas convivem no mesmo recorte e o payload diz qual é qual: o
+  período filtra o **fato ocorrido**, mas atraso não tem data própria —
+  processo vencido e setor atrasado são a **fotografia de agora**. Fingir
+  recorte esconderia atraso de quem confere;
+- relatório é conferência do escopo do `DP`: quem só responde por setor recebe
+  403, a mesma régua da consolidação de valores e da fila de notificações;
+- tela `/fe/relatorios`, e o vocabulário dos números virou o parcial
+  `styles/_indicadores.scss`, compartilhado com o painel.
+
+Fatia 3 — exportação CSV auditada, migration `reporting.0001` aplicada no
+Oracle DEV:
+
+- `GET /api/v1/reporting/exports/{processos|tarefas|pendencias}.csv`, no mesmo
+  recorte e na mesma visibilidade dos relatórios;
+- `SGPD_REPORT_EXPORT` é append-only e guarda ator, conjunto, período, linhas e
+  correlation ID. A trilha é gravada **antes** de os bytes saírem: download
+  interrompido continua sendo acesso ao dado (`SECURITY.md` §13.3);
+- o arquivo não leva CPF, motivo do desligamento, justificativa da pretensão
+  nem parecer da decisão — texto de juízo e dado restrito se leem no sistema,
+  onde o acesso é auditado linha a linha;
+- recorte acima de 5000 linhas é recusado com mensagem legível, em vez de
+  arquivo truncado: quem confere somaria o que não é o total.
+
+Fatia 4 — operação e runbook, sem migration:
+
+- `GET /api/v1/reporting/operations/` e tela `/fe/operacao`, exclusivas do
+  SuperAdmin, com fila por situação, pendente mais antiga, último envio,
+  ocupação das evidências e contagem da retenção;
+- o veredito da fila é deliberadamente simples: pendente além da tolerância
+  significa que ninguém despachou. Não há heartbeat do agendador — inventar um
+  seria mais uma coisa para parar em silêncio; a própria fila é a evidência;
+- comando `sgpd_operations_check`, com `--quiet` e saída 1 quando a fila está
+  parada, para o agendador ou um monitor externo reclamarem sem tela (R63);
+- `RUNBOOK.md` novo: rotina diária, agendamento, sintomas e reação, e-mail,
+  exportações, evidências e retenção, backup e restauração, saúde, migrations,
+  armadilhas do Oracle já pagas e roteiro de treinamento.
+
+### Armadilhas do Oracle observadas na fase
+
+Todas passariam pelo SQLite dos testes sem reclamar, como o `DISTINCT` sobre
+LOB da Fase 7:
+
+- **`AVG` sobre `INTERVAL DAY TO SECOND` é `ORA-00932`** — a subtração de dois
+  `TIMESTAMP` no Oracle é intervalo, e `AVG` não o aceita. Toda média de
+  duração é calculada em Python, sobre a projeção dos dois instantes;
+- **`GROUP BY` não aceita LOB** — `annotate(Count(...))` sobre o processo
+  levaria `REASON`/`NOTES` ao agrupamento. As contagens saem de consultas
+  próprias, agrupadas pela chave, e se juntam em Python;
+- nenhum agrupamento recai sobre queryset anotado com `Exists`, que levaria a
+  anotação ao `GROUP BY`.
+
+Dois testes novos fixam as duas primeiras como regressão.
+
+### Baseline de qualidade da fase
+
+Validação padrão por inteiro: 484 testes backend e 119 frontend, Ruff,
+formatação, Mypy em 219 arquivos, Django check, verificação de migrations e
+build Angular sem avisos. A única migration da fase, `reporting.0001`, foi
+revisada e aplicada no Oracle DEV — uma tabela, uma FK `PROTECT` sem índice
+redundante, duas check constraints nomeadas e um índice; a verificação somente
+leitura confirmou 13 constraints `ENABLED`/`VALIDATED`, índice `VALID` e tabela
+vazia.
+
+### Aberto na Fase 9
+
+- **homologação no Oracle DEV ainda não foi feita**: nem o exercício funcional
+  pela API com sessão real, nem a varredura headless das telas novas
+  (`/fe/relatorios` e `/fe/operacao`) nas cinco larguras e nos dois temas;
+- **o agendamento continua não instalado** no DEV: a sonda existe e o
+  procedimento está no runbook, mas enquanto ninguém instalar o `crontab`, a
+  varredura e o despacho só rodam à mão — e agora a sonda dirá isso em voz
+  alta;
+- **backup não validado**: o `RUNBOOK.md` §6 define o que cobrir e como provar
+  a restauração, inclusive a conferência de SHA-256 entre banco e storage, mas
+  a execução com o DBA não aconteceu;
+- a exportação monta o arquivo em memória e recusa acima de 5000 linhas. É
+  suficiente para o volume do DEV; volume corporativo pedirá streaming, e aí a
+  trilha precisará decidir o que registrar quando o download morre no meio;
+- `MANIFEST.json` foi regenerado em 2026-08-01: os tamanhos anteriores eram do
+  snapshot de 2026-07-30 e já não correspondiam aos documentos.
 
 ## Histórico
 

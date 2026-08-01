@@ -558,6 +558,24 @@ que o cadastro mude depois.
 O corpo enviado fica visível no painel da fila, que é restrito a quem enxerga o
 processo — `DP` no escopo e SuperAdmin.
 
+## 13.3 Exportação de relatórios
+
+Exportar leva dado pessoal para fora do sistema, onde o controle de acesso do
+SGPD deixa de valer. Por isso:
+
+- a exportação exige `DP` vigente no escopo ou autoridade global, a mesma régua
+  dos relatórios;
+- cada ato grava uma linha em `SGPD_REPORT_EXPORT` — ator, conjunto, período,
+  linhas e correlation ID —, **antes** de os bytes saírem: download
+  interrompido continua sendo acesso ao dado. A trilha é append-only;
+- o arquivo não carrega CPF (nem mascarado), motivo do desligamento,
+  justificativa da pretensão nem parecer da decisão. São dados restritos ou
+  texto de juízo (§5); a conferência precisa do número, do estado e de quem
+  decidiu, e isso vai. Quem precisa do texto o lê no sistema, onde o acesso é
+  auditado linha a linha;
+- recorte acima de 5000 linhas é recusado com mensagem legível, em vez de
+  arquivo truncado em silêncio.
+
 ## 14. Retenção
 
 O prazo operacional de retenção é de **5 anos**, definido pelo projeto em
@@ -568,10 +586,10 @@ permanece append-only e não é apagada pelo expurgo.
 A validação do prazo com Jurídico, RH e Segurança da Informação continua
 pendente e pode revisá-lo antes da automação do expurgo.
 
-O expurgo automático ainda não está implementado: nenhuma rotina apaga
-evidências hoje. Enquanto a Fase 8 não fechar o ciclo de encerramento, não há
-marco confiável para iniciar a contagem, e o expurgo permanece manual e
-autorizado.
+O expurgo automático não está implementado: nenhuma rotina apaga evidências. O
+encerramento formal da Fase 8 já dá o marco de contagem, e `/fe/operacao` conta
+quantos processos encerrados passaram da retenção — contar não é apagar. O
+expurgo permanece manual e autorizado, com o procedimento no `RUNBOOK.md` §5.
 
 O sistema deve suportar:
 

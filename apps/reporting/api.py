@@ -31,6 +31,7 @@ from .indicators import (
     evaluate_dashboard,
 )
 from .models import ExportDataset
+from .operations import OperationsStatus, evaluate_operations
 from .reports import (
     AmountRow,
     CountRow,
@@ -215,6 +216,57 @@ class ReportsView(APIView):
         _require_process_coordinator(actor)
         period = _requested_period(request)
         return Response(reports_payload(build_reports(actor, start=period.start, end=period.end)))
+
+
+def operations_payload(status: OperationsStatus) -> dict[str, Any]:
+    return {
+        "checked_at": status.checked_at.isoformat(),
+        "queue": {
+            "counts": status.queue.counts,
+            "oldest_pending_at": (
+                status.queue.oldest_pending_at.isoformat()
+                if status.queue.oldest_pending_at is not None
+                else None
+            ),
+            "last_sent_at": (
+                status.queue.last_sent_at.isoformat()
+                if status.queue.last_sent_at is not None
+                else None
+            ),
+            "stale_minutes": status.queue.stale_minutes,
+            "is_stalled": status.queue.is_stalled,
+            "verdict": status.queue.verdict,
+        },
+        "storage": {
+            "evidence_count": status.storage.evidence_count,
+            "evidence_bytes": status.storage.evidence_bytes,
+        },
+        "retention": {
+            "closed_processes": status.retention.closed_processes,
+            "beyond_retention": status.retention.beyond_retention,
+            "oldest_closed_at": (
+                status.retention.oldest_closed_at.isoformat()
+                if status.retention.oldest_closed_at is not None
+                else None
+            ),
+            "retention_years": status.retention.retention_years,
+        },
+    }
+
+
+class OperationsView(APIView):
+    """Sonda operacional: fila, armazenamento e retenção (R63, RNF-009).
+
+    É diagnóstico técnico do ambiente, não conferência de processo: só o
+    SuperAdmin a enxerga, como a central de configuração (ADR-031, ADR-050).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        if not has_global_authority(cast(User, request.user)):
+            raise PermissionDenied("A operação técnica é exclusiva do SuperAdmin.")
+        return Response(operations_payload(evaluate_operations()))
 
 
 class ExportView(APIView):

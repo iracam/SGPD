@@ -423,6 +423,24 @@ Fluxo ponta a ponta concluído.
 - documentação operacional;
 - treinamento.
 
+### Estado em 2026-08-01
+
+Fatiada em quatro e implementada no app `apps/reporting`, somente leitura:
+
+1. indicadores do painel do `DP` e do setor (RF-034, RF-035), calculados a cada
+   leitura sobre a visibilidade que já existia;
+2. os oito relatórios mínimos do RF-036 por período, com atraso tratado como
+   fotografia do instante — atraso não tem data própria;
+3. exportação CSV dos três conjuntos, com trilha append-only
+   `SGPD_REPORT_EXPORT` gravada antes de o arquivo sair e sem dado restrito no
+   arquivo;
+4. sonda de operação (`/fe/operacao` e `sgpd_operations_check`), `RUNBOOK.md`
+   com plantão, backup, expurgo e treinamento.
+
+Permanecem abertos os dois itens que dependem de ato fora do código: instalar o
+agendamento no DEV (R63) e validar backup e restauração com o DBA — o
+procedimento dos dois está no `RUNBOOK.md`.
+
 ## Fase 10 — Integrações adicionais
 
 Possíveis integrações:

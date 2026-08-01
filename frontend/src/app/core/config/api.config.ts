@@ -25,6 +25,7 @@ export const apiConfig = {
     reportingDashboard: '/api/v1/reporting/dashboard/',
     reportingReports: '/api/v1/reporting/reports/',
     reportingExports: '/api/v1/reporting/exports/',
+    reportingOperations: '/api/v1/reporting/operations/',
     workflowTemplates: '/api/v1/workflow-config/templates/',
     workflowGroups: '/api/v1/workflow-config/groups/',
     workflowSectors: '/api/v1/workflow-config/sectors/',

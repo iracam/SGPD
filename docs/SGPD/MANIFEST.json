@@ -1,6 +1,6 @@
 {
   "project": "SGPD / DesligaFlow",
-  "generated_on": "2026-07-30",
+  "generated_on": "2026-08-01",
   "files": [
     {
       "file": "AGENTS.md",
@@ -8,31 +8,31 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "bytes": 29779
+      "bytes": 33174
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 11604
+      "bytes": 56311
     },
     {
       "file": "CONTEXT.md",
-      "bytes": 6069
+      "bytes": 7952
     },
     {
       "file": "DATA_MODEL.md",
-      "bytes": 20727
+      "bytes": 22258
     },
     {
       "file": "DECISIONS.md",
-      "bytes": 74858
+      "bytes": 90760
     },
     {
       "file": "DECISIONS_INDEX.md",
-      "bytes": 2443
+      "bytes": 2765
     },
     {
       "file": "ENVIRONMENT.md",
-      "bytes": 8520
+      "bytes": 9748
     },
     {
       "file": "GLOSSARY.md",
@@ -56,19 +56,23 @@
     },
     {
       "file": "REQUIREMENTS.md",
-      "bytes": 26877
+      "bytes": 30472
     },
     {
       "file": "RISK_REGISTER.md",
-      "bytes": 15058
+      "bytes": 17156
     },
     {
       "file": "ROADMAP.md",
-      "bytes": 16327
+      "bytes": 18027
+    },
+    {
+      "file": "RUNBOOK.md",
+      "bytes": 10993
     },
     {
       "file": "SECURITY.md",
-      "bytes": 23524
+      "bytes": 25769
     },
     {
       "file": "VISION.md",
@@ -76,27 +80,27 @@
     },
     {
       "file": "WORKFLOWS.md",
-      "bytes": 8213
+      "bytes": 9992
     },
     {
       "file": "history/README.md",
       "bytes": 396
     },
     {
-      "file": "history/checkpoints/2026-07.md",
-      "bytes": 200707
+      "file": "sql/senior_reference_queries.sql",
+      "bytes": 5711
     },
     {
       "file": "history/checkpoints/2026-07-30-documentation-consolidation.md",
       "bytes": 975
     },
     {
-      "file": "history/completed-plans/MIGRATION_FRONTEND_SPA.md",
-      "bytes": 24633
+      "file": "history/checkpoints/2026-07.md",
+      "bytes": 200707
     },
     {
-      "file": "sql/senior_reference_queries.sql",
-      "bytes": 5711
+      "file": "history/completed-plans/MIGRATION_FRONTEND_SPA.md",
+      "bytes": 24633
     }
   ]
 }

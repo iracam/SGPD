@@ -121,6 +121,13 @@ export const FE_ROUTES: Routes = [
             title: 'Configurações | SGPD',
           },
           {
+            path: 'operacao',
+            canActivate: [superadminGuard],
+            loadComponent: () =>
+              import('./features/operacao/operacao').then((m) => m.OperacaoPage),
+            title: 'Operação | SGPD',
+          },
+          {
             path: 'configuracoes/email',
             canActivate: [superadminGuard],
             loadComponent: () =>

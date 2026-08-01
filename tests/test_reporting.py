@@ -5,20 +5,24 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from io import StringIO
 from typing import Any
 from unittest import mock
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.notifications.models import NotificationStatus
 from apps.offboarding.models import OffboardingProcess, ProcessSectorTask, ProcessStatus
 from apps.reporting.models import ExportDataset, ReportExport
 from apps.sectors.models import SectorResponsible
+from tests.test_notifications import build_notification
 from tests.test_offboarding_release import release, second_coordinator
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
@@ -584,3 +588,107 @@ def test_the_process_export_never_asks_oracle_to_group_by_a_lob(
         if "GROUP BY" in query["sql"].upper()
     ]
     assert not [sql for sql in agrupadas if "REASON" in sql or "NOTES" in sql]
+
+
+OPERATIONS_URL = "/api/v1/reporting/operations/"
+
+
+def superadmin(username: str = "super.operacao") -> User:
+    return User.objects.create_superuser(
+        username=username,
+        email=f"{username}@example.invalid",
+        password=PASSWORD,
+    )
+
+
+def test_the_probe_declares_the_queue_stalled_when_nobody_dispatches(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """R63: agendamento parado não quebra nada — e é exatamente esse o risco.
+
+    Sem sonda, a fila cresce em `PENDENTE`, o sistema segue respondendo e
+    ninguém descobre que os avisos pararam de sair.
+    """
+
+    task = started_task(actor, process)
+    # Enfileirada há duas horas e ninguém a despachou. A fila é imutável por
+    # fora dos services, então quem anda é o relógio.
+    mensagem = build_notification(task=task, recipient=actor)
+    with mock.patch("django.utils.timezone.now", return_value=timezone.now() - timedelta(hours=2)):
+        mensagem.save()
+
+    body = logged_client(superadmin()).get(OPERATIONS_URL).json()
+
+    # Duas pendentes: o início do processo já avisa o setor da tarefa nova.
+    assert body["queue"]["counts"][NotificationStatus.PENDING] == 2
+    assert body["queue"]["is_stalled"] is True
+    assert "agendamento provavelmente parou" in body["queue"]["verdict"]
+    assert body["queue"]["last_sent_at"] is None
+
+
+def test_the_probe_does_not_cry_for_a_message_just_queued(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    task = started_task(actor, process)
+    build_notification(task=task, recipient=actor).save()
+
+    body = logged_client(superadmin()).get(OPERATIONS_URL).json()
+
+    assert body["queue"]["is_stalled"] is False
+    assert "próximo despacho" in body["queue"]["verdict"]
+
+
+def test_the_probe_counts_storage_and_retention_without_purging(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """A retenção de 5 anos é contada, não executada: o expurgo é ato humano
+    autorizado (`SECURITY.md` §14)."""
+
+    started_task(actor, process)
+
+    body = logged_client(superadmin()).get(OPERATIONS_URL).json()
+
+    assert body["storage"]["evidence_count"] == 0
+    assert body["retention"]["retention_years"] == 5
+    assert body["retention"]["closed_processes"] == 0
+    assert body["retention"]["beyond_retention"] == 0
+
+
+def test_the_probe_is_exclusive_to_superadmin(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Diagnóstico do ambiente é operação técnica, não conferência do processo."""
+
+    assert logged_client(actor).get(OPERATIONS_URL).status_code == 403
+
+
+def test_the_probe_command_fails_loudly_when_the_queue_is_stalled(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Saída diferente de zero é o que faz o agendador reclamar sem tela."""
+
+    task = started_task(actor, process)
+    # Enfileirada há duas horas e ninguém a despachou. A fila é imutável por
+    # fora dos services, então quem anda é o relógio.
+    mensagem = build_notification(task=task, recipient=actor)
+    with mock.patch("django.utils.timezone.now", return_value=timezone.now() - timedelta(hours=2)):
+        mensagem.save()
+
+    saida = StringIO()
+    with pytest.raises(SystemExit) as parada:
+        call_command("sgpd_operations_check", stdout=saida)
+
+    assert parada.value.code == 1
+    assert "agendamento provavelmente parou" in saida.getvalue()
+
+    # Com tolerância maior que a espera, nada está parado e o modo silencioso
+    # não fala: agendador que reclama sempre deixa de ser lido.
+    saida_quieta = StringIO()
+    with mock.patch("apps.reporting.operations.STALE_QUEUE_MINUTES", 24 * 60):
+        call_command("sgpd_operations_check", "--quiet", stdout=saida_quieta)
+    assert saida_quieta.getvalue() == ""
