@@ -79,3 +79,6 @@ sqlnet.ora
 *~
 .DS_Store
 Thumbs.db
+
+# Logs do agendamento local (RUNBOOK.md §2)
+var/log/
