@@ -930,6 +930,13 @@ redundante, duas check constraints nomeadas e um índice; a verificação soment
 leitura confirmou 13 constraints `ENABLED`/`VALIDATED`, índice `VALID` e tabela
 vazia.
 
+A validação foi reexecutada por inteiro em 2026-08-01, depois dos commits de
+documentação e do agendamento, com a árvore de trabalho limpa: os mesmos 484
+testes backend e 119 frontend, Ruff, formatação (245 arquivos), Mypy nos mesmos
+219 arquivos, Django check, `makemigrations --check` sem alteração pendente e
+build Angular sem avisos. Nenhum número mudou — esses commits não tocam em
+código.
+
 ## Homologação da Fase 9 (2026-08-01)
 
 Exercida pela própria API contra o Oracle DEV, com a sessão de cada usuário
