@@ -117,6 +117,20 @@ describe('RelatoriosPage', () => {
     request.flush(relatorios({ period: { start: '2026-01-01', end: '2026-03-31' } }));
   });
 
+  it('exporta cada conjunto no período em vigor', () => {
+    carregar();
+
+    const links = Array.from(
+      fixture.nativeElement.querySelectorAll('a.acao') as NodeListOf<HTMLAnchorElement>,
+    ).map((element) => element.getAttribute('href'));
+    expect(links).toEqual([
+      '/api/v1/reporting/exports/processos.csv?start=2026-05-02&end=2026-07-31',
+      '/api/v1/reporting/exports/tarefas.csv?start=2026-05-02&end=2026-07-31',
+      '/api/v1/reporting/exports/pendencias.csv?start=2026-05-02&end=2026-07-31',
+    ]);
+    expect(fixture.nativeElement.textContent).toContain('não leva CPF');
+  });
+
   it('informa período sem fato em vez de mostrar tabela vazia', () => {
     carregar({
       process_cycle_time: { processes: 0, average_days: null, median_days: null },

@@ -165,6 +165,28 @@
     </div>
   </section>
 
+  <section class="grupo" aria-labelledby="titulo-exportacoes">
+    <header class="grupo__cabecalho">
+      <i class="pi pi-download" aria-hidden="true"></i>
+      <span>
+        <h2 class="grupo__titulo" id="titulo-exportacoes">Exportações</h2>
+        <small>
+          CSV do período em vigor, para planilha. Cada download fica na trilha, com
+          ator, conjunto, período e linhas.
+        </small>
+      </span>
+    </header>
+    <div class="exportacoes">
+      <a class="acao" [href]="exportacao('processos')">Processos</a>
+      <a class="acao" [href]="exportacao('tarefas')">Tarefas de setor</a>
+      <a class="acao" [href]="exportacao('pendencias')">Pendências e valores</a>
+    </div>
+    <p class="nota">
+      O arquivo não leva CPF, motivo do desligamento, justificativa da pretensão nem
+      parecer da decisão: esse texto se lê no sistema, onde o acesso é auditado.
+    </p>
+  </section>
+
   <section class="grupo" aria-labelledby="titulo-atrasos">
     <header class="grupo__cabecalho">
       <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>

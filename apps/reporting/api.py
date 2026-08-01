@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.http import HttpResponse
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -18,7 +19,9 @@ from rest_framework.views import APIView
 
 from apps.accounts.authorization import active_assignments, has_global_authority
 from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, User
+from config.api import api_error
 
+from .exports import ExportTooLarge, build_export
 from .indicators import (
     CoordinationIndicators,
     CriticalProcess,
@@ -27,11 +30,13 @@ from .indicators import (
     SectorIndicators,
     evaluate_dashboard,
 )
+from .models import ExportDataset
 from .reports import (
     AmountRow,
     CountRow,
     DurationRow,
     OverdueRow,
+    Period,
     Reports,
     build_reports,
 )
@@ -178,27 +183,69 @@ def reports_payload(reports: Reports) -> dict[str, Any]:
     }
 
 
-class ReportsView(APIView):
-    """Relatórios mínimos do RF-036, no recorte de período informado.
+def _require_process_coordinator(actor: User) -> None:
+    """Relatório é conferência do escopo do `DP`.
 
-    Aqui a negativa é explícita: relatório é conferência do escopo do `DP` e
-    atravessa todos os setores do processo, então quem só responde por um setor
-    não o alcança — a mesma régua da consolidação de valores e da fila de
+    Ele atravessa todos os setores do processo, então quem só responde por um
+    setor não o alcança — a mesma régua da consolidação de valores e da fila de
     notificações.
     """
+
+    if (
+        not has_global_authority(actor)
+        and not active_assignments(actor).filter(role__code=PEOPLE_DEPARTMENT_ROLE_CODE).exists()
+    ):
+        raise PermissionDenied("O ator não possui o papel DP vigente.")
+
+
+def _requested_period(request: Request) -> Period:
+    serializer = ReportQuerySerializer(data=request.query_params)
+    serializer.is_valid(raise_exception=True)
+    data = cast(dict[str, Any], serializer.validated_data)
+    return Period.resolve(data["start"], data["end"])
+
+
+class ReportsView(APIView):
+    """Relatórios mínimos do RF-036, no recorte de período informado."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
         actor = cast(User, request.user)
-        if (
-            not has_global_authority(actor)
-            and not active_assignments(actor)
-            .filter(role__code=PEOPLE_DEPARTMENT_ROLE_CODE)
-            .exists()
-        ):
-            raise PermissionDenied("O ator não possui o papel DP vigente.")
-        serializer = ReportQuerySerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        data = cast(dict[str, Any], serializer.validated_data)
-        return Response(reports_payload(build_reports(actor, start=data["start"], end=data["end"])))
+        _require_process_coordinator(actor)
+        period = _requested_period(request)
+        return Response(reports_payload(build_reports(actor, start=period.start, end=period.end)))
+
+
+class ExportView(APIView):
+    """Exportação CSV de um conjunto, no mesmo recorte dos relatórios.
+
+    O arquivo sai como anexo e o ato fica na trilha `SGPD_REPORT_EXPORT`, com
+    ator, conjunto, período, linhas e correlation ID: exportar leva dado
+    pessoal para fora do sistema e a LGPD exige auditoria de acesso
+    (`SECURITY.md` §6).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, dataset: str) -> HttpResponse:
+        actor = cast(User, request.user)
+        _require_process_coordinator(actor)
+        chosen = dataset.upper()
+        if chosen not in ExportDataset.values:
+            return api_error(
+                code="unknown_dataset",
+                message="Conjunto de exportação desconhecido.",
+                status_code=404,
+            )
+        period = _requested_period(request)
+        try:
+            export = build_export(actor, dataset=chosen, period=period)
+        except ExportTooLarge as exc:
+            # Recusa legível em vez de arquivo truncado: quem confere somaria o
+            # que não é o total e não teria como saber.
+            return api_error(code="export_too_large", message=str(exc), status_code=400)
+        response = HttpResponse(export.content, content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{export.filename}"'
+        response["X-Export-Rows"] = str(export.row_count)
+        return response

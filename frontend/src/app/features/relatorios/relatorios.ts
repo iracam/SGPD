@@ -6,6 +6,7 @@ import { MessageModule } from 'primeng/message';
 import { finalize } from 'rxjs';
 
 import { errorMessage } from '../../core/api/api-error';
+import { apiConfig } from '../../core/config/api.config';
 import { LinhaDuracao, LinhaValor, Relatorios } from './models/relatorios.models';
 import { RelatoriosService } from './relatorios.service';
 
@@ -55,6 +56,20 @@ export class RelatoriosPage {
         error: (error) =>
           this.erro.set(errorMessage(error, 'Não foi possível carregar os relatórios.')),
       });
+  }
+
+  /**
+   * Endereço do arquivo no período em vigor.
+   *
+   * A exportação é um `GET` autenticado pela mesma sessão: um link resolve, e
+   * quem recusa o recorte grande demais é a API, com mensagem legível.
+   */
+  protected exportacao(dataset: string): string {
+    const dados = this.relatorios();
+    const periodo = dados
+      ? `?start=${dados.period.start}&end=${dados.period.end}`
+      : '';
+    return `${apiConfig.routes.reportingExports}${dataset}.csv${periodo}`;
   }
 
   protected horas(linha: LinhaDuracao): string {

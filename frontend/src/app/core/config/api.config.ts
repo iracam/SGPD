@@ -24,6 +24,7 @@ export const apiConfig = {
     notifications: '/api/v1/notifications/',
     reportingDashboard: '/api/v1/reporting/dashboard/',
     reportingReports: '/api/v1/reporting/reports/',
+    reportingExports: '/api/v1/reporting/exports/',
     workflowTemplates: '/api/v1/workflow-config/templates/',
     workflowGroups: '/api/v1/workflow-config/groups/',
     workflowSectors: '/api/v1/workflow-config/sectors/',
