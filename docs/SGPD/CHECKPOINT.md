@@ -4,10 +4,9 @@
 
 - Projeto: SGPD / DesligaFlow
 - Ambiente: DEV único sobre Oracle 19c
-- Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7 e 8
+- Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7, 8 e **9 — implementada e
+  homologada no Oracle DEV em 2026-08-01**
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Fases estabilizadas também na 9: implementada e **homologada no Oracle DEV em
-  2026-08-01**
 - Próximo incremento: resolver os dois atos operacionais que não são código —
   instalar o agendamento das notificações (R63, já denunciado pela sonda) e
   validar backup/restauração com o DBA
