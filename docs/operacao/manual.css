@@ -1,0 +1,665 @@
+/*
+ * Aparência dos manuais operacionais do SGPD.
+ *
+ * Escrito para o papel primeiro: o PDF é a entrega, o HTML é a mesma coisa na
+ * tela. Só há consultas `min-width`, como manda a ADR-028. Nenhuma fonte ou
+ * imagem externa — o arquivo precisa abrir sem rede.
+ */
+
+:root {
+  --verde-escuro: #123d2b;
+  --verde: #1d6b4c;
+  --verde-claro: #e8f3ed;
+  --ambar: #a45a06;
+  --ambar-claro: #fdf3e3;
+  --vermelho: #9d2222;
+  --vermelho-claro: #fbeceb;
+  --azul: #1b4f8a;
+  --azul-claro: #ecf2fa;
+  --tinta: #16211d;
+  --tinta-suave: #55635e;
+  --linha: #cfd8d4;
+  --linha-forte: #9fb0aa;
+  --papel: #ffffff;
+  --superficie: #f6f8f7;
+
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.documento {
+  background: var(--papel);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+@media screen and (min-width: 48rem) {
+  .documento {
+    max-width: 52rem;
+    padding: 3rem 3.5rem 4rem;
+    margin: 2rem auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------- capa */
+
+.capa {
+  border-top: 6px solid var(--verde);
+  padding-top: 2rem;
+}
+
+.capa__sistema {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--verde);
+  margin: 0;
+}
+
+.capa__sistema span {
+  color: var(--tinta-suave);
+  font-weight: 500;
+}
+
+.capa__selo {
+  display: inline-block;
+  margin: 1.75rem 0 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 99px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capa__titulo {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0;
+  color: var(--verde-escuro);
+  letter-spacing: -0.02em;
+}
+
+.capa__subtitulo {
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+  margin: 0.85rem 0 0;
+  max-width: 34rem;
+}
+
+.capa__ficha {
+  margin: 2.5rem 0 0;
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 1.25rem 0;
+}
+
+@media (min-width: 34rem) {
+  .capa__ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 2rem;
+  }
+}
+
+.capa__ficha dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.capa__ficha dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+}
+
+.capa__rodape {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  max-width: 34rem;
+}
+
+/* ------------------------------------------------------------- sumário */
+
+.sumario {
+  margin-top: 3rem;
+}
+
+.sumario__titulo {
+  font-size: 1.35rem;
+  color: var(--verde-escuro);
+  border-bottom: 2px solid var(--verde);
+  padding-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.sumario__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sumario__lista a {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--linha);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.sumario__num {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ conteúdo */
+
+.conteudo h2 {
+  font-size: 1.55rem;
+  color: var(--verde-escuro);
+  letter-spacing: -0.01em;
+  margin: 3.5rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--verde);
+}
+
+.conteudo h3 {
+  font-size: 1.15rem;
+  color: var(--verde-escuro);
+  margin: 2.25rem 0 0.6rem;
+}
+
+.conteudo h4 {
+  font-size: 0.98rem;
+  color: var(--tinta);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conteudo p {
+  margin: 0.85rem 0;
+}
+
+.conteudo ul,
+.conteudo ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+
+.conteudo li {
+  margin: 0.35rem 0;
+}
+
+.conteudo li > ul,
+.conteudo li > ol {
+  margin: 0.35rem 0;
+}
+
+.conteudo a {
+  color: var(--azul);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--linha);
+  margin: 2.5rem 0;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.86em;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+
+pre {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--verde);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  font-size: 0.82em;
+}
+
+/* -------------------------------------------------------------- tabelas */
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--verde-escuro);
+  vertical-align: bottom;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--linha);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--superficie);
+}
+
+td code {
+  white-space: normal;
+  background: var(--verde-claro);
+  border-color: #bcd8ca;
+  color: var(--verde-escuro);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ destaques */
+
+.destaque {
+  margin: 1.35rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid var(--linha-forte);
+  background: var(--superficie);
+  border-radius: 0 6px 6px 0;
+}
+
+.destaque p {
+  margin: 0.4rem 0;
+}
+
+.destaque p:first-child {
+  margin-top: 0;
+}
+
+.destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.destaque--atencao {
+  border-left-color: var(--ambar);
+  background: var(--ambar-claro);
+}
+
+.destaque--proibido {
+  border-left-color: var(--vermelho);
+  background: var(--vermelho-claro);
+}
+
+.destaque--dica {
+  border-left-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.destaque--importante,
+.destaque--regra {
+  border-left-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+/* --------------------------------------------------------- fluxogramas */
+
+.fluxo {
+  margin: 1.75rem 0;
+  padding: 1.4rem 1rem 1.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+.fx-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+/* O espaçamento entre os elementos é o comprimento do conector: a haste
+   desenhada no ::after atravessa exatamente o `gap`. */
+.fx-corpo {
+  --salto: 1.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--salto);
+}
+
+.fx-no {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 7px;
+  background: var(--papel);
+  border: 1.5px solid var(--linha-forte);
+  text-align: center;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Conector para o próximo elemento: haste no ::after, ponta no ::before. */
+.fx-no::after,
+.fx-seta::after,
+.fx-nota::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: var(--salto);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+.fx-no::before,
+.fx-seta::before,
+.fx-nota::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--salto) - 0.55rem);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--linha-forte);
+}
+
+/* O último elemento não aponta para lugar nenhum. */
+.fx-corpo > :last-child::after,
+.fx-corpo > :last-child::before,
+.fx-corpo > :last-child .fx-no--ramo::after,
+.fx-corpo > :last-child .fx-no--ramo::before {
+  display: none;
+}
+
+/* Antes de uma seta rotulada ou de uma bifurcação, a haste continua mas a
+   ponta some: quem aponta é o elemento seguinte. */
+.fx-corpo > :has(+ .fx-seta)::before,
+.fx-corpo > :has(+ .fx-nota)::before,
+.fx-corpo > :has(+ .fx-ramos)::before {
+  display: none;
+}
+
+.fx-no--inicio {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--fim {
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--decisao {
+  background: var(--ambar-claro);
+  border-color: var(--ambar);
+  color: #5c3204;
+  font-weight: 600;
+}
+
+.fx-no--alerta {
+  background: var(--vermelho-claro);
+  border-color: var(--vermelho);
+  color: #6d1717;
+}
+
+.fx-no--ramo {
+  max-width: none;
+  font-size: 0.88em;
+  border-color: var(--linha);
+  flex: 1;
+}
+
+.fx-seta {
+  position: relative;
+}
+
+.fx-seta span {
+  display: inline-block;
+  font-size: 0.78em;
+  color: var(--tinta-suave);
+  background: var(--papel);
+  border: 1px dashed var(--linha-forte);
+  border-radius: 99px;
+  padding: 0.15rem 0.7rem;
+}
+
+.fx-nota {
+  position: relative;
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- bifurcações --- */
+
+.fx-ramos {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.9rem;
+  /* Abre espaço para a barra de distribuição e para a queda até cada ramo. */
+  padding-top: calc(var(--salto) + 0.6rem);
+}
+
+.fx-ramo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.fx-ramo__rotulo {
+  display: inline-block;
+  align-self: center;
+  margin-bottom: 0.45rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 99px;
+  background: var(--verde-escuro);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Queda da barra até o rótulo de cada ramo. */
+.fx-ramo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: calc(var(--salto) + 0.6rem);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+@media (min-width: 34rem) {
+  .fx-ramos {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Barra horizontal ligando os centros das colunas. `--ramos` vem do
+     gerador: com N ramos, o centro da primeira coluna fica em 50%/N. */
+  .fx-ramos::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% / var(--ramos, 2));
+    right: calc(50% / var(--ramos, 2));
+    height: 2px;
+    background: var(--linha-forte);
+  }
+}
+
+/* --------------------------------------------------------------- papel */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+
+  .documento {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .capa {
+    break-after: page;
+    padding-top: 1rem;
+  }
+
+  .sumario {
+    break-after: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2 {
+    break-before: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2:first-child {
+    break-before: avoid;
+  }
+
+  /* A régua que separa as seções no HTML é ruído no papel: como o `h2` já
+     começa página nova, ela sobra sozinha no alto da página anterior e ainda
+     faz nascer uma página em branco. */
+  hr:has(+ h2) {
+    display: none;
+  }
+
+  .quebra-pagina {
+    break-before: page;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .destaque,
+  .fx-no,
+  .fx-ramo,
+  pre,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* O fluxograma não pede `break-inside: avoid`: quando não cabe na página, o
+     navegador ignora a regra e empurra o bloco inteiro, deixando uma página em
+     branco atrás. Sem a regra ele quebra entre nós — pior que caber, melhor
+     que a página vazia. Os nós e os ramos seguem indivisíveis. */
+
+  /* No papel o fluxograma precisa caber inteiro em uma página: o `break-inside`
+     é ignorado quando o elemento não cabe, e um nó órfão na página seguinte é
+     pior do que alguns milímetros a menos de respiro. */
+  .fluxo {
+    padding: 1rem 0.9rem 1.1rem;
+  }
+
+  .fx-titulo {
+    margin-bottom: 0.9rem;
+  }
+
+  .fx-corpo {
+    --salto: 1.15rem;
+  }
+
+  .fx-no {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.84em;
+  }
+
+  .fx-ramos {
+    gap: 0.9rem;
+  }
+
+  .conteudo a {
+    color: var(--tinta);
+    text-decoration: none;
+  }
+}

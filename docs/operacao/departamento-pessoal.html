@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Manual do Departamento Pessoal — SGPD / DesligaFlow</title>
+<style>/*
+ * Aparência dos manuais operacionais do SGPD.
+ *
+ * Escrito para o papel primeiro: o PDF é a entrega, o HTML é a mesma coisa na
+ * tela. Só há consultas `min-width`, como manda a ADR-028. Nenhuma fonte ou
+ * imagem externa — o arquivo precisa abrir sem rede.
+ */
+
+:root {
+  --verde-escuro: #123d2b;
+  --verde: #1d6b4c;
+  --verde-claro: #e8f3ed;
+  --ambar: #a45a06;
+  --ambar-claro: #fdf3e3;
+  --vermelho: #9d2222;
+  --vermelho-claro: #fbeceb;
+  --azul: #1b4f8a;
+  --azul-claro: #ecf2fa;
+  --tinta: #16211d;
+  --tinta-suave: #55635e;
+  --linha: #cfd8d4;
+  --linha-forte: #9fb0aa;
+  --papel: #ffffff;
+  --superficie: #f6f8f7;
+
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.documento {
+  background: var(--papel);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+@media screen and (min-width: 48rem) {
+  .documento {
+    max-width: 52rem;
+    padding: 3rem 3.5rem 4rem;
+    margin: 2rem auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------- capa */
+
+.capa {
+  border-top: 6px solid var(--verde);
+  padding-top: 2rem;
+}
+
+.capa__sistema {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--verde);
+  margin: 0;
+}
+
+.capa__sistema span {
+  color: var(--tinta-suave);
+  font-weight: 500;
+}
+
+.capa__selo {
+  display: inline-block;
+  margin: 1.75rem 0 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 99px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capa__titulo {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0;
+  color: var(--verde-escuro);
+  letter-spacing: -0.02em;
+}
+
+.capa__subtitulo {
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+  margin: 0.85rem 0 0;
+  max-width: 34rem;
+}
+
+.capa__ficha {
+  margin: 2.5rem 0 0;
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 1.25rem 0;
+}
+
+@media (min-width: 34rem) {
+  .capa__ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 2rem;
+  }
+}
+
+.capa__ficha dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.capa__ficha dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+}
+
+.capa__rodape {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  max-width: 34rem;
+}
+
+/* ------------------------------------------------------------- sumário */
+
+.sumario {
+  margin-top: 3rem;
+}
+
+.sumario__titulo {
+  font-size: 1.35rem;
+  color: var(--verde-escuro);
+  border-bottom: 2px solid var(--verde);
+  padding-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.sumario__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sumario__lista a {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--linha);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.sumario__num {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ conteúdo */
+
+.conteudo h2 {
+  font-size: 1.55rem;
+  color: var(--verde-escuro);
+  letter-spacing: -0.01em;
+  margin: 3.5rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--verde);
+}
+
+.conteudo h3 {
+  font-size: 1.15rem;
+  color: var(--verde-escuro);
+  margin: 2.25rem 0 0.6rem;
+}
+
+.conteudo h4 {
+  font-size: 0.98rem;
+  color: var(--tinta);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conteudo p {
+  margin: 0.85rem 0;
+}
+
+.conteudo ul,
+.conteudo ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+
+.conteudo li {
+  margin: 0.35rem 0;
+}
+
+.conteudo li > ul,
+.conteudo li > ol {
+  margin: 0.35rem 0;
+}
+
+.conteudo a {
+  color: var(--azul);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--linha);
+  margin: 2.5rem 0;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.86em;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+
+pre {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--verde);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  font-size: 0.82em;
+}
+
+/* -------------------------------------------------------------- tabelas */
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--verde-escuro);
+  vertical-align: bottom;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--linha);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--superficie);
+}
+
+td code {
+  white-space: normal;
+  background: var(--verde-claro);
+  border-color: #bcd8ca;
+  color: var(--verde-escuro);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ destaques */
+
+.destaque {
+  margin: 1.35rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid var(--linha-forte);
+  background: var(--superficie);
+  border-radius: 0 6px 6px 0;
+}
+
+.destaque p {
+  margin: 0.4rem 0;
+}
+
+.destaque p:first-child {
+  margin-top: 0;
+}
+
+.destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.destaque--atencao {
+  border-left-color: var(--ambar);
+  background: var(--ambar-claro);
+}
+
+.destaque--proibido {
+  border-left-color: var(--vermelho);
+  background: var(--vermelho-claro);
+}
+
+.destaque--dica {
+  border-left-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.destaque--importante,
+.destaque--regra {
+  border-left-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+/* --------------------------------------------------------- fluxogramas */
+
+.fluxo {
+  margin: 1.75rem 0;
+  padding: 1.4rem 1rem 1.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+.fx-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+/* O espaçamento entre os elementos é o comprimento do conector: a haste
+   desenhada no ::after atravessa exatamente o `gap`. */
+.fx-corpo {
+  --salto: 1.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--salto);
+}
+
+.fx-no {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 7px;
+  background: var(--papel);
+  border: 1.5px solid var(--linha-forte);
+  text-align: center;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Conector para o próximo elemento: haste no ::after, ponta no ::before. */
+.fx-no::after,
+.fx-seta::after,
+.fx-nota::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: var(--salto);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+.fx-no::before,
+.fx-seta::before,
+.fx-nota::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--salto) - 0.55rem);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--linha-forte);
+}
+
+/* O último elemento não aponta para lugar nenhum. */
+.fx-corpo > :last-child::after,
+.fx-corpo > :last-child::before,
+.fx-corpo > :last-child .fx-no--ramo::after,
+.fx-corpo > :last-child .fx-no--ramo::before {
+  display: none;
+}
+
+/* Antes de uma seta rotulada ou de uma bifurcação, a haste continua mas a
+   ponta some: quem aponta é o elemento seguinte. */
+.fx-corpo > :has(+ .fx-seta)::before,
+.fx-corpo > :has(+ .fx-nota)::before,
+.fx-corpo > :has(+ .fx-ramos)::before {
+  display: none;
+}
+
+.fx-no--inicio {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--fim {
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--decisao {
+  background: var(--ambar-claro);
+  border-color: var(--ambar);
+  color: #5c3204;
+  font-weight: 600;
+}
+
+.fx-no--alerta {
+  background: var(--vermelho-claro);
+  border-color: var(--vermelho);
+  color: #6d1717;
+}
+
+.fx-no--ramo {
+  max-width: none;
+  font-size: 0.88em;
+  border-color: var(--linha);
+  flex: 1;
+}
+
+.fx-seta {
+  position: relative;
+}
+
+.fx-seta span {
+  display: inline-block;
+  font-size: 0.78em;
+  color: var(--tinta-suave);
+  background: var(--papel);
+  border: 1px dashed var(--linha-forte);
+  border-radius: 99px;
+  padding: 0.15rem 0.7rem;
+}
+
+.fx-nota {
+  position: relative;
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- bifurcações --- */
+
+.fx-ramos {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.9rem;
+  /* Abre espaço para a barra de distribuição e para a queda até cada ramo. */
+  padding-top: calc(var(--salto) + 0.6rem);
+}
+
+.fx-ramo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.fx-ramo__rotulo {
+  display: inline-block;
+  align-self: center;
+  margin-bottom: 0.45rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 99px;
+  background: var(--verde-escuro);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Queda da barra até o rótulo de cada ramo. */
+.fx-ramo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: calc(var(--salto) + 0.6rem);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+@media (min-width: 34rem) {
+  .fx-ramos {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Barra horizontal ligando os centros das colunas. `--ramos` vem do
+     gerador: com N ramos, o centro da primeira coluna fica em 50%/N. */
+  .fx-ramos::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% / var(--ramos, 2));
+    right: calc(50% / var(--ramos, 2));
+    height: 2px;
+    background: var(--linha-forte);
+  }
+}
+
+/* --------------------------------------------------------------- papel */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+
+  .documento {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .capa {
+    break-after: page;
+    padding-top: 1rem;
+  }
+
+  .sumario {
+    break-after: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2 {
+    break-before: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2:first-child {
+    break-before: avoid;
+  }
+
+  /* A régua que separa as seções no HTML é ruído no papel: como o `h2` já
+     começa página nova, ela sobra sozinha no alto da página anterior e ainda
+     faz nascer uma página em branco. */
+  hr:has(+ h2) {
+    display: none;
+  }
+
+  .quebra-pagina {
+    break-before: page;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .destaque,
+  .fx-no,
+  .fx-ramo,
+  pre,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* O fluxograma não pede `break-inside: avoid`: quando não cabe na página, o
+     navegador ignora a regra e empurra o bloco inteiro, deixando uma página em
+     branco atrás. Sem a regra ele quebra entre nós — pior que caber, melhor
+     que a página vazia. Os nós e os ramos seguem indivisíveis. */
+
+  /* No papel o fluxograma precisa caber inteiro em uma página: o `break-inside`
+     é ignorado quando o elemento não cabe, e um nó órfão na página seguinte é
+     pior do que alguns milímetros a menos de respiro. */
+  .fluxo {
+    padding: 1rem 0.9rem 1.1rem;
+  }
+
+  .fx-titulo {
+    margin-bottom: 0.9rem;
+  }
+
+  .fx-corpo {
+    --salto: 1.15rem;
+  }
+
+  .fx-no {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.84em;
+  }
+
+  .fx-ramos {
+    gap: 0.9rem;
+  }
+
+  .conteudo a {
+    color: var(--tinta);
+    text-decoration: none;
+  }
+}
+</style>
+</head>
+<body>
+<main class="documento">
+  <header class="capa">
+    <p class="capa__sistema">SGPD <span>DesligaFlow</span></p>
+    <p class="capa__selo">Manual operacional</p>
+    <h1 class="capa__titulo">Manual do Departamento Pessoal</h1>
+    <p class="capa__subtitulo">Conduzir o desligamento de ponta a ponta — abertura, acompanhamento, decisão de valores, liberação e encerramento.</p>
+    <dl class="capa__ficha">
+      <div><dt>Para quem é</dt><dd>Quem tem a atribuição DP no SGPD e coordena o processo demissional</dd></div>
+      <div><dt>Versão</dt><dd>1.0</dd></div>
+      <div><dt>Atualizado em</dt><dd>03/08/2026</dd></div>
+      <div><dt>Endereço do sistema</dt><dd>https://sgpd.bsabioenergia.com.br</dd></div>
+    </dl>
+    <p class="capa__rodape">
+      Este manual descreve o uso do sistema. Ele não substitui a política de
+      desligamento da empresa nem a orientação do Departamento Pessoal.
+    </p>
+  </header>
+
+  <nav class="sumario" aria-label="Sumário">
+    <h2 class="sumario__titulo">Sumário</h2>
+    <ol class="sumario__lista"><li><a href="#o-seu-papel-no-sistema"><span class="sumario__num">01</span><span>O seu papel no sistema</span></a></li><li><a href="#o-caminho-completo-do-processo"><span class="sumario__num">02</span><span>O caminho completo do processo</span></a></li><li><a href="#abrir-um-processo"><span class="sumario__num">03</span><span>Abrir um processo</span></a></li><li><a href="#o-rascunho-escolher-os-grupos"><span class="sumario__num">04</span><span>O rascunho: escolher os grupos</span></a></li><li><a href="#acompanhar-os-processos"><span class="sumario__num">05</span><span>Acompanhar os processos</span></a></li><li><a href="#decidir-sobre-valores"><span class="sumario__num">06</span><span>Decidir sobre valores</span></a></li><li><a href="#liberar-registrar-o-processamento-e-encerrar"><span class="sumario__num">07</span><span>Liberar, registrar o processamento e encerrar</span></a></li><li><a href="#relatorios"><span class="sumario__num">08</span><span>Relatórios</span></a></li><li><a href="#notificacoes"><span class="sumario__num">09</span><span>Notificações</span></a></li><li><a href="#duvidas-frequentes"><span class="sumario__num">10</span><span>Dúvidas frequentes</span></a></li><li><a href="#em-uma-pagina"><span class="sumario__num">11</span><span>Em uma página</span></a></li></ol>
+  </nav>
+
+  <article class="conteudo">
+<h2 id="o-seu-papel-no-sistema">O seu papel no sistema</h2>
+<p>Você é quem conduz o processo. O SGPD organiza o desligamento entre o Departamento Pessoal e as áreas: você abre o processo, escolhe quais setores precisam validar, acompanha o que cada um respondeu, decide sobre os valores que as áreas pediram, libera a rescisão e encerra o caso.</p>
+<p>Todos os atos importantes são registrados com o seu nome, a data e o motivo. Não existe alteração silenciosa: a trilha de auditoria é permanente e não pode ser apagada.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O SGPD <strong>não substitui o Senior</strong>. Ele não calcula rescisão, não aplica desconto, não movimenta o vínculo e não escreve nada nas tabelas do Senior. O Senior continua sendo a fonte oficial. O SGPD organiza a conferência que acontece <strong>antes</strong> da rescisão e guarda a prova de que ela foi feita.</p></blockquote>
+<h3 id="o-que-so-voce-pode-fazer">O que só você pode fazer</h3>
+<ul><li>Abrir um processo de desligamento e escolher os grupos de validação.</li><li>Iniciar o processo, o que gera as tarefas dos setores.</li><li><strong>Apurar</strong> e <strong>decidir</strong> os valores que as áreas informaram.</li><li><strong>Liberar</strong> o processo para rescisão.</li><li>Registrar que a rescisão foi processada e <strong>encerrar</strong> o processo.</li><li><strong>Cancelar</strong> um processo.</li></ul>
+<p>Reabrir um processo já liberado ou encerrado é ato exclusivo de SuperAdmin — nem mesmo quem liberou desfaz o próprio ato sozinho.</p>
+<h3 id="escopo-o-que-voce-enxerga">Escopo: o que você enxerga</h3>
+<p>A sua atribuição DP tem um escopo organizacional: pode ser <strong>global</strong>, de uma <strong>empresa</strong> ou de uma <strong>filial</strong>. Você só enxerga e movimenta processos dentro do seu escopo. Se um processo que você espera ver não aparece, quase sempre é disso que se trata.</p>
+<hr />
+<h2 id="o-caminho-completo-do-processo">O caminho completo do processo</h2>
+<figure class="fluxo"><figcaption class="fx-titulo">Da abertura até o processo ficar pronto para liberar</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">Você abre o processo escolhendo o colaborador — ele nasce <strong>Rascunho</strong></div><div class="fx-no fx-no--passo">O sistema copia os dados do colaborador do Senior (o <strong>snapshot</strong>) e sugere os grupos</div><div class="fx-no fx-no--passo">Você confirma ou ajusta os grupos e clica em <strong>Salvar seleção</strong></div><div class="fx-no fx-no--passo">Você clica em <strong>Iniciar processo e gerar tarefas</strong> — o processo passa a <strong>Iniciado</strong></div><div class="fx-seta"><span>cada setor recebe e-mail</span></div><div class="fx-no fx-no--passo">Os setores respondem os checklists, anexam evidências e registram pendências</div><div class="fx-no fx-no--decisao">Alguma área informou valor a cobrar?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Sim</span><div class="fx-no fx-no--ramo">Você <strong>apura</strong> e <strong>decide</strong> cada pretensão — aprovar, rejeitar ou abonar</div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Não</span><div class="fx-no fx-no--ramo">Siga o acompanhamento normal</div></div></div><div class="fx-no fx-no--fim">Sem impedimentos, o processo fica <strong>Pronto para análise do DP</strong></div></div></figure>
+<p>Daí em diante vem o <strong>ciclo formal</strong> — liberar, registrar o processamento da rescisão e encerrar. Ele tem um diagrama próprio na seção <em>Liberar, registrar o processamento e encerrar</em>.</p>
+<p>Em qualquer momento antes da liberação, o processo pode ser <strong>cancelado</strong> com justificativa. Cancelamento é terminal: não há volta.</p>
+<hr />
+<h2 id="abrir-um-processo">Abrir um processo</h2>
+<p>Vá em <strong>Processos</strong> e clique em <strong>Abrir processo</strong>, ou vá direto pelo menu. A tela tem duas partes: escolher o colaborador e preencher os dados da abertura.</p>
+<h3 id="escolher-o-colaborador">Escolher o colaborador</h3>
+<p>A busca é em cascata: cada passo depende do anterior, e os dados vêm do Senior em tempo real.</p>
+<ol><li><strong>Empresa</strong> — identificada pela razão social.</li><li><strong>Filial</strong> — só carrega depois que a empresa é escolhida.</li><li><strong>Tipo de colaborador</strong> — só carrega depois da filial.</li><li><strong>Colaborador</strong> — a lista final. Há um campo de busca por <strong>nome ou matrícula</strong> para não precisar rolar tudo.</li></ol>
+<p>Escolhido o colaborador, os dados dele aparecem para conferência. Confira o nome e a matrícula antes de seguir: é esse retrato que será congelado.</p>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Os dados são copiados na abertura e <strong>não se atualizam mais</strong>. Se o colaborador mudar de cargo ou centro de custo no Senior depois disso, o processo continua com o que valia no dia da abertura. É proposital: o processo precisa refletir a situação que motivou a conferência.</p></blockquote>
+<h3 id="preencher-a-abertura">Preencher a abertura</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Data prevista de desligamento</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">A data em que o desligamento deve ocorrer. É informativa para as áreas.</td></tr><tr><td style="text-align:left"><strong>Data limite</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Até quando todo o processo precisa estar concluído. <strong>Este campo influencia os prazos das tarefas</strong> — veja abaixo.</td></tr><tr><td style="text-align:left"><strong>Prioridade</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Campo de texto livre, até 50 caracteres. O sistema não interpreta o conteúdo: use o vocabulário combinado na sua equipe, como <code>Normal</code>, <code>Urgente</code> ou <code>Alta</code>. Padronize — o texto aparece nas listagens e nos relatórios.</td></tr><tr><td style="text-align:left"><strong>Motivo</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Até 2000 caracteres. O motivo do desligamento, no nível de detalhe que a empresa exige.</td></tr><tr><td style="text-align:left"><strong>Observações</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Até 4000 caracteres. Contexto adicional para quem for ler o processo depois.</td></tr></tbody></table></div>
+<p>Clique em <strong>Abrir processo</strong>. O sistema consulta o Senior mais uma vez, confere a sua autoridade, cria o processo, grava o snapshot e registra o evento — tudo em uma única operação. Se qualquer parte falhar, nada é gravado.</p>
+<h3 id="por-que-o-sistema-pode-recusar-a-abertura">Por que o sistema pode recusar a abertura</h3>
+<ul><li><strong>Já existe processo em aberto para esse colaborador.</strong> Não é permitido ter dois processos vivos para a mesma pessoa. Encerre ou cancele o anterior — o cancelamento libera o colaborador para um processo novo imediatamente.</li><li><strong>O colaborador não foi encontrado no Senior</strong> no instante da gravação.</li><li><strong>A sua atribuição DP não alcança a empresa ou filial</strong> do colaborador.</li></ul>
+<hr />
+<h2 id="o-rascunho-escolher-os-grupos">O rascunho: escolher os grupos</h2>
+<p>Um processo recém-aberto fica em <strong>Rascunho</strong>. Ele ainda não gerou tarefa nenhuma e ninguém foi avisado. Abra-o em <strong>Processos → Rascunhos</strong>.</p>
+<h3 id="a-sugestao-automatica">A sugestão automática</h3>
+<p>Se houver <strong>regras de aplicabilidade</strong> cadastradas que combinem com o snapshot do colaborador, a tela mostra um aviso com os grupos sugeridos e o nome da regra que sugeriu cada um. Os grupos vêm <strong>pré-marcados</strong>.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> A regra <strong>sugere, não aplica</strong>. Nada é selecionado de verdade até você clicar em <strong>Salvar seleção</strong>. A responsabilidade da escolha continua sendo sua: desmarque o que não se aplica e acrescente o que faltou.</p></blockquote>
+<p>Se não houver regra cadastrada, não há sugestão e você escolhe manualmente.</p>
+<h3 id="escolher-e-salvar">Escolher e salvar</h3>
+<p>No campo <strong>Grupos aplicáveis</strong>, marque os grupos. Só aparecem grupos que tenham <strong>versão publicada</strong> e que atendam ao escopo do processo. Clique em <strong>Salvar seleção</strong>.</p>
+<p>O bloco <strong>Setores que serão gerados</strong> mostra o resultado: cada setor que vai receber tarefa, com o template e a versão que serão usados, o SLA em horas e as marcas <strong>Obrigatório</strong> e <strong>Bloqueante</strong>.</p>
+<h3 id="iniciar-o-processo">Iniciar o processo</h3>
+<p>Clique em <strong>Iniciar processo e gerar tarefas</strong>. A partir daí não há mais volta para o rascunho: as tarefas são criadas, os checklists são congelados na versão vigente e os setores recebem e-mail.</p>
+<p>Se o botão estiver indisponível, o bloco <strong>O início está bloqueado</strong> lista o motivo:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Impedimento</th><th style="text-align:left">Como resolver</th></tr></thead><tbody><tr><td style="text-align:left">Nenhum setor foi resolvido</td><td style="text-align:left">Nenhum grupo selecionado, ou os grupos não têm setor aplicável ao escopo. Revise a seleção.</td></tr><tr><td style="text-align:left">Setor sem responsável vigente</td><td style="text-align:left">Algum setor obrigatório não tem ninguém respondendo por ele hoje. Cadastre ou renove o responsável em <strong>Setores</strong>.</td></tr><tr><td style="text-align:left">Templates diferentes para o mesmo setor</td><td style="text-align:left">Dois grupos selecionados mandam o mesmo setor usar templates diferentes. Escolha só um dos grupos, ou ajuste a configuração.</td></tr><tr><td style="text-align:left">A seleção foi alterada e não salva</td><td style="text-align:left">Clique em <strong>Salvar seleção</strong> antes de iniciar.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> Quando dois grupos mandam o <strong>mesmo</strong> setor com o <strong>mesmo</strong> template, o sistema consolida sozinho: obrigatoriedade e bloqueio somam (basta um dos dois exigir), e prevalece o <strong>menor</strong> prazo. Só templates diferentes é que travam.</p></blockquote>
+<h3 id="de-onde-vem-o-prazo-de-cada-tarefa">De onde vem o prazo de cada tarefa</h3>
+<p>O prazo é fixado no início e não se recalcula depois. Vale o que vier primeiro entre a <strong>data limite do processo</strong> e o <strong>momento do início mais o SLA resolvido</strong>.</p>
+<p>O SLA resolvido segue esta ordem de precedência — vale o primeiro que existir:</p>
+<ol><li>ajuste manual feito no rascunho;</li><li>SLA específico definido no grupo para aquele setor;</li><li>SLA padrão do template;</li><li>prazo padrão do setor.</li></ol>
+<hr />
+<h2 id="acompanhar-os-processos">Acompanhar os processos</h2>
+<p>A tela <strong>Processos</strong> é o centro do acompanhamento. Ela tem quatro cartões:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Cartão</th><th style="text-align:left">O que reúne</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Rascunhos</strong></td><td style="text-align:left">Abertos e ainda não iniciados. Não geraram tarefa nem aviso.</td></tr><tr><td style="text-align:left"><strong>Em Aberto</strong></td><td style="text-align:left">Iniciados com ao menos uma tarefa ainda não concluída.</td></tr><tr><td style="text-align:left"><strong>Concluídos</strong></td><td style="text-align:left">Todas as tarefas concluídas, ou processo já encerrado.</td></tr><tr><td style="text-align:left"><strong>Cancelados</strong></td><td style="text-align:left">Cancelados com justificativa. O histórico permanece inteiro.</td></tr></tbody></table></div>
+<p>Expandindo um processo, você vê as tarefas de cada setor com a situação de cada uma, além de dois atalhos:</p>
+<ul><li><strong>Conferir valores do processo</strong> — o consolidado das pretensões de cobrança.</li><li><strong>Conferir encerramento do processo</strong> — prontidão, atos formais e as ações de liberação, processamento, encerramento, cancelamento e reabertura.</li></ul>
+<h3 id="estado-formal-e-situacao-calculada-nao-confunda">Estado formal e situação calculada: não confunda</h3>
+<p>Esta é a distinção mais importante da tela de encerramento, e vale entendê-la bem.</p>
+<p>O <strong>estado formal</strong> é o que foi <strong>decidido por alguém</strong>. São seis valores, e cada um só muda por um ato humano explícito:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Estado formal</th><th style="text-align:left">Significa</th></tr></thead><tbody><tr><td style="text-align:left"><code>Rascunho</code></td><td style="text-align:left">Aberto, sem tarefas geradas.</td></tr><tr><td style="text-align:left"><code>Iniciado</code></td><td style="text-align:left">Tarefas criadas, setores trabalhando.</td></tr><tr><td style="text-align:left"><code>Liberado para rescisão</code></td><td style="text-align:left">Você autorizou o prosseguimento.</td></tr><tr><td style="text-align:left"><code>Rescisão processada</code></td><td style="text-align:left">Você declarou que a rescisão foi processada no Senior.</td></tr><tr><td style="text-align:left"><code>Encerrado</code></td><td style="text-align:left">Processo fechado.</td></tr><tr><td style="text-align:left"><code>Cancelado</code></td><td style="text-align:left">Processo cancelado com justificativa. Terminal.</td></tr></tbody></table></div>
+<p>A <strong>situação calculada</strong> é <strong>onde o trabalho está</strong> neste instante. Ela não é gravada em lugar nenhum: o sistema a recalcula toda vez que a tela é aberta.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Situação calculada</th><th style="text-align:left">Significa</th></tr></thead><tbody><tr><td style="text-align:left"><code>Rascunho</code></td><td style="text-align:left">Espelha o estado formal.</td></tr><tr><td style="text-align:left"><code>Em validação</code></td><td style="text-align:left">Há tarefas em andamento e nada de especial travando.</td></tr><tr><td style="text-align:left"><code>Com pendências</code></td><td style="text-align:left">Existe pendência aberta.</td></tr><tr><td style="text-align:left"><code>Aguardando regularização</code></td><td style="text-align:left">Alguma pendência está em regularização.</td></tr><tr><td style="text-align:left"><code>Aguardando decisão</code></td><td style="text-align:left">Existe pretensão de valor esperando a sua decisão.</td></tr><tr><td style="text-align:left"><code>Pronto para análise do DP</code></td><td style="text-align:left">Nenhum impedimento resta: dá para liberar.</td></tr><tr><td style="text-align:left"><code>Liberado para rescisão</code>, <code>Rescisão processada</code>, <code>Encerrado</code>, <code>Cancelado</code></td><td style="text-align:left">Espelham o estado formal, que já responde tudo.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Um processo pode estar formalmente <code>Iniciado</code> e calculadamente <code>Pronto para análise do DP</code>. Isso <strong>não</strong> quer dizer que ele foi liberado — quer dizer que já pode ser. A liberação continua sendo um clique seu.</p></blockquote>
+<hr />
+<h2 id="decidir-sobre-valores">Decidir sobre valores</h2>
+<p>Quando uma área informa uma pretensão de cobrança, ela vai para a sua mesa e você recebe um e-mail. As ações ficam dentro da pendência, em <strong>Minhas tarefas</strong>.</p>
+<blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> Informar um valor no SGPD <strong>não desconta nada de ninguém</strong>. A pretensão é um pedido de análise. Mesmo aprovada, o desconto só existe se for lançado no Senior, fora deste sistema. O campo <em>Processado no Senior</em> permanece vazio até que isso aconteça.</p></blockquote>
+<h3 id="as-duas-acoes-que-sao-suas">As duas ações que são suas</h3>
+<p><strong>Registrar apuração</strong> — você informa o <strong>Valor apurado</strong> e a <strong>Justificativa da apuração</strong>. É o valor que o DP entende como correto depois de analisar. Pode ser menor, igual ou maior que o informado pela área.</p>
+<p>Se a área discordar, ela pode <strong>contestar</strong>, e a pendência volta para você com o valor contestado registrado.</p>
+<p><strong>Registrar decisão</strong> — o ato final. Escolha o resultado, escreva o <strong>Parecer</strong> e confirme:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Decisão</th><th style="text-align:left">Efeito</th><th style="text-align:left">Quando usar</th></tr></thead><tbody><tr><td style="text-align:left"><code>Aprovada para cobrança</code></td><td style="text-align:left">Registra o <strong>Valor aprovado</strong>, que você informa. Exige o campo preenchido.</td><td style="text-align:left">A cobrança procede, no valor que você determinou.</td></tr><tr><td style="text-align:left"><code>Rejeitada</code></td><td style="text-align:left">Valor aprovado resolvido em <strong>zero</strong>. O campo de valor aprovado é recusado se preenchido.</td><td style="text-align:left">A cobrança não procede: o pedido não se sustenta.</td></tr><tr><td style="text-align:left"><code>Abonada</code></td><td style="text-align:left">Valor aprovado resolvido em <strong>zero</strong>. O campo de valor aprovado é recusado se preenchido.</td><td style="text-align:left">A cobrança procederia, mas a empresa decide perdoar.</td></tr></tbody></table></div>
+<p>A diferença entre <em>Rejeitada</em> e <em>Abonada</em> não muda o valor — muda o registro. Uma diz que não havia o que cobrar; a outra diz que havia e foi perdoado. O parecer explica.</p>
+<h3 id="a-regra-de-segregacao">A regra de segregação</h3>
+<p><strong>Quem informou o valor não pode decidir sobre ele.</strong> Se você mesmo registrou a pretensão, o sistema recusa a sua decisão com uma mensagem explícita: outro DP precisa decidir.</p>
+<p>A única exceção é o SuperAdmin, que decide sem barreira — e nesse caso o sistema marca a decisão como <strong>segregação rompida</strong>, com destaque na tela de conferência e registro permanente na trilha. É exceção auditada, não atalho.</p>
+<h3 id="conferir-os-valores-do-processo">Conferir os valores do processo</h3>
+<p>O atalho <strong>Conferir valores do processo</strong> abre uma tela somente de leitura com:</p>
+<ul><li>o <strong>total por moeda</strong> — valores em moedas diferentes nunca são somados juntos;</li><li>uma linha por pretensão, com o setor de origem, os cinco montantes e a situação;</li><li>a contagem das que <strong>ainda aguardam decisão</strong>;</li><li>uma seção <strong>Segregação rompida</strong>, quando houver decisão de SuperAdmin sobre valor que ele mesmo informou.</li></ul>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> O total por moeda soma <strong>o valor informado de todas as pretensões</strong>, inclusive as rejeitadas e as abonadas. Para saber o que de fato vira cobrança, leia a coluna do <strong>valor aprovado</strong>, não o total.</p></blockquote>
+<hr />
+<h2 id="liberar-registrar-o-processamento-e-encerrar">Liberar, registrar o processamento e encerrar</h2>
+<p>Tudo isso acontece na tela aberta pelo atalho <strong>Conferir encerramento do processo</strong>.</p>
+<figure class="fluxo"><figcaption class="fx-titulo">O ciclo formal, ato por ato</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">Processo <strong>Iniciado</strong>, com os setores trabalhando</div><div class="fx-no fx-no--passo">A <strong>prontidão</strong> é recalculada toda vez que a tela abre</div><div class="fx-no fx-no--decisao">Restou algum impedimento?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Sim</span><div class="fx-no fx-no--ramo">O botão de liberar fica indisponível e a lista mostra o que falta</div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Não</span><div class="fx-no fx-no--ramo">O botão de liberar fica disponível</div></div></div><div class="fx-no fx-no--passo"><strong>Liberar para rescisão</strong> — com observação opcional</div><div class="fx-seta"><span>a rescisão é processada no Senior, fora do SGPD</span></div><div class="fx-no fx-no--passo"><strong>Registrar processamento</strong> — número declarado e data</div><div class="fx-no fx-no--passo"><strong>Encerrar processo</strong> — exige que nenhuma pendência siga em curso</div><div class="fx-no fx-no--fim">Processo <strong>Encerrado</strong></div></div></figure>
+<h3 id="a-prontidao">A prontidão</h3>
+<p>O quadro de prontidão mostra quatro contagens — tarefas concluídas, tarefas em aberto, pendências bloqueantes e pretensões sem decisão — e duas listas.</p>
+<p><strong>Impedimentos</strong> travam a liberação. Cada linha diz exatamente o que falta:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Impedimento típico</th><th style="text-align:left">O que fazer</th></tr></thead><tbody><tr><td style="text-align:left">A tarefa obrigatória de <em>X</em> não foi concluída</td><td style="text-align:left">Cobre o setor. Se a tarefa for desnecessária neste caso, cancele o processo e abra outro com os grupos corretos.</td></tr><tr><td style="text-align:left">A pendência bloqueante <em>X</em> de <em>Y</em> não foi regularizada</td><td style="text-align:left">O setor precisa marcá-la como regularizada ou encerrada.</td></tr><tr><td style="text-align:left">A pendência <em>X</em> de <em>Y</em> aguarda a decisão sobre a pretensão</td><td style="text-align:left">É a sua decisão que falta. Vá a <strong>Minhas tarefas</strong> e decida.</td></tr><tr><td style="text-align:left">A pretensão de <em>X</em> em <em>Y</em> ainda não foi decidida</td><td style="text-align:left">Mesmo caso do anterior.</td></tr><tr><td style="text-align:left">O item obrigatório <em>X</em> de <em>Y</em> está sem resposta / sem evidência</td><td style="text-align:left">Um dado mudou depois que a tarefa foi concluída. Peça a reabertura da tarefa a um SuperAdmin.</td></tr><tr><td style="text-align:left">O processo não possui tarefas de setor</td><td style="text-align:left">Processo iniciado sem setor resolvido. Cancele e abra corretamente.</td></tr></tbody></table></div>
+<p><strong>Avisos</strong> não travam nada — são conferência. Aparecem, por exemplo, quando uma tarefa <strong>opcional</strong> segue em aberto ou quando existe pendência não bloqueante ainda aberta. Leia antes de liberar; a decisão de seguir é sua.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O que a tela mostrou não decide nada. Ao clicar em liberar, o sistema <strong>refaz</strong> a verificação. Se um setor registrou uma pendência bloqueante nos segundos em que você lia a página, a liberação é recusada — e está certo.</p></blockquote>
+<h3 id="registrar-o-processamento">Registrar o processamento</h3>
+<p>Disponível quando o processo está <code>Liberado para rescisão</code>.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">Regras</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Número declarado da rescisão</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Até 60 caracteres. É o número que identifica a rescisão no Senior.</td></tr><tr><td style="text-align:left"><strong>Data do processamento</strong></td><td style="text-align:left">Sim</td><td style="text-align:left"><strong>Não pode ser futura</strong> e <strong>não pode ser anterior à liberação</strong>.</td></tr><tr><td style="text-align:left"><strong>Observação</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Até 1000 caracteres.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Isto é uma <strong>declaração sua</strong>, feita por conferência humana. O SGPD não lê nem escreve a rescisão no Senior: ele registra que você conferiu e qual número você conferiu. Confira no Senior antes de declarar.</p></blockquote>
+<h3 id="encerrar">Encerrar</h3>
+<p>Disponível quando o processo está <code>Rescisão processada</code>. Exige que <strong>nenhuma pendência continue em curso</strong> — ou seja, nenhuma em <code>Aberta</code>, <code>Em regularização</code>, <code>Encaminhada para análise</code> ou <code>Contestada</code>. Pendências <code>Regularizada</code>, <code>Encerrada</code> ou já decididas não impedem.</p>
+<p>Se houver impedimento, a tela lista qual pendência e em que situação ela está.</p>
+<h3 id="cancelar">Cancelar</h3>
+<p>Disponível para processo em <code>Rascunho</code> ou <code>Iniciado</code>. Exige <strong>Motivo do cancelamento</strong> preenchido.</p>
+<p>O cancelamento cancela as tarefas ainda abertas, libera o colaborador para um processo novo e preserva todo o histórico — pendências, evidências, comentários e trilha continuam existindo.</p>
+<blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> Cancelamento é <strong>terminal</strong>. Um processo cancelado não volta. Para retomar o desligamento, abra um processo novo — os dois ficam registrados.</p></blockquote>
+<h3 id="reabrir">Reabrir</h3>
+<p>Só aparece para <strong>SuperAdmin</strong>, e apenas em processo <code>Liberado para rescisão</code>, <code>Rescisão processada</code> ou <code>Encerrado</code>.</p>
+<p>A reabertura exige <strong>Motivo</strong>, desfaz as marcas formais, registra o estado anterior inteiro na trilha e permite escolher quais tarefas concluídas voltam para análise do setor. Sem nenhuma marcada, corrige apenas a marca formal sem devolver trabalho a ninguém.</p>
+<p>A reabertura é recusada se, nesse meio-tempo, outro processo já tiver sido aberto para o mesmo colaborador.</p>
+<hr />
+<h2 id="relatorios">Relatórios</h2>
+<p>O menu <strong>Relatórios</strong> responde por período: escolha a data inicial e a final. Todo número é calculado na hora da consulta — não há contador guardado que possa envelhecer.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Bloco</th><th style="text-align:left">O que mostra</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Tempo médio</strong></td><td style="text-align:left">Duração média do ciclo, o mesmo tempo aberto por setor, processos liberados por mês e distribuição por empresa.</td></tr><tr><td style="text-align:left"><strong>Pendências e valores</strong></td><td style="text-align:left">Pendências agrupadas por categoria; total informado e total aprovado.</td></tr><tr><td style="text-align:left"><strong>Atrasos</strong></td><td style="text-align:left">Processos vencidos e os setores que mais atrasam.</td></tr><tr><td style="text-align:left"><strong>Exportações</strong></td><td style="text-align:left">Histórico de quem exportou o quê e quando.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> O bloco de atrasos é uma <strong>fotografia do instante da consulta</strong>, não um recorte do período. Ele responde &quot;o que está atrasado agora&quot;, não &quot;o que atrasou naquele mês&quot;.</p></blockquote>
+<h3 id="exportar">Exportar</h3>
+<p>A exportação sai em <strong>CSV</strong> e cobre três conjuntos: <code>Processos</code>, <code>Tarefas de setor</code> e <code>Pendências e valores</code>. Toda exportação é registrada de forma permanente com o seu nome, o conjunto e o momento — o arquivo sai do sistema levando dados pessoais, e a empresa precisa saber quem o levou.</p>
+<p>Trate o arquivo exportado com o mesmo cuidado do sistema: ele não tem login.</p>
+<hr />
+<h2 id="notificacoes">Notificações</h2>
+<p>O SGPD avisa por e-mail e guarda a fila em <strong>Notificações</strong>. Nada é enviado durante a sua navegação: os avisos entram em uma fila e um serviço agendado os despacha.</p>
+<h3 id="os-avisos-automaticos-de-prazo">Os avisos automáticos de prazo</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Aviso</th><th style="text-align:left">Quando dispara</th><th style="text-align:left">Quem recebe</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Tarefa a vencer</strong></td><td style="text-align:left">48 h antes do prazo</td><td style="text-align:left">responsáveis do setor</td></tr><tr><td style="text-align:left"><strong>Tarefa próxima do vencimento</strong></td><td style="text-align:left">24 h antes</td><td style="text-align:left">responsáveis do setor</td></tr><tr><td style="text-align:left"><strong>Tarefa vencida</strong></td><td style="text-align:left">no vencimento</td><td style="text-align:left">responsáveis do setor <strong>e você</strong></td></tr><tr><td style="text-align:left"><strong>Tarefa vencida em nível crítico</strong></td><td style="text-align:left">48 h após o vencimento</td><td style="text-align:left">os anteriores mais o setor de escalada</td></tr><tr><td style="text-align:left"><strong>Processo próximo do limite</strong></td><td style="text-align:left">72 h antes da data limite, com tarefa em aberto</td><td style="text-align:left"><strong>você</strong></td></tr></tbody></table></div>
+<p>Há ainda avisos ligados a fatos: tarefa atribuída ao setor, pendência bloqueante registrada, valor aguardando decisão, valor decidido, processo cancelado e processo reaberto.</p>
+<h3 id="o-painel-da-fila">O painel da fila</h3>
+<p>A tela mostra o resumo por situação — <code>Pendente</code>, <code>Em envio</code>, <code>Enviada</code>, <code>Falha</code>, <code>Cancelada</code> — e permite abrir cada mensagem para ver o erro da última tentativa e o corpo enviado.</p>
+<p>Mensagens em <strong>Falha</strong> podem ser reprocessadas pelo botão correspondente. Mensagens já entregues não podem: reenviar duplicaria o e-mail.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O e-mail <strong>nunca</strong> carrega nome do colaborador, CPF, valor ou parecer. O corpo diz o que fazer e onde; o dado fica no sistema, protegido por login. É exigência de proteção de dados.</p><p>A entrega é <em>ao menos uma vez</em>: em caso de falha na confirmação, o aviso pode chegar duplicado. Duplicar aviso é aceitável; perder aviso não é.</p></blockquote>
+<h3 id="quando-ninguem-e-avisado">Quando ninguém é avisado</h3>
+<p>Se um setor estiver <strong>sem responsável vigente</strong>, ou se um processo estiver <strong>sem DP no escopo</strong>, o marco de prazo é contado mas o aviso não sai — e ninguém é avisado disso automaticamente. Vale conferir periodicamente se os setores ativos têm responsável com vínculo válido.</p>
+<p>Se a fila parar de andar (mensagens acumulando em <code>Pendente</code>), acione o responsável técnico: o serviço agendado de despacho pode ter parado.</p>
+<hr />
+<h2 id="duvidas-frequentes">Dúvidas frequentes</h2>
+<p><strong>Abri o processo com a data limite errada.</strong> Cancele o processo — se ainda estiver em rascunho, nada foi gerado — e abra outro. Não há edição da data limite depois da abertura.</p>
+<p><strong>Selecionei o grupo errado e já iniciei.</strong> As tarefas já foram criadas e os setores já foram avisados. Cancele o processo com justificativa e abra outro com os grupos corretos. O cancelamento libera o colaborador imediatamente.</p>
+<p><strong>Um setor concluiu a tarefa errado.</strong> Só um SuperAdmin reabre tarefa concluída, pela reabertura do processo — e isso exige que o processo já esteja liberado, processado ou encerrado. Se o processo ainda estiver <code>Iniciado</code>, a alternativa é registrar o ocorrido e tratar por pendência.</p>
+<p><strong>A prontidão diz que falta evidência em uma tarefa que já foi concluída.</strong> Isso indica que algo mudou depois da conclusão. É a &quot;inconsistência crítica&quot;: peça a reabertura ao SuperAdmin para o setor corrigir.</p>
+<p><strong>Preciso cobrar um valor mas o setor não tem a opção.</strong> O setor precisa estar configurado com <strong>Permite lançar valores</strong>. Ajuste em <strong>Setores</strong> — a mudança vale para as pendências criadas dali em diante.</p>
+<p><strong>Encerrei e percebi um erro.</strong> Só SuperAdmin reabre. A reabertura registra o estado anterior inteiro e exige motivo.</p>
+<p><strong>Um processo sumiu da lista.</strong> Confira o cartão certo: ao concluir a última tarefa, o processo sai de <strong>Em Aberto</strong> e vai para <strong>Concluídos</strong>. Cancelados têm cartão próprio. E confira o seu escopo.</p>
+<hr />
+<h2 id="em-uma-pagina">Em uma página</h2>
+<ol><li><strong>Processos → Abrir processo</strong>. Escolha empresa, filial, tipo e colaborador.</li><li>Preencha data prevista, data limite, prioridade e motivo. <strong>Abrir processo</strong>.</li><li>No rascunho, confirme os grupos sugeridos e clique em <strong>Salvar seleção</strong>.</li><li>Confira os setores resolvidos e clique em <strong>Iniciar processo e gerar tarefas</strong>.</li><li>Acompanhe pelo cartão <strong>Em Aberto</strong>. Cobre os atrasados.</li><li>Decida as pretensões de valor: <strong>apurar</strong> e depois <strong>decidir</strong>. Lembre que quem informou não decide.</li><li>Abra <strong>Conferir encerramento do processo</strong> e leia os impedimentos.</li><li>Sem impedimento, <strong>Liberar para rescisão</strong>.</li><li>Processe a rescisão no Senior e volte para <strong>Registrar processamento</strong> com número e data.</li><li><strong>Encerrar processo</strong> quando nenhuma pendência seguir em curso.</li></ol>
+  </article>
+</main>
+</body>
+</html>

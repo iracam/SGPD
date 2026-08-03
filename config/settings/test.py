@@ -23,6 +23,13 @@ EMAIL_HOST_PASSWORD = ""
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = "sgpd@example.invalid"
 SGPD_BASE_URL = ""
+# Transporte, admin e contagem de proxies também são fixados aqui: no host
+# publicado o `.env` liga os cookies `Secure`, desliga o admin e declara um
+# proxy à frente, e a suíte não pode depender de qual máquina a executa.
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+ADMIN_SITE_ENABLED = True
+REST_FRAMEWORK = {**REST_FRAMEWORK, "NUM_PROXIES": 0}  # noqa: F405
 STORAGES["staticfiles"] = {  # noqa: F405
     "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
 }

@@ -6,13 +6,14 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { finalize, forkJoin } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { errorMessage } from '../../core/api/api-error';
 import { ProcessoResumo, TarefaProcesso } from './models/processos.models';
 import { ProcessosService } from './processos.service';
 
 @Component({
   selector: 'app-processos-page',
-  imports: [DatePipe, RouterLink, ButtonModule, MessageModule],
+  imports: [DatePipe, RouterLink, ButtonModule, MessageModule, AjudaLink],
   templateUrl: './processos.html',
   styleUrl: './processos.scss',
 })

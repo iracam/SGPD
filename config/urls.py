@@ -1,12 +1,12 @@
 """Root URL configuration for SGPD."""
 
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
 
-from apps.core.views import spa
+from apps.core.views import manual, spa
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
     path("api/v1/auth/", include("apps.accounts.api_urls")),
     path("api/v1/accounts/", include("apps.accounts.api_accounts_urls")),
     path("api/v1/evidence/", include("apps.evidence.urls")),
@@ -26,12 +26,20 @@ urlpatterns = [
         include("apps.integrations.senior.urls"),
     ),
     path("health/", include("apps.core.urls")),
+    # Manuais operacionais abertos pela ajuda das telas, em aba nova. Não são
+    # rota da SPA: o conteúdo é o HTML gerado em `docs/operacao/`.
+    path("ajuda/<slug:slug>/", manual, name="manual"),
     # Catch-all da SPA. Precisa vir por último e excluir os prefixos servidos
     # pelo backend: sem a exclusão, uma rota inexistente sob /api/ devolveria o
     # HTML da SPA com 200 em vez de 404.
     re_path(
-        r"^(?!api/|admin/|health/|static/).*$",
+        r"^(?!api/|admin/|health/|static/|ajuda/).*$",
         spa,
         name="spa",
     ),
 ]
+
+# Desligado, `admin/` continua fora do catch-all acima e responde 404 em vez de
+# devolver o HTML da SPA.
+if settings.ADMIN_SITE_ENABLED:
+    urlpatterns.insert(0, path("admin/", admin.site.urls))

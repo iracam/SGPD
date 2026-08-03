@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Manual do Responsável de Área — SGPD / DesligaFlow</title>
+<style>/*
+ * Aparência dos manuais operacionais do SGPD.
+ *
+ * Escrito para o papel primeiro: o PDF é a entrega, o HTML é a mesma coisa na
+ * tela. Só há consultas `min-width`, como manda a ADR-028. Nenhuma fonte ou
+ * imagem externa — o arquivo precisa abrir sem rede.
+ */
+
+:root {
+  --verde-escuro: #123d2b;
+  --verde: #1d6b4c;
+  --verde-claro: #e8f3ed;
+  --ambar: #a45a06;
+  --ambar-claro: #fdf3e3;
+  --vermelho: #9d2222;
+  --vermelho-claro: #fbeceb;
+  --azul: #1b4f8a;
+  --azul-claro: #ecf2fa;
+  --tinta: #16211d;
+  --tinta-suave: #55635e;
+  --linha: #cfd8d4;
+  --linha-forte: #9fb0aa;
+  --papel: #ffffff;
+  --superficie: #f6f8f7;
+
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.documento {
+  background: var(--papel);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+@media screen and (min-width: 48rem) {
+  .documento {
+    max-width: 52rem;
+    padding: 3rem 3.5rem 4rem;
+    margin: 2rem auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------- capa */
+
+.capa {
+  border-top: 6px solid var(--verde);
+  padding-top: 2rem;
+}
+
+.capa__sistema {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--verde);
+  margin: 0;
+}
+
+.capa__sistema span {
+  color: var(--tinta-suave);
+  font-weight: 500;
+}
+
+.capa__selo {
+  display: inline-block;
+  margin: 1.75rem 0 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 99px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capa__titulo {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0;
+  color: var(--verde-escuro);
+  letter-spacing: -0.02em;
+}
+
+.capa__subtitulo {
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+  margin: 0.85rem 0 0;
+  max-width: 34rem;
+}
+
+.capa__ficha {
+  margin: 2.5rem 0 0;
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 1.25rem 0;
+}
+
+@media (min-width: 34rem) {
+  .capa__ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 2rem;
+  }
+}
+
+.capa__ficha dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.capa__ficha dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+}
+
+.capa__rodape {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  max-width: 34rem;
+}
+
+/* ------------------------------------------------------------- sumário */
+
+.sumario {
+  margin-top: 3rem;
+}
+
+.sumario__titulo {
+  font-size: 1.35rem;
+  color: var(--verde-escuro);
+  border-bottom: 2px solid var(--verde);
+  padding-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.sumario__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sumario__lista a {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--linha);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.sumario__num {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ conteúdo */
+
+.conteudo h2 {
+  font-size: 1.55rem;
+  color: var(--verde-escuro);
+  letter-spacing: -0.01em;
+  margin: 3.5rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--verde);
+}
+
+.conteudo h3 {
+  font-size: 1.15rem;
+  color: var(--verde-escuro);
+  margin: 2.25rem 0 0.6rem;
+}
+
+.conteudo h4 {
+  font-size: 0.98rem;
+  color: var(--tinta);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conteudo p {
+  margin: 0.85rem 0;
+}
+
+.conteudo ul,
+.conteudo ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+
+.conteudo li {
+  margin: 0.35rem 0;
+}
+
+.conteudo li > ul,
+.conteudo li > ol {
+  margin: 0.35rem 0;
+}
+
+.conteudo a {
+  color: var(--azul);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--linha);
+  margin: 2.5rem 0;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.86em;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+
+pre {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--verde);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  font-size: 0.82em;
+}
+
+/* -------------------------------------------------------------- tabelas */
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--verde-escuro);
+  vertical-align: bottom;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--linha);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--superficie);
+}
+
+td code {
+  white-space: normal;
+  background: var(--verde-claro);
+  border-color: #bcd8ca;
+  color: var(--verde-escuro);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ destaques */
+
+.destaque {
+  margin: 1.35rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid var(--linha-forte);
+  background: var(--superficie);
+  border-radius: 0 6px 6px 0;
+}
+
+.destaque p {
+  margin: 0.4rem 0;
+}
+
+.destaque p:first-child {
+  margin-top: 0;
+}
+
+.destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.destaque--atencao {
+  border-left-color: var(--ambar);
+  background: var(--ambar-claro);
+}
+
+.destaque--proibido {
+  border-left-color: var(--vermelho);
+  background: var(--vermelho-claro);
+}
+
+.destaque--dica {
+  border-left-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.destaque--importante,
+.destaque--regra {
+  border-left-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+/* --------------------------------------------------------- fluxogramas */
+
+.fluxo {
+  margin: 1.75rem 0;
+  padding: 1.4rem 1rem 1.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+.fx-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+/* O espaçamento entre os elementos é o comprimento do conector: a haste
+   desenhada no ::after atravessa exatamente o `gap`. */
+.fx-corpo {
+  --salto: 1.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--salto);
+}
+
+.fx-no {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 7px;
+  background: var(--papel);
+  border: 1.5px solid var(--linha-forte);
+  text-align: center;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Conector para o próximo elemento: haste no ::after, ponta no ::before. */
+.fx-no::after,
+.fx-seta::after,
+.fx-nota::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: var(--salto);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+.fx-no::before,
+.fx-seta::before,
+.fx-nota::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--salto) - 0.55rem);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--linha-forte);
+}
+
+/* O último elemento não aponta para lugar nenhum. */
+.fx-corpo > :last-child::after,
+.fx-corpo > :last-child::before,
+.fx-corpo > :last-child .fx-no--ramo::after,
+.fx-corpo > :last-child .fx-no--ramo::before {
+  display: none;
+}
+
+/* Antes de uma seta rotulada ou de uma bifurcação, a haste continua mas a
+   ponta some: quem aponta é o elemento seguinte. */
+.fx-corpo > :has(+ .fx-seta)::before,
+.fx-corpo > :has(+ .fx-nota)::before,
+.fx-corpo > :has(+ .fx-ramos)::before {
+  display: none;
+}
+
+.fx-no--inicio {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--fim {
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--decisao {
+  background: var(--ambar-claro);
+  border-color: var(--ambar);
+  color: #5c3204;
+  font-weight: 600;
+}
+
+.fx-no--alerta {
+  background: var(--vermelho-claro);
+  border-color: var(--vermelho);
+  color: #6d1717;
+}
+
+.fx-no--ramo {
+  max-width: none;
+  font-size: 0.88em;
+  border-color: var(--linha);
+  flex: 1;
+}
+
+.fx-seta {
+  position: relative;
+}
+
+.fx-seta span {
+  display: inline-block;
+  font-size: 0.78em;
+  color: var(--tinta-suave);
+  background: var(--papel);
+  border: 1px dashed var(--linha-forte);
+  border-radius: 99px;
+  padding: 0.15rem 0.7rem;
+}
+
+.fx-nota {
+  position: relative;
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- bifurcações --- */
+
+.fx-ramos {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.9rem;
+  /* Abre espaço para a barra de distribuição e para a queda até cada ramo. */
+  padding-top: calc(var(--salto) + 0.6rem);
+}
+
+.fx-ramo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.fx-ramo__rotulo {
+  display: inline-block;
+  align-self: center;
+  margin-bottom: 0.45rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 99px;
+  background: var(--verde-escuro);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Queda da barra até o rótulo de cada ramo. */
+.fx-ramo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: calc(var(--salto) + 0.6rem);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+@media (min-width: 34rem) {
+  .fx-ramos {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Barra horizontal ligando os centros das colunas. `--ramos` vem do
+     gerador: com N ramos, o centro da primeira coluna fica em 50%/N. */
+  .fx-ramos::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% / var(--ramos, 2));
+    right: calc(50% / var(--ramos, 2));
+    height: 2px;
+    background: var(--linha-forte);
+  }
+}
+
+/* --------------------------------------------------------------- papel */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+
+  .documento {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .capa {
+    break-after: page;
+    padding-top: 1rem;
+  }
+
+  .sumario {
+    break-after: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2 {
+    break-before: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2:first-child {
+    break-before: avoid;
+  }
+
+  /* A régua que separa as seções no HTML é ruído no papel: como o `h2` já
+     começa página nova, ela sobra sozinha no alto da página anterior e ainda
+     faz nascer uma página em branco. */
+  hr:has(+ h2) {
+    display: none;
+  }
+
+  .quebra-pagina {
+    break-before: page;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .destaque,
+  .fx-no,
+  .fx-ramo,
+  pre,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* O fluxograma não pede `break-inside: avoid`: quando não cabe na página, o
+     navegador ignora a regra e empurra o bloco inteiro, deixando uma página em
+     branco atrás. Sem a regra ele quebra entre nós — pior que caber, melhor
+     que a página vazia. Os nós e os ramos seguem indivisíveis. */
+
+  /* No papel o fluxograma precisa caber inteiro em uma página: o `break-inside`
+     é ignorado quando o elemento não cabe, e um nó órfão na página seguinte é
+     pior do que alguns milímetros a menos de respiro. */
+  .fluxo {
+    padding: 1rem 0.9rem 1.1rem;
+  }
+
+  .fx-titulo {
+    margin-bottom: 0.9rem;
+  }
+
+  .fx-corpo {
+    --salto: 1.15rem;
+  }
+
+  .fx-no {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.84em;
+  }
+
+  .fx-ramos {
+    gap: 0.9rem;
+  }
+
+  .conteudo a {
+    color: var(--tinta);
+    text-decoration: none;
+  }
+}
+</style>
+</head>
+<body>
+<main class="documento">
+  <header class="capa">
+    <p class="capa__sistema">SGPD <span>DesligaFlow</span></p>
+    <p class="capa__selo">Manual operacional</p>
+    <h1 class="capa__titulo">Manual do Responsável de Área</h1>
+    <p class="capa__subtitulo">Como validar a saída de um colaborador pelo SGPD — checklist, evidências, pendências e valores.</p>
+    <dl class="capa__ficha">
+      <div><dt>Para quem é</dt><dd>Quem responde por um setor de validação (TI, Financeiro, Almoxarifado, Segurança do Trabalho e demais áreas)</dd></div>
+      <div><dt>Versão</dt><dd>1.0</dd></div>
+      <div><dt>Atualizado em</dt><dd>03/08/2026</dd></div>
+      <div><dt>Endereço do sistema</dt><dd>https://sgpd.bsabioenergia.com.br</dd></div>
+    </dl>
+    <p class="capa__rodape">
+      Este manual descreve o uso do sistema. Ele não substitui a política de
+      desligamento da empresa nem a orientação do Departamento Pessoal.
+    </p>
+  </header>
+
+  <nav class="sumario" aria-label="Sumário">
+    <h2 class="sumario__titulo">Sumário</h2>
+    <ol class="sumario__lista"><li><a href="#o-que-o-sgpd-faz-e-o-que-ele-nao-faz"><span class="sumario__num">01</span><span>O que o SGPD faz e o que ele não faz</span></a></li><li><a href="#entrar-no-sistema"><span class="sumario__num">02</span><span>Entrar no sistema</span></a></li><li><a href="#o-caminho-completo-do-comeco-ao-fim"><span class="sumario__num">03</span><span>O caminho completo, do começo ao fim</span></a></li><li><a href="#a-tela-minhas-tarefas"><span class="sumario__num">04</span><span>A tela Minhas tarefas</span></a></li><li><a href="#responder-o-checklist"><span class="sumario__num">05</span><span>Responder o checklist</span></a></li><li><a href="#anexar-evidencias"><span class="sumario__num">06</span><span>Anexar evidências</span></a></li><li><a href="#registrar-uma-pendencia"><span class="sumario__num">07</span><span>Registrar uma pendência</span></a></li><li><a href="#o-ciclo-de-vida-de-uma-pendencia"><span class="sumario__num">08</span><span>O ciclo de vida de uma pendência</span></a></li><li><a href="#valores-quando-o-seu-setor-pode-cobrar-algo"><span class="sumario__num">09</span><span>Valores: quando o seu setor pode cobrar algo</span></a></li><li><a href="#concluir-a-tarefa"><span class="sumario__num">10</span><span>Concluir a tarefa</span></a></li><li><a href="#os-e-mails-que-voce-recebe"><span class="sumario__num">11</span><span>Os e-mails que você recebe</span></a></li><li><a href="#duvidas-frequentes"><span class="sumario__num">12</span><span>Dúvidas frequentes</span></a></li><li><a href="#em-uma-pagina"><span class="sumario__num">13</span><span>Em uma página</span></a></li></ol>
+  </nav>
+
+  <article class="conteudo">
+<h2 id="o-que-o-sgpd-faz-e-o-que-ele-nao-faz">O que o SGPD faz e o que ele não faz</h2>
+<p>O SGPD (também chamado <strong>DesligaFlow</strong>) organiza o que cada área precisa verificar quando um colaborador é desligado. Quando o Departamento Pessoal abre um processo de desligamento, o sistema cria uma <strong>tarefa</strong> para cada setor envolvido. Você responde a tarefa do seu setor: confere o que precisa ser conferido, anexa comprovantes e registra o que ficou pendente.</p>
+<p>Enquanto a sua tarefa não estiver concluída, o desligamento não é liberado. É esse o papel do sistema: garantir que nenhuma área seja esquecida e que fique registrado quem verificou o quê, quando e com qual comprovante.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O SGPD não calcula rescisão, não aplica desconto em folha e não altera nada no Senior. Ele registra o que as áreas apuraram. O Senior continua sendo o sistema oficial da rescisão, e quem decide o que vira cobrança é o Departamento Pessoal.</p></blockquote>
+<h3 id="o-que-se-espera-de-voce">O que se espera de você</h3>
+<ul><li>Responder a tarefa do seu setor <strong>dentro do prazo</strong> indicado na tela.</li><li>Anexar comprovante sempre que a pergunta exigir.</li><li>Registrar uma <strong>pendência</strong> quando encontrar algo que impeça ou atrase a saída do colaborador — devolução não feita, acesso não removido, material não entregue, valor a acertar.</li><li>Concluir a tarefa quando tudo estiver resolvido ou devidamente registrado.</li></ul>
+<h3 id="uma-tarefa-e-do-setor-nao-de-uma-pessoa">Uma tarefa é do setor, não de uma pessoa</h3>
+<p>Se três pessoas respondem pelo mesmo setor, as três veem a mesma tarefa e qualquer uma delas pode agir. Não existe &quot;tarefa do fulano&quot;. Isso significa duas coisas na prática: você pode continuar o trabalho que um colega começou, e os lembretes de prazo chegam para todos os responsáveis do setor ao mesmo tempo.</p>
+<hr />
+<h2 id="entrar-no-sistema">Entrar no sistema</h2>
+<p>O SGPD é acessado pelo navegador, no endereço:</p>
+<p><strong>https://sgpd.bsabioenergia.com.br</strong></p>
+<p>Use o <strong>mesmo usuário e senha da rede</strong> (o mesmo do computador e do e-mail). Se a sua conta ainda não estiver liberada, ou se o acesso for recusado, procure o Departamento Pessoal — não existe autocadastro.</p>
+<p>Funciona em celular, tablet e computador. As telas se adaptam ao tamanho da tela; em celular o menu fica no ícone de três traços, no topo.</p>
+<h3 id="o-menu">O menu</h3>
+<p>Você provavelmente verá apenas dois itens. Isso é normal: o menu mostra somente o que o seu perfil pode usar.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Item do menu</th><th style="text-align:left">Para que serve</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Painel</strong></td><td style="text-align:left">Visão geral: quantas tarefas você tem, quantas estão atrasadas.</td></tr><tr><td style="text-align:left"><strong>Minhas tarefas</strong></td><td style="text-align:left">Onde você trabalha. Todas as tarefas dos seus setores.</td></tr></tbody></table></div>
+<p>Se você também tiver atribuições de Departamento Pessoal, verá mais itens — nesse caso, consulte também o <em>Manual do Departamento Pessoal</em>.</p>
+<hr />
+<h2 id="o-caminho-completo-do-comeco-ao-fim">O caminho completo, do começo ao fim</h2>
+<figure class="fluxo"><figcaption class="fx-titulo">Da abertura do processo até a sua tarefa concluída</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">O Departamento Pessoal abre e inicia o processo de desligamento</div><div class="fx-seta"><span>você recebe um e-mail de aviso</span></div><div class="fx-no fx-no--passo">A tarefa do seu setor aparece em <strong>Minhas tarefas</strong> com a situação <strong>Pendente</strong></div><div class="fx-no fx-no--passo">Você clica em <strong>Iniciar análise</strong> — a situação passa para <strong>Em análise</strong></div><div class="fx-no fx-no--passo">Você responde o checklist e anexa as evidências pedidas</div><div class="fx-no fx-no--decisao">Encontrou algo que impede ou atrasa a saída do colaborador?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Sim</span><div class="fx-no fx-no--ramo">Registre uma <strong>pendência</strong> descrevendo o problema, e resolva ou encaminhe</div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Não</span><div class="fx-no fx-no--ramo">Siga direto para a conclusão</div></div></div><div class="fx-no fx-no--passo">Você preenche as <strong>Observações da conclusão</strong> e clica em <strong>Concluir tarefa</strong></div><div class="fx-seta"><span>o sistema confere se falta algo</span></div><div class="fx-no fx-no--decisao">O sistema aceitou a conclusão?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Aceitou</span><div class="fx-no fx-no--ramo">A situação passa para <strong>Concluída</strong></div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Recusou</span><div class="fx-no fx-no--ramo">A tela diz exatamente o que falta. Resolva e tente de novo</div></div></div><div class="fx-no fx-no--fim">Com todos os setores concluídos, o Departamento Pessoal libera a rescisão</div></div></figure>
+<hr />
+<h2 id="a-tela-minhas-tarefas">A tela Minhas tarefas</h2>
+<p>As tarefas vêm agrupadas em duas seções: as <strong>ativas</strong>, que ainda esperam algo de você, e as <strong>concluídas</strong>, que ficam disponíveis para consulta.</p>
+<p>Dentro de cada seção, as tarefas são agrupadas <strong>por colaborador</strong>. Você vê o nome da pessoa, a matrícula, a empresa, a filial e quantas tarefas existem ali. Clique na linha para abrir e ver as tarefas.</p>
+<h3 id="o-cartao-da-tarefa">O cartão da tarefa</h3>
+<p>Cada tarefa mostra, no alto, o nome do seu setor e uma etiqueta colorida com a situação. Logo abaixo, três informações de registro:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">O que significa</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Prazo</strong></td><td style="text-align:left">Data e hora limite para concluir esta tarefa. Depois disso ela conta como atrasada e o Departamento Pessoal é avisado.</td></tr><tr><td style="text-align:left"><strong>Template</strong></td><td style="text-align:left">Qual modelo de checklist está sendo usado e em que versão (por exemplo <code>12 · v3</code>). Serve para rastreabilidade: se o checklist mudar depois, a sua tarefa continua com as perguntas que existiam quando o processo começou.</td></tr><tr><td style="text-align:left"><strong>Versão</strong></td><td style="text-align:left">Contador de alterações da tarefa. Só importa em um caso: se aparecer o aviso de que a tarefa foi alterada por outra sessão, é porque um colega mexeu nela. Recarregue a página.</td></tr></tbody></table></div>
+<h3 id="as-tres-situacoes-da-tarefa">As três situações da tarefa</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Situação</th><th style="text-align:left">O que quer dizer</th><th style="text-align:left">O que você pode fazer</th></tr></thead><tbody><tr><td style="text-align:left"><code>Pendente</code></td><td style="text-align:left">A tarefa foi criada e ninguém abriu ainda.</td><td style="text-align:left">Só uma coisa: clicar em <strong>Iniciar análise</strong>. O checklist só aparece depois disso.</td></tr><tr><td style="text-align:left"><code>Em análise</code></td><td style="text-align:left">Alguém do setor já começou.</td><td style="text-align:left">Tudo: responder o checklist, anexar evidências, registrar e tratar pendências, informar valores e concluir.</td></tr><tr><td style="text-align:left"><code>Concluída</code></td><td style="text-align:left">O setor terminou.</td><td style="text-align:left">Apenas consultar. As respostas aparecem como texto, com a data em que foram registradas. Para reabrir, é preciso pedir ao Departamento Pessoal.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Não deixe a tarefa em <code>Pendente</code> só porque você ainda não vai resolver. Clicar em <strong>Iniciar análise</strong> é o que registra que a área tomou ciência, e as respostas só podem ser salvas a partir daí.</p></blockquote>
+<h3 id="de-onde-vem-o-prazo">De onde vem o prazo</h3>
+<p>O prazo é calculado quando o processo é iniciado, pela seguinte regra: vale o que vier primeiro entre a <strong>data limite do processo</strong> e o <strong>início mais o tempo padrão do seu setor</strong> (o SLA). Quem define esse tempo padrão é o Departamento Pessoal, na configuração do setor ou do grupo.</p>
+<p>O prazo não se recalcula sozinho depois. Se ele estiver irreal para o seu setor, o caminho é falar com o Departamento Pessoal — não há como alterá-lo pela tela da tarefa.</p>
+<hr />
+<h2 id="responder-o-checklist">Responder o checklist</h2>
+<p>O checklist é a lista de perguntas do seu setor. Perguntas marcadas com asterisco (<strong>*</strong>) são <strong>obrigatórias</strong>: sem elas a tarefa não conclui.</p>
+<p>Conforme você responde, o item ganha uma marca de conferido — é o seu controle visual do que já foi feito.</p>
+<h3 id="os-tipos-de-resposta">Os tipos de resposta</h3>
+<p>Cada pergunta tem um tipo, e o tipo determina o campo que aparece na tela.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Tipo</th><th style="text-align:left">Como aparece</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Sim / Não</strong></td><td style="text-align:left">Lista com três opções: <em>Selecione</em>, <em>Sim</em> e <em>Não</em>.</td><td style="text-align:left">Escolha uma. Deixar em <em>Selecione</em> equivale a não responder — e reprova a conclusão se a pergunta for obrigatória.</td></tr><tr><td style="text-align:left"><strong>Texto</strong></td><td style="text-align:left">Caixa de texto livre, de várias linhas.</td><td style="text-align:left">Escreva o que a pergunta pede. Use para descrever situações, números de patrimônio, nomes de sistemas.</td></tr><tr><td style="text-align:left"><strong>Número</strong></td><td style="text-align:left">Campo numérico.</td><td style="text-align:left">Apenas números. Use ponto para decimais se o campo pedir.</td></tr><tr><td style="text-align:left"><strong>Data</strong></td><td style="text-align:left">Campo de data, com calendário.</td><td style="text-align:left">A data pedida (devolução, exame, desativação).</td></tr><tr><td style="text-align:left"><strong>Seleção</strong></td><td style="text-align:left">Lista com as opções cadastradas.</td><td style="text-align:left">Escolha <strong>uma</strong> opção. As opções foram definidas por quem montou o checklist; não há como digitar outra.</td></tr><tr><td style="text-align:left"><strong>Múltipla seleção</strong></td><td style="text-align:left">Lista onde dá para marcar várias.</td><td style="text-align:left">Selecione <strong>todas</strong> as que se aplicam. Em computador, segure <code>Ctrl</code> para marcar mais de uma.</td></tr><tr><td style="text-align:left"><strong>Arquivo</strong></td><td style="text-align:left">Não há campo de resposta: aparece direto a área de <strong>Evidências privadas</strong>.</td><td style="text-align:left">A resposta <em>é</em> o arquivo. Anexe o documento e pronto.</td></tr><tr><td style="text-align:left"><strong>Confirmação obrigatória</strong></td><td style="text-align:left">Uma caixa de marcação escrita <em>Confirmo a validação</em>.</td><td style="text-align:left">Marque apenas se você de fato conferiu. É uma declaração sua, registrada com o seu nome.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> Respostas ficam salvas junto com a tarefa quando você conclui. Se precisar sair no meio, registre o andamento em uma pendência ou nas observações — assim o próximo colega sabe onde você parou.</p></blockquote>
+<hr />
+<h2 id="anexar-evidencias">Anexar evidências</h2>
+<p>Algumas perguntas exigem comprovante. Nesses casos aparece o bloco <strong>Evidências privadas</strong>, com o botão <em>Selecionar PDF, PNG ou JPEG</em>.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Regra</th><th style="text-align:left">Valor</th></tr></thead><tbody><tr><td style="text-align:left">Formatos aceitos</td><td style="text-align:left"><code>PDF</code>, <code>PNG</code>, <code>JPG</code> / <code>JPEG</code> — e mais nenhum</td></tr><tr><td style="text-align:left">Tamanho máximo</td><td style="text-align:left"><strong>10 MiB</strong> por arquivo</td></tr><tr><td style="text-align:left">Quantidade</td><td style="text-align:left">Vários arquivos por pergunta, sem limite fixo</td></tr><tr><td style="text-align:left">Classificação</td><td style="text-align:left">Todo arquivo enviado pela tela entra como <strong>Restrita</strong></td></tr></tbody></table></div>
+<p>O sistema confere o <strong>conteúdo</strong> do arquivo, não só o nome. Renomear um <code>.docx</code> para <code>.pdf</code> não funciona: o envio é recusado.</p>
+<p>Os arquivos ficam guardados em área privada, fora do alcance de quem não tem permissão. Todo download é registrado com o nome de quem baixou. Depois de enviado, o arquivo aparece na lista com o nome original e o tamanho, e pode ser baixado clicando no nome.</p>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Fotografe ou digitalize documentos de forma legível. A evidência existe para provar a conferência anos depois, quando ninguém mais lembrar do caso.</p></blockquote>
+<hr />
+<h2 id="registrar-uma-pendencia">Registrar uma pendência</h2>
+<p>Pendência é o registro estruturado de algo que <strong>precisa ser resolvido, decidido ou documentado</strong> antes de o desligamento seguir. É diferente de uma observação: a pendência tem dono, situação, histórico e pode travar o processo.</p>
+<p>Registre uma pendência quando o colaborador não devolveu algo, quando falta um documento, quando um acesso não pôde ser removido, quando há valor a acertar — qualquer coisa que você não consiga simplesmente responder e fechar.</p>
+<p>O formulário aparece na seção <strong>Pendências</strong> do cartão da tarefa, quando ela está <code>Em análise</code>.</p>
+<h3 id="os-campos-do-formulario">Os campos do formulário</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Título</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Frase curta e específica, até 200 caracteres. <code>Notebook Dell não devolvido</code> é bom; <code>Pendência</code> não é.</td></tr><tr><td style="text-align:left"><strong>Categoria</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">O tipo do problema. Veja a tabela abaixo.</td></tr><tr><td style="text-align:left"><strong>Bloqueio</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">O quanto isso trava o processo. Veja a tabela adiante — é o campo mais importante.</td></tr><tr><td style="text-align:left"><strong>Item relacionado</strong></td><td style="text-align:left">Não</td><td style="text-align:left">A qual pergunta do checklist a pendência se refere. Deixe em <em>Tarefa em geral</em> se não for de nenhuma pergunta específica. Só aparecem as perguntas que aceitam pendência.</td></tr><tr><td style="text-align:left"><strong>Descrição</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">O relato completo, até 4000 caracteres. Escreva para quem vai ler depois sem contexto nenhum: o que aconteceu, o que falta, o que já foi tentado.</td></tr></tbody></table></div>
+<h3 id="categorias-disponiveis">Categorias disponíveis</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Categoria</th><th style="text-align:left">Quando usar</th></tr></thead><tbody><tr><td style="text-align:left"><code>Valor</code></td><td style="text-align:left">Há quantia a ser analisada para eventual cobrança. <strong>Só use esta se o seu setor estiver habilitado a lançar valores</strong> — veja a seção sobre valores.</td></tr><tr><td style="text-align:left"><code>Material</code></td><td style="text-align:left">Insumos, materiais de consumo, EPI.</td></tr><tr><td style="text-align:left"><code>Ferramenta</code></td><td style="text-align:left">Ferramentas de trabalho não devolvidas.</td></tr><tr><td style="text-align:left"><code>Equipamento</code></td><td style="text-align:left">Notebook, celular, monitor, rádio, máquina.</td></tr><tr><td style="text-align:left"><code>Documento</code></td><td style="text-align:left">Documento que falta assinar, entregar ou apresentar.</td></tr><tr><td style="text-align:left"><code>Acesso</code></td><td style="text-align:left">Login, crachá, e-mail, VPN, sistema, acesso físico a área controlada.</td></tr><tr><td style="text-align:left"><code>Exame</code></td><td style="text-align:left">Exame demissional ou complementar não realizado.</td></tr><tr><td style="text-align:left"><code>Atividade</code></td><td style="text-align:left">Trabalho, entrega ou passagem de conhecimento não concluída.</td></tr><tr><td style="text-align:left"><code>Veículo</code></td><td style="text-align:left">Carro, moto, empilhadeira — inclusive multas e documentação.</td></tr><tr><td style="text-align:left"><code>Patrimônio</code></td><td style="text-align:left">Bem patrimoniado da empresa, identificado por plaqueta ou número.</td></tr><tr><td style="text-align:left"><code>Contrato</code></td><td style="text-align:left">Cláusula contratual pendente: aviso, treinamento a ressarcir, acordo.</td></tr><tr><td style="text-align:left"><code>Outro</code></td><td style="text-align:left">Nenhuma das anteriores. Use com parcimônia e capriche na descrição.</td></tr></tbody></table></div>
+<h3 id="o-campo-bloqueio-leia-antes-de-escolher">O campo Bloqueio — leia antes de escolher</h3>
+<p>Este campo decide se a sua tarefa pode ou não ser concluída. Escolher errado trava o desligamento sem necessidade, ou deixa passar um problema real.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Valor</th><th style="text-align:left">O que faz</th><th style="text-align:left">Quando usar</th></tr></thead><tbody><tr><td style="text-align:left"><code>Bloqueante</code></td><td style="text-align:left"><strong>Impede concluir a tarefa</strong> até que a pendência seja marcada como <em>Regularizada</em> ou <em>Encerrada</em>.</td><td style="text-align:left">O problema tem solução e você espera resolvê-lo: o equipamento vai ser devolvido, o exame vai ser feito.</td></tr><tr><td style="text-align:left"><code>Bloqueante até decisão</code></td><td style="text-align:left"><strong>Impede concluir a tarefa</strong> até que o Departamento Pessoal <strong>decida</strong> sobre o valor. Regularizar não basta.</td><td style="text-align:left">Você está informando um valor a ser cobrado e a saída depende dessa decisão. Anda junto com a categoria <code>Valor</code>.</td></tr><tr><td style="text-align:left"><code>Não bloqueante</code></td><td style="text-align:left">Fica registrada, <strong>não impede</strong> a conclusão.</td><td style="text-align:left">O problema existe, está sendo tratado, mas não deve segurar o desligamento.</td></tr><tr><td style="text-align:left"><code>Informativa</code></td><td style="text-align:left">Só registro, <strong>não impede</strong> nada.</td><td style="text-align:left">Contexto útil para quem for ler o processo depois. Não é um problema a resolver.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> <code>Bloqueante</code> sem intenção real de resolver trava o processo de todo mundo. Se o problema não deve segurar a saída do colaborador, use <code>Não bloqueante</code> e descreva bem.</p></blockquote>
+<hr />
+<h2 id="o-ciclo-de-vida-de-uma-pendencia">O ciclo de vida de uma pendência</h2>
+<figure class="fluxo"><figcaption class="fx-titulo">Como uma pendência caminha até ser encerrada</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">Você registra a pendência — ela nasce <strong>Aberta</strong></div><div class="fx-seta"><span>comece a tratar</span></div><div class="fx-no fx-no--passo"><strong>Iniciar regularização</strong> — a situação passa para <strong>Em regularização</strong></div><p class="fx-nota">use enquanto estiver cobrando, buscando ou providenciando a solução</p><div class="fx-no fx-no--passo"><strong>Marcar regularizada</strong> — a situação passa para <strong>Regularizada</strong></div><div class="fx-no fx-no--decisao">O problema voltou ou a solução não se sustentou?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Voltou</span><div class="fx-no fx-no--ramo"><strong>Iniciar regularização</strong> de novo — ela retorna para <em>Em regularização</em></div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Resolvido</span><div class="fx-no fx-no--ramo">Siga para o encerramento</div></div></div><div class="fx-no fx-no--passo"><strong>Encerrar</strong> — a situação passa para <strong>Encerrada</strong></div><div class="fx-no fx-no--fim">A pendência não aceita mais comentários nem alterações</div></div></figure>
+<p>Cada botão desses <strong>exige um comentário</strong>. Escreva o comentário na caixa <em>Comentário</em> antes de clicar. É esse texto que forma o histórico da pendência — os comentários nunca são apagados nem editados, e aparecem com o nome de quem escreveu e a data.</p>
+<h3 id="as-situacoes-e-o-que-cada-uma-libera">As situações e o que cada uma libera</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Situação</th><th style="text-align:left">Significado</th><th style="text-align:left">Botões disponíveis</th></tr></thead><tbody><tr><td style="text-align:left"><code>Aberta</code></td><td style="text-align:left">Registrada, ninguém começou a tratar.</td><td style="text-align:left"><em>Iniciar regularização</em></td></tr><tr><td style="text-align:left"><code>Em regularização</code></td><td style="text-align:left">Alguém está resolvendo.</td><td style="text-align:left"><em>Marcar regularizada</em></td></tr><tr><td style="text-align:left"><code>Regularizada</code></td><td style="text-align:left">O problema foi resolvido. Já libera a conclusão de uma pendência <code>Bloqueante</code>.</td><td style="text-align:left"><em>Iniciar regularização</em>, <em>Encerrar</em></td></tr><tr><td style="text-align:left"><code>Encerrada</code></td><td style="text-align:left">Fechada em definitivo.</td><td style="text-align:left">Nenhum — nem comentar</td></tr><tr><td style="text-align:left"><code>Encaminhada para análise</code></td><td style="text-align:left">Um valor foi informado e aguarda o Departamento Pessoal.</td><td style="text-align:left">Apenas <em>Contestar valor</em></td></tr><tr><td style="text-align:left"><code>Contestada</code></td><td style="text-align:left">O setor discordou do valor apurado. Voltou para o DP.</td><td style="text-align:left">Nenhum — aguarde a decisão</td></tr><tr><td style="text-align:left"><code>Aprovada para cobrança</code></td><td style="text-align:left">O DP decidiu que o valor será cobrado.</td><td style="text-align:left">Nenhum</td></tr><tr><td style="text-align:left"><code>Rejeitada</code></td><td style="text-align:left">O DP recusou a cobrança. O valor aprovado fica zero.</td><td style="text-align:left">Nenhum</td></tr><tr><td style="text-align:left"><code>Abonada</code></td><td style="text-align:left">O DP perdoou o valor. O valor aprovado fica zero.</td><td style="text-align:left">Nenhum</td></tr></tbody></table></div>
+<p>Uma pendência <strong>decidida</strong> — aprovada, rejeitada ou abonada — já não impede a conclusão da tarefa, mesmo continuando aberta na tela. Não é preciso fazer mais nada com ela.</p>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> Também dá para anexar arquivo diretamente à pendência, pelo botão <em>Anexar evidência à pendência</em>. Use para o comprovante de devolução, o protocolo, a foto do equipamento entregue.</p></blockquote>
+<hr />
+<h2 id="valores-quando-o-seu-setor-pode-cobrar-algo">Valores: quando o seu setor pode cobrar algo</h2>
+<p>Alguns setores são habilitados pelo Departamento Pessoal a <strong>informar valores</strong>. Se o seu não for, esta seção não se aplica — os campos simplesmente não aparecem.</p>
+<blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> O SGPD <strong>não desconta nada de ninguém</strong>. Informar um valor aqui é abrir um pedido de análise. Quem decide se aquilo vira cobrança é o Departamento Pessoal, em ato separado e registrado. O desconto, se houver, acontece depois, no Senior.</p></blockquote>
+<h3 id="como-informar">Como informar</h3>
+<p>O campo de valor aparece dentro de uma pendência que reúna três condições: a categoria é <code>Valor</code>, a situação é <code>Aberta</code> e nenhum valor foi informado ainda.</p>
+<p>Preencha os dois campos e clique em <strong>Informar valor</strong>:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Valor pretendido</strong></td><td style="text-align:left">A quantia, em número, maior que zero.</td></tr><tr><td style="text-align:left"><strong>Justificativa</strong></td><td style="text-align:left">Por que essa quantia. Diga a base do cálculo, o número do patrimônio, a nota fiscal, o que sustentar o pedido.</td></tr></tbody></table></div>
+<p>Ao informar, a pendência passa para <code>Encaminhada para análise</code> e o Departamento Pessoal é avisado por e-mail.</p>
+<h3 id="o-quadro-dos-cinco-valores">O quadro dos cinco valores</h3>
+<p>Depois de informado, a pendência mostra um quadro com cinco linhas. Elas contam a história da negociação:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Linha</th><th style="text-align:left">Quem preenche</th><th style="text-align:left">O que é</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Informado</strong></td><td style="text-align:left">Você (o setor)</td><td style="text-align:left">O valor que a sua área pretende cobrar.</td></tr><tr><td style="text-align:left"><strong>Apurado</strong></td><td style="text-align:left">Departamento Pessoal</td><td style="text-align:left">O valor que o DP calculou depois de analisar. Pode ser menor, maior ou igual.</td></tr><tr><td style="text-align:left"><strong>Contestado</strong></td><td style="text-align:left">Você (o setor)</td><td style="text-align:left">O valor que a sua área defende, caso discorde da apuração.</td></tr><tr><td style="text-align:left"><strong>Aprovado</strong></td><td style="text-align:left">Departamento Pessoal</td><td style="text-align:left">O que foi de fato aprovado na decisão. Fica <strong>zero</strong> se a decisão for <em>Rejeitada</em> ou <em>Abonada</em>.</td></tr><tr><td style="text-align:left"><strong>Processado no Senior</strong></td><td style="text-align:left">Ninguém, pelo SGPD</td><td style="text-align:left">Fica vazio até que a rescisão seja processada no Senior. O SGPD só reflete; nunca preenche por conta própria.</td></tr></tbody></table></div>
+<h3 id="contestar">Contestar</h3>
+<p>Enquanto a pendência estiver em <code>Encaminhada para análise</code>, você pode discordar do valor apurado pelo DP. Preencha <strong>Valor contestado</strong> e <strong>Justificativa da contestação</strong> e clique em <strong>Contestar valor</strong>.</p>
+<p>A pendência passa para <code>Contestada</code> e volta à mesa do Departamento Pessoal, que é avisado novamente.</p>
+<h3 id="a-decisao">A decisão</h3>
+<p>Apurar e decidir são atos do Departamento Pessoal — os botões correspondentes não aparecem para você. Se a tela mostrar o aviso <em>&quot;A decisão sobre a pretensão é do DP vigente no escopo do processo&quot;</em>, é exatamente isso.</p>
+<p>A decisão tem três resultados possíveis:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Decisão</th><th style="text-align:left">Efeito</th></tr></thead><tbody><tr><td style="text-align:left"><code>Aprovada para cobrança</code></td><td style="text-align:left">O valor aprovado é registrado e segue para tratamento no Senior.</td></tr><tr><td style="text-align:left"><code>Rejeitada</code></td><td style="text-align:left">A cobrança é recusada. Valor aprovado igual a zero.</td></tr><tr><td style="text-align:left"><code>Abonada</code></td><td style="text-align:left">A cobrança é perdoada. Valor aprovado igual a zero.</td></tr></tbody></table></div>
+<p>Toda decisão vem com um <strong>parecer</strong> escrito, o nome de quem decidiu e a data. Você recebe um e-mail quando ela sai.</p>
+<hr />
+<h2 id="concluir-a-tarefa">Concluir a tarefa</h2>
+<p>Quando tudo estiver respondido e resolvido, preencha o campo <strong>Observações da conclusão</strong> — opcional, mas é o lugar certo para o resumo do que a sua área apurou — e clique em <strong>Concluir tarefa</strong>.</p>
+<p>O sistema faz uma última conferência. Se algo faltar, ele recusa e diz o que é.</p>
+<h3 id="por-que-a-conclusao-pode-ser-recusada">Por que a conclusão pode ser recusada</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Mensagem / causa</th><th style="text-align:left">O que fazer</th></tr></thead><tbody><tr><td style="text-align:left">Falta resposta obrigatória</td><td style="text-align:left">Procure as perguntas marcadas com <strong>*</strong> que ainda estão em branco.</td></tr><tr><td style="text-align:left">Falta evidência obrigatória</td><td style="text-align:left">Alguma pergunta exige comprovante e não tem arquivo anexado.</td></tr><tr><td style="text-align:left">Pendência bloqueante não regularizada</td><td style="text-align:left">Trate a pendência <code>Bloqueante</code> até <code>Regularizada</code> ou <code>Encerrada</code>.</td></tr><tr><td style="text-align:left">Pendência de valor à espera da decisão</td><td style="text-align:left">A pendência é <code>Bloqueante até decisão</code> e o DP ainda não decidiu. Regularizar não resolve — é preciso esperar a decisão ou encerrar a pendência.</td></tr><tr><td style="text-align:left">A tarefa foi alterada por outra sessão</td><td style="text-align:left">Um colega do setor mexeu na tarefa enquanto você trabalhava. <strong>Recarregue a página</strong> e confira o que mudou antes de refazer.</td></tr></tbody></table></div>
+<p>Depois de concluída, a tarefa sai do grupo de ativas e passa para o de concluídas, mostrando as respostas registradas como texto, com data e hora.</p>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Concluir não é irreversível, mas voltar atrás exige o Departamento Pessoal — e, na maioria dos casos, um SuperAdmin. Confira antes de clicar.</p></blockquote>
+<hr />
+<h2 id="os-e-mails-que-voce-recebe">Os e-mails que você recebe</h2>
+<p>O SGPD avisa por e-mail. Todos os responsáveis vigentes do setor recebem a mesma mensagem.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Aviso</th><th style="text-align:left">Quando chega</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Tarefa atribuída ao setor</strong></td><td style="text-align:left">Assim que o processo é iniciado e a tarefa do seu setor é criada.</td></tr><tr><td style="text-align:left"><strong>Tarefa a vencer</strong></td><td style="text-align:left">48 horas antes do prazo.</td></tr><tr><td style="text-align:left"><strong>Tarefa próxima do vencimento</strong></td><td style="text-align:left">24 horas antes do prazo.</td></tr><tr><td style="text-align:left"><strong>Tarefa vencida</strong></td><td style="text-align:left">No momento do vencimento. O Departamento Pessoal recebe junto.</td></tr><tr><td style="text-align:left"><strong>Tarefa vencida em nível crítico</strong></td><td style="text-align:left">48 horas depois do vencimento. Vai também para o setor de escalada.</td></tr><tr><td style="text-align:left"><strong>Valor decidido</strong></td><td style="text-align:left">Quando o DP decide uma pretensão que o seu setor informou.</td></tr><tr><td style="text-align:left"><strong>Processo cancelado</strong> / <strong>Processo reaberto</strong></td><td style="text-align:left">Quando o processo muda de rumo e afeta a sua tarefa.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O e-mail <strong>não traz</strong> o nome do colaborador, CPF, valores nem pareceres. Ele diz o que fazer e onde. O dado fica no sistema, protegido por login — isso é exigência de proteção de dados, não limitação técnica.</p></blockquote>
+<p>Pode acontecer de o mesmo aviso chegar duas vezes. É comportamento previsto: o sistema prefere avisar duas vezes a deixar de avisar.</p>
+<hr />
+<h2 id="duvidas-frequentes">Dúvidas frequentes</h2>
+<p><strong>Não vejo nenhuma tarefa, mas sei que existe um desligamento em andamento.</strong> Você só enxerga tarefas dos setores em que tem vínculo <strong>vigente</strong> e dentro do escopo (empresa e filial) daquele setor. Vínculo com data de fim já passada não mostra nada. Fale com o Departamento Pessoal.</p>
+<p><strong>Um colega já iniciou a análise. Posso continuar?</strong> Pode. A tarefa é do setor. Só evite trabalhar os dois ao mesmo tempo na mesma tarefa — quem salvar depois vai receber o aviso de alteração concorrente.</p>
+<p><strong>Respondi errado e já concluí.</strong> Peça ao Departamento Pessoal. Reabrir uma tarefa concluída é ato de SuperAdmin, registrado com motivo.</p>
+<p><strong>A pergunta que preciso responder não existe no checklist.</strong> O checklist é definido por quem configura os templates. Registre o assunto como pendência <code>Informativa</code> e peça ao Departamento Pessoal a inclusão da pergunta para os próximos processos. Templates são versionados: mudanças novas não alteram processos já iniciados.</p>
+<p><strong>Anexei o arquivo errado.</strong> Anexe o correto e explique em um comentário na pendência ou nas observações da conclusão. Evidências não são apagadas — o histórico é preservado por exigência de auditoria.</p>
+<p><strong>O prazo é curto demais para o meu setor.</strong> O prazo vem da configuração do setor ou do grupo. Peça ao Departamento Pessoal a revisão do tempo padrão. Tarefas já criadas mantêm o prazo original.</p>
+<p><strong>Errei a classificação de bloqueio da pendência.</strong> Não há como editar o campo depois de registrada. Encerre a pendência com um comentário explicando o erro e registre outra com a classificação correta — tudo fica no histórico.</p>
+<hr />
+<h2 id="em-uma-pagina">Em uma página</h2>
+<ol><li>Entre em <strong>https://sgpd.bsabioenergia.com.br</strong> com o usuário da rede.</li><li>Abra <strong>Minhas tarefas</strong> e localize o colaborador.</li><li>Clique em <strong>Iniciar análise</strong>.</li><li>Responda tudo que tiver <strong>*</strong> e anexe as evidências pedidas (PDF, PNG ou JPEG, até 10 MiB).</li><li>Registre <strong>pendência</strong> para o que ficou pendente — escolhendo o bloqueio com cuidado.</li><li>Trate a pendência: <em>Iniciar regularização</em> → <em>Marcar regularizada</em> → <em>Encerrar</em>, sempre com comentário.</li><li>Se o seu setor lança valores, use <strong>Informar valor</strong> com justificativa. Quem decide é o DP.</li><li>Preencha as <strong>Observações da conclusão</strong> e clique em <strong>Concluir tarefa</strong>.</li><li>Se for recusada, leia a mensagem: ela diz exatamente o que falta.</li></ol>
+  </article>
+</main>
+</body>
+</html>

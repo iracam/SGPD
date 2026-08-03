@@ -449,20 +449,47 @@ Alternativas futuras:
 Controles implementados:
 
 - cookies `HttpOnly`;
-- flags `Secure` configuráveis por ambiente e desabilitadas no DEV HTTP local;
+- flags `Secure` obrigatórias no host publicado e desabilitadas apenas no
+  desenvolvimento local em HTTP;
 - proteção CSRF, também nas requisições da SPA;
-- `SameSite` compatível com a origem única exigida pela ADR-026;
+- `SameSite=Lax` explícito, compatível com a origem única exigida pela ADR-026 e
+  com os links das notificações por e-mail, que `Strict` inutilizaria;
+- expiração por inatividade: a sessão é renovada a cada requisição e morre após
+  `SESSION_COOKIE_AGE` sem uso;
 - revogação explícita no logout.
 
 Controles que dependem de política corporativa ou do workflow:
 
-- timeout e bloqueio por inatividade;
 - revogação automática em desligamento;
 - controle de dispositivos.
 
-A aplicação e a API precisam permanecer na mesma origem. A introdução futura de
-proxy reverso, de outro domínio para o frontend ou de um ambiente HML/PRD
-reabre a ADR-026 junto com a ADR-014.
+A aplicação e a API precisam permanecer na mesma origem. O proxy que publica
+`sgpd.bsabioenergia.com.br` a partir de outro host preserva essa condição —
+serve a mesma origem, não separa frontend de API (ADR-052). Outro domínio para o
+frontend ou um ambiente HML/PRD continuam reabrindo a ADR-026 junto com a
+ADR-014.
+
+### Transporte no host publicado
+
+O TLS termina no proxy, que encaminha em HTTP para a aplicação. Isso exige que o
+Django reconheça a requisição como segura, sob pena de emitir cookie sem
+`Secure` e entrar em laço de redirecionamento:
+
+- `SECURE_PROXY_SSL_HEADER` declara a confiança em `X-Forwarded-Proto`;
+- `NUM_PROXIES` declara quantos proxies confiáveis estão à frente. O número
+  descreve a topologia real: alto demais, o cliente volta a poder forjar o
+  próprio endereço e escapar do limite de tentativas de login;
+- o redirecionamento para HTTPS isenta `^health/`, porque a sonda do proxy chega
+  em HTTP e precisa do status, não de um 301;
+- reconhecida a requisição como segura, o Django passa a exigir `Origin` ou
+  `Referer` de origem confiável em toda escrita.
+
+O limite de tentativas de login é contado por origem **e** conta alvo. Contar só
+por origem, atrás de um proxy, transformaria dez erros de senha em bloqueio
+coletivo, e não impediria quem já tem sessão de tentar a senha de terceiros.
+
+O Django Admin fica desligado onde a aplicação está publicada: seu login nativo
+não passa pelo limite de tentativas do DRF.
 
 ## 11. Logs
 
@@ -502,7 +529,14 @@ booleana de papel inicial.
 - a convenção de usuário não se aplica a senhas;
 - senhas devem ser fortes, não previsíveis e rotacionáveis;
 - usuário, senha e e-mail SMTP não devem aparecer no `.env.example`;
-- restringir a leitura do `.env` ao usuário da aplicação.
+- restringir a leitura do `.env` ao usuário da aplicação;
+- não manter no `.env` variável que nenhum código lê: ela não configura nada e
+  só mantém um segredo em claro no disco. A leitura do Senior usa a conexão
+  única do owner `SGPD` (ADR-022) e não tem credencial própria;
+- o `DJANGO_SECRET_KEY` não assina apenas a sessão: dele deriva a cifra dos
+  segredos da central de configurações (§13.1). Rotacioná-lo derruba as sessões
+  ativas e exige reinformar as senhas de bind do AD e do SMTP já salvas — ver
+  R69 no registro de riscos.
 
 ## 12.2 Consulta direta ao Senior
 
@@ -575,6 +609,22 @@ SGPD deixa de valer. Por isso:
   auditado linha a linha;
 - recorte acima de 5000 linhas é recusado com mensagem legível, em vez de
   arquivo truncado em silêncio.
+
+## 13.4 Manuais operacionais
+
+Os manuais de `docs/operacao/` descrevem o processo demissional inteiro — papéis,
+estados, o que bloqueia e o que libera. É documento interno, não material
+público, e a aplicação está publicada na internet (ADR-052). Por isso:
+
+- são servidos por `apps.core.views.manual`, que exige **sessão autenticada**, e
+  não pelo bundle do Angular, que o WhiteNoise entrega sem login;
+- o caminho no disco vem de uma lista branca de slugs, nunca da URL: não há
+  travessia possível a partir do que o cliente pede;
+- a checagem de sessão precede o 404, para que um anônimo não descubra pela
+  resposta quais manuais existem;
+- não carregam dado pessoal — nenhum nome, matrícula, CPF ou valor real —, então
+  o acesso exige sessão mas não gera trilha própria, ao contrário da evidência
+  (§7) e da exportação (§13.3).
 
 ## 14. Retenção
 

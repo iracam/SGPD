@@ -7,8 +7,11 @@
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7, 8 e **9 — implementada e
   homologada no Oracle DEV em 2026-08-01**
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
-- Próximo incremento: validar backup e restauração com o DBA (`RUNBOOK.md` §6);
-  o agendamento das notificações foi instalado no DEV em 2026-08-01
+- Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
+  2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052)
+- Próximo incremento: rotacionar as senhas fracas do Oracle e do SMTP e trocar o
+  bind do AD por conta de serviço com TLS (riscos R66 e R67), ambos fora do
+  repositório; validar backup e restauração com o DBA (`RUNBOOK.md` §6)
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -50,7 +53,11 @@
 - central de configuração de e-mail: transporte SMTP, remetente, URL base, ritmo
   da fila e marcos de lembrete editáveis por SuperAdmin, com prova de envio;
 - indicadores do painel, relatórios por período, exportação CSV auditada e sonda
-  de operação, todos somente leitura em `apps/reporting`.
+  de operação, todos somente leitura em `apps/reporting`;
+- manuais operacionais em `docs/operacao/` — responsável de área, Departamento
+  Pessoal e configuração —, gerados de `.md` para HTML e PDF por
+  `docs/operacao/build.mjs` e servidos em `/ajuda/<slug>/` atrás da sessão, com
+  botão **Ajuda** em Minhas tarefas, Processos e Grupos e templates (ADR-053).
 
 ## Estado corrente
 
@@ -1018,6 +1025,46 @@ destinatário, então a varredura seguinte não repete nada.
   trilha precisará decidir o que registrar quando o download morre no meio;
 - `MANIFEST.json` foi regenerado em 2026-08-01: os tamanhos anteriores eram do
   snapshot de 2026-07-30 e já não correspondiam aos documentos.
+
+## Endurecimento do host publicado (2026-08-03)
+
+Uma checagem de segurança encontrou o host atendendo `sgpd.bsabioenergia.com.br`
+com a configuração de desenvolvimento: `DJANGO_DEBUG=true` e cookies sem
+`Secure`, enquanto o domínio já estava autorizado no `.env`. Qualquer erro
+devolvia traceback com variáveis locais, e a sessão não exigia HTTPS.
+
+O que mudou está normatizado na ADR-052. Em resumo:
+
+- existe `config/settings/production.py`, que força `DEBUG` desligado, cookies
+  `Secure`, redirecionamento para HTTPS com isenção da sonda de saúde, HSTS e
+  reconhecimento do `X-Forwarded-Proto` do proxy. Ele **recusa subir** com
+  `DJANGO_DEBUG` ligado ou `SECRET_KEY` curta;
+- o módulo de settings passou a ser escolhido pelo `.env`, lido por
+  `config/bootstrap.py` antes de o Django resolver o nome. Antes, a linha
+  `DJANGO_SETTINGS_MODULE` do arquivo era inerte e o agendador subiria em
+  desenvolvimento por mais correto que o `.env` estivesse;
+- o limite de tentativas de login deixou de herdar `AnonRateThrottle`, que se
+  desligava para quem já tinha sessão e agrupava todos os usuários numa chave
+  só. Agora conta por origem e conta alvo, com `NUM_PROXIES` declarando a
+  topologia — sem isso o `X-Forwarded-For` era forjável;
+- o Django Admin ficou desligado no host publicado: seu login não passa pelo
+  limite do DRF;
+- o `DJANGO_SECRET_KEY` foi rotacionado, derrubando as sessões ativas. Custo
+  zero de reconfiguração porque nenhum segredo da central estava gravado —
+  a partir do primeiro, a rotação passa a exigir reinformá-los (R69);
+- saíram do `.env` as variáveis que nenhum código lia e que guardavam senha em
+  claro, entre elas uma que repetia a senha do bind do AD.
+
+Verificado pela URL pública com a aplicação no ar: `health/ready` em 200, SPA
+em 200, cookie CSRF com `Secure` e `SameSite=Lax`, HSTS presente, `/admin/` em
+404, host não autorizado em 400, requisição HTTP sem o cabeçalho do proxy
+redirecionada para HTTPS e a décima primeira tentativa de login recusada com
+429. `check --deploy` termina apenas com os avisos de HSTS que são opção
+deliberada.
+
+Continua aberto e depende de infraestrutura: senhas fracas do Oracle e do SMTP
+(R66), bind do AD com conta nominal sobre LDAP simples (R67) e `runserver`
+atendendo o tráfego real (R68).
 
 ## Histórico
 

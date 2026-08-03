@@ -32,8 +32,8 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | SQLcl local | 26.1 em `/opt/sqlcl/bin/sql` | Conexões Oracle validadas |
 | Redis | Somente `redis-cli` 8.0.2; servidor local ausente/inativo | Será iniciado em container quando necessário |
 | Celery / Django-Q2 | Ausentes | Worker adiado até existir caso de uso |
-| Gunicorn | Ausente | Fora da execução DEV atual |
-| Nginx | Ausente/inativo | Não será utilizado; estáticos serão servidos por WhiteNoise |
+| Gunicorn | Ausente | O host publicado ainda é servido por `runserver`; risco R68 |
+| Nginx | Ausente neste host | Estáticos são servidos por WhiteNoise. A publicação em HTTPS é feita por um proxy que roda em `192.168.1.6`, fora deste host (ADR-052) |
 | WhiteNoise | 6.12.0 | Serve assets da SPA e estáticos do Django Admin; nunca evidências |
 | LDAP nativo | OpenLDAP 2.6.10; `ldapsearch` e headers de desenvolvimento instalados | Pré-requisitos de build e diagnóstico confirmados |
 | LDAP Python | `django-auth-ldap` 5.3.0 / `python-ldap` 3.4.7 | Instalados e bloqueados em `uv.lock`, sem regressão de Django ou DRF |
@@ -95,7 +95,7 @@ procedimento.
 | Estáticos | WhiteNoise configurado para assets da SPA e Django Admin |
 | Frontend | SPA Angular 21 + PrimeNG 21 em operação; Node 24.18.0 e npm 11.16.0 homologados |
 | Evidências | Filesystem local privado em `media/evidence` |
-| Nginx / proxy | Não utilizado |
+| Publicação | `https://sgpd.bsabioenergia.com.br` por proxy em `192.168.1.6`, que termina o TLS e encaminha para este host em `:8002` repassando `X-Forwarded-Proto` e `X-Forwarded-For`; settings `config.settings.production` (ADR-052) |
 | Secrets | `.env` local; usuários individuais no formato `nome.sobrenome` |
 | CI/CD | Não utilizado |
 

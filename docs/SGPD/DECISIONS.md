@@ -2083,3 +2083,132 @@ já a tomou: a unicidade do banco é a árbitra, não a leitura prévia.
 - `SGPD_PROCESS_IDEMPOTENCY.ACTION` guarda ações curtas (`RELEASE`, `PROCESS`,
   `CLOSE`, `CANCEL`, `REOPEN`) no mesmo espaço de 30 caracteres já usado por
   `START` e pelas ações de tarefa.
+
+## ADR-052 — Publicação atrás de proxy e settings próprios do host publicado
+
+### Estado
+
+Aceita em 2026-08-03, durante a checagem de segurança do host. Governa a
+configuração de transporte, sessão e limite de tentativas de login.
+
+### Contexto
+
+A ADR-013 fixou o DEV único e a ADR-014 exigiu validação local; a ADR-026 exigiu
+que a SPA e a API vivessem na mesma origem. A `ENVIRONMENT.md` registrava
+“Nginx / proxy: não utilizado”, e o `RISK_REGISTER.md` (R43) avisava que a
+entrada de um proxy reverso reabriria as ADRs 026 e 014.
+
+O proxy entrou. Um servidor separado, `192.168.1.6`, publica
+`https://sgpd.bsabioenergia.com.br`, termina o TLS e encaminha para este host em
+HTTP, repassando `Host`, `X-Forwarded-Proto` e `X-Forwarded-For`. A configuração
+não acompanhou: o repositório só tinha `development.py` e `test.py`, e o host
+respondia com `DJANGO_DEBUG=true` e cookies sem `Secure`. Um sistema com dado
+pessoal de desligamento devolvia traceback com variáveis locais a quem
+provocasse um erro, e a sessão do usuário trafegava sem exigir HTTPS.
+
+Também não bastava corrigir o `.env`. O único ponto que escolhe o módulo de
+settings é o `setdefault` de `manage.py`, que roda antes de o `.env` ser lido —
+o agendador do sistema e qualquer comando manual continuariam subindo em
+desenvolvimento, por mais correto que o arquivo estivesse.
+
+### Decisão
+
+Existe `config/settings/production.py`, e ele é o módulo do host publicado. O
+que protege dado pessoal fica no código, não no `.env`: `DEBUG` desligado com
+recusa explícita de subir se `DJANGO_DEBUG` estiver ligado, `SECRET_KEY` mínima
+de 50 caracteres, cookies `Secure`, redirecionamento para HTTPS com isenção de
+`^health/` para a sonda do proxy, HSTS e WhiteNoise sem releitura de disco.
+`SECURE_PROXY_SSL_HEADER` declara a confiança em `X-Forwarded-Proto`, e
+`NUM_PROXIES` declara quantos proxies confiáveis estão à frente.
+
+A escolha do módulo passa a vir do `.env`, lido por `config/bootstrap.py` antes
+de o Django resolver `DJANGO_SETTINGS_MODULE`. O bootstrap Oracle sai de
+`development.py` para `config/settings/oracle.py`, compartilhado pelos dois
+ambientes: a conexão continua sendo a única do owner `SGPD` (ADR-022).
+
+A ADR-026 **não** é reaberta. O proxy publica a mesma origem que a aplicação
+serve: SPA e API continuam sob `https://sgpd.bsabioenergia.com.br`, sem domínio
+separado para o frontend e sem CORS. A ADR-014 segue valendo — não há CI/CD, e a
+validação continua local, agora com `manage.py check --deploy` no módulo de
+produção como passo obrigatório.
+
+O Django Admin passa a ser opcional (`DJANGO_ADMIN_ENABLED`) e fica desligado no
+host publicado: ele é ferramenta técnica somente leitura (ADR-025) e seu login
+nativo não passa pelo limite de tentativas do DRF, o que fazia dele o caminho de
+força bruta menos protegido do sistema.
+
+### Consequências
+
+- o acesso ao sistema passa a ser exclusivamente pela URL HTTPS. Com a flag
+  `Secure`, o navegador descarta o cookie em HTTP puro, então `http://192.168.1.7:8002`
+  deixa de autenticar — é o comportamento pretendido, não um defeito;
+- `request.is_secure()` passa a ser verdadeiro, e com isso o Django exige
+  `Origin` ou `Referer` de origem confiável em toda requisição de escrita. A SPA
+  já satisfaz; qualquer cliente novo precisa enviá-los;
+- errar `NUM_PROXIES` para mais devolve ao cliente o poder de forjar o próprio
+  endereço e escapar do limite de login. O número descreve a topologia real e
+  precisa ser revisto se outro proxy entrar na frente;
+- o limite de tentativas deixa de ser por origem anônima e passa a ser por
+  origem **e** conta alvo. Sem isso, atrás de um proxy dez erros de senha
+  bloqueariam o login de toda a empresa;
+- `runserver` continua sendo o servidor do host. Ele é monothread e não foi
+  feito para isso; a troca por um WSGI real é incremento próprio e permanece
+  aberta no registro de riscos.
+
+## ADR-053 — Manuais operacionais servidos pela aplicação, atrás da sessão
+
+### Estado
+
+Aceita em 2026-08-03, junto com a entrega dos três manuais em `docs/operacao/`.
+Governa como a documentação de uso chega a quem opera o sistema.
+
+### Contexto
+
+Os manuais do responsável de área, do Departamento Pessoal e da configuração são
+gerados a partir de `.md` para HTML e PDF autossuficientes — sem CDN, sem fonte
+externa, com o CSS embutido. Faltava o caminho entre o documento e a tela: quem
+está com dúvida está dentro do sistema, não procurando um arquivo na rede.
+
+O caminho aparentemente natural era pôr o HTML no bundle do Angular. Ele não
+serve: a ADR-052 publica a aplicação na internet e o WhiteNoise entrega a raiz
+do build **sem autenticação**. Os manuais descrevem o processo demissional
+inteiro — papéis, estados, regras de bloqueio, o que trava e o que libera. É
+documento interno, e virar página pública por conveniência de empacotamento
+seria decisão tomada por acidente.
+
+Modal também não serve. `X_FRAME_OPTIONS = DENY` impede enquadrar o documento em
+iframe mesmo na mesma origem, e afrouxar isso para exibir ajuda trocaria uma
+proteção contra clickjacking por comodidade de layout.
+
+### Decisão
+
+Os manuais são servidos por `apps.core.views.manual`, em `/ajuda/<slug>/`, e
+exigem sessão autenticada. A view lê de `OPERATION_MANUALS_DIR`
+(`docs/operacao/` por padrão): o `.md` continua sendo a fonte única e o HTML
+gerado não é duplicado para dentro do frontend.
+
+O caminho no disco nunca é montado a partir da URL. `OPERATION_MANUALS` é lista
+branca de slugs; o que não está nela morre em 404 antes de virar `Path`. A
+verificação de sessão vem **antes** do 404, para que um anônimo não descubra
+quais manuais existem.
+
+Na SPA, o componente `AjudaLink` (`core/ajuda/`) põe um botão **Ajuda** nas ações
+do cabeçalho da página e abre o manual em **aba nova**, ancorado na seção
+correspondente àquela tela. Aba nova e não modal: além do `X_FRAME_OPTIONS`, um
+manual de vinte páginas se consulta melhor ao lado do sistema do que dentro dele.
+
+### Consequências
+
+- a ajuda acompanha o deploy da aplicação; não há site de documentação separado
+  para manter sincronizado;
+- `docs/operacao/` passa a ser diretório de runtime no host publicado, não só
+  material de repositório. Manual ausente responde 503 legível, com a instrução
+  de rodar `node docs/operacao/build.mjs`, em vez de 500;
+- o vínculo entre tela e seção é por `id` de `h2` do HTML gerado, que vem do
+  título em português. **Renomear um título de seção quebra a âncora sem quebrar
+  o link** — o manual abre na capa. Quem renomeia seção confere os usos de
+  `secao` na SPA;
+- acrescentar ajuda a outra tela é uma linha de template mais o registro do slug
+  na lista branca;
+- o manual não é auditado como a evidência: é documento de procedimento, não
+  dado pessoal. Exige sessão, e só.

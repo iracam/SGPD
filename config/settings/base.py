@@ -164,11 +164,39 @@ STORAGES["evidence"] = {
 }
 EVIDENCE_MAX_UPLOAD_BYTES = env_int("EVIDENCE_MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
 
+# Manuais operacionais servidos pela ajuda da SPA. Ficam fora do bundle do
+# Angular porque o WhiteNoise serviria o build sem autenticação; a view em
+# `apps.core.views.manual` lê daqui e exige sessão.
+OPERATION_MANUALS_DIR = Path(
+    os.getenv("OPERATION_MANUALS_DIR", str(BASE_DIR / "docs" / "operacao"))
+)
+if not OPERATION_MANUALS_DIR.is_absolute():
+    OPERATION_MANUALS_DIR = BASE_DIR / OPERATION_MANUALS_DIR
+
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE")
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE")
+# `Strict` quebraria os links das notificações por e-mail (SGPD_BASE_URL): o
+# navegador não enviaria o cookie na navegação vinda do cliente de correio e o
+# destinatário cairia na tela de login.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+# Expiração por inatividade: a sessão é renovada a cada requisição e morre após
+# SESSION_COOKIE_AGE sem uso, em vez das duas semanas fixas do padrão Django.
+SESSION_COOKIE_AGE = env_int("SESSION_COOKIE_AGE", 8 * 60 * 60)
+SESSION_SAVE_EVERY_REQUEST = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Explícito porque o limite de tentativas de login vive aqui. Cache local basta
+# enquanto a aplicação roda em um processo só; uma execução multi-worker exige
+# cache compartilhado, senão a taxa efetiva é multiplicada pelo número de workers.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "sgpd-default",
+    }
+}
 
 # Backend dinâmico: lê a configuração da central por envio (ADR-050). As
 # variáveis abaixo continuam valendo como baseline do primeiro boot.
@@ -182,6 +210,11 @@ EMAIL_TIMEOUT_SECONDS = env_int("EMAIL_TIMEOUT_SECONDS", 10)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "")
 
 LOGIN_THROTTLE_RATE = os.getenv("LOGIN_THROTTLE_RATE", "10/min")
+
+# O Admin é ferramenta técnica somente leitura (ADR-025) e seu login não passa
+# pelo limite de tentativas do DRF. Onde a aplicação está publicada ele fica
+# desligado; no desenvolvimento continua acessível.
+ADMIN_SITE_ENABLED = env_bool("DJANGO_ADMIN_ENABLED", True)
 
 # Notificações (ADR-049). A fila vive no Oracle e o despacho roda fora da
 # requisição, por comando acionado pelo agendador do sistema operacional.
@@ -237,6 +270,10 @@ REST_FRAMEWORK = {
     ],
     "EXCEPTION_HANDLER": "config.api.exception_handler",
     "DEFAULT_THROTTLE_RATES": {"login": LOGIN_THROTTLE_RATE},
+    # Quantos proxies confiáveis estão à frente da aplicação. Sem esse número o
+    # DRF usa o `X-Forwarded-For` inteiro, que o cliente pode forjar para
+    # ganhar um balde novo de tentativas a cada requisição.
+    "NUM_PROXIES": env_int("DJANGO_NUM_PROXIES", 0),
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

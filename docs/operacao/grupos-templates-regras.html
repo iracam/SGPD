@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Manual de Configuração — SGPD / DesligaFlow</title>
+<style>/*
+ * Aparência dos manuais operacionais do SGPD.
+ *
+ * Escrito para o papel primeiro: o PDF é a entrega, o HTML é a mesma coisa na
+ * tela. Só há consultas `min-width`, como manda a ADR-028. Nenhuma fonte ou
+ * imagem externa — o arquivo precisa abrir sem rede.
+ */
+
+:root {
+  --verde-escuro: #123d2b;
+  --verde: #1d6b4c;
+  --verde-claro: #e8f3ed;
+  --ambar: #a45a06;
+  --ambar-claro: #fdf3e3;
+  --vermelho: #9d2222;
+  --vermelho-claro: #fbeceb;
+  --azul: #1b4f8a;
+  --azul-claro: #ecf2fa;
+  --tinta: #16211d;
+  --tinta-suave: #55635e;
+  --linha: #cfd8d4;
+  --linha-forte: #9fb0aa;
+  --papel: #ffffff;
+  --superficie: #f6f8f7;
+
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.documento {
+  background: var(--papel);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+@media screen and (min-width: 48rem) {
+  .documento {
+    max-width: 52rem;
+    padding: 3rem 3.5rem 4rem;
+    margin: 2rem auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------- capa */
+
+.capa {
+  border-top: 6px solid var(--verde);
+  padding-top: 2rem;
+}
+
+.capa__sistema {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--verde);
+  margin: 0;
+}
+
+.capa__sistema span {
+  color: var(--tinta-suave);
+  font-weight: 500;
+}
+
+.capa__selo {
+  display: inline-block;
+  margin: 1.75rem 0 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 99px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capa__titulo {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0;
+  color: var(--verde-escuro);
+  letter-spacing: -0.02em;
+}
+
+.capa__subtitulo {
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+  margin: 0.85rem 0 0;
+  max-width: 34rem;
+}
+
+.capa__ficha {
+  margin: 2.5rem 0 0;
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 1.25rem 0;
+}
+
+@media (min-width: 34rem) {
+  .capa__ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 2rem;
+  }
+}
+
+.capa__ficha dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.capa__ficha dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+}
+
+.capa__rodape {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  max-width: 34rem;
+}
+
+/* ------------------------------------------------------------- sumário */
+
+.sumario {
+  margin-top: 3rem;
+}
+
+.sumario__titulo {
+  font-size: 1.35rem;
+  color: var(--verde-escuro);
+  border-bottom: 2px solid var(--verde);
+  padding-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.sumario__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sumario__lista a {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--linha);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.sumario__num {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ conteúdo */
+
+.conteudo h2 {
+  font-size: 1.55rem;
+  color: var(--verde-escuro);
+  letter-spacing: -0.01em;
+  margin: 3.5rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--verde);
+}
+
+.conteudo h3 {
+  font-size: 1.15rem;
+  color: var(--verde-escuro);
+  margin: 2.25rem 0 0.6rem;
+}
+
+.conteudo h4 {
+  font-size: 0.98rem;
+  color: var(--tinta);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conteudo p {
+  margin: 0.85rem 0;
+}
+
+.conteudo ul,
+.conteudo ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+
+.conteudo li {
+  margin: 0.35rem 0;
+}
+
+.conteudo li > ul,
+.conteudo li > ol {
+  margin: 0.35rem 0;
+}
+
+.conteudo a {
+  color: var(--azul);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--linha);
+  margin: 2.5rem 0;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.86em;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+
+pre {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--verde);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  font-size: 0.82em;
+}
+
+/* -------------------------------------------------------------- tabelas */
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--verde-escuro);
+  vertical-align: bottom;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--linha);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--superficie);
+}
+
+td code {
+  white-space: normal;
+  background: var(--verde-claro);
+  border-color: #bcd8ca;
+  color: var(--verde-escuro);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ destaques */
+
+.destaque {
+  margin: 1.35rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid var(--linha-forte);
+  background: var(--superficie);
+  border-radius: 0 6px 6px 0;
+}
+
+.destaque p {
+  margin: 0.4rem 0;
+}
+
+.destaque p:first-child {
+  margin-top: 0;
+}
+
+.destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.destaque--atencao {
+  border-left-color: var(--ambar);
+  background: var(--ambar-claro);
+}
+
+.destaque--proibido {
+  border-left-color: var(--vermelho);
+  background: var(--vermelho-claro);
+}
+
+.destaque--dica {
+  border-left-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.destaque--importante,
+.destaque--regra {
+  border-left-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+/* --------------------------------------------------------- fluxogramas */
+
+.fluxo {
+  margin: 1.75rem 0;
+  padding: 1.4rem 1rem 1.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+.fx-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+/* O espaçamento entre os elementos é o comprimento do conector: a haste
+   desenhada no ::after atravessa exatamente o `gap`. */
+.fx-corpo {
+  --salto: 1.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--salto);
+}
+
+.fx-no {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 7px;
+  background: var(--papel);
+  border: 1.5px solid var(--linha-forte);
+  text-align: center;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Conector para o próximo elemento: haste no ::after, ponta no ::before. */
+.fx-no::after,
+.fx-seta::after,
+.fx-nota::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: var(--salto);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+.fx-no::before,
+.fx-seta::before,
+.fx-nota::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--salto) - 0.55rem);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--linha-forte);
+}
+
+/* O último elemento não aponta para lugar nenhum. */
+.fx-corpo > :last-child::after,
+.fx-corpo > :last-child::before,
+.fx-corpo > :last-child .fx-no--ramo::after,
+.fx-corpo > :last-child .fx-no--ramo::before {
+  display: none;
+}
+
+/* Antes de uma seta rotulada ou de uma bifurcação, a haste continua mas a
+   ponta some: quem aponta é o elemento seguinte. */
+.fx-corpo > :has(+ .fx-seta)::before,
+.fx-corpo > :has(+ .fx-nota)::before,
+.fx-corpo > :has(+ .fx-ramos)::before {
+  display: none;
+}
+
+.fx-no--inicio {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--fim {
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--decisao {
+  background: var(--ambar-claro);
+  border-color: var(--ambar);
+  color: #5c3204;
+  font-weight: 600;
+}
+
+.fx-no--alerta {
+  background: var(--vermelho-claro);
+  border-color: var(--vermelho);
+  color: #6d1717;
+}
+
+.fx-no--ramo {
+  max-width: none;
+  font-size: 0.88em;
+  border-color: var(--linha);
+  flex: 1;
+}
+
+.fx-seta {
+  position: relative;
+}
+
+.fx-seta span {
+  display: inline-block;
+  font-size: 0.78em;
+  color: var(--tinta-suave);
+  background: var(--papel);
+  border: 1px dashed var(--linha-forte);
+  border-radius: 99px;
+  padding: 0.15rem 0.7rem;
+}
+
+.fx-nota {
+  position: relative;
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- bifurcações --- */
+
+.fx-ramos {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.9rem;
+  /* Abre espaço para a barra de distribuição e para a queda até cada ramo. */
+  padding-top: calc(var(--salto) + 0.6rem);
+}
+
+.fx-ramo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.fx-ramo__rotulo {
+  display: inline-block;
+  align-self: center;
+  margin-bottom: 0.45rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 99px;
+  background: var(--verde-escuro);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Queda da barra até o rótulo de cada ramo. */
+.fx-ramo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: calc(var(--salto) + 0.6rem);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+@media (min-width: 34rem) {
+  .fx-ramos {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Barra horizontal ligando os centros das colunas. `--ramos` vem do
+     gerador: com N ramos, o centro da primeira coluna fica em 50%/N. */
+  .fx-ramos::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% / var(--ramos, 2));
+    right: calc(50% / var(--ramos, 2));
+    height: 2px;
+    background: var(--linha-forte);
+  }
+}
+
+/* --------------------------------------------------------------- papel */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+
+  .documento {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .capa {
+    break-after: page;
+    padding-top: 1rem;
+  }
+
+  .sumario {
+    break-after: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2 {
+    break-before: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2:first-child {
+    break-before: avoid;
+  }
+
+  /* A régua que separa as seções no HTML é ruído no papel: como o `h2` já
+     começa página nova, ela sobra sozinha no alto da página anterior e ainda
+     faz nascer uma página em branco. */
+  hr:has(+ h2) {
+    display: none;
+  }
+
+  .quebra-pagina {
+    break-before: page;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .destaque,
+  .fx-no,
+  .fx-ramo,
+  pre,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* O fluxograma não pede `break-inside: avoid`: quando não cabe na página, o
+     navegador ignora a regra e empurra o bloco inteiro, deixando uma página em
+     branco atrás. Sem a regra ele quebra entre nós — pior que caber, melhor
+     que a página vazia. Os nós e os ramos seguem indivisíveis. */
+
+  /* No papel o fluxograma precisa caber inteiro em uma página: o `break-inside`
+     é ignorado quando o elemento não cabe, e um nó órfão na página seguinte é
+     pior do que alguns milímetros a menos de respiro. */
+  .fluxo {
+    padding: 1rem 0.9rem 1.1rem;
+  }
+
+  .fx-titulo {
+    margin-bottom: 0.9rem;
+  }
+
+  .fx-corpo {
+    --salto: 1.15rem;
+  }
+
+  .fx-no {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.84em;
+  }
+
+  .fx-ramos {
+    gap: 0.9rem;
+  }
+
+  .conteudo a {
+    color: var(--tinta);
+    text-decoration: none;
+  }
+}
+</style>
+</head>
+<body>
+<main class="documento">
+  <header class="capa">
+    <p class="capa__sistema">SGPD <span>DesligaFlow</span></p>
+    <p class="capa__selo">Manual operacional</p>
+    <h1 class="capa__titulo">Manual de Configuração</h1>
+    <p class="capa__subtitulo">Setores, templates de checklist, grupos de validação e regras de aplicabilidade — como montar o que o processo vai usar.</p>
+    <dl class="capa__ficha">
+      <div><dt>Para quem é</dt><dd>Quem configura o SGPD — administradores do processo demissional e SuperAdmin</dd></div>
+      <div><dt>Versão</dt><dd>1.0</dd></div>
+      <div><dt>Atualizado em</dt><dd>03/08/2026</dd></div>
+      <div><dt>Endereço do sistema</dt><dd>https://sgpd.bsabioenergia.com.br</dd></div>
+    </dl>
+    <p class="capa__rodape">
+      Este manual descreve o uso do sistema. Ele não substitui a política de
+      desligamento da empresa nem a orientação do Departamento Pessoal.
+    </p>
+  </header>
+
+  <nav class="sumario" aria-label="Sumário">
+    <h2 class="sumario__titulo">Sumário</h2>
+    <ol class="sumario__lista"><li><a href="#o-que-voce-vai-configurar"><span class="sumario__num">01</span><span>O que você vai configurar</span></a></li><li><a href="#a-regra-de-ouro-versao-publicada-e-imutavel"><span class="sumario__num">02</span><span>A regra de ouro: versão publicada é imutável</span></a></li><li><a href="#setores-de-validacao"><span class="sumario__num">03</span><span>Setores de validação</span></a></li><li><a href="#templates-de-checklist"><span class="sumario__num">04</span><span>Templates de checklist</span></a></li><li><a href="#grupos-de-validacao"><span class="sumario__num">05</span><span>Grupos de validação</span></a></li><li><a href="#regras-de-aplicabilidade"><span class="sumario__num">06</span><span>Regras de aplicabilidade</span></a></li><li><a href="#antes-de-publicar-conferencia-final"><span class="sumario__num">07</span><span>Antes de publicar: conferência final</span></a></li><li><a href="#duvidas-frequentes"><span class="sumario__num">08</span><span>Dúvidas frequentes</span></a></li><li><a href="#em-uma-pagina"><span class="sumario__num">09</span><span>Em uma página</span></a></li></ol>
+  </nav>
+
+  <article class="conteudo">
+<h2 id="o-que-voce-vai-configurar">O que você vai configurar</h2>
+<p>Este manual trata do que existe <strong>antes</strong> de qualquer desligamento: as peças que o processo usa quando é iniciado. Configurar bem aqui é o que faz o processo do dia a dia funcionar sem improviso.</p>
+<p>São quatro peças, e elas se encaixam nesta ordem:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Peça</th><th style="text-align:left">O que é</th><th style="text-align:left">Onde fica</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Setor de validação</strong></td><td style="text-align:left">A área que confere alguma coisa: TI, Financeiro, Almoxarifado. Tem prazo, escopo e responsáveis.</td><td style="text-align:left">Menu <strong>Setores</strong></td></tr><tr><td style="text-align:left"><strong>Template de checklist</strong></td><td style="text-align:left">A lista de perguntas que um setor responde. É versionado.</td><td style="text-align:left">Menu <strong>Grupos e templates</strong></td></tr><tr><td style="text-align:left"><strong>Grupo de validação</strong></td><td style="text-align:left">O conjunto &quot;setor + template&quot; aplicável a um perfil de colaborador. É versionado.</td><td style="text-align:left">Menu <strong>Grupos e templates</strong></td></tr><tr><td style="text-align:left"><strong>Regra de aplicabilidade</strong></td><td style="text-align:left">O filtro que sugere um grupo automaticamente conforme o perfil do colaborador.</td><td style="text-align:left">Menu <strong>Grupos e templates</strong></td></tr></tbody></table></div>
+<figure class="fluxo"><figcaption class="fx-titulo">Como as peças se encaixam</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">Você cadastra os <strong>setores</strong> com prazo, escopo e responsáveis</div><div class="fx-no fx-no--passo">Você cria um <strong>template</strong> com as perguntas e o <strong>publica</strong></div><p class="fx-nota">só template publicado pode ser usado por um grupo</p><div class="fx-no fx-no--passo">Você cria um <strong>grupo</strong> ligando cada setor ao template publicado, e o <strong>publica</strong></div><div class="fx-no fx-no--passo">Opcionalmente, cria uma <strong>regra</strong> que sugere esse grupo por empresa, filial, cargo etc.</div><div class="fx-seta"><span>a configuração está pronta</span></div><div class="fx-no fx-no--passo">O DP abre um processo — a regra <strong>sugere</strong> os grupos</div><div class="fx-no fx-no--passo">O DP confirma a seleção e inicia o processo</div><div class="fx-no fx-no--fim">Cada setor recebe a tarefa com as perguntas daquela versão do template</div></div></figure>
+<hr />
+<h2 id="a-regra-de-ouro-versao-publicada-e-imutavel">A regra de ouro: versão publicada é imutável</h2>
+<p>Templates e grupos são <strong>versionados</strong>. Uma versão pode estar em três situações:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Situação</th><th style="text-align:left">O que significa</th><th style="text-align:left">O que dá para fazer</th></tr></thead><tbody><tr><td style="text-align:left"><code>Rascunho</code></td><td style="text-align:left">Em edição. Nenhum processo a usa.</td><td style="text-align:left">Editar livremente, pré-visualizar, publicar ou excluir.</td></tr><tr><td style="text-align:left"><code>Publicada</code></td><td style="text-align:left">É a versão vigente. Processos novos a usam.</td><td style="text-align:left">Nada — é imutável. Para mudar, crie outra versão.</td></tr><tr><td style="text-align:left"><code>Substituída</code></td><td style="text-align:left">Foi publicada e depois trocada por uma versão mais nova.</td><td style="text-align:left">Nada. Continua existindo porque processos antigos dependem dela.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--regra"><p><strong>Regra</strong> Depois de publicada, uma versão <strong>nunca</strong> muda. Isso não é burocracia: é o que garante que um processo aberto há seis meses continue mostrando exatamente as perguntas que o setor respondeu na época. Se as perguntas pudessem mudar retroativamente, a auditoria não valeria nada.</p></blockquote>
+<p>Consequência prática: <strong>mudanças só valem para processos futuros</strong>. Alterar um template hoje não altera nenhuma tarefa já criada.</p>
+<div class="quebra-pagina"></div>
+<h3 id="o-ciclo-de-uma-versao">O ciclo de uma versão</h3>
+<figure class="fluxo"><figcaption class="fx-titulo">Como evoluir um template ou um grupo já publicado</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">Existe a versão <strong>v1 publicada</strong>, em uso</div><div class="fx-no fx-no--passo">Você clica em <strong>Nova versão</strong> — nasce a <strong>v2 em rascunho</strong>, cópia da v1</div><p class="fx-nota">só pode existir um rascunho por vez</p><div class="fx-no fx-no--passo">Você edita o rascunho quantas vezes quiser e usa <strong>Pré-visualizar</strong></div><div class="fx-no fx-no--decisao">O rascunho está pronto?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Sim</span><div class="fx-no fx-no--ramo"><strong>Publicar</strong> — a v2 passa a vigente e a v1 vira <em>Substituída</em></div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Não ficou bom</span><div class="fx-no fx-no--ramo"><strong>Excluir rascunho</strong> — a v1 continua vigente, intocada</div></div></div><div class="fx-no fx-no--fim">Processos iniciados dali em diante usam a v2; os antigos seguem na v1</div></div></figure>
+<p>O primeiro rascunho de um template ou grupo <strong>não pode ser excluído</strong> — só as versões seguintes.</p>
+<hr />
+<h2 id="setores-de-validacao">Setores de validação</h2>
+<p>O setor é a base de tudo: um grupo só pode apontar para setores que existam, e uma tarefa só é gerada se o setor tiver responsável.</p>
+<p>Acesse <strong>Setores</strong> e use <strong>Novo setor</strong>, ou <strong>Editar</strong> em um existente.</p>
+<h3 id="os-campos-do-setor">Os campos do setor</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Nome</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Até 120 caracteres. Como a área aparece para todo mundo: <code>Tecnologia da Informação</code>, <code>Almoxarifado BSA</code>.</td></tr><tr><td style="text-align:left"><strong>Descrição</strong></td><td style="text-align:left">Não</td><td style="text-align:left">O que a área confere no desligamento. Ajuda quem for configurar depois.</td></tr><tr><td style="text-align:left"><strong>Prazo padrão em horas</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Maior que zero. É o SLA do setor — usado quando nem o grupo nem o template definirem um prazo próprio. <code>48</code> significa dois dias corridos.</td></tr><tr><td style="text-align:left"><strong>Setor de escalada</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Para onde vai o aviso quando a tarefa passa 48 h do vencimento. Um setor não pode escalar para si mesmo. Deixe vazio para não escalar.</td></tr><tr><td style="text-align:left"><strong>Bloqueia o processo</strong></td><td style="text-align:left">—</td><td style="text-align:left">Ver tabela abaixo.</td></tr><tr><td style="text-align:left"><strong>Permite lançar valores</strong></td><td style="text-align:left">—</td><td style="text-align:left">Ver tabela abaixo.</td></tr><tr><td style="text-align:left"><strong>Exige evidência</strong></td><td style="text-align:left">—</td><td style="text-align:left">Ver tabela abaixo.</td></tr><tr><td style="text-align:left"><strong>Setor ativo</strong></td><td style="text-align:left">—</td><td style="text-align:left">Desmarcado, o setor não entra em novas seleções. Setores <strong>não são excluídos</strong>, apenas inativados — há histórico dependendo deles.</td></tr></tbody></table></div>
+<h3 id="as-tres-chaves-de-comportamento">As três chaves de comportamento</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Chave</th><th style="text-align:left">Ligada</th><th style="text-align:left">Desligada</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Bloqueia o processo</strong></td><td style="text-align:left">A tarefa deste setor precisa estar concluída para o processo ser liberado. É o padrão.</td><td style="text-align:left">A tarefa é opcional para a liberação: fica como aviso na prontidão, não como impedimento.</td></tr><tr><td style="text-align:left"><strong>Permite lançar valores</strong></td><td style="text-align:left">Este setor pode registrar pretensão de cobrança em pendências de categoria <code>Valor</code>.</td><td style="text-align:left">Os campos de valor simplesmente não aparecem para a área.</td></tr><tr><td style="text-align:left"><strong>Exige evidência</strong></td><td style="text-align:left">Marca a postura padrão do setor quanto a comprovantes. A exigência efetiva de cada pergunta é definida no template.</td><td style="text-align:left">Sem postura padrão.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> <strong>Permite lançar valores</strong> costuma ser o campo mais esquecido. Se uma área reclamar que não consegue informar um valor, verifique aqui primeiro. A mudança vale para pendências criadas dali em diante.</p></blockquote>
+<h3 id="escopos-de-atendimento">Escopos de atendimento</h3>
+<p>Um setor não atende necessariamente a empresa inteira. Cada escopo é uma linha, e um setor pode ter vários.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Abrangência</th><th style="text-align:left">Campos que exige</th><th style="text-align:left">Quando usar</th></tr></thead><tbody><tr><td style="text-align:left"><code>Global</code></td><td style="text-align:left">Nenhum</td><td style="text-align:left">O setor atende todas as empresas e filiais. Típico de TI corporativo e Departamento Pessoal.</td></tr><tr><td style="text-align:left"><code>Empresa</code></td><td style="text-align:left">Empresa</td><td style="text-align:left">O setor atende só aquela empresa, em todas as filiais dela.</td></tr><tr><td style="text-align:left"><code>Filial</code></td><td style="text-align:left">Empresa <strong>e</strong> Filial</td><td style="text-align:left">O setor atende só aquela filial. Típico de almoxarifado e portaria.</td></tr></tbody></table></div>
+<p>Filial sem empresa é recusado — a filial só existe dentro de uma empresa.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O escopo decide se o setor pode aparecer em um processo. Um grupo pode listar o setor, mas se o escopo dele não alcançar a empresa ou a filial do colaborador, o setor não gera tarefa.</p></blockquote>
+<h3 id="responsaveis">Responsáveis</h3>
+<p>Cada linha liga um <strong>usuário</strong> ao setor, com <strong>Início da validade</strong> e, opcionalmente, <strong>Fim da validade</strong>.</p>
+<ul><li>Todos os responsáveis vigentes têm <strong>a mesma autoridade</strong> sobre a tarefa. Não existe dono individual: qualquer um pode iniciar, responder e concluir.</li><li>Os avisos de prazo vão para <strong>todos</strong> eles.</li><li>Responsabilidade se <strong>revoga</strong> (preenchendo o fim da validade), não se exclui.</li></ul>
+<blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> Não deixe um setor obrigatório sem responsável vigente. O início do processo é <strong>bloqueado</strong> quando isso acontece, e o DP fica travado sem poder resolver sozinho. Ao desligar alguém que responde por um setor, transfira a responsabilidade antes.</p></blockquote>
+<hr />
+<h2 id="templates-de-checklist">Templates de checklist</h2>
+<p>O template é a lista de perguntas de um setor. Um mesmo template pode ser reutilizado por vários setores e vários grupos.</p>
+<p>Em <strong>Grupos e templates</strong>, clique em <strong>Novo template</strong> — ou em <strong>Editar rascunho</strong> se já houver um em aberto.</p>
+<h3 id="o-cabecalho-do-template">O cabeçalho do template</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Nome</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Até 120 caracteres. Descreva o uso: <code>Conferência de TI — desligamento</code>.</td></tr><tr><td style="text-align:left"><strong>SLA padrão (horas)</strong></td><td style="text-align:left">Não</td><td style="text-align:left">De 1 a 8760 horas (um ano). Se preenchido, tem precedência sobre o prazo padrão do setor. Deixe vazio para usar o prazo do setor.</td></tr><tr><td style="text-align:left"><strong>Descrição</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Para quem for manter o template depois.</td></tr></tbody></table></div>
+<p>O <strong>código numérico</strong> do template e o de cada pergunta são gerados automaticamente ao salvar. Você não escolhe nem edita esses códigos.</p>
+<h3 id="as-perguntas">As perguntas</h3>
+<p>Cada pergunta tem um texto, um tipo de resposta e quatro marcadores.</p>
+<h4 id="tipo-de-resposta">Tipo de resposta</h4>
+<p>Escolher o tipo certo é o que torna o checklist utilizável. Este é o campo que mais compensa pensar antes.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Tipo</th><th style="text-align:left">O setor vê</th><th style="text-align:left">Use quando</th></tr></thead><tbody><tr><td style="text-align:left"><code>Sim/Não</code></td><td style="text-align:left">Lista com <em>Selecione</em>, <em>Sim</em> e <em>Não</em></td><td style="text-align:left">A conferência é binária: <em>O crachá foi devolvido?</em></td></tr><tr><td style="text-align:left"><code>Texto</code></td><td style="text-align:left">Caixa de texto livre, várias linhas</td><td style="text-align:left">Precisa de descrição: <em>Descreva os acessos removidos.</em></td></tr><tr><td style="text-align:left"><code>Número</code></td><td style="text-align:left">Campo numérico</td><td style="text-align:left">Quantidade ou identificador numérico: <em>Quantas chaves foram devolvidas?</em></td></tr><tr><td style="text-align:left"><code>Data</code></td><td style="text-align:left">Campo de data com calendário</td><td style="text-align:left">Precisa registrar quando algo ocorreu: <em>Data da devolução do notebook.</em></td></tr><tr><td style="text-align:left"><code>Seleção</code></td><td style="text-align:left">Lista com as opções que você cadastrar</td><td style="text-align:left">Há um conjunto fechado e só uma resposta cabe: <em>Estado do equipamento: Novo / Usado / Danificado.</em></td></tr><tr><td style="text-align:left"><code>Múltipla seleção</code></td><td style="text-align:left">Lista onde marcar várias</td><td style="text-align:left">Há um conjunto fechado e mais de uma resposta cabe: <em>Quais sistemas foram bloqueados?</em></td></tr><tr><td style="text-align:left"><code>Arquivo</code></td><td style="text-align:left">Nenhum campo — só a área de evidências</td><td style="text-align:left">A resposta <strong>é</strong> o documento: <em>Anexe o termo de devolução assinado.</em></td></tr><tr><td style="text-align:left"><code>Confirmação obrigatória</code></td><td style="text-align:left">Caixa de marcação escrita <em>Confirmo a validação</em></td><td style="text-align:left">Você quer uma declaração pessoal e registrada: <em>Confirmo que todos os acessos foram revogados.</em></td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> <code>Seleção</code> e <code>Múltipla seleção</code> <strong>exigem</strong> uma lista de opções cadastrada. Sem opções, a pergunta é recusada ao salvar.</p></blockquote>
+<h4 id="os-quatro-marcadores">Os quatro marcadores</h4>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Marcador</th><th style="text-align:left">Ligado</th><th style="text-align:left">Desligado</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Obrigatória</strong></td><td style="text-align:left">A tarefa <strong>não conclui</strong> sem esta resposta. A pergunta aparece com asterisco.</td><td style="text-align:left">O setor pode deixar em branco.</td></tr><tr><td style="text-align:left"><strong>Bloqueante</strong></td><td style="text-align:left">Sinaliza que esta pergunta é crítica para a liberação.</td><td style="text-align:left">Pergunta comum.</td></tr><tr><td style="text-align:left"><strong>Exige evidência</strong></td><td style="text-align:left">O setor precisa anexar arquivo. Combinada com <em>Obrigatória</em>, a falta do arquivo impede a conclusão.</td><td style="text-align:left">Sem exigência de comprovante.</td></tr><tr><td style="text-align:left"><strong>Permite pendência</strong></td><td style="text-align:left">O setor pode vincular uma pendência a esta pergunta específica.</td><td style="text-align:left">A pergunta não aparece na lista <em>Item relacionado</em> do formulário de pendência.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> Nem toda pergunta precisa ser obrigatória. Excesso de obrigatoriedade leva a resposta de fachada — o setor preenche qualquer coisa para conseguir concluir. Reserve o obrigatório para o que de fato não pode faltar.</p></blockquote>
+<h3 id="pre-visualizar-antes-de-publicar">Pré-visualizar antes de publicar</h3>
+<p>O botão <strong>Pré-visualizar</strong> abre uma simulação da tela <strong>Minhas tarefas</strong> com o rascunho atual: as perguntas na ordem, os campos reais de cada tipo, a área de evidências onde ela aparecerá e as notas de configuração.</p>
+<p>Use sempre antes de publicar. Depois de publicada, a versão não muda mais.</p>
+<h3 id="publicar">Publicar</h3>
+<p>O botão <strong>Publicar</strong> torna a versão vigente. A partir daí ela pode ser usada por grupos e passa a ser imutável.</p>
+<p>Enquanto houver rascunho aberto, aparecem também <strong>Editar rascunho</strong> e <strong>Excluir rascunho</strong>. Quando não houver, aparece <strong>Nova versão</strong>.</p>
+<hr />
+<h2 id="grupos-de-validacao">Grupos de validação</h2>
+<p>O grupo é a resposta à pergunta: <em>para este perfil de colaborador, quais setores precisam validar e com qual checklist cada um?</em></p>
+<p>Clique em <strong>Novo grupo</strong>. O botão fica indisponível se não existir nenhum template publicado — sem template, não há o que atribuir.</p>
+<h3 id="o-cabecalho-do-grupo">O cabeçalho do grupo</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Nome</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Até 120 caracteres. Descreva o perfil que o grupo atende: <code>Administrativo — matriz</code>, <code>Operacional — usina</code>.</td></tr><tr><td style="text-align:left"><strong>Descrição</strong></td><td style="text-align:left">Não</td><td style="text-align:left">O critério de uso, para quem for manter depois.</td></tr></tbody></table></div>
+<h3 id="os-setores-do-grupo">Os setores do grupo</h3>
+<p>Cada linha liga um setor a um template publicado.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Setor</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Um setor cadastrado. Não pode repetir o mesmo setor duas vezes no grupo.</td></tr><tr><td style="text-align:left"><strong>Template publicado</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Só aparecem versões <strong>publicadas</strong>. Um rascunho não pode ser usado.</td></tr><tr><td style="text-align:left"><strong>SLA específico (horas)</strong></td><td style="text-align:left">Não</td><td style="text-align:left">De 1 a 8760. Sobrepõe o SLA do template e o prazo do setor <strong>apenas neste grupo</strong>.</td></tr><tr><td style="text-align:left"><strong>Obrigatório</strong></td><td style="text-align:left">—</td><td style="text-align:left">Ligado, a tarefa deste setor precisa ser concluída para liberar o processo. Desligado, ela vira aviso na prontidão, não impedimento.</td></tr><tr><td style="text-align:left"><strong>Bloqueante</strong></td><td style="text-align:left">—</td><td style="text-align:left">Ligado, marca a validação deste setor como crítica dentro do grupo.</td></tr></tbody></table></div>
+<h3 id="a-precedencia-do-prazo">A precedência do prazo</h3>
+<p>Quatro camadas podem definir o prazo de uma tarefa. Vale <strong>a primeira que existir</strong>, de cima para baixo:</p>
+<ol><li><strong>ajuste manual no rascunho do processo</strong> — decisão do DP, caso a caso;</li><li><strong>SLA específico do grupo</strong> — o campo desta tela;</li><li><strong>SLA padrão do template</strong>;</li><li><strong>prazo padrão do setor</strong>.</li></ol>
+<p>Resolvido o SLA, o prazo final da tarefa é o que vier primeiro entre a <strong>data limite do processo</strong> e o <strong>início mais o SLA</strong>. Não há cálculo por dia útil: as horas são corridas.</p>
+<h3 id="quando-dois-grupos-mandam-o-mesmo-setor">Quando dois grupos mandam o mesmo setor</h3>
+<p>Um processo pode selecionar mais de um grupo, e é comum que dois grupos incluam o mesmo setor. O comportamento depende do template:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Situação</th><th style="text-align:left">O que acontece</th></tr></thead><tbody><tr><td style="text-align:left">Mesmo setor, <strong>mesmo</strong> template</td><td style="text-align:left">O sistema consolida sozinho. Obrigatoriedade e bloqueio somam (basta um dos grupos exigir para valer) e prevalece o <strong>menor</strong> prazo. Uma única tarefa é criada.</td></tr><tr><td style="text-align:left">Mesmo setor, <strong>templates diferentes</strong></td><td style="text-align:left">O início do processo é <strong>bloqueado</strong>. O sistema não escolhe por você qual checklist vale.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Este é o erro de configuração mais comum e ele só aparece na hora em que o DP tenta iniciar o processo. Ao montar grupos que possam ser selecionados juntos, use o <strong>mesmo template</strong> para os setores em comum.</p></blockquote>
+<h3 id="pre-visualizar-e-publicar">Pré-visualizar e publicar</h3>
+<p><strong>Pré-visualizar</strong> mostra, para cada setor do grupo, o cartão de tarefa que será criado: nome do setor, prazo efetivo, template resolvido e o checklist completo com os controles reais.</p>
+<p><strong>Publicar</strong> torna a versão vigente. A partir daí, ela pode ser selecionada em processos e não muda mais.</p>
+<p><strong>Nova versão</strong> clona a versão publicada e atualiza cada setor para a <strong>versão vigente do seu template</strong> — é assim que um grupo incorpora as perguntas novas de um template que você republicou.</p>
+<hr />
+<h2 id="regras-de-aplicabilidade">Regras de aplicabilidade</h2>
+<p>A regra é opcional. Ela existe para poupar o DP de escolher os mesmos grupos manualmente todas as vezes.</p>
+<p>Clique em <strong>Nova regra</strong>. O botão fica indisponível se não houver nenhum grupo publicado.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> A regra <strong>sugere</strong>, nunca aplica. Ela pré-marca os grupos no rascunho do processo e mostra qual regra sugeriu cada um. Nada é selecionado de verdade até o DP clicar em <strong>Salvar seleção</strong>. Se nenhuma regra existir, o DP simplesmente escolhe à mão — nada quebra.</p></blockquote>
+<h3 id="como-a-regra-decide">Como a regra decide</h3>
+<p>A regra tem seis campos de filtro. O funcionamento é simples e vale a pena memorizar:</p>
+<ul><li><strong>Campo vazio é curinga</strong>: não filtra nada, aceita qualquer valor.</li><li><strong>Campo preenchido exige igualdade</strong> com o dado do colaborador no snapshot.</li><li>Uma regra combina quando <strong>todos</strong> os campos preenchidos batem.</li><li>Uma regra sem nenhum filtro combina com <strong>todo mundo</strong>.</li></ul>
+<div class="quebra-pagina"></div>
+<figure class="fluxo"><figcaption class="fx-titulo">O que acontece quando o DP abre um processo</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">O DP escolhe o colaborador e o snapshot é criado</div><div class="fx-no fx-no--passo">O sistema percorre <strong>todas</strong> as regras ativas e dentro da validade</div><div class="fx-no fx-no--decisao">Os campos preenchidos da regra batem com o snapshot?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Bateram</span><div class="fx-no fx-no--ramo">O grupo daquela regra entra na sugestão</div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Não bateram</span><div class="fx-no fx-no--ramo">A regra é ignorada, sem efeito nenhum</div></div></div><div class="fx-no fx-no--passo">Os grupos sugeridos aparecem pré-marcados no rascunho, com o nome da regra de origem</div><div class="fx-no fx-no--alerta">A prioridade <strong>não</strong> suprime ninguém — toda regra que bate contribui o seu grupo</div><div class="fx-no fx-no--passo">O DP confere, ajusta e clica em <strong>Salvar seleção</strong></div><div class="fx-no fx-no--fim">A seleção salva é o que vale; o início usa ela, não a sugestão</div></div></figure>
+<h3 id="os-campos-da-regra">Os campos da regra</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Nome</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Até 120 caracteres. Descreva o critério: <code>Operacional da usina de Sertãozinho</code>. Este nome aparece para o DP no rascunho.</td></tr><tr><td style="text-align:left"><strong>Prioridade</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">De 1 a 9999. Padrão <code>100</code>. <strong>Só ordena a exibição</strong> — não desempata nem suprime regra nenhuma.</td></tr><tr><td style="text-align:left"><strong>Grupo sugerido</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">O grupo que a regra propõe. Só grupos publicados. A sugestão sempre resolve a <strong>versão publicada vigente</strong> no momento da consulta.</td></tr><tr><td style="text-align:left"><strong>Empresa</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Código da empresa. Vazio = qualquer empresa.</td></tr><tr><td style="text-align:left"><strong>Filial</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Código da filial. <strong>Exige a empresa preenchida na mesma regra.</strong> Vazio = qualquer filial.</td></tr><tr><td style="text-align:left"><strong>Tipo de colaborador</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Código do tipo. Vazio = qualquer tipo.</td></tr><tr><td style="text-align:left"><strong>Estrutura de cargos</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Código da estrutura. Vazio = qualquer estrutura.</td></tr><tr><td style="text-align:left"><strong>Cargo</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Código do cargo, texto. Vazio = qualquer cargo.</td></tr><tr><td style="text-align:left"><strong>Centro de custo</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Código do centro de custo, texto. Vazio = qualquer centro.</td></tr><tr><td style="text-align:left"><strong>Válida de</strong> / <strong>Válida até</strong></td><td style="text-align:left">Não</td><td style="text-align:left">Janela de vigência. O fim não pode anteceder o início. Ambos vazios = vale sempre.</td></tr><tr><td style="text-align:left"><strong>Ativa</strong></td><td style="text-align:left">—</td><td style="text-align:left">Desmarcada, a regra não sugere nada. Regras <strong>não são excluídas</strong>, apenas inativadas.</td></tr></tbody></table></div>
+<h3 id="combinar-regras-uniao-nao-disputa">Combinar regras: união, não disputa</h3>
+<p>Este é o ponto que mais gera engano. <strong>Todas as regras vigentes que combinam contribuem o seu grupo.</strong> Não há regra vencedora.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Cenário</th><th style="text-align:left">Resultado</th></tr></thead><tbody><tr><td style="text-align:left">Regra A (sem filtro) sugere <code>Grupo Padrão</code>; Regra B (filial 3) sugere <code>Grupo Usina</code>. Colaborador da filial 3.</td><td style="text-align:left">A sugestão traz <strong>os dois</strong> grupos.</td></tr><tr><td style="text-align:left">Duas regras sugerem o <strong>mesmo</strong> grupo</td><td style="text-align:left">O grupo aparece uma vez só.</td></tr><tr><td style="text-align:left">Nenhuma regra combina</td><td style="text-align:left">Não há sugestão. O DP escolhe manualmente.</td></tr><tr><td style="text-align:left">Regra com prioridade 9999 e outra com 1, ambas combinando</td><td style="text-align:left"><strong>As duas</strong> contribuem. A prioridade só define a ordem de exibição.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Se você quer que um perfil receba <strong>menos</strong> grupos, o caminho não é criar uma regra de prioridade maior — é <strong>restringir os filtros</strong> das regras existentes ou inativá-las. Não existe regra de exclusão.</p></blockquote>
+<h3 id="um-roteiro-comum">Um roteiro comum</h3>
+<p><em>&quot;Quero que todo desligamento na filial 3 passe também pelo Almoxarifado.&quot;</em></p>
+<ol><li>Confirme que existe o setor <strong>Almoxarifado</strong> com escopo que alcance a filial 3 (<code>Filial</code> empresa X / filial 3, ou <code>Empresa</code> X, ou <code>Global</code>).</li><li>Confirme que o setor tem responsável vigente.</li><li>Crie ou reutilize um template com as perguntas do almoxarifado e <strong>publique</strong>.</li><li>Crie um grupo — digamos <code>Almoxarifado — filial 3</code> — com esse setor e esse template, e <strong>publique</strong>.</li><li>Crie uma regra: nome descritivo, <strong>Empresa</strong> X, <strong>Filial</strong> 3, grupo sugerido <code>Almoxarifado — filial 3</code>, ativa.</li><li>Abra um processo de teste para um colaborador da filial 3 e confira se a sugestão aparece com o nome da sua regra.</li></ol>
+<hr />
+<h2 id="antes-de-publicar-conferencia-final">Antes de publicar: conferência final</h2>
+<p>Passe por esta lista antes de tornar qualquer coisa vigente.</p>
+<p><strong>Setor</strong></p>
+<ul><li>Prazo padrão faz sentido para o trabalho real da área?</li><li>O escopo alcança as empresas e filiais certas?</li><li>Há responsável com vínculo <strong>vigente</strong>?</li><li><strong>Permite lançar valores</strong> está como deveria?</li><li>O setor de escalada está definido, se a área for crítica?</li></ul>
+<p><strong>Template</strong></p>
+<ul><li>Pré-visualizou?</li><li>Os tipos de resposta são os certos, e as listas de opções estão completas?</li><li>Só o que é essencial está marcado como obrigatório?</li><li>As perguntas que exigem comprovante estão com <strong>Exige evidência</strong>?</li></ul>
+<p><strong>Grupo</strong></p>
+<ul><li>Todo setor aponta para o template certo, na versão certa?</li><li>Os prazos específicos são realistas?</li><li>Se este grupo puder ser selecionado junto com outro, os setores em comum usam o <strong>mesmo template</strong>?</li><li>Pré-visualizou?</li></ul>
+<p><strong>Regra</strong></p>
+<ul><li>Os filtros restringem o que você quer e deixam vazio o que é indiferente?</li><li>Filial preenchida tem empresa junto?</li><li>A janela de validade está correta?</li><li>Testou abrindo um processo de teste?</li></ul>
+<blockquote class="destaque destaque--regra"><p><strong>Regra</strong> Toda criação, alteração e publicação fica registrada com o seu nome, a data e o conteúdo. A trilha de configuração é permanente e não pode ser apagada — inclusive a exclusão de um rascunho.</p></blockquote>
+<hr />
+<h2 id="duvidas-frequentes">Dúvidas frequentes</h2>
+<p><strong>Publiquei um template com erro.</strong> Crie uma <strong>Nova versão</strong>, corrija e publique. A versão errada vira <em>Substituída</em> e continua existindo, porque processos abertos com ela dependem dela. Processos já iniciados <strong>não</strong> recebem a correção.</p>
+<p><strong>Preciso apagar um setor que não uso mais.</strong> Não é possível apagar. Desmarque <strong>Setor ativo</strong> — ele deixa de entrar em novas seleções e o histórico continua íntegro.</p>
+<p><strong>Mudei o template mas as tarefas antigas continuam iguais.</strong> É o comportamento correto. Cada tarefa guarda as perguntas da versão vigente quando o processo foi iniciado.</p>
+<p><strong>O DP diz que o início está bloqueado por templates diferentes.</strong> Dois grupos selecionados mandam o mesmo setor com templates diferentes. Ou o DP seleciona apenas um dos grupos, ou você ajusta a configuração para que ambos usem o mesmo template naquele setor.</p>
+<p><strong>Criei a regra e ela não sugere nada.</strong> Verifique, nesta ordem: a regra está <strong>Ativa</strong>? Está dentro da janela de validade? Os filtros batem mesmo com o colaborador — inclusive os códigos? O grupo apontado tem <strong>versão publicada</strong>? O setor do grupo tem escopo que alcança a empresa e filial do colaborador?</p>
+<p><strong>Quero um grupo que se aplique a todo mundo.</strong> Crie a regra sem nenhum filtro preenchido. Todos os campos vazios significam curinga em tudo.</p>
+<p><strong>Consigo excluir uma versão publicada?</strong> Não. Só rascunhos são excluídos, e nunca o primeiro rascunho de um template ou grupo.</p>
+<hr />
+<h2 id="em-uma-pagina">Em uma página</h2>
+<ol><li><strong>Setores</strong>: cadastre a área com prazo, escopo, responsáveis vigentes e as chaves de comportamento.</li><li><strong>Grupos e templates → Novo template</strong>: monte as perguntas, escolha bem os tipos, <strong>pré-visualize</strong> e <strong>publique</strong>.</li><li><strong>Novo grupo</strong>: ligue cada setor ao template publicado, defina obrigatoriedade e prazo, <strong>pré-visualize</strong> e <strong>publique</strong>.</li><li><strong>Nova regra</strong> (opcional): preencha só os filtros que restringem, escolha o grupo sugerido e deixe <strong>Ativa</strong>.</li><li>Abra um processo de teste e confirme a sugestão, os setores resolvidos e os prazos.</li><li>Para evoluir qualquer coisa: <strong>Nova versão</strong> → editar → pré-visualizar → <strong>Publicar</strong>. Processos antigos ficam como estavam.</li></ol>
+  </article>
+</main>
+</body>
+</html>

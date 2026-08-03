@@ -1,8 +1,16 @@
 # Environment variables and local secrets
 .env
 .env.*
+# Cópias e rascunhos de ambiente (`.env.bak`, `..envteste`, `env.old`...): as
+# senhas dentro deles continuam válidas, e um `git add -A` distraído basta para
+# publicá-las.
+*env*.bak
+*env*.old
+*env*.orig
+.*env*
 !.env.example
 !.env.*.example
+!.gitignore
 secrets/
 
 # Python
@@ -82,3 +90,6 @@ Thumbs.db
 
 # Logs do agendamento local (RUNBOOK.md §2)
 var/log/
+
+# Fixtures locais de reset do DEV (nunca versionar)
+docs/fixtures/

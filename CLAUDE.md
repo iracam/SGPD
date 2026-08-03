@@ -28,6 +28,7 @@ uv run ruff format --check .
 uv run mypy apps config tests manage.py
 uv run manage.py check
 uv run manage.py makemigrations --check --dry-run --settings=config.settings.test
+uv run manage.py check --deploy        # postura de segurança do host publicado
 
 # Frontend (sempre npm ci, nunca npm install)
 npm --prefix frontend ci
@@ -35,7 +36,9 @@ npm --prefix frontend test             # Vitest via ng test
 npm --prefix frontend run build
 
 # Execução local: Django serve a SPA construída em :8000
-uv run manage.py runserver
+# O módulo de settings vem do `.env`; neste host ele é `config.settings.production`
+# (ADR-052), que exige HTTPS. Para desenvolver, passe o módulo explicitamente.
+uv run manage.py runserver --settings=config.settings.development
 # Dev do frontend: ng serve em :4200 com proxy de /api e /admin para :8000
 npm --prefix frontend start
 ```

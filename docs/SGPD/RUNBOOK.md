@@ -160,11 +160,31 @@ restauração e sem cobertura confirmada do storage de evidências.
 
 ## 7. Saúde da aplicação
 
+O host é publicado em `https://sgpd.bsabioenergia.com.br` por um proxy que roda
+em outro servidor e encaminha para a porta `8002` deste (ADR-052). A aplicação
+sobe com os settings escolhidos pelo `DJANGO_SETTINGS_MODULE` do `.env`:
+
 ```bash
-curl -s localhost:8000/health/live/    # o processo está de pé
-curl -s localhost:8000/health/ready/   # dependências respondem
-uv run manage.py sgpd_operations_check # fila, storage e retenção
+uv run manage.py runserver 0.0.0.0:8002
 ```
+
+Verificação, sempre pela URL publicada — em HTTP puro o navegador descarta o
+cookie `Secure` e o login não completa:
+
+```bash
+curl -s https://sgpd.bsabioenergia.com.br/health/live/    # o processo está de pé
+curl -s https://sgpd.bsabioenergia.com.br/health/ready/   # dependências respondem
+uv run manage.py sgpd_operations_check                    # fila, storage e retenção
+uv run manage.py check --deploy                           # postura de segurança
+```
+
+`check --deploy` deve terminar apenas com os avisos de `SECURE_HSTS_PRELOAD` e
+`SECURE_HSTS_INCLUDE_SUBDOMAINS`, que são opções deliberadamente não adotadas.
+Qualquer aviso de cookie, redirecionamento ou `DEBUG` significa que a aplicação
+subiu com o módulo de settings errado.
+
+Para desenvolver localmente sem as travas de transporte, passe o módulo na mão:
+`uv run manage.py runserver --settings=config.settings.development`.
 
 Logs são JSON na saída padrão, com correlation ID em cada requisição
 (`X-Correlation-ID` aceito ou gerado). Ao investigar um caso, pegue o

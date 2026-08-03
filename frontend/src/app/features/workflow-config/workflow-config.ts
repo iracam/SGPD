@@ -17,6 +17,7 @@ import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 import { finalize, forkJoin } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { errorMessage } from '../../core/api/api-error';
 import {
   AtualizacaoRascunhoGrupo,
@@ -67,6 +68,7 @@ type RegraForm = FormGroup<{
     MessageModule,
     SelectModule,
     TextareaModule,
+    AjudaLink,
   ],
   templateUrl: './workflow-config.html',
   styleUrl: './workflow-config.scss',

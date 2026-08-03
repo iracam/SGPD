@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 
 import pytest
-from django.test import Client
+from django.test import Client, override_settings
+from django.urls import clear_url_caches
 
+import config.urls
 from apps.accounts.models import User
 
 pytestmark = pytest.mark.django_db
@@ -75,6 +78,25 @@ def test_django_admin_login_remains_available(bundle: Path) -> None:
     response = Client().get("/admin/login/")
 
     assert response.status_code == 200
+    assert b"<app-root>" not in response.content
+
+
+def test_the_admin_can_be_switched_off_without_leaking_into_the_shell(bundle: Path) -> None:
+    # Onde a aplicação está publicada o Admin fica desligado. O catch-all da SPA
+    # continua excluindo `admin/`, então a rota some em vez de devolver o HTML
+    # do Angular com 200.
+    with override_settings(ADMIN_SITE_ENABLED=False):
+        clear_url_caches()
+        importlib.reload(config.urls)
+        try:
+            response = Client().get("/admin/login/")
+        finally:
+            clear_url_caches()
+
+    importlib.reload(config.urls)
+    clear_url_caches()
+
+    assert response.status_code == 404
     assert b"<app-root>" not in response.content
 
 

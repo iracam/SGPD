@@ -16,6 +16,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 050 | Vigente | Configuração de e-mail na central, com `.env` como baseline |
 | 022 | Vigente no DEV | Owner `SGPD` também como runtime |
 | 023 | Vigente | Fundação Python, Django e conexão Oracle |
+| 052 | Vigente | Publicação atrás de proxy e settings do host publicado |
 
 ## Domínio e workflow
 
@@ -46,6 +47,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 030 | Exceção DEV | LDAP sem TLS, com aviso explícito |
 | 031–032 | Vigentes | Configuração dinâmica e transporte LDAP único; ler 050 |
 | 047 | Vigente | Protocolo de conferência como linguagem visual de execução |
+| 053 | Vigente | Manuais operacionais servidos pela aplicação, atrás da sessão |
 
 ## Regras de consulta
 

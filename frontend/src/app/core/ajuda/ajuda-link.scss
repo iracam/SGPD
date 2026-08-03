@@ -1,0 +1,6 @@
+// O `pButton` não zera o sublinhado padrão da âncora: sem isto o rótulo sai
+// grifado ao lado de botões que não são, e o atalho parece um link solto no
+// meio das ações da página.
+a {
+  text-decoration: none;
+}

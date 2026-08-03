@@ -19,7 +19,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
 from apps.integrations.active_directory.exceptions import DirectoryUnavailableError
@@ -129,8 +129,26 @@ def authorization_context(user: User) -> dict[str, Any]:
     }
 
 
-class LoginRateThrottle(AnonRateThrottle):
+class LoginRateThrottle(SimpleRateThrottle):
+    """Limita tentativas de login por origem e usuário alvo.
+
+    `AnonRateThrottle` não serve aqui por dois motivos: ele se desliga para quem
+    já tem sessão, o que deixaria qualquer usuário autenticado tentar senhas de
+    terceiros à vontade; e agrupa todo mundo numa chave só, o que atrás de um
+    proxy transformaria o limite num bloqueio coletivo.
+    """
+
     scope = "login"
+
+    def get_cache_key(self, request: Request, view: APIView) -> str:
+        username = ""
+        data = request.data
+        if isinstance(data, dict):
+            username = str(data.get("username") or "").strip().lower()[:150]
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": f"{self.get_ident(request)}|{username}",
+        }
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")

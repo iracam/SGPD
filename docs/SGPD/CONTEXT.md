@@ -22,7 +22,9 @@ online pelo contrato SQL homologado e o snapshot histórico é criado na abertur
 - DEV único, Debian 13, Python 3.13 e Django 5.2 LTS;
 - Django REST Framework, Oracle 19c e `python-oracledb` Thick;
 - SPA Angular 21 standalone, PrimeNG 21 Aura e SCSS mobile first;
-- sessão Django, CSRF e API na mesma origem;
+- sessão Django, CSRF e API na mesma origem, publicada em
+  `https://sgpd.bsabioenergia.com.br` por um proxy que roda em outro host e
+  termina o TLS; a aplicação sobe com `config.settings.production` (ADR-052);
 - WhiteNoise somente para estáticos e assets da SPA;
 - filesystem privado para evidências;
 - Redis e worker somente quando uma funcionalidade exigir;
@@ -123,6 +125,7 @@ nos incrementos seguintes.
 | notificação, fila ou agendamento | ADR-049, `WORKFLOWS.md` §7 e `ENVIRONMENT.md` §3 |
 | indicador, relatório ou exportação | `REQUIREMENTS.md` RF-034 a RF-036 e `SECURITY.md` §5–§6 |
 | operação, monitoramento ou plantão | `RUNBOOK.md` e `ENVIRONMENT.md` §7 |
+| settings, transporte, proxy ou publicação | `SECURITY.md` §10, ADR-052 e `RUNBOOK.md` §7 |
 | direção de produto | `VISION.md` |
 | planejamento futuro | `ROADMAP.md` |
 
@@ -139,6 +142,7 @@ uv run ruff format --check .
 uv run mypy apps config tests manage.py
 uv run manage.py check
 uv run manage.py makemigrations --check --dry-run --settings=config.settings.test
+uv run manage.py check --deploy
 npm --prefix frontend test
 npm --prefix frontend run build
 ```

@@ -27,8 +27,8 @@ PASSWORD = "Api-auth-test!2026"
 
 @pytest.fixture(autouse=True)
 def _clear_throttle_cache() -> None:
-    # AnonRateThrottle counts through the cache; leaking counters between tests
-    # would make unrelated cases fail with 429.
+    # The login throttle counts through the cache; leaking counters between
+    # tests would make unrelated cases fail with 429.
     cache.clear()
 
 
@@ -140,6 +140,30 @@ def test_login_is_throttled_after_repeated_attempts(user: User) -> None:
 
     assert statuses[0] == 401
     assert statuses[-1] == 429
+
+
+def test_an_authenticated_session_does_not_escape_the_login_throttle(user: User) -> None:
+    # AnonRateThrottle switches itself off once a session exists, which would
+    # let any signed-in account guess someone else's password without limit.
+    client, token = _csrf_client()
+    assert _login(client, token, user.username, PASSWORD).status_code == 200
+    token = client.cookies["csrftoken"].value  # o login rotaciona o token
+
+    statuses = [_login(client, token, "outra.conta", "chute").status_code for _ in range(11)]
+
+    assert statuses[-1] == 429
+
+
+def test_the_throttle_counts_each_target_account_separately(user: User) -> None:
+    # Behind a proxy every request shares one address, so counting by address
+    # alone would turn ten wrong guesses into a lockout for everybody else.
+    client, token = _csrf_client()
+    for _ in range(10):
+        _login(client, token, user.username, "senha-incorreta")
+
+    response = _login(client, token, "outra.conta", "senha-incorreta")
+
+    assert response.status_code == 401
 
 
 def test_missing_credentials_return_field_details() -> None:

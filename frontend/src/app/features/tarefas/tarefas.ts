@@ -5,6 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { finalize } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { errorMessage } from '../../core/api/api-error';
 import {
   DecisaoValor,
@@ -93,7 +94,7 @@ function agruparPorProcesso(
 
 @Component({
   selector: 'app-tarefas-page',
-  imports: [DatePipe, ButtonModule, MessageModule],
+  imports: [DatePipe, ButtonModule, MessageModule, AjudaLink],
   templateUrl: './tarefas.html',
   styleUrl: './tarefas.scss',
 })
