@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
@@ -277,6 +278,48 @@ def test_global_only_role_is_refused_outside_the_global_scope(actor: User) -> No
 
     assert assignment.scope_key == "*"
     assert has_permission(user, "accounts.view_account_audit")
+
+
+def test_role_assignment_and_revocation_are_reserved_to_the_superadmin(actor: User) -> None:
+    """Atribuir papel é ato do SuperAdmin, mesmo com `manage_roles` concedida.
+
+    A permissão continua existindo no Oracle e pode estar concedida a alguma
+    conta; o que este teste fixa é que nenhum caminho de autorização volta a
+    lê-la. Delegá-la deixaria um administrador de usuários se promover.
+    """
+
+    call_command("bootstrap_roles")
+    delegate = create_user("usuarios.admin")
+    delegate.user_permissions.add(
+        Permission.objects.get(content_type__app_label="accounts", codename="manage_users"),
+        Permission.objects.get(content_type__app_label="accounts", codename="manage_roles"),
+    )
+    target = create_user("alvo.papel")
+    command = AssignRoleCommand(
+        actor=delegate,
+        user_id=target.pk,
+        role_id=Role.objects.get(code=PEOPLE_DEPARTMENT_ROLE_CODE).pk,
+        scope_type=ScopeType.GLOBAL,
+        company_code=None,
+        branch_code=None,
+        valid_from=None,
+        valid_until=None,
+    )
+
+    assert has_permission(delegate, "accounts.manage_roles")
+    with pytest.raises(PermissionDenied, match="SuperAdmin"):
+        AssignRoleService().execute(command)
+
+    assert not target.role_assignments.exists()
+    assert not AccountAuditEvent.objects.filter(event_type=AccountEventType.ROLE_ASSIGNED).exists()
+
+    assignment = AssignRoleService().execute(replace(command, actor=actor))
+    with pytest.raises(PermissionDenied, match="SuperAdmin"):
+        RevokeRoleService().execute(RevokeRoleCommand(actor=delegate, assignment_id=assignment.pk))
+
+    assignment.refresh_from_db()
+    assert assignment.is_active
+    assert not AccountAuditEvent.objects.filter(event_type=AccountEventType.ROLE_REVOKED).exists()
 
 
 def test_create_user_normalizes_identity_and_audits(actor: User) -> None:

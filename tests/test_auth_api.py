@@ -368,6 +368,29 @@ def test_context_exposes_company_scoped_permission(user: User) -> None:
     assert body["scopes"]["assignments"][0]["company_code"] == 7
 
 
+def test_manage_roles_capability_is_published_only_to_the_superadmin(user: User) -> None:
+    """A SPA não pode oferecer o que a API recusa.
+
+    `manage_roles` saiu das permissões delegáveis e passou a ser publicada a
+    partir da autoridade global; concedê-la diretamente não acende mais o bloco
+    de papéis na tela de usuários.
+    """
+
+    user.user_permissions.add(
+        Permission.objects.get(
+            content_type__app_label="accounts",
+            codename="manage_roles",
+        )
+    )
+    client = Client()
+    client.force_login(user)
+
+    body = client.get(reverse("auth-api:context")).json()
+
+    assert body["features"]["manage_roles"]["can_view"] is False
+    assert body["permissions"]["manage_roles"]["companies"] == []
+
+
 def test_context_reports_global_access_for_superuser() -> None:
     admin = User.objects.create_superuser(
         username="api.admin",

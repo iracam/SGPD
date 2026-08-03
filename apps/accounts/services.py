@@ -16,7 +16,7 @@ from apps.integrations.active_directory.config import ActiveDirectoryConfig
 from apps.integrations.active_directory.dto import DirectoryUser
 from config.middleware import correlation_id
 
-from .authorization import has_permission
+from .authorization import has_global_authority, has_permission
 from .models import (
     FUNCTIONAL_ROLE_CODES,
     GLOBAL_ONLY_ROLE_CODES,
@@ -30,7 +30,6 @@ from .models import (
 )
 
 MANAGE_USERS_PERMISSION = "accounts.manage_users"
-MANAGE_ROLES_PERMISSION = "accounts.manage_roles"
 LINK_AD_IDENTITY_PERMISSION = "accounts.link_ad_identity"
 LOCAL_USER_CREATION_REASON = "Criação explícita de conta local no SGPD."
 ROLE_ASSIGNMENT_REASON = "Designação explícita de papel funcional no SGPD."
@@ -48,11 +47,25 @@ FIXED_ROLE_CATALOG_MESSAGE = (
     + " são os únicos códigos aceitos."
 )
 GLOBAL_ONLY_ROLE_MESSAGE = "Este papel só existe em escopo global."
+ROLE_AUTHORITY_MESSAGE = "Somente o SuperAdmin atribui ou revoga papel funcional no SGPD."
 
 
 def _require_permission(actor: User, permission: str) -> None:
     if not has_permission(actor, permission):
         raise PermissionDenied("O ator não possui permissão para executar esta operação.")
+
+
+def _require_global_authority(actor: User) -> None:
+    """Reserva o ato ao SuperAdmin, sem passar por permissão delegável.
+
+    Atribuir papel é o que cria toda autoridade funcional do SGPD; delegá-lo
+    permitiria que um administrador de usuários se promovesse a `DP_GERENTE`.
+    Por isso a barra é `is_superuser` e não `accounts.manage_roles`, que deixou
+    de ser lida em qualquer caminho.
+    """
+
+    if not has_global_authority(actor):
+        raise PermissionDenied(ROLE_AUTHORITY_MESSAGE)
 
 
 def _record_event(
@@ -160,6 +173,9 @@ class CreateUserService:
             },
         )
         if command.initial_role is not None:
+            # A designação inicial passa pelo mesmo guard do ato isolado: quem
+            # administra usuários cria a conta, mas só o SuperAdmin lhe dá papel.
+            # A recusa acontece dentro desta transação e desfaz também a conta.
             initial_role = command.initial_role
             AssignRoleService().execute(
                 AssignRoleCommand(
@@ -429,7 +445,7 @@ class AssignRoleCommand:
 class AssignRoleService:
     @transaction.atomic
     def execute(self, command: AssignRoleCommand) -> RoleAssignment:
-        _require_permission(command.actor, MANAGE_ROLES_PERMISSION)
+        _require_global_authority(command.actor)
         user = User.objects.select_for_update().get(pk=command.user_id)
         role = Role.objects.select_for_update().get(pk=command.role_id)
         if not user.is_active:
@@ -515,7 +531,7 @@ class RevokeRoleCommand:
 class RevokeRoleService:
     @transaction.atomic
     def execute(self, command: RevokeRoleCommand) -> RoleAssignment:
-        _require_permission(command.actor, MANAGE_ROLES_PERMISSION)
+        _require_global_authority(command.actor)
         assignment = (
             RoleAssignment.objects.select_for_update()
             .select_related("user", "role")

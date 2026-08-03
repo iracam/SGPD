@@ -131,6 +131,10 @@ class User(AbstractUser):
         ]
         permissions = [
             ("manage_users", "Pode criar e manter usuários"),
+            # Reservada: nenhum caminho de autorização lê `manage_roles` desde
+            # que atribuir e revogar papel virou ato exclusivo do SuperAdmin.
+            # A permissão continua declarada porque a linha correspondente já
+            # existe no Oracle e apagá-la seria migration destrutiva sem ganho.
             ("manage_roles", "Pode criar e manter papéis e permissões"),
             ("link_ad_identity", "Pode vincular e desvincular identidades do AD"),
             ("view_account_audit", "Pode consultar a auditoria de contas"),

@@ -169,10 +169,67 @@ def test_manage_users_does_not_grant_manage_roles(plain_user: User) -> None:
     assert client.get(reverse("accounts-api:audit-list")).status_code == 403
 
 
-def test_initial_role_requires_manage_roles_and_rolls_back_user(plain_user: User) -> None:
-    plain_user.user_permissions.add(
-        Permission.objects.get(content_type__app_label="accounts", codename="manage_users")
+def test_role_endpoints_are_reserved_to_the_superadmin(plain_user: User, admin: User) -> None:
+    """Nem a permissão concedida diretamente alcança papel: só o SuperAdmin.
+
+    Sem esta barra, quem administra usuários poderia se atribuir `DP_GERENTE` e
+    passar por cima de qualquer impedimento de liberação.
+    """
+
+    for codename in ("manage_users", "manage_roles"):
+        plain_user.user_permissions.add(
+            Permission.objects.get(content_type__app_label="accounts", codename=codename)
+        )
+    role = Role.objects.create(code="DP", name="Departamento Pessoal")
+    assignment = RoleAssignment.objects.create(
+        user=plain_user,
+        role=role,
+        scope_type=ScopeType.GLOBAL,
+        scope_key="GLOBAL:-:-",
+        valid_from=timezone.now(),
+        assigned_by=admin,
     )
+    client = Client()
+    client.force_login(plain_user)
+
+    assert client.get(reverse("accounts-api:user-list")).status_code == 200
+
+    catalog = client.get(reverse("accounts-api:role-list"))
+    assert catalog.status_code == 403
+    assert "SuperAdmin" in catalog.json()["message"]
+    assert (
+        client.get(reverse("accounts-api:role-detail", kwargs={"role_id": role.pk})).status_code
+        == 403
+    )
+    assign = _post(
+        client,
+        "accounts-api:user-assign-role",
+        {"role_id": role.pk, "scope_type": ScopeType.GLOBAL.value},
+        user_id=plain_user.pk,
+    )
+    revoke = _post(
+        client,
+        "accounts-api:role-assignment-revoke",
+        {},
+        assignment_id=assignment.pk,
+    )
+
+    assignment.refresh_from_db()
+    assert assign.status_code == 403
+    assert revoke.status_code == 403
+    assert assignment.is_active
+    assert RoleAssignment.objects.count() == 1
+    assert not AccountAuditEvent.objects.exists()
+
+
+def test_initial_role_requires_the_superadmin_and_rolls_back_user(plain_user: User) -> None:
+    # A designação inicial não escapa pela criação composta: quem administra
+    # usuários cria a conta, mas o papel continua sendo ato do SuperAdmin, e a
+    # recusa desfaz a conta junto.
+    for codename in ("manage_users", "manage_roles"):
+        plain_user.user_permissions.add(
+            Permission.objects.get(content_type__app_label="accounts", codename=codename)
+        )
     role = Role.objects.create(code="DP", name="Departamento Pessoal")
     client = Client()
     client.force_login(plain_user)

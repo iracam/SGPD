@@ -433,7 +433,8 @@ resultado. Nenhum implementa regra de negócio.
 `initial_role`, somente para `DP`, com escopo organizacional. O
 `CreateUserService` compõe a criação com o `AssignRoleService` dentro da mesma
 transação: a operação simples continua exigindo `manage_users`; ao incluir o
-papel, `manage_roles` também é revalidada no service. Conta, atribuição e seus
+papel, a autoridade global do SuperAdmin é revalidada no service. Conta,
+atribuição e seus
 dois eventos de auditoria são confirmados ou desfeitos em conjunto.
 
 O `AssignRoleService` aceita somente `DP` e também atende
@@ -457,11 +458,16 @@ inicial. Esses logs carregam correlation ID e somente IDs, escopo e resultado;
 payload, login, e-mail e senha não são projetados.
 
 A autorização é declarada por endpoint e reavaliada a cada requisição:
-`manage_users` para usuários e senha, `manage_roles` somente para atribuir ou
-revogar os papéis fixos, `link_ad_identity` para o vínculo com o AD e
-`view_account_audit` para a auditoria. O service revalida a mesma permissão no
+`manage_users` para usuários e senha, `link_ad_identity` para o vínculo com o AD
+e `view_account_audit` para a auditoria. O service revalida a mesma permissão no
 próprio limite, conforme a ADR-024, de modo que a checagem do endpoint é
 redundante por decisão e não é o único guarda.
+
+Atribuir papel, revogar papel e ler o catálogo funcional não são permissão
+delegável: os quatro endpoints declaram `requires_global_authority` e
+`AssignRoleService`/`RevokeRoleService` exigem `is_superuser` no próprio limite.
+`manage_roles` permanece declarada apenas porque a linha já existe no Oracle;
+nenhum caminho de autorização a consulta.
 
 Descoberta e importação AD são explicitamente administrativas. As buscas
 validam e escapam a entrada, aplicam paginação e limite, excluem contas

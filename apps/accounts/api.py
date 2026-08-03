@@ -26,7 +26,7 @@ from apps.integrations.active_directory.exceptions import DirectoryUnavailableEr
 from apps.integrations.senior.permissions import SENIOR_REFERENCE_PERMISSION
 from config.api import api_error
 
-from .authorization import active_assignments, allowed_company_codes
+from .authorization import active_assignments, allowed_company_codes, has_global_authority
 from .models import RESPONSIBLE_SECTOR_ROLE_CODE, AccountEventType, User
 from .serializers import ChangeOwnPasswordSerializer, LoginSerializer
 from .services import (
@@ -39,13 +39,17 @@ from .services import (
 #: what the client uses; authorization itself is always re-evaluated server-side.
 DELEGABLE_PERMISSIONS: tuple[str, ...] = (
     "accounts.manage_users",
-    "accounts.manage_roles",
     "accounts.link_ad_identity",
     "accounts.view_account_audit",
     SENIOR_REFERENCE_PERMISSION,
     "sectors.manage_sectors",
     "templates_engine.manage_workflow_configuration",
 )
+
+#: Capacidades que a SPA consulta pelo mesmo nome de sempre, mas que não vêm de
+#: permissão delegável: atribuir e revogar papel é ato exclusivo do SuperAdmin.
+#: Publicá-las pela permissão deixaria a tela oferecer o que a API recusa.
+SUPERADMIN_ONLY_CAPABILITIES: tuple[str, ...] = ("manage_roles",)
 
 
 def user_payload(user: User) -> dict[str, Any]:
@@ -81,6 +85,14 @@ def authorization_context(user: User) -> dict[str, Any]:
             "companies": None if companies is None else sorted(companies),
         }
         features[key] = {"can_view": granted}
+
+    superadmin = has_global_authority(user)
+    for capability in SUPERADMIN_ONLY_CAPABILITIES:
+        permissions[capability] = {
+            "granted": superadmin,
+            "companies": None if superadmin else [],
+        }
+        features[capability] = {"can_view": superadmin}
 
     assignments = (
         active_assignments(user).select_related("role").order_by("role__code", "scope_key")

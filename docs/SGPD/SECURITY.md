@@ -155,15 +155,20 @@ no build.
 A SPA não é uma barreira de autorização: toda requisição continua sendo
 validada pela API, e nenhuma listagem cadastral projeta CPF.
 
-As permissões administrativas existentes são:
+As permissões administrativas delegáveis são:
 
 - `manage_users`;
-- `manage_roles`;
 - `link_ad_identity`;
 - `view_account_audit`;
 - `query_senior_references`;
 - `manage_sectors`;
 - `manage_workflow_configuration`.
+
+`manage_roles` continua declarada no model e existe como linha no Oracle, mas
+nenhum caminho de autorização a lê: atribuir e revogar papel é ato exclusivo do
+SuperAdmin, verificado por `is_superuser` no endpoint e revalidado no service.
+Delegar essa permissão permitiria que um administrador de usuários se atribuísse
+qualquer papel funcional, inclusive `DP_GERENTE`.
 
 O único papel funcional atribuível ativo é `DP`. `RESPONSAVEL_SETOR` é
 derivado de vínculo efetivo com o setor e não concede administração técnica.
@@ -240,11 +245,11 @@ superusuários ativos em ordem determinística e impede transacionalmente a
 remoção do último superusuário ativo.
 
 No cadastro manual, a designação inicial de `DP` é opcional.
-Quando solicitada, o mesmo caso de uso exige `manage_users` e `manage_roles`,
-cria a conta e a atribuição na mesma transação e registra separadamente
-`USER_CREATED` e `ROLE_ASSIGNED`. Falha de autorização, papel, escopo ou
-auditoria desfaz toda a criação; a SPA não exibe os campos de papel a quem não
-possui `manage_roles`.
+Quando solicitada, o mesmo caso de uso exige `manage_users` para a conta e a
+autoridade global do SuperAdmin para o papel, cria os dois na mesma transação e
+registra separadamente `USER_CREATED` e `ROLE_ASSIGNED`. Falha de autorização,
+papel, escopo ou auditoria desfaz toda a criação; a SPA não exibe os campos de
+papel a quem não é SuperAdmin.
 
 Criação e edição de outros papéis não possuem API nem interface, e o model
 impede outro código ativo. Criação, reativação, atualização e revogação de

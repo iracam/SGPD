@@ -29,7 +29,7 @@ from apps.integrations.active_directory.exceptions import (
 from config.api import api_error
 
 from .api import user_payload
-from .authorization import has_permission
+from .authorization import has_global_authority, has_permission
 from .models import (
     FUNCTIONAL_ROLE_CODES,
     AccountAuditEvent,
@@ -48,8 +48,8 @@ from .serializers import (
 )
 from .services import (
     LINK_AD_IDENTITY_PERMISSION,
-    MANAGE_ROLES_PERMISSION,
     MANAGE_USERS_PERMISSION,
+    ROLE_AUTHORITY_MESSAGE,
     AssignRoleCommand,
     AssignRoleService,
     CreateUserCommand,
@@ -231,14 +231,20 @@ def audit_payload(event: AccountAuditEvent) -> dict[str, Any]:
 
 
 class HasAccountPermission(BasePermission):
-    """Re-check the view's declared permission on every request."""
+    """Re-check the view's declared authority on every request."""
 
     def has_permission(self, request: Request, view: APIView) -> bool:
-        required = getattr(view, "required_permission", None)
-        if required is None:
-            return False
         user = request.user
         if not isinstance(user, User):
+            return False
+        if getattr(view, "requires_global_authority", False):
+            # Papel não se delega: quem atribui é o SuperAdmin e mais ninguém.
+            # A mensagem é legível porque a barra é regra de negócio conhecida,
+            # não sonda de existência do recurso.
+            self.message = ROLE_AUTHORITY_MESSAGE
+            return has_global_authority(user)
+        required = getattr(view, "required_permission", None)
+        if required is None:
             return False
         return has_permission(user, required)
 
@@ -246,6 +252,9 @@ class HasAccountPermission(BasePermission):
 class AccountsAPIView(APIView):
     permission_classes = [IsAuthenticated, HasAccountPermission]
     required_permission: str
+    #: Quando verdadeiro, `required_permission` não é consultada: o endpoint
+    #: exige a autoridade global do SuperAdmin.
+    requires_global_authority: bool = False
 
     def actor(self, request: Request) -> User:
         return cast(User, request.user)
@@ -404,7 +413,7 @@ class UserResetPasswordView(AccountsAPIView):
 
 
 class UserRoleAssignmentView(AccountsAPIView):
-    required_permission = MANAGE_ROLES_PERMISSION
+    requires_global_authority = True
 
     def post(self, request: Request, user_id: int) -> Response:
         actor = self.actor(request)
@@ -452,7 +461,7 @@ class UserRoleAssignmentView(AccountsAPIView):
 
 
 class RoleAssignmentRevokeView(AccountsAPIView):
-    required_permission = MANAGE_ROLES_PERMISSION
+    requires_global_authority = True
 
     def post(self, request: Request, assignment_id: int) -> Response:
         get_object_or_404(RoleAssignment, pk=assignment_id)
@@ -534,7 +543,8 @@ class UserAdUnlinkView(AccountsAPIView):
 
 
 class RoleListView(AccountsAPIView):
-    required_permission = MANAGE_ROLES_PERMISSION
+    # Ler o catálogo só serve para atribuir; segue a mesma barra do ato.
+    requires_global_authority = True
 
     def get(self, request: Request) -> Response:
         offset, limit = self.page(request)
@@ -546,7 +556,7 @@ class RoleListView(AccountsAPIView):
 
 
 class RoleDetailView(AccountsAPIView):
-    required_permission = MANAGE_ROLES_PERMISSION
+    requires_global_authority = True
 
     def get(self, request: Request, role_id: int) -> Response:
         role = get_object_or_404(

@@ -9,9 +9,11 @@
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
   2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052)
-- Em andamento: os cinco papéis funcionais atribuíveis — fatia 1 implementada,
-  com a migration `accounts.0011` **ainda não aplicada no Oracle DEV**
-- Próximo incremento: fatia 2 dos papéis (atribuição exclusiva do SuperAdmin);
+- Em andamento: os cinco papéis funcionais atribuíveis — fatias 1 e 2
+  implementadas, com a migration `accounts.0011` **ainda não aplicada no Oracle
+  DEV**
+- Próximo incremento: fatia 3 dos papéis (override dos impedimentos de liberação
+  e encerramento pelo `DP_GERENTE`, com justificativa e trilha);
   fora do repositório, rotacionar as senhas fracas do Oracle e do SMTP e trocar
   o bind do AD por conta de serviço com TLS (riscos R66 e R67); validar backup e
   restauração com o DBA (`RUNBOOK.md` §6)
@@ -1033,7 +1035,8 @@ destinatário, então a varredura seguinte não repete nada.
 
 O catálogo funcional deixou de ter um único código. A fase é fatiada em cinco —
 catálogo, atribuição exclusiva do SuperAdmin, override dos impedimentos, SPA e
-documentação/homologação — e **a fatia 1 está implementada e comitada**.
+documentação/homologação — e **as fatias 1 e 2 estão implementadas e
+comitadas**.
 
 Fatia 1 — catálogo, migration `accounts.0011`, **ainda não aplicada no Oracle
 DEV**:
@@ -1079,6 +1082,37 @@ isso o bootstrap da conta técnica fica inalcançável em base nova), a ausênci
 no sentido inverso, o papel global recusado em escopo de empresa e aceito em
 global, e a implicação chegando à visibilidade de processos, à barreira da API do
 hub e aos destinatários de notificação.
+
+Fatia 2 — atribuição exclusiva do SuperAdmin, **sem migration**:
+
+- `AssignRoleService` e `RevokeRoleService` deixaram de consultar
+  `accounts.manage_roles` e passaram a exigir a autoridade global
+  (`_require_global_authority`). Delegar a atribuição permitiria que um
+  administrador de usuários se promovesse a `DP_GERENTE` e, pela fatia 3,
+  passasse por cima de qualquer impedimento de liberação;
+- os quatro endpoints de papel — atribuir, revogar, listar e ler o catálogo —
+  declaram `requires_global_authority` em vez de `required_permission`, e
+  `HasAccountPermission` responde 403 com motivo legível. Ler o catálogo só serve
+  para atribuir, então segue a mesma barra do ato;
+- a designação inicial da criação de usuário não é atalho: quem tem
+  `manage_users` cria a conta, mas o papel continua sendo ato do SuperAdmin, e a
+  recusa desfaz a conta na mesma transação;
+- `manage_roles` saiu de `DELEGABLE_PERMISSIONS`. A chave continua publicada no
+  contexto da SPA, agora calculada a partir de `has_global_authority`: sem isso a
+  tela ofereceria a quem tem a permissão concedida diretamente um bloco que a API
+  recusa. A permissão permanece declarada no model porque a linha já existe no
+  Oracle e apagá-la seria migration destrutiva sem ganho — nenhum caminho de
+  autorização volta a lê-la, e três testes fixam isso.
+
+Validação padrão por inteiro: 512 testes backend e 123 frontend, Ruff,
+formatação, Mypy em 225 arquivos, Django check, verificação de migrations (`No
+changes detected`) e `check --deploy` com os dois avisos de HSTS que são opção
+deliberada. O frontend não foi tocado — os 123 testes rodaram como regressão do
+contrato do contexto de autorização, que preserva a chave `manage_roles`. Os três
+testes novos cobrem o service recusando quem tem `manage_roles` concedida
+diretamente (com a revogação também recusada e a atribuição intacta), os quatro
+endpoints respondendo 403 com a mensagem legível e sem efeito colateral, e o
+contexto que não acende `manage_roles` para essa mesma conta.
 
 ## Endurecimento do host publicado (2026-08-03)
 
