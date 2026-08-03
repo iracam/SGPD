@@ -6,12 +6,20 @@ from django.db import transaction
 
 from apps.accounts.models import (
     FUNCTIONAL_ROLE_CODES,
+    PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
     PEOPLE_DEPARTMENT_ROLE_CODE,
+    SECTORS_ADMIN_ROLE_CODE,
+    USERS_ADMIN_ROLE_CODE,
+    WORKFLOW_CONFIG_ADMIN_ROLE_CODE,
     AccountAuditEvent,
     AccountEventType,
     Role,
 )
 
+#: Cada papel declara nome, descrição e as permissões que carrega. O gerente do
+#: DP repete as permissões do `DP` porque a implicação `DP_GERENTE → DP` vale
+#: para papel exigido, não para permissão concedida: quem consulta
+#: `has_permission()` não conhece a hierarquia.
 ROLE_CATALOG: dict[str, tuple[str, str, tuple[str, ...]]] = {
     PEOPLE_DEPARTMENT_ROLE_CODE: (
         "Departamento Pessoal",
@@ -21,11 +29,48 @@ ROLE_CATALOG: dict[str, tuple[str, str, tuple[str, ...]]] = {
         ),
         ("accounts.query_senior_references",),
     ),
+    PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE: (
+        "Gerência do Departamento Pessoal",
+        (
+            "Tudo o que o Departamento Pessoal faz no escopo atribuído, com a "
+            "autoridade adicional prevista para a gerência."
+        ),
+        ("accounts.query_senior_references",),
+    ),
+    WORKFLOW_CONFIG_ADMIN_ROLE_CODE: (
+        "Administração de grupos e templates",
+        (
+            "Mantém grupos de validação, templates, perguntas e regras de "
+            "aplicabilidade versionados. Escopo global."
+        ),
+        ("templates_engine.manage_workflow_configuration",),
+    ),
+    SECTORS_ADMIN_ROLE_CODE: (
+        "Administração de setores",
+        (
+            "Mantém setores, escopos e responsáveis vigentes. Escopo global. "
+            "A capacidade RESPONSAVEL_SETOR continua derivada do vínculo."
+        ),
+        ("sectors.manage_sectors",),
+    ),
+    USERS_ADMIN_ROLE_CODE: (
+        "Administração de usuários",
+        (
+            "Mantém contas locais, vínculos com o Active Directory e consulta a "
+            "auditoria de contas. Escopo global. Não atribui papel: só o "
+            "SuperAdmin atribui."
+        ),
+        (
+            "accounts.manage_users",
+            "accounts.link_ad_identity",
+            "accounts.view_account_audit",
+        ),
+    ),
 }
 
 
 class Command(BaseCommand):
-    help = "Reconcilia o catálogo funcional fixo com o papel atribuível DP."
+    help = "Reconcilia o catálogo funcional fixo com os cinco papéis atribuíveis."
 
     @transaction.atomic
     def handle(self, *args: object, **options: object) -> None:

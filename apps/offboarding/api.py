@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.authorization import active_assignments, has_global_authority
-from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, ScopeType, User
+from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODES, ScopeType, User
 from apps.integrations.senior.exceptions import (
     SeniorContractError,
     SeniorUnavailableError,
@@ -102,7 +102,9 @@ PROCESS_RELATED = (
 def _require_process_coordinator(actor: User) -> None:
     if (
         not has_global_authority(actor)
-        and not active_assignments(actor).filter(role__code=PEOPLE_DEPARTMENT_ROLE_CODE).exists()
+        and not active_assignments(actor)
+        .filter(role__code__in=PEOPLE_DEPARTMENT_ROLE_CODES)
+        .exists()
     ):
         raise PermissionDenied("O ator não possui o papel DP vigente.")
 

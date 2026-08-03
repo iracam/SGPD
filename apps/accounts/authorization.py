@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
-from .models import RoleAssignment, ScopeType, User
+from .models import RoleAssignment, ScopeType, User, role_codes_satisfying
 
 
 def has_global_authority(user: User) -> bool:
@@ -81,13 +81,19 @@ def has_effective_role(
     company_code: int | None = None,
     branch_code: int | None = None,
 ) -> bool:
-    """Check global authority or a current role assignment in the scope."""
+    """Check global authority or a current role assignment in the scope.
+
+    A exigência é satisfeita por qualquer papel que implique `role_code`: um
+    `DP_GERENTE` vigente satisfaz toda regra escrita para o `DP`.
+    """
 
     if not user.is_authenticated or not user.is_active:
         return False
     if has_global_authority(user):
         return True
-    assignments = active_assignments(user).filter(role__code=role_code.strip().upper())
+    assignments = active_assignments(user).filter(
+        role__code__in=role_codes_satisfying(role_code),
+    )
     return _has_assignment_in_scope(
         assignments,
         company_code=company_code,

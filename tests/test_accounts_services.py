@@ -9,9 +9,15 @@ from django.db import connection
 from django.utils import timezone
 
 from apps.accounts.authorization import has_effective_role, has_permission
+from apps.accounts.management.commands.bootstrap_roles import ROLE_CATALOG
 from apps.accounts.models import (
+    FUNCTIONAL_ROLE_CODES,
+    PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
     PEOPLE_DEPARTMENT_ROLE_CODE,
     RESPONSIBLE_SECTOR_ROLE_CODE,
+    SECTORS_ADMIN_ROLE_CODE,
+    USERS_ADMIN_ROLE_CODE,
+    WORKFLOW_CONFIG_ADMIN_ROLE_CODE,
     AccountAuditEvent,
     AccountEventType,
     Role,
@@ -79,7 +85,13 @@ def test_bootstrap_creates_single_audited_identity_admin() -> None:
     assert user.is_superuser
     assert user.is_staff
     assert not user.role_assignments.exists()
-    assert list(Role.objects.filter(is_active=True).values_list("code", flat=True)) == ["DP"]
+    assert list(Role.objects.filter(is_active=True).values_list("code", flat=True)) == [
+        "DP",
+        "DP_GERENTE",
+        "GRUPOS_TEMPLATE_ADMIN",
+        "SETORES_ADMIN",
+        "USUARIOS_ADMIN",
+    ]
     assert AccountAuditEvent.objects.filter(
         event_type=AccountEventType.USER_CREATED,
         actor__isnull=True,
@@ -132,14 +144,139 @@ def test_bootstrap_reconciles_the_fixed_role_catalog() -> None:
     assert AccountAuditEvent.objects.count() == before + 1
 
 
-def test_fixed_role_model_accepts_dp_and_rejects_role_outside_catalog() -> None:
-    Role(code="DP", name="Departamento Pessoal").full_clean()
+def test_fixed_role_model_accepts_the_catalog_and_rejects_role_outside_it() -> None:
+    for code in FUNCTIONAL_ROLE_CODES:
+        Role(code=code, name=code.title()).full_clean()
     legacy = Role(code="FINANCEIRO", name="Financeiro")
-    with pytest.raises(ValidationError, match="Somente o papel DP"):
+    with pytest.raises(ValidationError, match="catálogo funcional"):
         legacy.full_clean()
 
     assert not Role.objects.exists()
     assert not AccountAuditEvent.objects.exists()
+
+
+def test_bootstrap_catalog_covers_every_assignable_role_code() -> None:
+    """O bootstrap da conta técnica exige o catálogo inteiro ativo.
+
+    Um código declarado em `FUNCTIONAL_ROLE_CODES` sem linha correspondente no
+    `ROLE_CATALOG` deixaria `BootstrapIdentityAdminService` inalcançável em uma
+    base nova, e a falha só apareceria na instalação.
+    """
+
+    assert tuple(ROLE_CATALOG) == FUNCTIONAL_ROLE_CODES
+
+    call_command("bootstrap_roles")
+
+    assert set(Role.objects.filter(is_active=True).values_list("code", flat=True)) == set(
+        FUNCTIONAL_ROLE_CODES
+    )
+    assert sorted(
+        Role.objects.get(code=USERS_ADMIN_ROLE_CODE).permissions.values_list("codename", flat=True)
+    ) == ["link_ad_identity", "manage_users", "view_account_audit"]
+    assert list(
+        Role.objects.get(code=SECTORS_ADMIN_ROLE_CODE).permissions.values_list(
+            "codename",
+            flat=True,
+        )
+    ) == ["manage_sectors"]
+    assert list(
+        Role.objects.get(code=WORKFLOW_CONFIG_ADMIN_ROLE_CODE).permissions.values_list(
+            "codename",
+            flat=True,
+        )
+    ) == ["manage_workflow_configuration"]
+    # Só o SuperAdmin atribui papel: nenhum papel do catálogo carrega
+    # `manage_roles`, nem mesmo o de administração de usuários.
+    assert not Role.objects.filter(permissions__codename="manage_roles").exists()
+
+
+def test_people_department_manager_satisfies_every_rule_written_for_dp(actor: User) -> None:
+    call_command("bootstrap_roles")
+    manager = create_user("dp.gerente")
+    AssignRoleService().execute(
+        AssignRoleCommand(
+            actor=actor,
+            user_id=manager.pk,
+            role_id=Role.objects.get(code=PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE).pk,
+            scope_type=ScopeType.COMPANY,
+            company_code=1,
+            branch_code=None,
+            valid_from=None,
+            valid_until=None,
+        )
+    )
+
+    assert has_effective_role(
+        manager,
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        company_code=1,
+        branch_code=10,
+    )
+    # A implicação não vaza para fora do escopo atribuído nem inverte o sentido:
+    # o `DP` puro continua sem a autoridade da gerência.
+    assert not has_effective_role(
+        manager,
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        company_code=2,
+        branch_code=10,
+    )
+    department = create_user("dp.puro")
+    AssignRoleService().execute(
+        AssignRoleCommand(
+            actor=actor,
+            user_id=department.pk,
+            role_id=Role.objects.get(code=PEOPLE_DEPARTMENT_ROLE_CODE).pk,
+            scope_type=ScopeType.COMPANY,
+            company_code=1,
+            branch_code=None,
+            valid_from=None,
+            valid_until=None,
+        )
+    )
+    assert not has_effective_role(
+        department,
+        PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
+        company_code=1,
+        branch_code=10,
+    )
+
+
+def test_global_only_role_is_refused_outside_the_global_scope(actor: User) -> None:
+    call_command("bootstrap_roles")
+    user = create_user("usuarios.admin")
+    role = Role.objects.get(code=USERS_ADMIN_ROLE_CODE)
+
+    with pytest.raises(ValidationError, match="escopo global"):
+        AssignRoleService().execute(
+            AssignRoleCommand(
+                actor=actor,
+                user_id=user.pk,
+                role_id=role.pk,
+                scope_type=ScopeType.COMPANY,
+                company_code=1,
+                branch_code=None,
+                valid_from=None,
+                valid_until=None,
+            )
+        )
+
+    assert not user.role_assignments.exists()
+
+    assignment = AssignRoleService().execute(
+        AssignRoleCommand(
+            actor=actor,
+            user_id=user.pk,
+            role_id=role.pk,
+            scope_type=ScopeType.GLOBAL,
+            company_code=None,
+            branch_code=None,
+            valid_from=None,
+            valid_until=None,
+        )
+    )
+
+    assert assignment.scope_key == "*"
+    assert has_permission(user, "accounts.view_account_audit")
 
 
 def test_create_user_normalizes_identity_and_audits(actor: User) -> None:

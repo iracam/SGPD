@@ -20,6 +20,7 @@ from django.test import Client
 from django.utils import timezone
 
 from apps.accounts.models import (
+    PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
     PEOPLE_DEPARTMENT_ROLE_CODE,
     Role,
     RoleAssignment,
@@ -38,6 +39,7 @@ from apps.notifications.models import (
     NotificationEvent,
     NotificationStatus,
 )
+from apps.notifications.recipients import people_department_users
 from apps.notifications.services import (
     STALE_ATTEMPT_ERROR,
     DispatchNotificationsCommand,
@@ -488,6 +490,43 @@ def test_overdue_reaches_people_department_and_critical_reaches_the_escalation_s
         people.username,
         escalation_owner.username,
     }
+
+
+def test_people_department_recipients_include_the_manager_in_scope(
+    actor: User,
+    process: Any,
+) -> None:
+    """Quem responde pela gerência do DP também precisa ser avisado.
+
+    `people_department_users()` consulta a atribuição por queryset. Sem a
+    implicação `DP_GERENTE → DP`, o gerente exerceria a autoridade do `DP` e
+    nunca receberia o aviso de prazo do próprio escopo.
+    """
+
+    manager = User.objects.create_user(
+        username="dp.gerente.aviso",
+        email="dp.gerente.aviso@example.invalid",
+        password=PASSWORD,
+        first_name="Gerente",
+        last_name="DP",
+    )
+    RoleAssignment.objects.create(
+        user=manager,
+        role=Role.objects.create(
+            code=PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
+            name="Gerência do Departamento Pessoal",
+        ),
+        scope_type=ScopeType.COMPANY,
+        company_code=process.company_code,
+        scope_key=build_scope_key(ScopeType.COMPANY, process.company_code, None),
+        valid_from=timezone.now() - timedelta(days=1),
+        assigned_by=actor,
+    )
+
+    recipients = people_department_users(process=process, at=timezone.now())
+
+    assert manager in recipients
+    assert actor in recipients
 
 
 def test_milestone_without_anyone_to_warn_is_counted_and_queues_nothing(

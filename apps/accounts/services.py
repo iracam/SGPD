@@ -19,6 +19,7 @@ from config.middleware import correlation_id
 from .authorization import has_permission
 from .models import (
     FUNCTIONAL_ROLE_CODES,
+    GLOBAL_ONLY_ROLE_CODES,
     AccountAuditEvent,
     AccountEventType,
     Role,
@@ -42,8 +43,11 @@ ROLE_REVOCATION_REASON = "Revogação explícita de papel funcional no SGPD."
 AD_LINK_REASON = "Vinculação explícita de identidade do Active Directory no SGPD."
 AD_UNLINK_REASON = "Desvinculação explícita de identidade do Active Directory no SGPD."
 FIXED_ROLE_CATALOG_MESSAGE = (
-    "O catálogo de papéis atribuíveis é fixo: somente DP pode ser utilizado."
+    "O catálogo de papéis atribuíveis é fixo: "
+    + ", ".join(FUNCTIONAL_ROLE_CODES)
+    + " são os únicos códigos aceitos."
 )
+GLOBAL_ONLY_ROLE_MESSAGE = "Este papel só existe em escopo global."
 
 
 def _require_permission(actor: User, permission: str) -> None:
@@ -434,6 +438,11 @@ class AssignRoleService:
             raise ValidationError("Não é possível atribuir um papel inativo.")
         if role.code not in FUNCTIONAL_ROLE_CODES:
             raise ValidationError(FIXED_ROLE_CATALOG_MESSAGE)
+        if role.code in GLOBAL_ONLY_ROLE_CODES and command.scope_type != ScopeType.GLOBAL:
+            # `has_permission()` consultado sem empresa e sem filial só aceita
+            # atribuição global. Aceitar escopo de empresa aqui criaria papel
+            # que a tela oferece e a autorização nunca reconhece.
+            raise ValidationError({"scope_type": GLOBAL_ONLY_ROLE_MESSAGE})
 
         scope_key = build_scope_key(
             command.scope_type,

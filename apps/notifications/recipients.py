@@ -12,7 +12,7 @@ from datetime import datetime
 
 from django.db.models import Q
 
-from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, ScopeType, User
+from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODES, ScopeType, User
 from apps.offboarding.models import OffboardingProcess
 
 
@@ -47,7 +47,7 @@ def people_department_users(*, process: OffboardingProcess, at: datetime) -> tup
     return tuple(
         User.objects.filter(
             is_active=True,
-            role_assignments__role__code=PEOPLE_DEPARTMENT_ROLE_CODE,
+            role_assignments__role__code__in=PEOPLE_DEPARTMENT_ROLE_CODES,
             role_assignments__role__is_active=True,
             role_assignments__is_active=True,
             role_assignments__valid_from__lte=at,

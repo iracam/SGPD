@@ -29,7 +29,7 @@ from django.db.models import Count, QuerySet, Sum
 from django.utils import timezone
 
 from apps.accounts.authorization import active_assignments, has_global_authority
-from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODE, User
+from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODES, User
 from apps.notifications.config import EmailConfig
 from apps.offboarding.models import (
     OPEN_TASK_STATUSES,
@@ -132,7 +132,7 @@ def _coordinates_processes(actor: User) -> bool:
 
     return (
         has_global_authority(actor)
-        or active_assignments(actor).filter(role__code=PEOPLE_DEPARTMENT_ROLE_CODE).exists()
+        or active_assignments(actor).filter(role__code__in=PEOPLE_DEPARTMENT_ROLE_CODES).exists()
     )
 
 

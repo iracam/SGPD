@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import (
+    PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
     PEOPLE_DEPARTMENT_ROLE_CODE,
     Role,
     RoleAssignment,
@@ -487,6 +488,49 @@ def test_process_list_respects_dp_scope_and_superadmin_authority(
     assignment.save(update_fields=("company_code", "branch_code", "scope_key"))
     assert list(processes_for_actor(scoped)) == [process]
     assert list(processes_for_actor(superadmin)) == [process]
+
+
+def test_process_visibility_and_api_accept_the_people_department_manager(
+    actor: User,
+) -> None:
+    """`DP_GERENTE` é superconjunto de `DP` também nos pontos que filtram papel.
+
+    A visibilidade e a barreira da API consultam a atribuição por queryset, sem
+    passar por `has_effective_role()`: se a implicação não chegasse até elas, o
+    gerente enxergaria zero processo e receberia 403 no próprio hub.
+    """
+
+    process = service().execute(command(actor))
+    manager_role = Role.objects.create(
+        code=PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
+        name="Gerência do Departamento Pessoal",
+    )
+    manager = User.objects.create_user(
+        username="dp.gerente.escopo",
+        email="dp.gerente.escopo@example.invalid",
+        password=PASSWORD,
+        first_name="Gerente",
+        last_name="DP",
+    )
+    RoleAssignment.objects.create(
+        user=manager,
+        role=manager_role,
+        scope_type=ScopeType.BRANCH,
+        company_code=1,
+        branch_code=2,
+        scope_key=build_scope_key(ScopeType.BRANCH, 1, 2),
+        valid_from=timezone.now() - timedelta(days=1),
+        assigned_by=actor,
+    )
+
+    assert list(processes_for_actor(manager)) == [process]
+
+    client = Client()
+    client.force_login(manager)
+    response = client.get(reverse("offboarding-api:process-list"))
+
+    assert response.status_code == 200
+    assert [item["uuid"] for item in response.json()["results"]] == [str(process.uuid)]
 
 
 def test_process_api_rejects_anonymous_user_without_dp_and_delete(

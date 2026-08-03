@@ -13,9 +13,50 @@ from django.utils import timezone
 
 RESPONSIBLE_SECTOR_ROLE_CODE = "RESPONSAVEL_SETOR"
 PEOPLE_DEPARTMENT_ROLE_CODE = "DP"
-# Responsabilidade de setor é derivada do vínculo vigente com o setor. DP é o
-# único papel funcional que continua possuindo atribuição administrativa.
-FUNCTIONAL_ROLE_CODES = (PEOPLE_DEPARTMENT_ROLE_CODE,)
+PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE = "DP_GERENTE"
+WORKFLOW_CONFIG_ADMIN_ROLE_CODE = "GRUPOS_TEMPLATE_ADMIN"
+SECTORS_ADMIN_ROLE_CODE = "SETORES_ADMIN"
+USERS_ADMIN_ROLE_CODE = "USUARIOS_ADMIN"
+
+# Responsabilidade de setor é derivada do vínculo vigente com o setor; os cinco
+# códigos abaixo são o catálogo fixo dos papéis atribuíveis.
+FUNCTIONAL_ROLE_CODES = (
+    PEOPLE_DEPARTMENT_ROLE_CODE,
+    PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
+    WORKFLOW_CONFIG_ADMIN_ROLE_CODE,
+    SECTORS_ADMIN_ROLE_CODE,
+    USERS_ADMIN_ROLE_CODE,
+)
+
+# Os três papéis administrativos só existem em escopo global: `has_permission()`
+# consultado sem empresa e sem filial já exige atribuição global, então escopo
+# por empresa seria promessa que a autorização não cumpre.
+GLOBAL_ONLY_ROLE_CODES = (
+    WORKFLOW_CONFIG_ADMIN_ROLE_CODE,
+    SECTORS_ADMIN_ROLE_CODE,
+    USERS_ADMIN_ROLE_CODE,
+)
+
+# `DP_GERENTE` é superconjunto de `DP`: onde uma regra exige o `DP` vigente no
+# escopo, o gerente também satisfaz. A implicação vive aqui e é consultada por
+# `role_codes_satisfying()`; nenhum ponto deve comparar o código diretamente.
+ROLE_IMPLICATIONS: dict[str, tuple[str, ...]] = {
+    PEOPLE_DEPARTMENT_ROLE_CODE: (
+        PEOPLE_DEPARTMENT_ROLE_CODE,
+        PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
+    ),
+}
+
+
+def role_codes_satisfying(role_code: str) -> tuple[str, ...]:
+    """Códigos de papel que satisfazem a exigência de `role_code`."""
+
+    normalized = role_code.strip().upper()
+    return ROLE_IMPLICATIONS.get(normalized, (normalized,))
+
+
+#: Atalho para os pontos que consultam a atribuição de `DP` por queryset.
+PEOPLE_DEPARTMENT_ROLE_CODES = role_codes_satisfying(PEOPLE_DEPARTMENT_ROLE_CODE)
 
 
 class User(AbstractUser):
@@ -181,7 +222,9 @@ class Role(models.Model):
         if not self.name:
             raise ValidationError({"name": "O nome do papel é obrigatório."})
         if self.is_active and self.code not in FUNCTIONAL_ROLE_CODES:
-            raise ValidationError({"is_active": "Somente o papel DP pode permanecer ativo."})
+            raise ValidationError(
+                {"is_active": "Somente os papéis do catálogo funcional podem permanecer ativos."}
+            )
 
 
 class ScopeType(models.TextChoices):

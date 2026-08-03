@@ -9,9 +9,12 @@
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
   2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052)
-- Próximo incremento: rotacionar as senhas fracas do Oracle e do SMTP e trocar o
-  bind do AD por conta de serviço com TLS (riscos R66 e R67), ambos fora do
-  repositório; validar backup e restauração com o DBA (`RUNBOOK.md` §6)
+- Em andamento: os cinco papéis funcionais atribuíveis — fatia 1 implementada,
+  com a migration `accounts.0011` **ainda não aplicada no Oracle DEV**
+- Próximo incremento: fatia 2 dos papéis (atribuição exclusiva do SuperAdmin);
+  fora do repositório, rotacionar as senhas fracas do Oracle e do SMTP e trocar
+  o bind do AD por conta de serviço com TLS (riscos R66 e R67); validar backup e
+  restauração com o DBA (`RUNBOOK.md` §6)
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -1025,6 +1028,57 @@ destinatário, então a varredura seguinte não repete nada.
   trilha precisará decidir o que registrar quando o download morre no meio;
 - `MANIFEST.json` foi regenerado em 2026-08-01: os tamanhos anteriores eram do
   snapshot de 2026-07-30 e já não correspondiam aos documentos.
+
+## Papéis funcionais atribuíveis (2026-08-03)
+
+O catálogo funcional deixou de ter um único código. A fase é fatiada em cinco —
+catálogo, atribuição exclusiva do SuperAdmin, override dos impedimentos, SPA e
+documentação/homologação — e **a fatia 1 está implementada e comitada**.
+
+Fatia 1 — catálogo, migration `accounts.0011`, **ainda não aplicada no Oracle
+DEV**:
+
+- `FUNCTIONAL_ROLE_CODES` passou a declarar cinco códigos: `DP`, `DP_GERENTE`,
+  `GRUPOS_TEMPLATE_ADMIN`, `SETORES_ADMIN` e `USUARIOS_ADMIN`. A constraint
+  `SGPD_CK_ROLE_ACTIVE_CODE` foi reescrita com os cinco; é alargamento puro, e
+  toda linha existente já a satisfaz;
+- `GLOBAL_ONLY_ROLE_CODES` fixa que os três papéis administrativos só existem em
+  escopo global, e `AssignRoleService` recusa qualquer outro escopo para eles.
+  Sem esse guard, a tela ofereceria um papel por empresa que `has_permission()`
+  consultado sem empresa e sem filial nunca reconheceria;
+- `ROLE_IMPLICATIONS` e `role_codes_satisfying()` (`apps/accounts/models.py`) são
+  a fonte única da implicação `DP_GERENTE → DP`: onde uma regra exige o `DP`
+  vigente no escopo, o gerente satisfaz. `has_effective_role()` a consulta, o
+  que cobre os quatro pontos que passam por ela; os seis que filtram a atribuição
+  por queryset — `_lock_people_department_assignments`, `processes_for_actor`,
+  as duas barreiras de coordenador em `offboarding/api.py` e `reporting/api.py`,
+  `_coordinates_processes` e `people_department_users` — passaram a usar
+  `PEOPLE_DEPARTMENT_ROLE_CODES` com `__in`. Um deles esquecido daria ao gerente
+  a autoridade do `DP` sem o hub, sem os relatórios e sem os avisos de prazo;
+- `bootstrap_roles` reconcilia os cinco papéis com suas permissões:
+  `GRUPOS_TEMPLATE_ADMIN` leva `manage_workflow_configuration`, `SETORES_ADMIN`
+  leva `manage_sectors` e `USUARIOS_ADMIN` leva `manage_users`,
+  `link_ad_identity` e `view_account_audit`. **Nenhum papel carrega
+  `manage_roles`** — só o SuperAdmin atribui papel, e um teste fixa isso;
+- `DP_GERENTE` repete as permissões do `DP` no catálogo, porque a implicação
+  vale para papel exigido e não para permissão concedida: quem chama
+  `has_permission()` não conhece a hierarquia.
+
+A migration é `ALTER TABLE "SGPD_ROLE" DROP CONSTRAINT` seguido de `ADD
+CONSTRAINT` com o mesmo nome, sobre tabela com uma linha; o nome tem 24
+caracteres e não houve rewrite. Depois de aplicá-la, `bootstrap_roles` precisa
+ser executado no DEV para criar os quatro papéis novos — até lá só existe o `DP`.
+
+Validação padrão do backend por inteiro: 509 testes, Ruff, formatação, Mypy em
+225 arquivos, Django check, verificação de migrations e `check --deploy` com os
+dois avisos de HSTS que são opção deliberada. O frontend não foi tocado nesta
+fatia, então Vitest e o build Angular não foram repetidos. Os cinco testes novos
+cobrem o catálogo do `bootstrap_roles` alinhado a `FUNCTIONAL_ROLE_CODES` (sem
+isso o bootstrap da conta técnica fica inalcançável em base nova), a ausência de
+`manage_roles` em todo papel, a implicação que vale no escopo e não fora dele nem
+no sentido inverso, o papel global recusado em escopo de empresa e aceito em
+global, e a implicação chegando à visibilidade de processos, à barreira da API do
+hub e aos destinatários de notificação.
 
 ## Endurecimento do host publicado (2026-08-03)
 
