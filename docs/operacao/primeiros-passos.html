@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Primeiros Passos no SGPD — SGPD / DesligaFlow</title>
+<style>/*
+ * Aparência dos manuais operacionais do SGPD.
+ *
+ * Escrito para o papel primeiro: o PDF é a entrega, o HTML é a mesma coisa na
+ * tela. Só há consultas `min-width`, como manda a ADR-028. Nenhuma fonte ou
+ * imagem externa — o arquivo precisa abrir sem rede.
+ */
+
+:root {
+  --verde-escuro: #123d2b;
+  --verde: #1d6b4c;
+  --verde-claro: #e8f3ed;
+  --ambar: #a45a06;
+  --ambar-claro: #fdf3e3;
+  --vermelho: #9d2222;
+  --vermelho-claro: #fbeceb;
+  --azul: #1b4f8a;
+  --azul-claro: #ecf2fa;
+  --tinta: #16211d;
+  --tinta-suave: #55635e;
+  --linha: #cfd8d4;
+  --linha-forte: #9fb0aa;
+  --papel: #ffffff;
+  --superficie: #f6f8f7;
+
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.documento {
+  background: var(--papel);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+@media screen and (min-width: 48rem) {
+  .documento {
+    max-width: 52rem;
+    padding: 3rem 3.5rem 4rem;
+    margin: 2rem auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------- capa */
+
+.capa {
+  border-top: 6px solid var(--verde);
+  padding-top: 2rem;
+}
+
+.capa__sistema {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--verde);
+  margin: 0;
+}
+
+.capa__sistema span {
+  color: var(--tinta-suave);
+  font-weight: 500;
+}
+
+.capa__selo {
+  display: inline-block;
+  margin: 1.75rem 0 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 99px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capa__titulo {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0;
+  color: var(--verde-escuro);
+  letter-spacing: -0.02em;
+}
+
+.capa__subtitulo {
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+  margin: 0.85rem 0 0;
+  max-width: 34rem;
+}
+
+.capa__ficha {
+  margin: 2.5rem 0 0;
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 1.25rem 0;
+}
+
+@media (min-width: 34rem) {
+  .capa__ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 2rem;
+  }
+}
+
+.capa__ficha dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.capa__ficha dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+}
+
+.capa__rodape {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  max-width: 34rem;
+}
+
+/* ------------------------------------------------------------- sumário */
+
+.sumario {
+  margin-top: 3rem;
+}
+
+.sumario__titulo {
+  font-size: 1.35rem;
+  color: var(--verde-escuro);
+  border-bottom: 2px solid var(--verde);
+  padding-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.sumario__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sumario__lista a {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--linha);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.sumario__num {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ conteúdo */
+
+.conteudo h2 {
+  font-size: 1.55rem;
+  color: var(--verde-escuro);
+  letter-spacing: -0.01em;
+  margin: 3.5rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--verde);
+}
+
+.conteudo h3 {
+  font-size: 1.15rem;
+  color: var(--verde-escuro);
+  margin: 2.25rem 0 0.6rem;
+}
+
+.conteudo h4 {
+  font-size: 0.98rem;
+  color: var(--tinta);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conteudo p {
+  margin: 0.85rem 0;
+}
+
+.conteudo ul,
+.conteudo ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+
+.conteudo li {
+  margin: 0.35rem 0;
+}
+
+.conteudo li > ul,
+.conteudo li > ol {
+  margin: 0.35rem 0;
+}
+
+.conteudo a {
+  color: var(--azul);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--linha);
+  margin: 2.5rem 0;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.86em;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+
+pre {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--verde);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  font-size: 0.82em;
+}
+
+/* -------------------------------------------------------------- tabelas */
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--verde-escuro);
+  vertical-align: bottom;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--linha);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--superficie);
+}
+
+td code {
+  white-space: normal;
+  background: var(--verde-claro);
+  border-color: #bcd8ca;
+  color: var(--verde-escuro);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ destaques */
+
+.destaque {
+  margin: 1.35rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid var(--linha-forte);
+  background: var(--superficie);
+  border-radius: 0 6px 6px 0;
+}
+
+.destaque p {
+  margin: 0.4rem 0;
+}
+
+.destaque p:first-child {
+  margin-top: 0;
+}
+
+.destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.destaque--atencao {
+  border-left-color: var(--ambar);
+  background: var(--ambar-claro);
+}
+
+.destaque--proibido {
+  border-left-color: var(--vermelho);
+  background: var(--vermelho-claro);
+}
+
+.destaque--dica {
+  border-left-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.destaque--importante,
+.destaque--regra {
+  border-left-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+/* --------------------------------------------------------- fluxogramas */
+
+.fluxo {
+  margin: 1.75rem 0;
+  padding: 1.4rem 1rem 1.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+.fx-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+/* O espaçamento entre os elementos é o comprimento do conector: a haste
+   desenhada no ::after atravessa exatamente o `gap`. */
+.fx-corpo {
+  --salto: 1.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--salto);
+}
+
+.fx-no {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 7px;
+  background: var(--papel);
+  border: 1.5px solid var(--linha-forte);
+  text-align: center;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Conector para o próximo elemento: haste no ::after, ponta no ::before. */
+.fx-no::after,
+.fx-seta::after,
+.fx-nota::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: var(--salto);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+.fx-no::before,
+.fx-seta::before,
+.fx-nota::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--salto) - 0.55rem);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--linha-forte);
+}
+
+/* O último elemento não aponta para lugar nenhum. */
+.fx-corpo > :last-child::after,
+.fx-corpo > :last-child::before,
+.fx-corpo > :last-child .fx-no--ramo::after,
+.fx-corpo > :last-child .fx-no--ramo::before {
+  display: none;
+}
+
+/* Antes de uma seta rotulada ou de uma bifurcação, a haste continua mas a
+   ponta some: quem aponta é o elemento seguinte. */
+.fx-corpo > :has(+ .fx-seta)::before,
+.fx-corpo > :has(+ .fx-nota)::before,
+.fx-corpo > :has(+ .fx-ramos)::before {
+  display: none;
+}
+
+.fx-no--inicio {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--fim {
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--decisao {
+  background: var(--ambar-claro);
+  border-color: var(--ambar);
+  color: #5c3204;
+  font-weight: 600;
+}
+
+.fx-no--alerta {
+  background: var(--vermelho-claro);
+  border-color: var(--vermelho);
+  color: #6d1717;
+}
+
+.fx-no--ramo {
+  max-width: none;
+  font-size: 0.88em;
+  border-color: var(--linha);
+  flex: 1;
+}
+
+.fx-seta {
+  position: relative;
+}
+
+.fx-seta span {
+  display: inline-block;
+  font-size: 0.78em;
+  color: var(--tinta-suave);
+  background: var(--papel);
+  border: 1px dashed var(--linha-forte);
+  border-radius: 99px;
+  padding: 0.15rem 0.7rem;
+}
+
+.fx-nota {
+  position: relative;
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- bifurcações --- */
+
+.fx-ramos {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.9rem;
+  /* Abre espaço para a barra de distribuição e para a queda até cada ramo. */
+  padding-top: calc(var(--salto) + 0.6rem);
+}
+
+.fx-ramo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.fx-ramo__rotulo {
+  display: inline-block;
+  align-self: center;
+  margin-bottom: 0.45rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 99px;
+  background: var(--verde-escuro);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Queda da barra até o rótulo de cada ramo. */
+.fx-ramo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: calc(var(--salto) + 0.6rem);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+@media (min-width: 34rem) {
+  .fx-ramos {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Barra horizontal ligando os centros das colunas. `--ramos` vem do
+     gerador: com N ramos, o centro da primeira coluna fica em 50%/N. */
+  .fx-ramos::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% / var(--ramos, 2));
+    right: calc(50% / var(--ramos, 2));
+    height: 2px;
+    background: var(--linha-forte);
+  }
+}
+
+/* --------------------------------------------------------------- papel */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+
+  .documento {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .capa {
+    break-after: page;
+    padding-top: 1rem;
+  }
+
+  .sumario {
+    break-after: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2 {
+    break-before: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2:first-child {
+    break-before: avoid;
+  }
+
+  /* A régua que separa as seções no HTML é ruído no papel: como o `h2` já
+     começa página nova, ela sobra sozinha no alto da página anterior e ainda
+     faz nascer uma página em branco. */
+  hr:has(+ h2) {
+    display: none;
+  }
+
+  .quebra-pagina {
+    break-before: page;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .destaque,
+  .fx-no,
+  .fx-ramo,
+  pre,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* O fluxograma não pede `break-inside: avoid`: quando não cabe na página, o
+     navegador ignora a regra e empurra o bloco inteiro, deixando uma página em
+     branco atrás. Sem a regra ele quebra entre nós — pior que caber, melhor
+     que a página vazia. Os nós e os ramos seguem indivisíveis. */
+
+  /* No papel o fluxograma precisa caber inteiro em uma página: o `break-inside`
+     é ignorado quando o elemento não cabe, e um nó órfão na página seguinte é
+     pior do que alguns milímetros a menos de respiro. */
+  .fluxo {
+    padding: 1rem 0.9rem 1.1rem;
+  }
+
+  .fx-titulo {
+    margin-bottom: 0.9rem;
+  }
+
+  .fx-corpo {
+    --salto: 1.15rem;
+  }
+
+  .fx-no {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.84em;
+  }
+
+  .fx-ramos {
+    gap: 0.9rem;
+  }
+
+  .conteudo a {
+    color: var(--tinta);
+    text-decoration: none;
+  }
+}
+</style>
+</head>
+<body>
+<main class="documento">
+  <header class="capa">
+    <p class="capa__sistema">SGPD <span>DesligaFlow</span></p>
+    <p class="capa__selo">Manual operacional</p>
+    <h1 class="capa__titulo">Primeiros Passos no SGPD</h1>
+    <p class="capa__subtitulo">Entrar, entender o menu do seu papel, ler o Painel e cuidar da própria senha.</p>
+    <dl class="capa__ficha">
+      <div><dt>Para quem é</dt><dd>Qualquer pessoa com acesso ao SGPD, em qualquer papel</dd></div>
+      <div><dt>Versão</dt><dd>1.0</dd></div>
+      <div><dt>Atualizado em</dt><dd>03/08/2026</dd></div>
+      <div><dt>Endereço do sistema</dt><dd>https://sgpd.bsabioenergia.com.br</dd></div>
+    </dl>
+    <p class="capa__rodape">
+      Este manual descreve o uso do sistema. Ele não substitui a política de
+      desligamento da empresa nem a orientação do Departamento Pessoal.
+    </p>
+  </header>
+
+  <nav class="sumario" aria-label="Sumário">
+    <h2 class="sumario__titulo">Sumário</h2>
+    <ol class="sumario__lista"><li><a href="#para-que-serve-o-sgpd"><span class="sumario__num">01</span><span>Para que serve o SGPD</span></a></li><li><a href="#entrar-no-sistema"><span class="sumario__num">02</span><span>Entrar no sistema</span></a></li><li><a href="#minha-senha"><span class="sumario__num">03</span><span>Minha senha</span></a></li><li><a href="#o-painel"><span class="sumario__num">04</span><span>O Painel</span></a></li><li><a href="#o-menu-e-o-que-cada-papel-ve"><span class="sumario__num">05</span><span>O menu e o que cada papel vê</span></a></li><li><a href="#detalhes-do-dia-a-dia"><span class="sumario__num">06</span><span>Detalhes do dia a dia</span></a></li><li><a href="#duvidas-frequentes"><span class="sumario__num">07</span><span>Dúvidas frequentes</span></a></li><li><a href="#em-uma-pagina"><span class="sumario__num">08</span><span>Em uma página</span></a></li></ol>
+  </nav>
+
+  <article class="conteudo">
+<h2 id="para-que-serve-o-sgpd">Para que serve o SGPD</h2>
+<p>O SGPD — também chamado <strong>DesligaFlow</strong> — organiza o desligamento de um colaborador entre o Departamento Pessoal e as áreas da empresa. Ele registra quem verificou o quê, quando, com qual comprovante, e o que ficou pendente antes de a rescisão ser liberada.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O SGPD <strong>não</strong> calcula rescisão, não aplica desconto e não altera nada no Senior. O Senior continua sendo o sistema oficial do vínculo e da rescisão. O SGPD organiza a conferência que acontece <strong>antes</strong> dela e guarda a prova de que ela foi feita.</p></blockquote>
+<p>Este manual vale para todo mundo e cobre só o começo: entrar, se localizar e cuidar da própria conta. O que <strong>você</strong> faz no dia a dia está no manual do seu papel — a última seção diz qual é o seu.</p>
+<hr />
+<h2 id="entrar-no-sistema">Entrar no sistema</h2>
+<p>O endereço é <strong>https://sgpd.bsabioenergia.com.br</strong>, pelo navegador. Funciona em computador, tablet e celular; em telas estreitas o menu fica no ícone de três traços, no alto.</p>
+<p>Na tela de entrada, informe <strong>Usuário</strong> e <strong>Senha</strong>:</p>
+<ul><li>se o login pelo Active Directory estiver ativo no ambiente, use <strong>o mesmo usuário e senha da rede</strong> — o mesmo do computador e do e-mail;</li><li>caso contrário, use o login e a <strong>senha temporária</strong> que a administração de usuários lhe passou.</li></ul>
+<p>Não existe autocadastro e não existe “esqueci minha senha” automático. Sem acesso, o caminho é pedir a quem administra usuários.</p>
+<blockquote class="destaque destaque--atencao"><p><strong>Cuidado</strong> Ninguém do SGPD pede sua senha por e-mail, telefone ou mensagem. Um pedido desses é golpe, mesmo que pareça vir da TI.</p></blockquote>
+<h3 id="quando-a-senha-e-temporaria">Quando a senha é temporária</h3>
+<p>Conta criada com senha temporária cai direto em <strong>Minha senha</strong> e não sai de lá até a troca. Não é travamento: é a regra, e ela vale também para a API — não há como desviar dela por outro caminho.</p>
+<hr />
+<h2 id="minha-senha">Minha senha</h2>
+<p>O botão <strong>Minha senha</strong> fica nas ações do rodapé do menu, junto de <em>Tema</em> e <em>Sair</em>.</p>
+<p>Informe a <strong>senha atual</strong>, a <strong>nova senha</strong> e a <strong>confirmação</strong>. A nova senha precisa passar pelas regras do sistema:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Regra</th><th style="text-align:left">Detalhe</th></tr></thead><tbody><tr><td style="text-align:left">Tamanho</td><td style="text-align:left">Pelo menos <strong>8 caracteres</strong>.</td></tr><tr><td style="text-align:left">Não parecida com você</td><td style="text-align:left">Não pode se parecer com o seu login, nome ou e-mail.</td></tr><tr><td style="text-align:left">Não pode ser comum</td><td style="text-align:left">Senhas de listas públicas conhecidas são recusadas.</td></tr><tr><td style="text-align:left">Não pode ser só números</td><td style="text-align:left"><code>12345678</code> não passa.</td></tr></tbody></table></div>
+<p>A tela diz exatamente qual regra falhou. Se aparecer <em>“A senha atual está incorreta”</em>, é a senha antiga que está errada, não a nova.</p>
+<p>Se a mensagem disser que a senha da conta é <strong>gerenciada pelo Active Directory</strong>, sua senha é a da rede: troque-a pelo caminho normal da TI, não aqui.</p>
+<hr />
+<h2 id="o-painel">O Painel</h2>
+<p>O <strong>Painel</strong> é a primeira tela depois da entrada, e é a única que todo mundo vê. Ele calcula os números na hora da leitura, sobre <strong>o que você enxerga</strong> — dois usuários nunca veem os mesmos totais.</p>
+<p>O Painel mostra até três blocos, conforme o seu acesso.</p>
+<h3 id="coordenacao">Coordenação</h3>
+<p>Só aparece para quem coordena processos (papel <em>Departamento Pessoal</em> ou gerência). Traz processos em aberto, concluídos, rascunhos, vencidos, próximos do prazo, pendências abertas, bloqueantes e valores aguardando decisão, além dos recortes por estado formal, setores em atraso, valores em análise e a lista de <strong>processos críticos</strong> — cada um com atalho para a tela de encerramento.</p>
+<h3 id="meus-setores">Meus setores</h3>
+<p>Só aparece para quem é responsável vigente de algum setor. Traz tarefas pendentes, vencidas e a vencer, os recortes por empresa e por filial, e os processos com tarefa vencida — com atalho para <em>Minhas tarefas</em>.</p>
+<h3 id="seu-acesso">Seu acesso</h3>
+<p>Aparece para todos, e é a seção mais útil quando algo parece faltar. Ela mostra a sua identidade autenticada, os seus <strong>papéis</strong> e os seus <strong>escopos</strong> (todas as empresas, uma empresa, ou empresa e filial).</p>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> Antes de abrir um chamado dizendo “não vejo o processo/a tarefa”, leia <em>Seu acesso</em>. Papel ausente e escopo mais estreito do que você imaginava explicam a maioria dos casos.</p></blockquote>
+<p>Se o Painel disser que você ainda não coordena processos nem responde por um setor, está correto: a conta existe, mas ainda não recebeu papel nem vínculo.</p>
+<hr />
+<h2 id="o-menu-e-o-que-cada-papel-ve">O menu e o que cada papel vê</h2>
+<p>O menu mostra <strong>apenas</strong> o que o seu acesso permite usar. Ver menu curto é o normal — a maioria das pessoas usa duas telas.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Item do menu</th><th style="text-align:left">Quem vê</th><th style="text-align:left">Para que serve</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Painel</strong></td><td style="text-align:left">Todos</td><td style="text-align:left">Visão geral do que é seu.</td></tr><tr><td style="text-align:left"><strong>Minhas tarefas</strong></td><td style="text-align:left">Responsável vigente de algum setor</td><td style="text-align:left">Onde a área responde o checklist do desligamento.</td></tr><tr><td style="text-align:left"><strong>Processos</strong></td><td style="text-align:left">Departamento Pessoal e gerência do DP</td><td style="text-align:left">Abertura, rascunhos, acompanhamento, valores e encerramento.</td></tr><tr><td style="text-align:left"><strong>Relatórios</strong></td><td style="text-align:left">Departamento Pessoal e gerência do DP</td><td style="text-align:left">Tempo médio, atrasos, pendências e valores por período.</td></tr><tr><td style="text-align:left"><strong>Notificações</strong></td><td style="text-align:left">Departamento Pessoal e gerência do DP</td><td style="text-align:left">Fila de avisos por e-mail, falhas e reprocessamento.</td></tr><tr><td style="text-align:left"><strong>Setores</strong></td><td style="text-align:left">Administração de setores</td><td style="text-align:left">Setores, responsáveis, prazos e escopos de atendimento.</td></tr><tr><td style="text-align:left"><strong>Grupos e templates</strong></td><td style="text-align:left">Administração de grupos e templates</td><td style="text-align:left">Templates versionados, perguntas, grupos e regras.</td></tr><tr><td style="text-align:left"><strong>Usuários</strong></td><td style="text-align:left">Administração de usuários</td><td style="text-align:left">Contas, senhas temporárias e vínculo com o Active Directory.</td></tr><tr><td style="text-align:left"><strong>Auditoria</strong></td><td style="text-align:left">Administração de usuários</td><td style="text-align:left">Trilha imutável dos eventos de conta.</td></tr><tr><td style="text-align:left"><strong>Configurações</strong></td><td style="text-align:left">SuperAdmin</td><td style="text-align:left">LDAP, e-mail, monitoramento.</td></tr></tbody></table></div>
+<p>Duas regras explicam quase todo o resto:</p>
+<ul><li><strong>papel dá autoridade; vínculo de setor dá tarefa.</strong> São coisas diferentes. Quem coordena processos não recebe as tarefas dos setores por causa disso, e quem responde por um setor não passa a coordenar processos;</li><li><strong>escopo limita o que o papel alcança.</strong> Um <em>Departamento Pessoal</em> da empresa 1 não enxerga processos da empresa 2. Os três papéis administrativos, ao contrário, só existem em escopo global.</li></ul>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Esconder um item de menu <strong>não</strong> é a proteção do sistema. Quem tentar alcançar uma tela sem autorização recebe recusa do servidor. O menu é conveniência, não a barreira.</p></blockquote>
+<h3 id="qual-manual-e-o-seu">Qual manual é o seu</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Se você…</th><th style="text-align:left">Leia</th></tr></thead><tbody><tr><td style="text-align:left">responde por um setor (TI, Financeiro, Almoxarifado, Segurança do Trabalho…)</td><td style="text-align:left"><em>Manual do Responsável de Área</em></td></tr><tr><td style="text-align:left">coordena desligamentos (<code>DP</code> ou <code>DP_GERENTE</code>)</td><td style="text-align:left"><em>Manual do Departamento Pessoal</em></td></tr><tr><td style="text-align:left">cadastra setores, templates, grupos ou regras</td><td style="text-align:left"><em>Manual de Configuração</em></td></tr><tr><td style="text-align:left">administra contas e lê a auditoria</td><td style="text-align:left"><em>Manual de Administração de Usuários</em></td></tr><tr><td style="text-align:left">opera uma conta SuperAdmin</td><td style="text-align:left"><em>Manual do SuperAdmin</em></td></tr></tbody></table></div>
+<p>Cada tela tem um botão <strong>Ajuda</strong> no alto, que abre o manual correspondente em aba nova, já na seção daquela tela.</p>
+<hr />
+<h2 id="detalhes-do-dia-a-dia">Detalhes do dia a dia</h2>
+<p><strong>Tema claro e escuro.</strong> O botão <em>Tema</em> no rodapé do menu alterna, e a escolha fica guardada no seu navegador.</p>
+<p><strong>Menu recolhido.</strong> Em telas largas, o botão de recolher deixa só os ícones — e o sistema lembra da escolha.</p>
+<p><strong>Celular.</strong> Todas as telas funcionam; as listas viram cartões em vez de tabelas, com a mesma informação.</p>
+<p><strong>Sessão.</strong> A entrada vale por sessão do navegador. Ao terminar, use <strong>Sair</strong> — especialmente em computador compartilhado.</p>
+<p><strong>E-mails.</strong> Os avisos do SGPD dizem o que fazer e onde, e nunca trazem nome de colaborador, CPF, valores ou pareceres: o dado fica no sistema, atrás do login. Pode acontecer de um aviso chegar duas vezes; o sistema prefere avisar duas vezes a deixar de avisar.</p>
+<hr />
+<h2 id="duvidas-frequentes">Dúvidas frequentes</h2>
+<p><strong>Entrei e só vejo o Painel.</strong> A conta existe, mas ainda não tem papel nem vínculo de setor. Papel é atribuído pelo SuperAdmin; vínculo de setor, por quem administra setores.</p>
+<p><strong>Meu login é recusado.</strong> Confira se está usando a senha da rede ou a senha temporária do SGPD — depende de como o ambiente está configurado. Repetir a tentativa errada não resolve, e cada falha fica registrada na auditoria. Procure quem administra usuários.</p>
+<p>**O sistema me leva sempre para <em>Minha senha</em>.** Sua senha é temporária. Troque-a e o restante do sistema se abre.</p>
+<p><strong>Vejo menos itens de menu que um colega da mesma área.</strong> Vocês têm papéis ou escopos diferentes. Compare a seção <em>Seu acesso</em> do Painel dos dois.</p>
+<p><strong>Um número do Painel não bate com o do meu colega.</strong> Nem deveria: os indicadores são calculados sobre o que <strong>cada</strong> pessoa enxerga.</p>
+<p><strong>Preciso de acesso a mais uma empresa ou filial.</strong> É mudança de escopo do seu papel — pedido para o SuperAdmin, com a justificativa do negócio.</p>
+<p><strong>Quem vê meus dados no sistema?</strong> Toda leitura é autorizada e toda alteração relevante é registrada com o nome de quem fez. Download de evidência também é registrado.</p>
+<hr />
+<h2 id="em-uma-pagina">Em uma página</h2>
+<ol><li>Acesse <strong>https://sgpd.bsabioenergia.com.br</strong> e entre com o usuário da rede ou com o login e a senha temporária que você recebeu.</li><li>Se cair em <strong>Minha senha</strong>, troque a senha — pelo menos 8 caracteres, nada parecido com o seu nome, nada de senha comum, nada só de números.</li><li>Leia o <strong>Painel</strong>: os blocos que aparecem já dizem o que você é no sistema.</li><li>Confira <strong>Seu acesso</strong> para saber seus papéis e escopos.</li><li>Trabalhe pelo item de menu do seu papel — <strong>Minhas tarefas</strong> para quem responde por setor, <strong>Processos</strong> para quem coordena.</li><li>Em dúvida sobre uma tela, clique em <strong>Ajuda</strong> no alto dela.</li><li>Falta acesso? Papel é com o SuperAdmin; conta e senha, com a administração de usuários; vínculo de setor, com a administração de setores.</li></ol>
+  </article>
+</main>
+</body>
+</html>

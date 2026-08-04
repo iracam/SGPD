@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Manual do SuperAdmin — SGPD / DesligaFlow</title>
+<style>/*
+ * Aparência dos manuais operacionais do SGPD.
+ *
+ * Escrito para o papel primeiro: o PDF é a entrega, o HTML é a mesma coisa na
+ * tela. Só há consultas `min-width`, como manda a ADR-028. Nenhuma fonte ou
+ * imagem externa — o arquivo precisa abrir sem rede.
+ */
+
+:root {
+  --verde-escuro: #123d2b;
+  --verde: #1d6b4c;
+  --verde-claro: #e8f3ed;
+  --ambar: #a45a06;
+  --ambar-claro: #fdf3e3;
+  --vermelho: #9d2222;
+  --vermelho-claro: #fbeceb;
+  --azul: #1b4f8a;
+  --azul-claro: #ecf2fa;
+  --tinta: #16211d;
+  --tinta-suave: #55635e;
+  --linha: #cfd8d4;
+  --linha-forte: #9fb0aa;
+  --papel: #ffffff;
+  --superficie: #f6f8f7;
+
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.documento {
+  background: var(--papel);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+@media screen and (min-width: 48rem) {
+  .documento {
+    max-width: 52rem;
+    padding: 3rem 3.5rem 4rem;
+    margin: 2rem auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------- capa */
+
+.capa {
+  border-top: 6px solid var(--verde);
+  padding-top: 2rem;
+}
+
+.capa__sistema {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--verde);
+  margin: 0;
+}
+
+.capa__sistema span {
+  color: var(--tinta-suave);
+  font-weight: 500;
+}
+
+.capa__selo {
+  display: inline-block;
+  margin: 1.75rem 0 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 99px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capa__titulo {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0;
+  color: var(--verde-escuro);
+  letter-spacing: -0.02em;
+}
+
+.capa__subtitulo {
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+  margin: 0.85rem 0 0;
+  max-width: 34rem;
+}
+
+.capa__ficha {
+  margin: 2.5rem 0 0;
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 1.25rem 0;
+}
+
+@media (min-width: 34rem) {
+  .capa__ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 2rem;
+  }
+}
+
+.capa__ficha dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.capa__ficha dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+}
+
+.capa__rodape {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  max-width: 34rem;
+}
+
+/* ------------------------------------------------------------- sumário */
+
+.sumario {
+  margin-top: 3rem;
+}
+
+.sumario__titulo {
+  font-size: 1.35rem;
+  color: var(--verde-escuro);
+  border-bottom: 2px solid var(--verde);
+  padding-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.sumario__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sumario__lista a {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--linha);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.sumario__num {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ conteúdo */
+
+.conteudo h2 {
+  font-size: 1.55rem;
+  color: var(--verde-escuro);
+  letter-spacing: -0.01em;
+  margin: 3.5rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--verde);
+}
+
+.conteudo h3 {
+  font-size: 1.15rem;
+  color: var(--verde-escuro);
+  margin: 2.25rem 0 0.6rem;
+}
+
+.conteudo h4 {
+  font-size: 0.98rem;
+  color: var(--tinta);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conteudo p {
+  margin: 0.85rem 0;
+}
+
+.conteudo ul,
+.conteudo ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+
+.conteudo li {
+  margin: 0.35rem 0;
+}
+
+.conteudo li > ul,
+.conteudo li > ol {
+  margin: 0.35rem 0;
+}
+
+.conteudo a {
+  color: var(--azul);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--linha);
+  margin: 2.5rem 0;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.86em;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+
+pre {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--verde);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  font-size: 0.82em;
+}
+
+/* -------------------------------------------------------------- tabelas */
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--verde-escuro);
+  vertical-align: bottom;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--linha);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--superficie);
+}
+
+td code {
+  white-space: normal;
+  background: var(--verde-claro);
+  border-color: #bcd8ca;
+  color: var(--verde-escuro);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ destaques */
+
+.destaque {
+  margin: 1.35rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid var(--linha-forte);
+  background: var(--superficie);
+  border-radius: 0 6px 6px 0;
+}
+
+.destaque p {
+  margin: 0.4rem 0;
+}
+
+.destaque p:first-child {
+  margin-top: 0;
+}
+
+.destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.destaque--atencao {
+  border-left-color: var(--ambar);
+  background: var(--ambar-claro);
+}
+
+.destaque--proibido {
+  border-left-color: var(--vermelho);
+  background: var(--vermelho-claro);
+}
+
+.destaque--dica {
+  border-left-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.destaque--importante,
+.destaque--regra {
+  border-left-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+/* --------------------------------------------------------- fluxogramas */
+
+.fluxo {
+  margin: 1.75rem 0;
+  padding: 1.4rem 1rem 1.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+.fx-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+/* O espaçamento entre os elementos é o comprimento do conector: a haste
+   desenhada no ::after atravessa exatamente o `gap`. */
+.fx-corpo {
+  --salto: 1.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--salto);
+}
+
+.fx-no {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 7px;
+  background: var(--papel);
+  border: 1.5px solid var(--linha-forte);
+  text-align: center;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Conector para o próximo elemento: haste no ::after, ponta no ::before. */
+.fx-no::after,
+.fx-seta::after,
+.fx-nota::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: var(--salto);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+.fx-no::before,
+.fx-seta::before,
+.fx-nota::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--salto) - 0.55rem);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--linha-forte);
+}
+
+/* O último elemento não aponta para lugar nenhum. */
+.fx-corpo > :last-child::after,
+.fx-corpo > :last-child::before,
+.fx-corpo > :last-child .fx-no--ramo::after,
+.fx-corpo > :last-child .fx-no--ramo::before {
+  display: none;
+}
+
+/* Antes de uma seta rotulada ou de uma bifurcação, a haste continua mas a
+   ponta some: quem aponta é o elemento seguinte. */
+.fx-corpo > :has(+ .fx-seta)::before,
+.fx-corpo > :has(+ .fx-nota)::before,
+.fx-corpo > :has(+ .fx-ramos)::before {
+  display: none;
+}
+
+.fx-no--inicio {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--fim {
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--decisao {
+  background: var(--ambar-claro);
+  border-color: var(--ambar);
+  color: #5c3204;
+  font-weight: 600;
+}
+
+.fx-no--alerta {
+  background: var(--vermelho-claro);
+  border-color: var(--vermelho);
+  color: #6d1717;
+}
+
+.fx-no--ramo {
+  max-width: none;
+  font-size: 0.88em;
+  border-color: var(--linha);
+  flex: 1;
+}
+
+.fx-seta {
+  position: relative;
+}
+
+.fx-seta span {
+  display: inline-block;
+  font-size: 0.78em;
+  color: var(--tinta-suave);
+  background: var(--papel);
+  border: 1px dashed var(--linha-forte);
+  border-radius: 99px;
+  padding: 0.15rem 0.7rem;
+}
+
+.fx-nota {
+  position: relative;
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- bifurcações --- */
+
+.fx-ramos {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.9rem;
+  /* Abre espaço para a barra de distribuição e para a queda até cada ramo. */
+  padding-top: calc(var(--salto) + 0.6rem);
+}
+
+.fx-ramo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.fx-ramo__rotulo {
+  display: inline-block;
+  align-self: center;
+  margin-bottom: 0.45rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 99px;
+  background: var(--verde-escuro);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Queda da barra até o rótulo de cada ramo. */
+.fx-ramo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: calc(var(--salto) + 0.6rem);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+@media (min-width: 34rem) {
+  .fx-ramos {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Barra horizontal ligando os centros das colunas. `--ramos` vem do
+     gerador: com N ramos, o centro da primeira coluna fica em 50%/N. */
+  .fx-ramos::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% / var(--ramos, 2));
+    right: calc(50% / var(--ramos, 2));
+    height: 2px;
+    background: var(--linha-forte);
+  }
+}
+
+/* --------------------------------------------------------------- papel */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+
+  .documento {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .capa {
+    break-after: page;
+    padding-top: 1rem;
+  }
+
+  .sumario {
+    break-after: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2 {
+    break-before: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2:first-child {
+    break-before: avoid;
+  }
+
+  /* A régua que separa as seções no HTML é ruído no papel: como o `h2` já
+     começa página nova, ela sobra sozinha no alto da página anterior e ainda
+     faz nascer uma página em branco. */
+  hr:has(+ h2) {
+    display: none;
+  }
+
+  .quebra-pagina {
+    break-before: page;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .destaque,
+  .fx-no,
+  .fx-ramo,
+  pre,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* O fluxograma não pede `break-inside: avoid`: quando não cabe na página, o
+     navegador ignora a regra e empurra o bloco inteiro, deixando uma página em
+     branco atrás. Sem a regra ele quebra entre nós — pior que caber, melhor
+     que a página vazia. Os nós e os ramos seguem indivisíveis. */
+
+  /* No papel o fluxograma precisa caber inteiro em uma página: o `break-inside`
+     é ignorado quando o elemento não cabe, e um nó órfão na página seguinte é
+     pior do que alguns milímetros a menos de respiro. */
+  .fluxo {
+    padding: 1rem 0.9rem 1.1rem;
+  }
+
+  .fx-titulo {
+    margin-bottom: 0.9rem;
+  }
+
+  .fx-corpo {
+    --salto: 1.15rem;
+  }
+
+  .fx-no {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.84em;
+  }
+
+  .fx-ramos {
+    gap: 0.9rem;
+  }
+
+  .conteudo a {
+    color: var(--tinta);
+    text-decoration: none;
+  }
+}
+</style>
+</head>
+<body>
+<main class="documento">
+  <header class="capa">
+    <p class="capa__sistema">SGPD <span>DesligaFlow</span></p>
+    <p class="capa__selo">Manual operacional</p>
+    <h1 class="capa__titulo">Manual do SuperAdmin</h1>
+    <p class="capa__subtitulo">Papéis, autenticação, e-mail, monitoramento e os atos que só a autoridade global executa.</p>
+    <dl class="capa__ficha">
+      <div><dt>Para quem é</dt><dd>Quem opera uma conta SuperAdmin do SGPD (autoridade global)</dd></div>
+      <div><dt>Versão</dt><dd>1.0</dd></div>
+      <div><dt>Atualizado em</dt><dd>03/08/2026</dd></div>
+      <div><dt>Endereço do sistema</dt><dd>https://sgpd.bsabioenergia.com.br</dd></div>
+    </dl>
+    <p class="capa__rodape">
+      Este manual descreve o uso do sistema. Ele não substitui a política de
+      desligamento da empresa nem a orientação do Departamento Pessoal.
+    </p>
+  </header>
+
+  <nav class="sumario" aria-label="Sumário">
+    <h2 class="sumario__titulo">Sumário</h2>
+    <ol class="sumario__lista"><li><a href="#o-que-e-ser-superadmin"><span class="sumario__num">01</span><span>O que é ser SuperAdmin</span></a></li><li><a href="#a-central-de-configuracoes"><span class="sumario__num">02</span><span>A central de Configurações</span></a></li><li><a href="#ldap-e-autenticacao"><span class="sumario__num">03</span><span>LDAP e autenticação</span></a></li><li><a href="#e-mail-e-notificacoes"><span class="sumario__num">04</span><span>E-mail e notificações</span></a></li><li><a href="#operacao-e-monitoramento"><span class="sumario__num">05</span><span>Operação e monitoramento</span></a></li><li><a href="#atribuir-e-revogar-papeis"><span class="sumario__num">06</span><span>Atribuir e revogar papéis</span></a></li><li><a href="#reabrir-um-processo"><span class="sumario__num">07</span><span>Reabrir um processo</span></a></li><li><a href="#duvidas-frequentes"><span class="sumario__num">08</span><span>Dúvidas frequentes</span></a></li><li><a href="#em-uma-pagina"><span class="sumario__num">09</span><span>Em uma página</span></a></li></ol>
+  </nav>
+
+  <article class="conteudo">
+<h2 id="o-que-e-ser-superadmin">O que é ser SuperAdmin</h2>
+<p>A conta SuperAdmin é a <strong>autoridade global</strong> do SGPD. Ela enxerga todos os processos, todas as tarefas, todos os menus e todas as telas, sem precisar de papel funcional nem de vínculo com setor.</p>
+<p>É conta <strong>técnica</strong>, não posição funcional. Use-a para configurar o ambiente, distribuir papéis e destravar o que ninguém mais destrava — não para conduzir o dia a dia do processo demissional. Para isso existem os papéis: quem coordena desligamentos deve ter <em>Departamento Pessoal</em>, mesmo que também tenha acesso técnico.</p>
+<h3 id="o-que-so-voce-faz">O que só você faz</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Ato</th><th style="text-align:left">Onde</th></tr></thead><tbody><tr><td style="text-align:left">Atribuir e revogar papel</td><td style="text-align:left">ficha do usuário, em <strong>Usuários</strong></td></tr><tr><td style="text-align:left">Configurar LDAP e o login pelo Active Directory</td><td style="text-align:left"><strong>Configurações → LDAP e autenticação</strong></td></tr><tr><td style="text-align:left">Configurar SMTP, remetente, fila e marcos de aviso</td><td style="text-align:left"><strong>Configurações → E-mail e notificações</strong></td></tr><tr><td style="text-align:left">Conferir se a fila de avisos está andando</td><td style="text-align:left"><strong>Configurações → Operação e monitoramento</strong></td></tr><tr><td style="text-align:left">Reabrir um processo liberado ou encerrado</td><td style="text-align:left">tela de encerramento do processo</td></tr></tbody></table></div>
+<h3 id="o-que-a-sua-autoridade-nao-dispensa">O que a sua autoridade não dispensa</h3>
+<p>Este é o ponto mais importante do manual. Ser SuperAdmin remove a barreira de <strong>autorização</strong>, e nada além disso.</p>
+<blockquote class="destaque destaque--regra"><p><strong>Regra</strong> Continuam valendo, para você exatamente como para todos: a ordem dos estados do processo, todas as validações de dados, a exigência de justificativa onde ela existe, o controle de alteração concorrente, a imutabilidade de snapshots e versões publicadas, e a auditoria de tudo o que você faz.</p></blockquote>
+<p>Duas consequências práticas:</p>
+<ul><li>você <strong>não</strong> libera um processo com impedimento sem escrever a justificativa. A autoridade global dispensa o papel <code>DP_GERENTE</code>, não o texto;</li><li>quando você decide uma pretensão de valor que você mesmo informou, o sistema aceita — e <strong>grava na trilha que a segregação foi rompida</strong>. É registro permanente, com o seu nome.</li></ul>
+<hr />
+<h2 id="a-central-de-configuracoes">A central de Configurações</h2>
+<p>O item <strong>Configurações</strong> aparece no menu somente para SuperAdmin, e reúne os módulos técnicos:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Cartão</th><th style="text-align:left">Para que serve</th></tr></thead><tbody><tr><td style="text-align:left"><strong>LDAP e autenticação</strong></td><td style="text-align:left">Transporte, conta técnica de bind, bases de busca, grupo elegível, certificado da CA e testes de conexão.</td></tr><tr><td style="text-align:left"><strong>E-mail e notificações</strong></td><td style="text-align:left">SMTP, remetente, URL base, ritmo da fila, lembretes e escaladas.</td></tr><tr><td style="text-align:left"><strong>Operação e monitoramento</strong></td><td style="text-align:left">Estado da fila de avisos, armazenamento de evidências e retenção. Somente leitura.</td></tr><tr><td style="text-align:left"><strong>Processo demissional</strong></td><td style="text-align:left">Atalho para <strong>Grupos e templates</strong>. O procedimento está no <em>Manual de Configuração</em>.</td></tr><tr><td style="text-align:left"><strong>Arquivos e evidências</strong></td><td style="text-align:left">Marcado como <em>Em breve</em>: limites, extensões e retenção ainda vivem no ambiente, não em tela.</td></tr></tbody></table></div>
+<p>Cada módulo valida e audita no servidor. Nenhuma tela “apenas grava o que você digitou”.</p>
+<hr />
+<h2 id="ldap-e-autenticacao">LDAP e autenticação</h2>
+<p>Esta tela governa duas coisas <strong>independentes</strong>, e confundi-las é o erro mais comum:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Chave</th><th style="text-align:left">O que liga</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Habilitar descoberta LDAP</strong></td><td style="text-align:left">A busca no diretório: importar usuário, vincular identidade, buscar grupo. Nada a ver com login.</td></tr><tr><td style="text-align:left"><strong>Habilitar login pelo Active Directory</strong></td><td style="text-align:left">As pessoas passam a entrar no SGPD com a senha da rede.</td></tr></tbody></table></div>
+<p>A terceira caixa, <strong>Preservar contingência local de SuperAdmin</strong>, é obrigatória para ligar o login AD. Ela existe para um cenário concreto: o AD fica indisponível e, sem contingência, ninguém entraria no sistema — inclusive para desligar a integração.</p>
+<h3 id="a-ordem-correta-e-por-que-ela-e-essa">A ordem correta, e por que ela é essa</h3>
+<figure class="fluxo"><figcaption class="fx-titulo">Ativação da autenticação pelo Active Directory</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">Preencha servidor, conta técnica de bind e senha</div><div class="fx-no fx-no--passo">Escolha o transporte — com TLS, envie e valide o certificado da CA</div><div class="fx-no fx-no--passo"><strong>Salvar configuração</strong> com o login AD ainda <strong>desligado</strong></div><div class="fx-seta"><span>agora existe configuração salva para testar</span></div><div class="fx-no fx-no--passo"><strong>Testar conexão salva</strong> — o sistema faz bind e lê o RootDSE</div><div class="fx-no fx-no--decisao">O teste passou nessa mesma configuração?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Passou</span><div class="fx-no fx-no--ramo">Marque <strong>Habilitar login pelo AD</strong> e salve de novo</div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Falhou</span><div class="fx-no fx-no--ramo">Corrija o que a mensagem apontou e teste outra vez</div></div></div><div class="fx-no fx-no--alerta">Não altere servidor, bind ou CA depois de habilitar sem testar de novo</div><div class="fx-no fx-no--fim">Login AD habilitado, com contingência local preservada</div></div></figure>
+<p>O sistema <strong>impõe</strong> essa ordem. Ao tentar habilitar o login, ele recusa com mensagem específica quando:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Mensagem</th><th style="text-align:left">O que fazer</th></tr></thead><tbody><tr><td style="text-align:left"><em>Teste com sucesso esta mesma configuração antes de ativar o login AD.</em></td><td style="text-align:left">Salve, use <strong>Testar conexão salva</strong> e só então habilite. O teste vale para a configuração exata que foi testada: mudar o servidor invalida o teste anterior.</td></tr><tr><td style="text-align:left"><em>A autenticação AD exige contingência local de SuperAdmin.</em></td><td style="text-align:left">Marque a terceira caixa.</td></tr><tr><td style="text-align:left"><em>É necessário preservar ao menos um SuperAdmin ativo com senha local utilizável.</em></td><td style="text-align:left">Existe conta SuperAdmin ativa, mas nenhuma com senha local. Defina uma antes.</td></tr><tr><td style="text-align:left"><em>Envie e valide a CA antes de ativar o login AD com TLS.</em></td><td style="text-align:left">Com TLS ligado o certificado é pré-requisito, não recomendação.</td></tr><tr><td style="text-align:left"><em>O arquivo da CA não corresponde ao hash registrado.</em></td><td style="text-align:left">O arquivo mudou desde o envio. Reenvie.</td></tr><tr><td style="text-align:left"><em>A configuração foi alterada por outra sessão.</em></td><td style="text-align:left">Outro SuperAdmin salvou enquanto você editava. Recarregue e refaça.</td></tr></tbody></table></div>
+<h3 id="os-quatro-cartoes-de-estado">Os quatro cartões de estado</h3>
+<p>No alto da tela:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Cartão</th><th style="text-align:left">Leitura</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Origem efetiva</strong></td><td style="text-align:left"><code>Schema SGPD</code> significa que vale o que está salvo na tela. <code>Ambiente</code> significa que ainda vale o arquivo de configuração do servidor — a tela nunca foi salva.</td></tr><tr><td style="text-align:left"><strong>Descoberta</strong></td><td style="text-align:left">Habilitada ou não, e se o transporte é seguro.</td></tr><tr><td style="text-align:left"><strong>Login AD</strong></td><td style="text-align:left">Habilitado ou não, e se a contingência local está preservada.</td></tr><tr><td style="text-align:left"><strong>Último teste</strong></td><td style="text-align:left">Aprovado, Falhou ou Não executado, com a data.</td></tr></tbody></table></div>
+<h3 id="servidor-bind-e-bases">Servidor, bind e bases</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Servidor LDAP</strong></td><td style="text-align:left">Host, ou <code>host:porta</code>. <strong>Sem</strong> <code>ldap://</code> e sem caminho: o protocolo sai da escolha de TLS.</td></tr><tr><td style="text-align:left"><strong>Conta técnica — UPN ou DN</strong></td><td style="text-align:left">A conta de leitura do diretório. Nunca uma conta pessoal: quando a pessoa sai, a integração cai.</td></tr><tr><td style="text-align:left"><strong>Senha de bind</strong></td><td style="text-align:left">Enviada só para atualizar, guardada cifrada e <strong>nunca devolvida</strong> pela API. Campo em branco mantém a senha atual.</td></tr><tr><td style="text-align:left"><strong>Base de usuários</strong></td><td style="text-align:left">Onde procurar pessoas. Obrigatória para habilitar o login.</td></tr><tr><td style="text-align:left"><strong>Base de grupos</strong></td><td style="text-align:left">Onde procurar grupos.</td></tr><tr><td style="text-align:left"><strong>DN do grupo obrigatório</strong></td><td style="text-align:left">Restringe tudo — descoberta, importação, vínculo e login — a quem pertence a este grupo. Use o botão <strong>Buscar grupo</strong> em vez de digitar o DN à mão.</td></tr><tr><td style="text-align:left"><strong>Filtro adicional revisado</strong></td><td style="text-align:left">Filtro LDAP entre parênteses, por exemplo <code>(department=RH)</code>. Fora desse formato o sistema recusa.</td></tr><tr><td style="text-align:left"><strong>Considerar grupos aninhados</strong></td><td style="text-align:left">Aceita quem pertence ao grupo por herança.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> O grupo obrigatório é o controle de acesso mais forte desta tela: ele decide quem consegue existir e entrar no SGPD. Trocá-lo pode deixar gente de fora imediatamente.</p></blockquote>
+<p>Os quatro números de <strong>Limites e timeouts</strong> — conexão, resposta, tamanho da página e limite de resultados — protegem a disponibilidade e a exposição da busca. Página entre 1 e 1000, limite de resultados entre 1 e 200.</p>
+<h3 id="tls-e-certificado-da-ca">TLS e certificado da CA</h3>
+<p>Uma única escolha de transporte vale para tudo. Desmarcar <strong>Negociar TLS</strong> faz a credencial técnica e as senhas das pessoas trafegarem sem criptografia — a tela avisa, e o aviso é literal.</p>
+<p>O certificado aceita <code>.pem</code>, <code>.crt</code> e <code>.cer</code>, até <strong>512 KiB</strong>. Depois de enviado, a tela mostra situação, arquivo, <em>subject</em>, <em>issuer</em>, validade final e o hash SHA-256. <strong>Revalidar certificado</strong> confere o arquivo salvo — vale como rotina antes do vencimento.</p>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> Um certificado de CA vence. Quando vencer, o login AD para de funcionar para todos ao mesmo tempo. Anote a <em>validade final</em> que a tela mostra e revalide antes disso.</p></blockquote>
+<hr />
+<h2 id="e-mail-e-notificacoes">E-mail e notificações</h2>
+<p>O SGPD não envia nada dentro da requisição: cada aviso é gravado numa fila e despachado depois, por um comando agendado no servidor. Esta tela governa o transporte e o ritmo dessa fila.</p>
+<h3 id="o-interruptor-de-envio">O interruptor de envio</h3>
+<p><strong>Habilitar envio de e-mail</strong> desligado não perde mensagem: a fila acumula em <em>Pendente</em> e entrega tudo quando você religar. Use isso em janela de manutenção sem medo.</p>
+<p>Habilitar exige servidor SMTP e remetente — sem eles a tela recusa. E se você informar usuário SMTP, a senha passa a ser obrigatória.</p>
+<h3 id="erros-e-avisos-sao-coisas-diferentes">Erros e avisos são coisas diferentes</h3>
+<p>A tela separa os dois deliberadamente:</p>
+<ul><li><strong>“A configuração precisa de ajustes”</strong> — impede salvar. Porta fora de 1 a 65535, remetente sem <code>@</code>, URL base que não começa com <code>http://</code> ou <code>https://</code>, envio habilitado sem servidor ou sem remetente;</li><li><strong>“Funciona, mas vale conferir”</strong> — apenas avisa. Sem URL base, sem TLS, porta fora das usuais de submissão, envio sem usuário SMTP (dependendo de relay anônimo autorizado).</li></ul>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> O aviso da <strong>URL base</strong> é o que mais atrapalha na prática: sem ela, o link dentro do e-mail sai relativo e o cliente de e-mail não o torna clicável. A mensagem chega, ninguém consegue clicar.</p></blockquote>
+<h3 id="ritmo-da-fila">Ritmo da fila</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">O que decide</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Tentativas por mensagem</strong></td><td style="text-align:left">Quantas vezes o sistema insiste antes de desistir e marcar <code>Falha</code>.</td></tr><tr><td style="text-align:left"><strong>Mensagens por despacho</strong></td><td style="text-align:left">Quantas cada execução do agendador tenta entregar.</td></tr><tr><td style="text-align:left"><strong>Minutos para reabrir envio preso</strong></td><td style="text-align:left">Se o processo morre entre o envio e a confirmação, a mensagem fica travada em <em>Em envio</em>; depois desse tempo ela volta para a fila.</td></tr></tbody></table></div>
+<p>A entrega é <strong>ao menos uma vez</strong>: nessa reabertura, um aviso pode chegar duplicado. É escolha de projeto — duplicar aviso é aceitável, perder aviso não.</p>
+<h3 id="lembretes-e-escaladas">Lembretes e escaladas</h3>
+<p>Quatro marcos, em horas:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Marco</th><th style="text-align:left">Quem recebe</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Primeiro lembrete, antes do prazo</strong></td><td style="text-align:left">Responsáveis vigentes do setor.</td></tr><tr><td style="text-align:left"><strong>Lembrete final, antes do prazo</strong></td><td style="text-align:left">Os mesmos. Precisa ser mais próximo do prazo que o primeiro.</td></tr><tr><td style="text-align:left"><strong>Atraso crítico, após o prazo</strong></td><td style="text-align:left">Responsáveis e também o setor de escalada.</td></tr><tr><td style="text-align:left"><strong>Alerta do processo, antes do limite</strong></td><td style="text-align:left">O DP do escopo, enquanto houver tarefa em aberto.</td></tr></tbody></table></div>
+<p>Mudar um marco não reescreve o passado: cada marco dispara uma vez por tarefa e por destinatário, e o que já foi avisado não volta.</p>
+<h3 id="a-mensagem-de-prova">A mensagem de prova</h3>
+<p><strong>Enviar mensagem de prova</strong> usa a configuração <strong>salva</strong> — salve antes de testar. A prova vai obrigatoriamente para o endereço da <strong>sua própria conta</strong>, nunca para um endereço digitado, e o envio fica registrado na auditoria.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> O e-mail de aviso do SGPD nunca carrega nome de colaborador, CPF, valor ou parecer. Ele diz o que fazer e onde; o dado fica no sistema, atrás de login. Isso é exigência de proteção de dados — não mude os templates para “facilitar”.</p></blockquote>
+<hr />
+<h2 id="operacao-e-monitoramento">Operação e monitoramento</h2>
+<p>Tela somente leitura. Ela não envia, não reprocessa e não apaga: responde uma pergunta que nenhuma outra responde — <strong>o ambiente está andando?</strong></p>
+<h3 id="fila-de-avisos">Fila de avisos</h3>
+<p>A fila só anda quando o agendador do sistema operacional chama os comandos de varredura e despacho. Se o agendamento parar, nada quebra e <strong>ninguém é avisado de que ninguém está sendo avisado</strong>. É exatamente esse silêncio que esta tela rompe.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Informação</th><th style="text-align:left">Como ler</th></tr></thead><tbody><tr><td style="text-align:left">Contagem por situação</td><td style="text-align:left"><code>Pendente</code>, <code>Em envio</code>, <code>Enviada</code>, <code>Falha</code>, <code>Cancelada</code>.</td></tr><tr><td style="text-align:left"><strong>Último envio</strong></td><td style="text-align:left"><code>Nunca</code> num ambiente em uso é sinal claro de agendamento ausente.</td></tr><tr><td style="text-align:left"><strong>Pendente mais antiga</strong></td><td style="text-align:left">Se for mais velha que a tolerância, algo está parado.</td></tr><tr><td style="text-align:left"><strong>Tolerância</strong></td><td style="text-align:left">Quantos minutos de atraso o sistema aceita antes de dar o veredito.</td></tr></tbody></table></div>
+<p>Com a fila parada, o veredito sobe em destaque vermelho no alto da tela. A ação não é aqui: é conferir o agendamento no servidor, pelo runbook.</p>
+<p>Mensagens em <code>Falha</code> se reprocessam na tela <strong>Notificações</strong>, que é do Departamento Pessoal — e só a que falhou volta para a fila; reenviar uma entregue duplicaria o e-mail.</p>
+<h3 id="armazenamento-e-retencao">Armazenamento e retenção</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Indicador</th><th style="text-align:left">O que é</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Evidências ativas</strong></td><td style="text-align:left">Quantos arquivos existem no storage privado.</td></tr><tr><td style="text-align:left"><strong>Ocupação</strong></td><td style="text-align:left">Quanto espaço ocupam. Evidências ficam fora do Oracle.</td></tr><tr><td style="text-align:left"><strong>Processos encerrados</strong></td><td style="text-align:left">Base de contagem da retenção.</td></tr><tr><td style="text-align:left"><strong>Além de N anos</strong></td><td style="text-align:left">Processos encerrados que já passaram do prazo de retenção. Fica em destaque quando é maior que zero.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> Nenhuma rotina apaga arquivo de evidência. O expurgo é ato humano autorizado, pelo procedimento do runbook. Este indicador diz que há material elegível — não que ele deva sair hoje.</p></blockquote>
+<hr />
+<h2 id="atribuir-e-revogar-papeis">Atribuir e revogar papéis</h2>
+<p>O caminho é <strong>Usuários → abrir a conta → seção Papéis</strong>. Os botões <em>Atribuir papel</em> e <em>Revogar</em> aparecem só para você: quem administra usuários prepara a conta, mas não distribui autoridade. Se essa permissão fosse delegável, um administrador de contas poderia se promover a qualquer papel do sistema.</p>
+<h3 id="os-cinco-papeis-e-o-escopo-de-cada-um">Os cinco papéis, e o escopo de cada um</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Papel</th><th style="text-align:left">Autoriza</th><th style="text-align:left">Escopo aceito</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Departamento Pessoal</strong></td><td style="text-align:left">Conduzir o processo: abrir, iniciar, acompanhar, decidir valores, liberar, encerrar e cancelar.</td><td style="text-align:left">Global, empresa ou filial</td></tr><tr><td style="text-align:left"><strong>Gerência do Departamento Pessoal</strong></td><td style="text-align:left">Tudo do DP, mais liberar e encerrar processo <strong>com impedimento</strong>, sob justificativa.</td><td style="text-align:left">Global, empresa ou filial</td></tr><tr><td style="text-align:left"><strong>Administração de grupos e templates</strong></td><td style="text-align:left">Templates, perguntas, grupos de validação e regras de aplicabilidade. Nenhuma autoridade sobre processo.</td><td style="text-align:left"><strong>Somente global</strong></td></tr><tr><td style="text-align:left"><strong>Administração de setores</strong></td><td style="text-align:left">Setores, escopos, prazos e responsáveis.</td><td style="text-align:left"><strong>Somente global</strong></td></tr><tr><td style="text-align:left"><strong>Administração de usuários</strong></td><td style="text-align:left">Contas, senhas temporárias, vínculo com o AD e leitura da auditoria de contas.</td><td style="text-align:left"><strong>Somente global</strong></td></tr></tbody></table></div>
+<p>Ao atribuir, escolha o escopo: <strong>Global</strong>, <strong>Empresa</strong> (informe o código) ou <strong>Filial</strong> (empresa e filial). Para os três papéis administrativos a tela só aceita Global — oferecer “administrador de setores da empresa 1” seria promessa que a autorização não cumpre.</p>
+<h3 id="o-que-o-sistema-recusa">O que o sistema recusa</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Mensagem</th><th style="text-align:left">Por quê</th></tr></thead><tbody><tr><td style="text-align:left"><em>Não é possível atribuir papel a um usuário inativo.</em></td><td style="text-align:left">Ative a conta primeiro.</td></tr><tr><td style="text-align:left"><em>Este papel só existe em escopo global.</em></td><td style="text-align:left">É um dos três papéis administrativos. Troque o escopo para Global.</td></tr><tr><td style="text-align:left"><em>Informe a empresa do escopo do papel.</em></td><td style="text-align:left">Escopo de empresa ou filial exige o código.</td></tr></tbody></table></div>
+<h3 id="escolhas-que-valem-lembrar">Escolhas que valem lembrar</h3>
+<ul><li><strong>gerência do DP dispensa DP.</strong> Quem tem a gerência já satisfaz toda exigência de Departamento Pessoal; atribuir os dois é redundante;</li><li><strong>responsável de setor não é papel.</strong> Vem do vínculo com o setor, cadastrado em <strong>Setores</strong>, e vale enquanto a vigência valer;</li><li><strong>revogar não apaga.</strong> A atribuição revogada continua visível no histórico da ficha, com quem revogou;</li><li><strong>toda atribuição e revogação vai para a auditoria</strong>, com ator, conta, papel, escopo e validade. É a primeira coisa que se lê numa investigação de acesso.</li></ul>
+<blockquote class="destaque destaque--atencao"><p><strong>Cuidado</strong> <code>DP_GERENTE</code> é o papel que passa por cima de impedimento de liberação. Atribua-o a quem responde funcionalmente por essa decisão, no escopo em que ela cabe — não “para facilitar” a operação de um caso travado.</p></blockquote>
+<hr />
+<h2 id="reabrir-um-processo">Reabrir um processo</h2>
+<p>Reabrir é exclusivo do SuperAdmin, na tela <strong>Conferir encerramento do processo</strong>. Nem quem liberou desfaz o próprio ato: é o desenho, não uma limitação.</p>
+<p>O que a reabertura faz:</p>
+<ul><li>devolve o processo à análise e limpa as marcas formais de liberação, processamento e encerramento;</li><li>devolve à análise <strong>as tarefas concluídas que você marcar</strong>. Sem nenhuma marcada, corrige apenas a marca formal, sem devolver trabalho a setor nenhum;</li><li>retoma a vinculação do colaborador ao processo — e é <strong>recusada</strong> se outro processo já tomou aquele colaborador. Nesse caso, resolva o outro processo primeiro;</li><li>exige motivo e grava o estado anterior inteiro na trilha;</li><li>avisa por e-mail os setores cujas tarefas voltaram.</li></ul>
+<p>Processo <strong>cancelado</strong> não reabre: o cancelamento é terminal. Para o mesmo colaborador, abra um processo novo.</p>
+<hr />
+<h2 id="duvidas-frequentes">Dúvidas frequentes</h2>
+<p><strong>Habilitei o login AD e ninguém consegue entrar.</strong> Confira, nesta ordem: o cartão <strong>Último teste</strong> ainda está <em>Aprovado</em> para a configuração atual? O certificado da CA está válido? O <strong>grupo obrigatório</strong> mudou? Se precisar de saída rápida, desmarque <em>Habilitar login pelo Active Directory</em> e salve — a contingência local existe para isso.</p>
+<p><strong>Perdi o acesso do último SuperAdmin.</strong> O sistema impede desativar o último SuperAdmin ativo, e impede habilitar o login AD sem uma senha local utilizável. Se ainda assim o acesso se perdeu, a saída é o procedimento de contingência do runbook, no servidor.</p>
+<p><strong>A tela mostra “Origem efetiva: Ambiente”. Está errado?</strong> Não. Significa que essa configuração nunca foi salva pela tela e o que vale é o arquivo de configuração do servidor. Ao salvar, a origem passa a <code>Schema SGPD</code> e a tela vira a fonte da verdade.</p>
+<p><strong>Mudei um marco de lembrete e nada aconteceu.</strong> Marco já disparado não volta. A mudança vale para os próximos vencimentos.</p>
+<p><strong>A fila está cheia de <code>Pendente</code> e o último envio é “Nunca”.</strong> O agendamento não está instalado ou não está rodando. É configuração de servidor, pelo runbook — nenhuma tela do SGPD substitui o agendador.</p>
+<p><strong>Posso apagar as mensagens antigas da fila, ou a auditoria?</strong> Não, e nem pela sua autoridade. Fila, auditoria, comentários de pendência e processos encerrados são acrescentados e nunca removidos.</p>
+<p><strong>Um DP pediu para eu liberar um processo travado.</strong> Você pode — com justificativa escrita, que fica no processo e na trilha. Antes disso, pergunte se o certo não é a gerência do DP fazê-lo, sob o papel próprio, ou resolver o impedimento.</p>
+<hr />
+<h2 id="em-uma-pagina">Em uma página</h2>
+<ol><li><strong>Configurações → LDAP e autenticação</strong>: preencha, salve com o login desligado, <strong>Testar conexão salva</strong> e só então habilite o login AD.</li><li>Com TLS, envie e valide a CA antes — e anote a validade final.</li><li><strong>Configurações → E-mail e notificações</strong>: transporte, remetente, <strong>URL base</strong>, ritmo e marcos. Salve e <strong>Enviar mensagem de prova</strong>.</li><li><strong>Configurações → Operação e monitoramento</strong>: confira <em>Último envio</em> e <em>Pendente mais antiga</em>. Veredito vermelho significa agendamento parado.</li><li><strong>Usuários → conta → Papéis</strong>: atribua os cinco papéis pelo escopo correto — os três administrativos só em Global.</li><li>Reabertura de processo: só você, com motivo, escolhendo quais tarefas voltam. Cancelado não reabre.</li><li>Nada do que você faz escapa da auditoria — inclusive o que a sua autoridade dispensou.</li></ol>
+  </article>
+</main>
+</body>
+</html>

@@ -3,11 +3,16 @@
 Documentos entregues a quem **usa** o SGPD — não são documentação técnica. O
 público é usuário final: nada de API, tabela, migration ou nome de classe.
 
+Há um manual por público, e o público é o **papel** (ADR-054) — não a tela:
+
 | Manual | Para quem | Fonte |
 | --- | --- | --- |
-| Manual do Responsável de Área | quem responde por um setor de validação | `responsaveis-de-area.md` |
-| Manual do Departamento Pessoal | quem tem a atribuição `DP` | `departamento-pessoal.md` |
-| Manual de Configuração | quem cadastra setores, templates, grupos e regras | `grupos-templates-regras.md` |
+| Primeiros Passos no SGPD | qualquer conta autenticada, em qualquer papel | `primeiros-passos.md` |
+| Manual do Responsável de Área | quem responde por um setor de validação (`RESPONSAVEL_SETOR`) | `responsaveis-de-area.md` |
+| Manual do Departamento Pessoal | quem tem `DP` ou `DP_GERENTE` | `departamento-pessoal.md` |
+| Manual de Configuração | `SETORES_ADMIN` e `GRUPOS_TEMPLATE_ADMIN` | `grupos-templates-regras.md` |
+| Manual de Administração de Usuários | `USUARIOS_ADMIN` | `usuarios-e-auditoria.md` |
+| Manual do SuperAdmin | contas com `is_superuser=true` | `configuracao-do-sistema.md` |
 
 Cada manual tem três arquivos: o `.md` (fonte), o `.html` e o `.pdf` (entregas).
 
@@ -87,14 +92,34 @@ prefira dividir o diagrama a empurrá-lo.
 
 ## Como o sistema entrega estes manuais
 
-A SPA tem um botão **Ajuda** no cabeçalho de três telas, que abre o manual em aba
-nova já na seção correspondente (ADR-053):
+A SPA tem um botão **Ajuda** no cabeçalho de cada tela com manual, que abre o
+documento em aba nova já na seção correspondente (ADR-053). Cada tela aponta para
+o manual do papel que a usa:
 
-| Tela | Manual | Âncora |
-| --- | --- | --- |
-| Minhas tarefas | `responsaveis-de-area` | `a-tela-minhas-tarefas` |
-| Processos | `departamento-pessoal` | `acompanhar-os-processos` |
-| Grupos e templates | `grupos-templates-regras` | `o-que-voce-vai-configurar` |
+| Tela | Quem alcança | Manual | Âncora |
+| --- | --- | --- | --- |
+| Painel | qualquer conta | `primeiros-passos` | `o-painel` |
+| Minha senha | qualquer conta | `primeiros-passos` | `minha-senha` |
+| Minhas tarefas | `RESPONSAVEL_SETOR` | `responsaveis-de-area` | `a-tela-minhas-tarefas` |
+| Processos | `DP`, `DP_GERENTE` | `departamento-pessoal` | `acompanhar-os-processos` |
+| Grupos e templates | `GRUPOS_TEMPLATE_ADMIN` | `grupos-templates-regras` | `o-que-voce-vai-configurar` |
+| Usuários | `USUARIOS_ADMIN` | `usuarios-e-auditoria` | `a-tela-usuarios` |
+| Ficha do usuário | `USUARIOS_ADMIN` | `usuarios-e-auditoria` | `a-ficha-do-usuario` |
+| Auditoria | `USUARIOS_ADMIN` | `usuarios-e-auditoria` | `a-tela-auditoria` |
+| Configurações | SuperAdmin | `configuracao-do-sistema` | `a-central-de-configuracoes` |
+| LDAP e autenticação | SuperAdmin | `configuracao-do-sistema` | `ldap-e-autenticacao` |
+| E-mail e notificações | SuperAdmin | `configuracao-do-sistema` | `e-mail-e-notificacoes` |
+| Operação e monitoramento | SuperAdmin | `configuracao-do-sistema` | `operacao-e-monitoramento` |
+
+**Setores** e **Relatórios** ainda não têm botão: o procedimento delas está,
+respectivamente, no *Manual de Configuração* e no *Manual do Departamento
+Pessoal*, sem seção própria para ancorar.
+
+O manual continua exigindo **apenas sessão** — a coluna “quem alcança” descreve
+quem chega à tela, não uma barreira na rota `/ajuda/`. Restringir o documento por
+papel obrigaria a manter duas listas de autorização para o mesmo assunto, e um
+`DP` que precise entender o trabalho do setor tem motivo legítimo para ler o
+manual do responsável de área.
 
 O HTML é servido por `apps.core.views.manual` em `/ajuda/<slug>/`, lendo **deste
 diretório** e exigindo sessão autenticada — os manuais não vão para o bundle do

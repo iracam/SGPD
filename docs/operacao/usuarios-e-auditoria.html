@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Manual de Administração de Usuários — SGPD / DesligaFlow</title>
+<style>/*
+ * Aparência dos manuais operacionais do SGPD.
+ *
+ * Escrito para o papel primeiro: o PDF é a entrega, o HTML é a mesma coisa na
+ * tela. Só há consultas `min-width`, como manda a ADR-028. Nenhuma fonte ou
+ * imagem externa — o arquivo precisa abrir sem rede.
+ */
+
+:root {
+  --verde-escuro: #123d2b;
+  --verde: #1d6b4c;
+  --verde-claro: #e8f3ed;
+  --ambar: #a45a06;
+  --ambar-claro: #fdf3e3;
+  --vermelho: #9d2222;
+  --vermelho-claro: #fbeceb;
+  --azul: #1b4f8a;
+  --azul-claro: #ecf2fa;
+  --tinta: #16211d;
+  --tinta-suave: #55635e;
+  --linha: #cfd8d4;
+  --linha-forte: #9fb0aa;
+  --papel: #ffffff;
+  --superficie: #f6f8f7;
+
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--fonte);
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.documento {
+  background: var(--papel);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+@media screen and (min-width: 48rem) {
+  .documento {
+    max-width: 52rem;
+    padding: 3rem 3.5rem 4rem;
+    margin: 2rem auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------- capa */
+
+.capa {
+  border-top: 6px solid var(--verde);
+  padding-top: 2rem;
+}
+
+.capa__sistema {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--verde);
+  margin: 0;
+}
+
+.capa__sistema span {
+  color: var(--tinta-suave);
+  font-weight: 500;
+}
+
+.capa__selo {
+  display: inline-block;
+  margin: 1.75rem 0 0;
+  padding: 0.25rem 0.7rem;
+  border-radius: 99px;
+  background: var(--verde-claro);
+  color: var(--verde-escuro);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capa__titulo {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0;
+  color: var(--verde-escuro);
+  letter-spacing: -0.02em;
+}
+
+.capa__subtitulo {
+  font-size: 1.1rem;
+  color: var(--tinta-suave);
+  margin: 0.85rem 0 0;
+  max-width: 34rem;
+}
+
+.capa__ficha {
+  margin: 2.5rem 0 0;
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+  padding: 1.25rem 0;
+}
+
+@media (min-width: 34rem) {
+  .capa__ficha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 2rem;
+  }
+}
+
+.capa__ficha dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.capa__ficha dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+}
+
+.capa__rodape {
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  max-width: 34rem;
+}
+
+/* ------------------------------------------------------------- sumário */
+
+.sumario {
+  margin-top: 3rem;
+}
+
+.sumario__titulo {
+  font-size: 1.35rem;
+  color: var(--verde-escuro);
+  border-bottom: 2px solid var(--verde);
+  padding-bottom: 0.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.sumario__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sumario__lista a {
+  display: flex;
+  gap: 0.85rem;
+  align-items: baseline;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--linha);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.sumario__num {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ conteúdo */
+
+.conteudo h2 {
+  font-size: 1.55rem;
+  color: var(--verde-escuro);
+  letter-spacing: -0.01em;
+  margin: 3.5rem 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--verde);
+}
+
+.conteudo h3 {
+  font-size: 1.15rem;
+  color: var(--verde-escuro);
+  margin: 2.25rem 0 0.6rem;
+}
+
+.conteudo h4 {
+  font-size: 0.98rem;
+  color: var(--tinta);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conteudo p {
+  margin: 0.85rem 0;
+}
+
+.conteudo ul,
+.conteudo ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+
+.conteudo li {
+  margin: 0.35rem 0;
+}
+
+.conteudo li > ul,
+.conteudo li > ol {
+  margin: 0.35rem 0;
+}
+
+.conteudo a {
+  color: var(--azul);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--linha);
+  margin: 2.5rem 0;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.86em;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+
+pre {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-left: 3px solid var(--verde);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  font-size: 0.82em;
+}
+
+/* -------------------------------------------------------------- tabelas */
+
+.tabela-rolagem {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  background: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--verde-escuro);
+  vertical-align: bottom;
+}
+
+td {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--linha);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--superficie);
+}
+
+td code {
+  white-space: normal;
+  background: var(--verde-claro);
+  border-color: #bcd8ca;
+  color: var(--verde-escuro);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ destaques */
+
+.destaque {
+  margin: 1.35rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 4px solid var(--linha-forte);
+  background: var(--superficie);
+  border-radius: 0 6px 6px 0;
+}
+
+.destaque p {
+  margin: 0.4rem 0;
+}
+
+.destaque p:first-child {
+  margin-top: 0;
+}
+
+.destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.destaque--atencao {
+  border-left-color: var(--ambar);
+  background: var(--ambar-claro);
+}
+
+.destaque--proibido {
+  border-left-color: var(--vermelho);
+  background: var(--vermelho-claro);
+}
+
+.destaque--dica {
+  border-left-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.destaque--importante,
+.destaque--regra {
+  border-left-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+/* --------------------------------------------------------- fluxogramas */
+
+.fluxo {
+  margin: 1.75rem 0;
+  padding: 1.4rem 1rem 1.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--superficie);
+}
+
+.fx-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  text-align: center;
+  margin: 0 0 1.35rem;
+}
+
+/* O espaçamento entre os elementos é o comprimento do conector: a haste
+   desenhada no ::after atravessa exatamente o `gap`. */
+.fx-corpo {
+  --salto: 1.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--salto);
+}
+
+.fx-no {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 7px;
+  background: var(--papel);
+  border: 1.5px solid var(--linha-forte);
+  text-align: center;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+/* Conector para o próximo elemento: haste no ::after, ponta no ::before. */
+.fx-no::after,
+.fx-seta::after,
+.fx-nota::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: var(--salto);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+.fx-no::before,
+.fx-seta::before,
+.fx-nota::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + var(--salto) - 0.55rem);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--linha-forte);
+}
+
+/* O último elemento não aponta para lugar nenhum. */
+.fx-corpo > :last-child::after,
+.fx-corpo > :last-child::before,
+.fx-corpo > :last-child .fx-no--ramo::after,
+.fx-corpo > :last-child .fx-no--ramo::before {
+  display: none;
+}
+
+/* Antes de uma seta rotulada ou de uma bifurcação, a haste continua mas a
+   ponta some: quem aponta é o elemento seguinte. */
+.fx-corpo > :has(+ .fx-seta)::before,
+.fx-corpo > :has(+ .fx-nota)::before,
+.fx-corpo > :has(+ .fx-ramos)::before {
+  display: none;
+}
+
+.fx-no--inicio {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--fim {
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 99px;
+}
+
+.fx-no--decisao {
+  background: var(--ambar-claro);
+  border-color: var(--ambar);
+  color: #5c3204;
+  font-weight: 600;
+}
+
+.fx-no--alerta {
+  background: var(--vermelho-claro);
+  border-color: var(--vermelho);
+  color: #6d1717;
+}
+
+.fx-no--ramo {
+  max-width: none;
+  font-size: 0.88em;
+  border-color: var(--linha);
+  flex: 1;
+}
+
+.fx-seta {
+  position: relative;
+}
+
+.fx-seta span {
+  display: inline-block;
+  font-size: 0.78em;
+  color: var(--tinta-suave);
+  background: var(--papel);
+  border: 1px dashed var(--linha-forte);
+  border-radius: 99px;
+  padding: 0.15rem 0.7rem;
+}
+
+.fx-nota {
+  position: relative;
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- bifurcações --- */
+
+.fx-ramos {
+  position: relative;
+  width: 100%;
+  display: grid;
+  gap: 0.9rem;
+  /* Abre espaço para a barra de distribuição e para a queda até cada ramo. */
+  padding-top: calc(var(--salto) + 0.6rem);
+}
+
+.fx-ramo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.fx-ramo__rotulo {
+  display: inline-block;
+  align-self: center;
+  margin-bottom: 0.45rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 99px;
+  background: var(--verde-escuro);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Queda da barra até o rótulo de cada ramo. */
+.fx-ramo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: calc(var(--salto) + 0.6rem);
+  margin-left: -1px;
+  background: var(--linha-forte);
+}
+
+@media (min-width: 34rem) {
+  .fx-ramos {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  /* Barra horizontal ligando os centros das colunas. `--ramos` vem do
+     gerador: com N ramos, o centro da primeira coluna fica em 50%/N. */
+  .fx-ramos::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: calc(50% / var(--ramos, 2));
+    right: calc(50% / var(--ramos, 2));
+    height: 2px;
+    background: var(--linha-forte);
+  }
+}
+
+/* --------------------------------------------------------------- papel */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10pt;
+  }
+
+  .documento {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .capa {
+    break-after: page;
+    padding-top: 1rem;
+  }
+
+  .sumario {
+    break-after: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2 {
+    break-before: page;
+    margin-top: 0;
+  }
+
+  .conteudo h2:first-child {
+    break-before: avoid;
+  }
+
+  /* A régua que separa as seções no HTML é ruído no papel: como o `h2` já
+     começa página nova, ela sobra sozinha no alto da página anterior e ainda
+     faz nascer uma página em branco. */
+  hr:has(+ h2) {
+    display: none;
+  }
+
+  .quebra-pagina {
+    break-before: page;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .destaque,
+  .fx-no,
+  .fx-ramo,
+  pre,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* O fluxograma não pede `break-inside: avoid`: quando não cabe na página, o
+     navegador ignora a regra e empurra o bloco inteiro, deixando uma página em
+     branco atrás. Sem a regra ele quebra entre nós — pior que caber, melhor
+     que a página vazia. Os nós e os ramos seguem indivisíveis. */
+
+  /* No papel o fluxograma precisa caber inteiro em uma página: o `break-inside`
+     é ignorado quando o elemento não cabe, e um nó órfão na página seguinte é
+     pior do que alguns milímetros a menos de respiro. */
+  .fluxo {
+    padding: 1rem 0.9rem 1.1rem;
+  }
+
+  .fx-titulo {
+    margin-bottom: 0.9rem;
+  }
+
+  .fx-corpo {
+    --salto: 1.15rem;
+  }
+
+  .fx-no {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.84em;
+  }
+
+  .fx-ramos {
+    gap: 0.9rem;
+  }
+
+  .conteudo a {
+    color: var(--tinta);
+    text-decoration: none;
+  }
+}
+</style>
+</head>
+<body>
+<main class="documento">
+  <header class="capa">
+    <p class="capa__sistema">SGPD <span>DesligaFlow</span></p>
+    <p class="capa__selo">Manual operacional</p>
+    <h1 class="capa__titulo">Manual de Administração de Usuários</h1>
+    <p class="capa__subtitulo">Contas, senhas, vínculo com o Active Directory e leitura da trilha de auditoria.</p>
+    <dl class="capa__ficha">
+      <div><dt>Para quem é</dt><dd>Quem tem o papel Administração de usuários (USUARIOS_ADMIN) no SGPD</dd></div>
+      <div><dt>Versão</dt><dd>1.0</dd></div>
+      <div><dt>Atualizado em</dt><dd>03/08/2026</dd></div>
+      <div><dt>Endereço do sistema</dt><dd>https://sgpd.bsabioenergia.com.br</dd></div>
+    </dl>
+    <p class="capa__rodape">
+      Este manual descreve o uso do sistema. Ele não substitui a política de
+      desligamento da empresa nem a orientação do Departamento Pessoal.
+    </p>
+  </header>
+
+  <nav class="sumario" aria-label="Sumário">
+    <h2 class="sumario__titulo">Sumário</h2>
+    <ol class="sumario__lista"><li><a href="#o-que-este-papel-faz-e-o-que-ele-nao-faz"><span class="sumario__num">01</span><span>O que este papel faz e o que ele não faz</span></a></li><li><a href="#o-caminho-de-um-acesso-novo"><span class="sumario__num">02</span><span>O caminho de um acesso novo</span></a></li><li><a href="#a-tela-usuarios"><span class="sumario__num">03</span><span>A tela Usuários</span></a></li><li><a href="#criar-uma-conta-local"><span class="sumario__num">04</span><span>Criar uma conta local</span></a></li><li><a href="#importar-do-active-directory"><span class="sumario__num">05</span><span>Importar do Active Directory</span></a></li><li><a href="#a-ficha-do-usuario"><span class="sumario__num">06</span><span>A ficha do usuário</span></a></li><li><a href="#a-tela-auditoria"><span class="sumario__num">07</span><span>A tela Auditoria</span></a></li><li><a href="#duvidas-frequentes"><span class="sumario__num">08</span><span>Dúvidas frequentes</span></a></li><li><a href="#em-uma-pagina"><span class="sumario__num">09</span><span>Em uma página</span></a></li></ol>
+  </nav>
+
+  <article class="conteudo">
+<h2 id="o-que-este-papel-faz-e-o-que-ele-nao-faz">O que este papel faz e o que ele não faz</h2>
+<p>Você administra o <strong>acesso</strong> ao SGPD: cria contas, corrige dados cadastrais, redefine senha temporária, liga a conta à identidade do Active Directory, desativa quem saiu e lê a trilha de auditoria das contas.</p>
+<p>Você <strong>não</strong> distribui autoridade. Quem decide que alguém passa a ser Departamento Pessoal, gerência do DP ou administrador de qualquer coisa é o SuperAdmin, e só ele. Você prepara a conta; a atribuição do papel é um segundo ato, de outra pessoa.</p>
+<blockquote class="destaque destaque--importante"><p><strong>Importante</strong> Essa separação é deliberada. Se quem administra contas também atribuísse papéis, bastaria uma conta de administrador para se promover a qualquer autoridade do sistema. O sistema recusa a operação mesmo que a tela pareça oferecê-la.</p></blockquote>
+<h3 id="o-que-voce-pode-fazer">O que você pode fazer</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Ato</th><th style="text-align:left">Onde</th></tr></thead><tbody><tr><td style="text-align:left">Criar conta local</td><td style="text-align:left"><strong>Usuários → Novo usuário</strong></td></tr><tr><td style="text-align:left">Criar conta a partir do AD</td><td style="text-align:left"><strong>Usuários → Importar do AD</strong></td></tr><tr><td style="text-align:left">Corrigir nome, sobrenome e e-mail</td><td style="text-align:left">ficha do usuário → <strong>Editar</strong></td></tr><tr><td style="text-align:left">Ativar ou desativar a conta</td><td style="text-align:left">ficha do usuário → <strong>Editar</strong></td></tr><tr><td style="text-align:left">Definir nova senha temporária</td><td style="text-align:left">ficha do usuário → <strong>Redefinir senha</strong></td></tr><tr><td style="text-align:left">Vincular ou desvincular identidade do AD</td><td style="text-align:left">ficha do usuário → seção <em>Active Directory</em></td></tr><tr><td style="text-align:left">Ler a trilha de eventos de conta</td><td style="text-align:left"><strong>Auditoria</strong></td></tr></tbody></table></div>
+<h3 id="o-que-voce-nao-pode-fazer">O que você não pode fazer</h3>
+<ul><li><strong>Atribuir ou revogar papel.</strong> Os botões <em>Atribuir papel</em> e <em>Revogar</em> não aparecem para você — a lista de papéis do usuário é somente leitura.</li><li><strong>Excluir uma conta.</strong> O sistema não tem exclusão de usuário: a trilha de auditoria aponta para a conta e apagá-la apagaria histórico. Quem sai da empresa é <strong>desativado</strong>.</li><li><strong>Vincular um responsável a um setor.</strong> Isso é feito na tela <strong>Setores</strong>, por quem administra setores. Na ficha do usuário os vínculos aparecem, mas só para consulta.</li><li><strong>Apagar ou editar auditoria.</strong> A trilha é acrescentada e nunca alterada.</li></ul>
+<h3 id="escopo-voce-e-global">Escopo: você é global</h3>
+<p>O papel <em>Administração de usuários</em> só existe em escopo <strong>global</strong> — não há administrador de contas “da empresa 1” ou “da filial 2”. Você vê e administra todas as contas do SGPD.</p>
+<hr />
+<h2 id="o-caminho-de-um-acesso-novo">O caminho de um acesso novo</h2>
+<figure class="fluxo"><figcaption class="fx-titulo">De um pedido de acesso até a pessoa trabalhando no sistema</figcaption><div class="fx-corpo"><div class="fx-no fx-no--inicio">Chega o pedido de acesso para alguém</div><div class="fx-no fx-no--decisao">A pessoa tem conta no Active Directory da empresa?</div><div class="fx-ramos" style="--ramos:2"><div class="fx-ramo"><span class="fx-ramo__rotulo">Tem</span><div class="fx-no fx-no--ramo">Use <strong>Importar do AD</strong> — a conta nasce já vinculada à identidade</div></div><div class="fx-ramo"><span class="fx-ramo__rotulo">Não tem</span><div class="fx-no fx-no--ramo">Use <strong>Novo usuário</strong> e defina uma senha temporária</div></div></div><div class="fx-no fx-no--passo">A conta existe e está <strong>Ativa</strong></div><div class="fx-seta"><span>falta a autoridade</span></div><div class="fx-no fx-no--passo">O <strong>SuperAdmin</strong> atribui o papel, se a pessoa for coordenar processos ou administrar algo</div><div class="fx-no fx-no--passo">Quem administra setores cria o <strong>vínculo de setor</strong>, se a pessoa for responsável de área</div><p class="fx-nota">sem papel e sem vínculo, a pessoa entra e vê apenas o Painel</p><div class="fx-no fx-no--fim">A pessoa entra, troca a senha temporária e passa a enxergar o seu menu</div></div></figure>
+<hr />
+<h2 id="a-tela-usuarios">A tela Usuários</h2>
+<p>A lista traz todas as contas. O campo de busca no alto filtra por <strong>login, nome ou e-mail</strong> conforme você digita — não há botão de buscar.</p>
+<p>Em telas estreitas cada conta é um cartão; a partir de tablet, a mesma informação vira tabela com as colunas Login, Nome, E-mail, Situação, Setores e AD.</p>
+<h3 id="as-etiquetas-da-lista">As etiquetas da lista</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Etiqueta</th><th style="text-align:left">O que quer dizer</th></tr></thead><tbody><tr><td style="text-align:left"><code>Ativo</code> / <code>Inativo</code></td><td style="text-align:left">Se a conta consegue entrar no sistema. Conta inativa não autentica e não recebe papel.</td></tr><tr><td style="text-align:left"><code>Senha temporária</code></td><td style="text-align:left">A pessoa ainda não trocou a senha que você definiu. Até trocar, o sistema a leva para <em>Minha senha</em>.</td></tr><tr><td style="text-align:left"><code>AD: nome.sobrenome</code></td><td style="text-align:left">A conta está ligada a uma identidade do Active Directory.</td></tr><tr><td style="text-align:left"><code>N vínculo(s)</code> e <code>N vigente(s)</code></td><td style="text-align:left">Quantos vínculos de setor a conta tem, e quantos estão dentro da vigência. Vínculo fora da vigência não dá acesso a tarefa nenhuma.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> A diferença entre <em>vínculo</em> e <em>vínculo vigente</em> explica a dúvida mais comum do suporte: “o responsável não vê a tarefa dele”. Quase sempre o vínculo existe, mas com data de fim já passada.</p></blockquote>
+<p>Clique em <strong>Abrir</strong> para ir à ficha completa da conta.</p>
+<hr />
+<h2 id="criar-uma-conta-local">Criar uma conta local</h2>
+<p>Use <strong>Novo usuário</strong> quando a pessoa não tem conta no Active Directory, ou quando o diretório ainda não está configurado no ambiente.</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Campo</th><th style="text-align:left">Obrigatório</th><th style="text-align:left">O que informar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Login</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">O identificador de entrada. Sem espaços e sem maiúsculas — use o mesmo padrão da rede, <code>nome.sobrenome</code>.</td></tr><tr><td style="text-align:left"><strong>Nome</strong> e <strong>Sobrenome</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Nome civil da pessoa. É o que aparece no cabeçalho do sistema e na auditoria.</td></tr><tr><td style="text-align:left"><strong>E-mail</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Endereço válido e único. É por ele que chegam os avisos de prazo.</td></tr><tr><td style="text-align:left"><strong>Senha temporária</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">A senha do primeiro acesso. Combine com a pessoa por canal separado.</td></tr><tr><td style="text-align:left"><strong>Confirme a senha</strong></td><td style="text-align:left">Sim</td><td style="text-align:left">Repetição exata da anterior.</td></tr><tr><td style="text-align:left"><strong>Exigir troca da senha no próximo acesso</strong></td><td style="text-align:left">—</td><td style="text-align:left">Já vem marcado. <strong>Deixe marcado.</strong></td></tr></tbody></table></div>
+<p>A senha precisa passar pelas regras do sistema: no mínimo <strong>8 caracteres</strong>, não pode ser parecida com o login, o nome ou o e-mail, não pode ser uma senha comum de lista pública e não pode ser só números. A tela devolve exatamente qual regra falhou.</p>
+<blockquote class="destaque destaque--atencao"><p><strong>Atenção</strong> Se você desmarcar <em>Exigir troca da senha no próximo acesso</em>, a senha que <strong>você</strong> escolheu passa a ser a senha definitiva da pessoa — e você a conhece. Só desmarque com motivo.</p></blockquote>
+<p>Se aparecer <em>“Já existe um usuário com o login, e-mail ou identidade informada”</em>, procure a conta na busca antes de tentar outro login: quase sempre a conta já existe, às vezes inativa.</p>
+<h3 id="o-bloco-papel-inicial">O bloco Papel inicial</h3>
+<p>Se você não é SuperAdmin, esse bloco não aparece no formulário — é o desenho correto. Crie a conta e peça o papel ao SuperAdmin.</p>
+<p>Quando aparece (para SuperAdmin), o papel é criado junto com a conta, na mesma operação: se o papel for recusado — escopo inválido, por exemplo — <strong>a conta também não é criada</strong>. Não fica conta pela metade.</p>
+<hr />
+<h2 id="importar-do-active-directory">Importar do Active Directory</h2>
+<p>O botão <strong>Importar do AD</strong> só aparece quando o seu papel permite vincular identidade <em>e</em> administrar contas, e a janela só funciona se a descoberta LDAP estiver configurada no ambiente.</p>
+<p>No alto da janela, o estado do diretório:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Etiqueta</th><th style="text-align:left">Leitura</th></tr></thead><tbody><tr><td style="text-align:left"><code>Conexão segura configurada</code></td><td style="text-align:left">O diálogo com o AD usa TLS.</td></tr><tr><td style="text-align:left"><code>LDAP sem TLS</code></td><td style="text-align:left">A credencial técnica e as senhas trafegam sem criptografia. Reporte ao SuperAdmin.</td></tr><tr><td style="text-align:left"><code>Login AD ativo</code> / <code>ainda desativado</code></td><td style="text-align:left">Se as pessoas entram com a senha da rede ou ainda com senha local.</td></tr></tbody></table></div>
+<p>A busca exige <strong>pelo menos 2 caracteres</strong> e respeita a base, o grupo obrigatório e o filtro salvos nas configurações — ou seja, quem não está no grupo elegível <strong>não aparece</strong>, e isso não é defeito da busca.</p>
+<p>Cada resultado traz nome, login, e-mail e o caminho da identidade no diretório, com uma ação:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Botão</th><th style="text-align:left">Quando aparece</th><th style="text-align:left">O que faz</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Criar vinculada</strong></td><td style="text-align:left">A identidade não tem conta no SGPD.</td><td style="text-align:left">Cria a conta local já ligada à identidade do AD. Sem senha local.</td></tr><tr><td style="text-align:left"><strong>Abrir vínculo</strong></td><td style="text-align:left">A identidade já tem conta.</td><td style="text-align:left">Leva à ficha existente. Não duplique.</td></tr><tr><td style="text-align:left"><strong>Abrir conta local</strong></td><td style="text-align:left">Existe conta local com o mesmo login ou e-mail, ainda não vinculada.</td><td style="text-align:left">Leva à conta para você vincular a identidade lá, em vez de criar uma segunda.</td></tr></tbody></table></div>
+<p>Quando o aviso diz <em>“Não é possível criar: faltam no AD …”</em>, a identidade não tem os atributos mínimos (login, nome ou e-mail) e o botão fica indisponível. Isso se resolve no Active Directory, não aqui.</p>
+<blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> Não crie uma segunda conta para quem já tem uma. Duas contas para a mesma pessoa dividem histórico, vínculos e tarefas — e o SGPD não junta contas depois.</p></blockquote>
+<hr />
+<h2 id="a-ficha-do-usuario">A ficha do usuário</h2>
+<p>A ficha é onde tudo acontece depois da criação. Ela tem quatro seções, nesta ordem: <strong>Situação</strong>, <strong>Papéis</strong>, <strong>Setores vinculados</strong> e <strong>Active Directory</strong>.</p>
+<h3 id="situacao">Situação</h3>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Etiqueta</th><th style="text-align:left">O que quer dizer</th></tr></thead><tbody><tr><td style="text-align:left"><code>Ativo</code> / <code>Inativo</code></td><td style="text-align:left">Se a conta entra no sistema.</td></tr><tr><td style="text-align:left"><code>Senha temporária pendente</code></td><td style="text-align:left">A pessoa ainda vai ser obrigada a trocar a senha.</td></tr><tr><td style="text-align:left"><code>Superusuário</code></td><td style="text-align:left">Conta técnica com autoridade global. Trate com cuidado: ela enxerga tudo.</td></tr></tbody></table></div>
+<h3 id="editar">Editar</h3>
+<p>O botão <strong>Editar</strong> abre nome, sobrenome, e-mail e a caixa <strong>Conta ativa</strong>. Login não se altera — é a identidade da pessoa na trilha de auditoria.</p>
+<p>Desmarcar <em>Conta ativa</em> é o desligamento de acesso: a pessoa deixa de autenticar, mas o histórico dela permanece inteiro. O sistema recusa a operação em dois casos, com a mensagem na tela:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Mensagem</th><th style="text-align:left">Por quê</th></tr></thead><tbody><tr><td style="text-align:left"><em>Um administrador não pode desativar a própria conta.</em></td><td style="text-align:left">Evita você se trancar fora do sistema. Peça a outro administrador.</td></tr><tr><td style="text-align:left"><em>O último superusuário ativo não pode ser desativado.</em></td><td style="text-align:left">Sem nenhum SuperAdmin ativo ninguém mais atribui papel, e o sistema fica sem saída.</td></tr><tr><td style="text-align:left"><em>O usuário foi alterado por outra sessão. Recarregue a página.</em></td><td style="text-align:left">Outra pessoa mexeu na mesma conta enquanto você tinha a tela aberta. Recarregue e confira antes de refazer.</td></tr><tr><td style="text-align:left"><em>O e-mail informado já está em uso.</em></td><td style="text-align:left">Dois usuários não podem ter o mesmo e-mail.</td></tr></tbody></table></div>
+<h3 id="redefinir-senha">Redefinir senha</h3>
+<p>Define uma nova senha temporária. A caixa <em>Exigir troca no próximo acesso</em> já vem marcada — mantenha.</p>
+<p>O botão fica <strong>indisponível</strong> quando a senha da conta não é gerenciada aqui. A mensagem no alto da ficha diz qual é o caso:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Mensagem</th><th style="text-align:left">Leitura</th></tr></thead><tbody><tr><td style="text-align:left"><em>Autenticação AD ativa: a senha local está bloqueada para esta conta.</em></td><td style="text-align:left">A pessoa entra com a senha da rede. Trocar senha é assunto do suporte de TI, não do SGPD.</td></tr><tr><td style="text-align:left"><em>Senha local disponível somente pela contingência configurada para superusuário.</em></td><td style="text-align:left">Conta técnica preservada de propósito, para o caso de o AD ficar indisponível.</td></tr><tr><td style="text-align:left"><em>Autenticação AD desativada: a senha local permanece disponível para testes.</em></td><td style="text-align:left">O login pelo AD está desligado no ambiente; a senha local ainda vale.</td></tr></tbody></table></div>
+<blockquote class="destaque destaque--atencao"><p><strong>Cuidado</strong> Redefinir senha é ato registrado com o seu nome. Confirme com quem pediu por um canal confiável — pedido de redefinição por e-mail é o golpe mais antigo que existe.</p></blockquote>
+<h3 id="papeis">Papéis</h3>
+<p>A seção lista os papéis ativos da conta, cada um com o escopo em que vale (<em>Global</em>, <em>Empresa 1</em>, <em>Empresa 1 · filial 2</em>), e guarda as atribuições revogadas em um bloco recolhido — histórico não desaparece.</p>
+<p>Para você, essa seção é <strong>leitura</strong>. Os cinco papéis atribuíveis e o que cada um autoriza:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Papel</th><th style="text-align:left">Autoriza</th><th style="text-align:left">Escopo</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Departamento Pessoal</strong></td><td style="text-align:left">Conduzir o processo demissional: abrir, iniciar, decidir valores, liberar e encerrar.</td><td style="text-align:left">Global, empresa ou filial</td></tr><tr><td style="text-align:left"><strong>Gerência do Departamento Pessoal</strong></td><td style="text-align:left">Tudo do DP e, além disso, liberar ou encerrar processo <strong>com impedimento</strong>, sob justificativa.</td><td style="text-align:left">Global, empresa ou filial</td></tr><tr><td style="text-align:left"><strong>Administração de grupos e templates</strong></td><td style="text-align:left">Manter templates, perguntas, grupos e regras de aplicabilidade.</td><td style="text-align:left">Somente global</td></tr><tr><td style="text-align:left"><strong>Administração de setores</strong></td><td style="text-align:left">Manter setores, escopos, prazos e responsáveis.</td><td style="text-align:left">Somente global</td></tr><tr><td style="text-align:left"><strong>Administração de usuários</strong></td><td style="text-align:left">O que este manual descreve.</td><td style="text-align:left">Somente global</td></tr></tbody></table></div>
+<p>Duas coisas que costumam confundir:</p>
+<ul><li><strong>responsável de setor não é papel.</strong> Aparece na seção seguinte, como vínculo, e vale enquanto a vigência valer;</li><li><strong>a gerência do DP não precisa também de DP.</strong> Quem tem a gerência já satisfaz toda exigência de Departamento Pessoal. Atribuir os dois é redundante.</li></ul>
+<h3 id="setores-vinculados">Setores vinculados</h3>
+<p>Cada vínculo mostra o setor, o início, o fim (ou <em>sem término</em>), os escopos que ele herda do próprio setor e uma etiqueta:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Etiqueta</th><th style="text-align:left">O que quer dizer</th></tr></thead><tbody><tr><td style="text-align:left"><code>Vigente</code></td><td style="text-align:left">O vínculo vale agora. A pessoa vê as tarefas desse setor.</td></tr><tr><td style="text-align:left"><code>Fora da vigência</code></td><td style="text-align:left">Já terminou, ou ainda não começou. Não dá acesso a nada.</td></tr></tbody></table></div>
+<p>Vínculo se cria e se encerra em <strong>Setores</strong>. Se o pedido for “dar acesso às tarefas do Almoxarifado para o Fulano”, encaminhe a quem administra setores.</p>
+<h3 id="active-directory">Active Directory</h3>
+<p>Quando há identidade vinculada, a seção mostra o usuário do AD, o identificador técnico e quem fez o vínculo. Quando não há, aparece <strong>Vincular</strong>.</p>
+<p><strong>Vincular</strong> abre uma busca no diretório: pesquise, clique em <em>Selecionar</em> na identidade certa e confirme. Uma identidade já vinculada a outra conta não pode ser selecionada — o sistema recusa a duplicidade, e o identificador é reconferido no servidor antes de gravar.</p>
+<p><strong>Desvincular</strong> solta a conta da identidade do AD. Faça isso com consciência: se o login pelo AD estiver ativo, a pessoa deixa de conseguir entrar até que exista senha local válida.</p>
+<hr />
+<h2 id="a-tela-auditoria">A tela Auditoria</h2>
+<p>A trilha de eventos das contas. Serve para responder “quem fez isso, quando e por quê” — em investigação de acesso, em conferência com Segurança da Informação ou quando alguém afirma não ter feito algo.</p>
+<blockquote class="destaque destaque--regra"><p><strong>Regra</strong> Os registros são <strong>imutáveis</strong>: não há edição e não há exclusão, nem para SuperAdmin. O que entrou fica.</p></blockquote>
+<p>Cada linha traz:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Coluna</th><th style="text-align:left">O que é</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Quando</strong></td><td style="text-align:left">Data e hora do evento.</td></tr><tr><td style="text-align:left"><strong>Evento</strong></td><td style="text-align:left">O que aconteceu. Veja a lista abaixo.</td></tr><tr><td style="text-align:left"><strong>Ator</strong></td><td style="text-align:left">Quem fez. Vazio em evento de sistema.</td></tr><tr><td style="text-align:left"><strong>Afetado</strong></td><td style="text-align:left">A conta que sofreu o ato.</td></tr><tr><td style="text-align:left"><strong>Entidade</strong></td><td style="text-align:left">O objeto tocado, em código técnico (<code>USER:12</code>, <code>ROLE_ASSIGNMENT:44</code>). Serve para rastrear, não para ler.</td></tr><tr><td style="text-align:left"><strong>Justificativa</strong></td><td style="text-align:left">O motivo padronizado que o servidor registrou. Não é texto livre de quem clicou.</td></tr></tbody></table></div>
+<p>O filtro no alto restringe a um tipo de evento:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Evento</th><th style="text-align:left">Origem</th></tr></thead><tbody><tr><td style="text-align:left"><code>Login</code>, <code>Logout</code></td><td style="text-align:left">Entrada e saída do sistema.</td></tr><tr><td style="text-align:left"><code>Falha de autenticação</code></td><td style="text-align:left">Tentativa recusada. Uma sequência delas no mesmo login merece atenção.</td></tr><tr><td style="text-align:left"><code>Usuário criado</code>, <code>Usuário atualizado</code></td><td style="text-align:left">Criação e edição de conta — inclusive ativação e desativação.</td></tr><tr><td style="text-align:left"><code>Senha alterada</code></td><td style="text-align:left">A própria pessoa trocou a senha.</td></tr><tr><td style="text-align:left"><code>Senha redefinida</code></td><td style="text-align:left">Um administrador definiu senha temporária para outra pessoa.</td></tr><tr><td style="text-align:left"><code>Papel criado</code>, <code>Papel atualizado</code></td><td style="text-align:left">Manutenção do catálogo de papéis.</td></tr><tr><td style="text-align:left"><code>Papel atribuído</code>, <code>Papel revogado</code></td><td style="text-align:left">Concessão e retirada de autoridade. É o que se audita primeiro.</td></tr><tr><td style="text-align:left"><code>AD vinculado</code>, <code>AD desvinculado</code></td><td style="text-align:left">Ligação da conta com a identidade do diretório.</td></tr></tbody></table></div>
+<p>A lista traz <strong>50 eventos por página</strong>, do mais recente para o mais antigo, e a navegação é por <strong>Anteriores</strong> e <strong>Próximos</strong>. Não há contagem total: a consulta é propositalmente barata, porque contar tudo a cada abertura ficaria lento à medida que a trilha cresce.</p>
+<blockquote class="destaque destaque--dica"><p><strong>Dica</strong> Auditando um caso concreto, filtre primeiro por <code>Papel atribuído</code> e <code>Papel revogado</code>. É onde autoridade aparece e desaparece — o resto do histórico costuma ser consequência.</p></blockquote>
+<hr />
+<h2 id="duvidas-frequentes">Dúvidas frequentes</h2>
+<p><strong>Preciso remover alguém que saiu da empresa.</strong> Abra a ficha, <strong>Editar</strong>, desmarque <em>Conta ativa</em> e confirme. Não existe exclusão, e é intencional: a trilha de auditoria referencia a conta.</p>
+<p><strong>Criei a conta e a pessoa diz que não vê nada além do Painel.</strong> Está certo. Conta sem papel e sem vínculo de setor não tem o que mostrar. Peça o papel ao SuperAdmin, ou o vínculo a quem administra setores.</p>
+<p><strong>A pessoa esqueceu a senha.</strong> Se a conta é local, <strong>Redefinir senha</strong> com troca obrigatória. Se a conta usa o Active Directory, o botão fica indisponível: a senha é a da rede e quem resolve é o suporte de TI.</p>
+<p>**O botão <em>Atribuir papel</em> não aparece na ficha.** Não é falha de tela. Atribuir papel é ato exclusivo do SuperAdmin.</p>
+<p><strong>Importei do AD e o login ficou diferente do que eu esperava.</strong> O login vem do diretório, não da digitação. Se estiver errado no AD, corrija lá e vincule de novo.</p>
+<p><strong>Alguém aparece duas vezes na lista.</strong> Provavelmente uma conta local antiga e uma importada do AD. Decida qual permanece, vincule a identidade nela, desative a outra e registre o motivo no pedido de suporte — o histórico das duas continua existindo.</p>
+<p><strong>Não encontro um usuário que sei que existe.</strong> A busca casa login, nome e e-mail, e traz também contas inativas. Tente o sobrenome ou parte do e-mail.</p>
+<p><strong>Preciso saber quem liberou um processo.</strong> Não é aqui. Esta trilha é das <strong>contas</strong>. Os atos do processo demissional ficam no próprio processo, na tela de encerramento.</p>
+<hr />
+<h2 id="em-uma-pagina">Em uma página</h2>
+<ol><li>Entre em <strong>https://sgpd.bsabioenergia.com.br</strong> e abra <strong>Usuários</strong>.</li><li>Pessoa com conta no AD: <strong>Importar do AD</strong>, busque, <strong>Criar vinculada</strong>.</li><li>Pessoa sem conta no AD: <strong>Novo usuário</strong>, com senha temporária e troca obrigatória marcada.</li><li>Confira na ficha se falta <strong>papel</strong> (pedir ao SuperAdmin) ou <strong>vínculo de setor</strong> (pedir a quem administra setores).</li><li>Quem saiu da empresa: <strong>Editar → desmarcar Conta ativa</strong>. Nunca há exclusão.</li><li>Senha perdida: <strong>Redefinir senha</strong> — e, se o botão estiver bloqueado, é conta do Active Directory.</li><li>Para investigar acesso, abra <strong>Auditoria</strong> e filtre por <code>Papel atribuído</code>, <code>Papel revogado</code> ou <code>Falha de autenticação</code>.</li></ol>
+  </article>
+</main>
+</body>
+</html>
