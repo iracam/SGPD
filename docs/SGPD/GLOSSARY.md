@@ -7,6 +7,24 @@ abertura, acompanhamento, análise, liberação e encerramento. Pode coexistir
 com a capacidade derivada `RESPONSAVEL_SETOR` e não é concedido
 automaticamente pela associação ao setor Departamento Pessoal.
 
+## DP_GERENTE
+
+Papel funcional da gerência do Departamento Pessoal. Satisfaz toda exigência de
+`DP` sem atribuição própria e é o único do catálogo que pode liberar e encerrar
+processo com impedimentos, mediante justificativa registrada (ADR-054).
+
+## Papéis administrativos
+
+`GRUPOS_TEMPLATE_ADMIN`, `SETORES_ADMIN` e `USUARIOS_ADMIN` — configuração de
+workflow, setores e contas, respectivamente. Existem somente em escopo global e
+não coordenam processo.
+
+## Override de impedimento
+
+Ato explícito de liberar ou encerrar um processo que a prontidão recusaria,
+autorizado por `offboarding.override_process_blockers`, sempre com
+justificativa e trilha. Dispensa a prontidão e nada mais.
+
 ## RESPONSAVEL_SETOR
 
 Capacidade funcional derivada de vínculo vigente entre usuário e setor. Não é

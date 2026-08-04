@@ -69,11 +69,17 @@ independente do vínculo.
 - `UPDATED_AT`
 - relação com permissões delegáveis do Django.
 
-Catálogo funcional fixo:
+Catálogo funcional fixo (ADR-054):
 
-- `DP`.
+- `DP`;
+- `DP_GERENTE`;
+- `GRUPOS_TEMPLATE_ADMIN`;
+- `SETORES_ADMIN`;
+- `USUARIOS_ADMIN`.
 
-Somente `DP` pode permanecer ativo, conforme `SGPD_CK_ROLE_ACTIVE_CODE`.
+Somente esses cinco códigos podem permanecer ativos, conforme
+`SGPD_CK_ROLE_ACTIVE_CODE`; o catálogo e suas permissões são reconciliados pelo
+comando `bootstrap_roles`, que inativa qualquer papel fora da lista.
 `RESPONSAVEL_SETOR` é um marcador derivado de vínculo vigente e não uma linha
 atribuível do catálogo. Papéis legados permanecem inativos e fisicamente
 preservados para rastreabilidade. SuperAdmin é o atributo técnico
@@ -98,10 +104,12 @@ cria linhas em `SGPD_ROLE_ASSIGN` ou `SETOR_RESPONSAVEL`.
 - `REVOKED_BY_ID`
 - `REVOKED_AT`
 
-A atribuição é única por usuário, papel e chave de escopo. Toda nova
-atribuição referencia `DP`. Empresa é obrigatória no escopo de empresa;
-empresa e filial são obrigatórias no escopo de filial. A revogação é lógica,
-com data, responsável e auditoria.
+A atribuição é única por usuário, papel e chave de escopo. Toda nova atribuição
+referencia um dos cinco códigos do catálogo, e `GRUPOS_TEMPLATE_ADMIN`,
+`SETORES_ADMIN` e `USUARIOS_ADMIN` só aceitam `SCOPE_TYPE = GLOBAL`. Empresa é
+obrigatória no escopo de empresa; empresa e filial são obrigatórias no escopo
+de filial. A revogação é lógica, com data, responsável e auditoria. Criar e
+revogar linha aqui é ato exclusivo do SuperAdmin (ADR-054).
 
 #### SGPD_ACCOUNT_AUDIT
 
@@ -381,6 +389,13 @@ Estado implementado em `SGPD_OFFBOARDING_PROCESS`:
   preenchida enquanto o processo não estiver encerrado e será liberada apenas
   por transição futura auditada de cancelamento ou encerramento;
 - possui versão, índices por estado/prazo, identidade/abertura e ator;
+- o ciclo formal da ADR-051 acrescentou as marcas de liberação, processamento
+  declarado, encerramento e cancelamento — data, ator e observação de cada ato,
+  mais o número declarado da rescisão — com check constraints por ramo de
+  estado;
+- `RELEASE_OVERRIDE_REASON` e `CLOSING_OVERRIDE_REASON` são anuláveis e ficam
+  vazias em toda liberação e todo encerramento comuns: só recebem texto quando
+  o override da ADR-054 é exercido;
 - rejeita `QuerySet.update()` e exclusão física; as futuras transições deverão
   alterar instâncias somente por services auditados.
 

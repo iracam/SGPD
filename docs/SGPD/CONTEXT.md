@@ -43,7 +43,14 @@ grants homologados.
   sujeito a estados, validações, locks, idempotência, imutabilidade e
   auditoria. A segregação de função é a única exceção: pela ADR-048 ele decide
   a pretensão de cobrança que informou, e a auditoria registra o rompimento.
-- `DP` é o único papel funcional atribuível.
+- O catálogo funcional atribuível é fixo em cinco códigos (ADR-054): `DP`,
+  `DP_GERENTE`, `GRUPOS_TEMPLATE_ADMIN`, `SETORES_ADMIN` e `USUARIOS_ADMIN`.
+  `DP_GERENTE` satisfaz toda exigência de `DP`; os três administrativos só
+  existem em escopo global.
+- Atribuir e revogar papel é ato exclusivo do SuperAdmin; `manage_roles` não é
+  delegável.
+- Liberar ou encerrar processo com impedimento exige
+  `offboarding.override_process_blockers` no escopo e justificativa registrada.
 - `RESPONSAVEL_SETOR` é capacidade derivada do vínculo vigente com o setor.
 - Regras críticas vivem em services e operações compostas usam transação.
 - Integrações e retries precisam ser idempotentes.
@@ -56,7 +63,8 @@ grants homologados.
   e a decisão explícita de `DP` vigente no escopo, que não pode ser quem
   informou o valor (ADR-048).
 - Liberação é explícita e exige DP vigente no escopo ou SuperAdmin, prontidão e
-  auditoria.
+  auditoria. A prontidão só é dispensada pelo override da ADR-054, com
+  justificativa e trilha.
 - A SPA não implementa regras de negócio nem constitui barreira de autorização.
 - Frontend é mobile first; não usar consultas CSS `max-width`.
 
@@ -121,6 +129,7 @@ nos incrementos seguintes.
 | model, migration ou SQL SGPD | `DATA_MODEL.md` e ADRs relacionadas |
 | Senior/Oracle cadastral | `INTEGRATION_SENIOR_ORACLE.md` |
 | autenticação, autorização, upload ou LGPD | `SECURITY.md` e integração aplicável |
+| papel funcional, atribuição ou override de impedimento | ADR-054 e `SECURITY.md` §3–§4 |
 | Angular, layout ou entrega SPA | `ARCHITECTURE.md` e ADRs 025–028 |
 | notificação, fila ou agendamento | ADR-049, `WORKFLOWS.md` §7 e `ENVIRONMENT.md` §3 |
 | indicador, relatório ou exportação | `REQUIREMENTS.md` RF-034 a RF-036 e `SECURITY.md` §5–§6 |

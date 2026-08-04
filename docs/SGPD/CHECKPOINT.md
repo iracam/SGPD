@@ -9,21 +9,23 @@
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
   2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052)
-- Em andamento: os cinco papéis funcionais atribuíveis — fatias 1 a 4
-  implementadas, com as migrations `accounts.0011` e
-  `offboarding.0011_alter_offboardingprocess_options_and_more` **ainda não
-  aplicadas no Oracle DEV**
-- Próximo incremento: fatia 5 dos papéis (documentação, ADR-054 e
-  homologação no Oracle DEV, incluindo a aplicação das duas migrations
-  pendentes e o `bootstrap_roles` no ambiente); fora do repositório,
-  rotacionar as senhas fracas do Oracle e do SMTP e trocar o bind do AD por
-  conta de serviço com TLS (riscos R66 e R67); validar backup e restauração
-  com o DBA (`RUNBOOK.md` §6)
+- Concluído: os cinco papéis funcionais atribuíveis (ADR-054) — as cinco
+  fatias implementadas, comitadas e **homologadas no Oracle DEV em
+  2026-08-04**, com `accounts.0011` e
+  `offboarding.0011_alter_offboardingprocess_options_and_more` aplicadas e o
+  `bootstrap_roles` executado no ambiente
+- Próximo incremento: fora do repositório, rotacionar as senhas fracas do
+  Oracle e do SMTP e trocar o bind do AD por conta de serviço com TLS (riscos
+  R66 e R67); validar backup e restauração com o DBA (`RUNBOOK.md` §6);
+  reiniciar o serviço publicado, que está fora do ar e, quando subir, precisa
+  carregar o código das fatias 1 a 5
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
-- Autorização: SuperAdmin global; `DP` atribuível; responsabilidade de setor
-  derivada do vínculo vigente; segregação de valores pela ADR-048
+- Autorização: SuperAdmin global; cinco papéis atribuíveis (ADR-054), com
+  `DP_GERENTE` satisfazendo `DP` e podendo passar por cima de impedimento sob
+  justificativa; responsabilidade de setor derivada do vínculo vigente;
+  segregação de valores pela ADR-048
 
 ## Baseline implementado
 
@@ -160,13 +162,12 @@ Contrato Senior — legibilidade cadastral:
   encerramento formal já dá o marco de contagem, mas não há rotina automática;
 - validar a retenção de 5 anos com Jurídico, RH e Segurança da Informação;
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
-- o DEV contém dados de homologação que não podem ser apagados (pendência é
-  append-only): `5bfc0d3a` (rascunho), `8c5ff6bf` (iniciado), `9cbed216`
-  (encerrado, com o ciclo formal percorrido duas vezes), `c8787348` (cancelado)
-  e `d80327c7` (rascunho aberto para o mesmo colaborador do cancelado, prova de
-  que a chave foi liberada); seis pendências, quatro pretensões decididas e uma
-  aguardando decisão; Financeiro, Departamento Pessoal, Almoxarifado BSA e TI
-  ficaram com `PERMITE_VALOR` ligado para exercitar o eixo;
+- o conjunto de dados de homologação das fases anteriores (`5bfc0d3a`,
+  `8c5ff6bf`, `9cbed216`, `c8787348` e `d80327c7`, com as seis pendências e as
+  cinco pretensões) **não existe mais no DEV** — a base foi refeita entre
+  2026-08-01 e 2026-08-03. Restou um único processo, `222e587b`. As seções
+  históricas que citam aqueles UUIDs valem como registro do que foi exercido,
+  não como estado atual;
 - o usuário `homolog.visual` permanece no DEV desativado e com senha
   inutilizável: a FK da auditoria append-only impede a exclusão;
 - setores, catálogo de workflow, auditoria, usuários e colaboradores receberam a
@@ -1037,11 +1038,10 @@ destinatário, então a varredura seguinte não repete nada.
 
 O catálogo funcional deixou de ter um único código. A fase é fatiada em cinco —
 catálogo, atribuição exclusiva do SuperAdmin, override dos impedimentos, SPA e
-documentação/homologação — e **as fatias 1 a 4 estão implementadas e
-comitadas**.
+documentação/homologação — e **as cinco estão implementadas, comitadas e
+homologadas no Oracle DEV**. O texto normativo é a ADR-054.
 
-Fatia 1 — catálogo, migration `accounts.0011`, **ainda não aplicada no Oracle
-DEV**:
+Fatia 1 — catálogo, migration `accounts.0011`, aplicada no Oracle DEV:
 
 - `FUNCTIONAL_ROLE_CODES` passou a declarar cinco códigos: `DP`, `DP_GERENTE`,
   `GRUPOS_TEMPLATE_ADMIN`, `SETORES_ADMIN` e `USUARIOS_ADMIN`. A constraint
@@ -1117,8 +1117,8 @@ endpoints respondendo 403 com a mensagem legível e sem efeito colateral, e o
 contexto que não acende `manage_roles` para essa mesma conta.
 
 Fatia 3 — override dos impedimentos, migration
-`offboarding.0011_alter_offboardingprocess_options_and_more`, **ainda não
-aplicada no Oracle DEV**:
+`offboarding.0011_alter_offboardingprocess_options_and_more`, aplicada no
+Oracle DEV:
 
 - `offboarding.override_process_blockers` é a permissão nova, declarada em
   `OffboardingProcess.Meta.permissions`; `bootstrap_roles` passa a concedê-la
@@ -1147,11 +1147,10 @@ aplicada no Oracle DEV**:
   duas justificativas — a SPA da fatia 4 só precisa consumir o contrato, que
   já chegou pronto.
 
-A migration é aditiva: duas colunas `VARCHAR2(1000)` anuláveis com valor
+A migration é aditiva: duas colunas `NVARCHAR2(1000)` anuláveis com valor
 inicial vazio e uma troca de metadados de permissão, sem SQL de constraint
-nova. Precisa da mesma revisão e aplicação pendente da fatia 1 — nenhuma das
-duas foi aplicada no Oracle DEV ainda, e a aplicação deve juntar as duas nessa
-ordem.
+nova. Foi aplicada junto com a da fatia 1, nessa ordem, na homologação de
+2026-08-04.
 
 Validação padrão do backend e do frontend por inteiro: 519 testes backend e
 123 frontend, Ruff, formatação, Mypy em 226 arquivos, Django check, verificação
@@ -1211,6 +1210,111 @@ teste já existente. Os quatro testes novos do frontend cobrem a ausência do
 botão de override sem `can_override_blockers` na liberação e no
 encerramento, e o override de cada um com a justificativa exigida antes de
 habilitar o botão e o corpo enviado.
+
+Fatia 5 — documentação, ADR-054 e homologação, **sem migration nova**:
+
+- a **ADR-054** normatiza o catálogo de cinco códigos, a implicação
+  `DP_GERENTE → DP`, o escopo global obrigatório dos três administrativos, a
+  atribuição exclusiva do SuperAdmin e o override dos impedimentos com
+  justificativa e trilha. `DECISIONS_INDEX.md` a registra e marca 024 e 036
+  como parciais por ela;
+- os documentos que afirmavam "`DP` é o único papel atribuível" foram
+  corrigidos onde o fato é canônico: `CONTEXT.md` (invariantes e matriz de
+  leitura), `SECURITY.md` §3 — que ganhou a tabela papel × permissão × escopo
+  e o parágrafo do override — e §4, `ARCHITECTURE.md` (catálogo, contrato do
+  ciclo formal e limite de `has_effective_role()`), `REQUIREMENTS.md` (RF-002
+  e RF-030), `VISION.md`, `GLOSSARY.md`, `DATA_MODEL.md` (`SGPD_ROLE`,
+  `SGPD_ROLE_ASSIGN` e as duas colunas de override) e `CLAUDE.md`;
+- os manuais operacionais (ADR-053) receberam o que muda para quem opera: o
+  manual do DP ganhou a seção **Quando o impedimento não pode esperar**, que
+  diz o que o override faz e o que ele não faz, e o de configuração passou a
+  nomear `GRUPOS_TEMPLATE_ADMIN` e `SETORES_ADMIN`. Os três foram regerados
+  para HTML e PDF por `docs/operacao/build.mjs`.
+
+## Homologação dos papéis funcionais (2026-08-04)
+
+O Oracle DEV **não contém mais o conjunto de dados das fases anteriores**: no
+lugar dos cinco processos de homologação existe um único processo real,
+`222e587b`, aberto por `admin` em 2026-08-03. As referências a `8c5ff6bf`,
+`9cbed216`, `c8787348`, `5bfc0d3a` e `d80327c7` nas seções históricas deste
+documento descrevem o que foi exercido na época, não o estado atual do banco.
+
+As duas migrations foram revisadas e aplicadas. `accounts.0011` é `DROP
+CONSTRAINT` seguido de `ADD CONSTRAINT` de mesmo nome sobre tabela de uma
+linha, com condição que é superconjunto da anterior — nenhuma linha existente
+podia violá-la. `offboarding.0011` acrescenta duas colunas `NVARCHAR2(1000)`
+anuláveis, metadata-only no Oracle 19c, mais a troca de metadados da permissão.
+A verificação somente leitura confirmou a constraint nova `ENABLED`/`VALIDATED`
+com os cinco códigos, as duas colunas anuláveis com default nulo, e as 30
+constraints e 13 índices do processo válidos. `bootstrap_roles` criou os quatro
+papéis novos com as permissões do catálogo e não inativou nenhum legado.
+
+O ciclo foi exercido pela própria API contra o Oracle DEV, com a sessão de cada
+usuário real: nenhuma escrita direta em tabela.
+
+- `victor.delgado`, ainda `DP` puro, lê a prontidão com
+  `can_override_blockers` falso, e recebe **403 com motivo legível** ao tentar
+  atribuir `DP_GERENTE` a si mesmo e ao tentar ler o catálogo de papéis;
+- SuperAdmin tentando `SETORES_ADMIN` em escopo de empresa: **400**, "Este
+  papel só existe em escopo global";
+- SuperAdmin reabre `222e587b` devolvendo a tarefa de TI à análise, o que
+  recria o impedimento real; `victor.delgado` ainda como `DP` puro tenta
+  liberar **com** justificativa e é recusado pelo impedimento — a justificativa
+  não lhe dá autoridade nenhuma;
+- SuperAdmin atribui `DP_GERENTE` global; o contexto de autorização passa a
+  devolver `['DP', 'DP_GERENTE', 'RESPONSAVEL_SETOR']` — a implicação da fatia
+  4 chegando ao cliente — e a prontidão passa a trazer `can_override_blockers`
+  verdadeiro;
+- liberar sem justificativa: **400** com "A justificativa do override de
+  impedimentos é obrigatória"; com justificativa: **200**, e o replay da mesma
+  `Idempotency-Key` volta `idempotency_replayed` sem nova versão;
+- processamento declarado registrado, encerramento recusado pela pendência de
+  TI em curso e aceito com a segunda justificativa;
+- no banco: `RELEASE_OVERRIDE_REASON` e `CLOSING_OVERRIDE_REASON` gravadas,
+  `PROCESS_RELEASED` e `PROCESS_CLOSED` com `overridden_blockers` listando o
+  impedimento passado por cima e `override_reason` com o texto. O
+  `PROCESS_RELEASED` anterior à migration permanece sem as chaves, como manda
+  uma trilha append-only.
+
+A varredura headless cobriu a tela de encerramento com o bloco de override e a
+tela de detalhe do usuário com os papéis, nas cinco larguras homologadas e nos
+dois temas — **20 combinações, sem rolagem horizontal e sem erro de console**.
+Como o processo real já terminou encerrado, o estado bloqueado foi encenado por
+interceptação CDP com fixtures geradas pelos próprios serializers da API.
+
+Dois achados de método, ambos do harness e não do produto:
+
+- **a varredura anterior era cega para `console.error`**. Ela escutava
+  `Log.entryAdded`, que traz erro de rede e de página, mas não a chamada de
+  console que o `ErrorHandler` do Angular usa. A varredura passou a escutar
+  também `Runtime.consoleAPICalled`, e foi assim que apareceu um `TypeError`
+  que derrubava metade da tela de usuário — causado por fixture incompleta, não
+  pelo código: `UserDetailView` acrescenta `role_assignments` **e**
+  `sector_responsibilities` ao payload, e faltar a segunda chave quebra o
+  template. Fixture montada a partir do serializer não basta; tem de espelhar a
+  view;
+- o `.env` não tem mais `ADMIN_USER`/`ADMIN_PASS` — saíram no endurecimento da
+  ADR-052 —, então a varredura visual não pode mais fazer login pela API. A
+  interceptação de `/api/v1/*` por CDP substitui isso sem credencial e sem
+  depender de dado no Oracle.
+
+Validação padrão executada por inteiro: 520 testes backend e 127 frontend,
+Ruff, formatação, Mypy em 226 arquivos, Django check, verificação de migrations
+(`No changes detected`), `check --deploy` com os dois avisos de HSTS que são
+opção deliberada e build Angular sem avisos. Nenhum teste novo: a fatia é
+documentação e homologação, e o comportamento já estava coberto pelos 14 testes
+das fatias 1 a 4.
+
+### Resíduo permanente no DEV
+
+- `222e587b` terminou **encerrado com a tarefa de TI não concluída e a
+  pendência de TI ainda em regularização** — é exatamente o que o override
+  significa, e as duas justificativas explicam o porquê na própria tela;
+- `victor.delgado` ficou com `DP` e `DP_GERENTE` ativos, ambos globais. A
+  atribuição é revogável pelo SuperAdmin, mas a auditoria `ROLE_ASSIGNED` é
+  append-only;
+- os quatro papéis novos e seus quatro eventos `ROLE_CREATED` permanecem no
+  catálogo, como esperado.
 
 ## Endurecimento do host publicado (2026-08-03)
 

@@ -170,11 +170,26 @@ SuperAdmin, verificado por `is_superuser` no endpoint e revalidado no service.
 Delegar essa permissão permitiria que um administrador de usuários se atribuísse
 qualquer papel funcional, inclusive `DP_GERENTE`.
 
-O único papel funcional atribuível ativo é `DP`. `RESPONSAVEL_SETOR` é
-derivado de vínculo efetivo com o setor e não concede administração técnica.
-`DP` recebe apenas `query_senior_references` neste
-incremento para selecionar o colaborador dentro do seu escopo; permissões
-diretas são globais e permanecem disponíveis para evolução controlada.
+O catálogo funcional atribuível ativo é fixo em cinco códigos (ADR-054):
+
+| Papel | Permissões do catálogo | Escopo aceito |
+| --- | --- | --- |
+| `DP` | `query_senior_references` | global, empresa ou filial |
+| `DP_GERENTE` | `query_senior_references`, `offboarding.override_process_blockers` | global, empresa ou filial |
+| `GRUPOS_TEMPLATE_ADMIN` | `manage_workflow_configuration` | somente global |
+| `SETORES_ADMIN` | `manage_sectors` | somente global |
+| `USUARIOS_ADMIN` | `manage_users`, `link_ad_identity`, `view_account_audit` | somente global |
+
+`DP_GERENTE` satisfaz toda exigência de `DP` — a implicação vive em
+`ROLE_IMPLICATIONS` e vale para papel exigido, não para permissão concedida,
+por isso o catálogo repete as permissões em vez de derivá-las. Os três papéis
+administrativos só existem em escopo global porque `has_permission()`
+consultado sem empresa e sem filial já exige atribuição global.
+
+`RESPONSAVEL_SETOR` é derivado de vínculo efetivo com o setor e não concede
+administração técnica. Permissões concedidas diretamente na conta continuam
+funcionando, são globais e permanecem disponíveis para evolução controlada,
+mas a forma recomendada é o papel.
 SuperAdmin é a autoridade global explícita do SGPD. Uma conta ativa com
 `is_superuser=true` acessa todos os processos, tarefas, menus, endpoints e
 services, sem precisar de atribuição `DP`, vínculo de setor ou escopo. Papéis e
@@ -211,6 +226,20 @@ validade para usuários funcionais. SuperAdmin não recebe vínculo funcional
 artificial, mas sua autoridade global satisfaz a verificação de autorização.
 Escopo e validade são reavaliados no backend; ocultar controles na SPA não
 substitui essa decisão.
+
+Liberar ou encerrar processo com impedimento é a única dispensa de prontidão
+prevista, e é autorizada apenas pela permissão
+`offboarding.override_process_blockers` no escopo do processo — o catálogo a
+concede somente a `DP_GERENTE`, e a autoridade global do SuperAdmin a satisfaz
+pela ADR-044. `_validate_blocker_override` recusa justificativa quando não há
+impedimento e recusa override sem justificativa; `DP` puro permanece barrado
+mesmo enviando texto. A justificativa fica no processo
+(`RELEASE_OVERRIDE_REASON`, `CLOSING_OVERRIDE_REASON`) e a trilha de
+`PROCESS_RELEASED`/`PROCESS_CLOSED` grava `overridden_blockers` e
+`override_reason`: é a única evidência do rompimento, no mesmo espírito do
+`segregation_override` da ADR-048. O override dispensa a prontidão e nada
+mais — estado, ordem das transições, versão otimista, idempotência, locks e
+auditoria continuam valendo.
 
 O papel `DP` é cumulativo e independente da responsabilidade de setor. A
 abertura já exige uma atribuição `DP` ativa, vigente e compatível com a
@@ -286,7 +315,13 @@ ou observações.
 ## 4. Segregação
 
 - quem informa um valor não deve necessariamente aprová-lo;
-- quem administra templates não deve liberar processos;
+- quem administra templates não deve liberar processos: `GRUPOS_TEMPLATE_ADMIN`
+  não carrega nenhuma permissão de processo, e nem ele nem `USUARIOS_ADMIN`
+  atribuem papel;
+- quem administra contas não deve poder se promover: `manage_roles` não é
+  delegável e a atribuição é ato exclusivo do SuperAdmin (ADR-054);
+- passar por cima de impedimento é ato nominal do `DP_GERENTE`, com
+  justificativa e trilha, nunca consequência de estado;
 - no DEV, o owner `SGPD` é o usuário da aplicação por exceção registrada; o owner `VETORH` permanece proibido;
 - operadores não devem apagar auditoria;
 - evidências sensíveis devem ter acesso restrito.

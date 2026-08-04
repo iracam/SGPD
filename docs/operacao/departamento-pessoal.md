@@ -36,6 +36,10 @@ apagada.
 Reabrir um processo já liberado ou encerrado é ato exclusivo de SuperAdmin — nem
 mesmo quem liberou desfaz o próprio ato sozinho.
 
+Se a sua atribuição for **DP_GERENTE** (gerência do Departamento Pessoal), você
+faz tudo isso e ainda pode **liberar e encerrar um processo com impedimentos**,
+informando uma justificativa. Veja *Quando o impedimento não pode esperar*.
+
 ### Escopo: o que você enxerga
 
 A sua atribuição DP tem um escopo organizacional: pode ser **global**, de uma
@@ -338,6 +342,29 @@ ainda aberta. Leia antes de liberar; a decisão de seguir é sua.
 > bloqueante nos segundos em que você lia a página, a liberação é recusada — e
 > está certo.
 
+### Quando o impedimento não pode esperar
+
+Quem tem a atribuição **DP_GERENTE** vê, abaixo da lista de impedimentos, um
+bloco próprio para liberar mesmo assim. Ele pede uma **justificativa
+obrigatória** e só então habilita o botão. O encerramento tem o mesmo bloco,
+para os impedimentos dele.
+
+Quem tem apenas `DP` não vê esse bloco, e não adianta tentar por outro caminho:
+o sistema recusa.
+
+O que o override faz e o que não faz:
+
+- **faz** — dispensa a verificação de prontidão daquele ato;
+- **não faz** — não pula a ordem dos atos, não dispensa o número declarado da
+  rescisão, não fecha pendência, não decide valor e não apaga impedimento
+  nenhum. O que travava continua registrado como travado;
+- a justificativa fica gravada no processo e aparece em **Atos registrados**,
+  junto com a lista do que foi passado por cima. É permanente.
+
+> **Importante** Isto é exceção, não atalho. A justificativa é a única
+> explicação que restará para quem auditar o processo daqui a três anos —
+> escreva o motivo real, não "liberado conforme solicitado".
+
 ### Registrar o processamento
 
 Disponível quando o processo está `Liberado para rescisão`.
@@ -510,7 +537,8 @@ seu escopo.
 6. Decida as pretensões de valor: **apurar** e depois **decidir**. Lembre que
    quem informou não decide.
 7. Abra **Conferir encerramento do processo** e leia os impedimentos.
-8. Sem impedimento, **Liberar para rescisão**.
+8. Sem impedimento, **Liberar para rescisão**. Com impedimento, só a gerência
+   (`DP_GERENTE`) libera, informando justificativa.
 9. Processe a rescisão no Senior e volte para **Registrar processamento** com
    número e data.
 10. **Encerrar processo** quando nenhuma pendência seguir em curso.

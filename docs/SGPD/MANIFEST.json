@@ -1,6 +1,6 @@
 {
   "project": "SGPD / DesligaFlow",
-  "generated_on": "2026-08-01",
+  "generated_on": "2026-08-04",
   "files": [
     {
       "file": "AGENTS.md",
@@ -8,35 +8,35 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "bytes": 33174
+      "bytes": 34711
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 60556
+      "bytes": 81833
     },
     {
       "file": "CONTEXT.md",
-      "bytes": 7952
+      "bytes": 8877
     },
     {
       "file": "DATA_MODEL.md",
-      "bytes": 22258
+      "bytes": 23139
     },
     {
       "file": "DECISIONS.md",
-      "bytes": 90760
+      "bytes": 103831
     },
     {
       "file": "DECISIONS_INDEX.md",
-      "bytes": 2765
+      "bytes": 3045
     },
     {
       "file": "ENVIRONMENT.md",
-      "bytes": 9842
+      "bytes": 10157
     },
     {
       "file": "GLOSSARY.md",
-      "bytes": 1749
+      "bytes": 2454
     },
     {
       "file": "INTEGRATION_ACTIVE_DIRECTORY.md",
@@ -56,11 +56,11 @@
     },
     {
       "file": "REQUIREMENTS.md",
-      "bytes": 30472
+      "bytes": 31376
     },
     {
       "file": "RISK_REGISTER.md",
-      "bytes": 17155
+      "bytes": 19395
     },
     {
       "file": "ROADMAP.md",
@@ -68,15 +68,15 @@
     },
     {
       "file": "RUNBOOK.md",
-      "bytes": 11368
+      "bytes": 12356
     },
     {
       "file": "SECURITY.md",
-      "bytes": 25769
+      "bytes": 31161
     },
     {
       "file": "VISION.md",
-      "bytes": 5100
+      "bytes": 5936
     },
     {
       "file": "WORKFLOWS.md",

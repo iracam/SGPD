@@ -13,7 +13,8 @@ atual e a fase autorizada estão em `CHECKPOINT.md`.
 Todos os usuários deverão ser cadastrados no SGPD com nome, e-mail e situação.
 Usuários que executam validações são vinculados explicitamente aos setores
 atendidos; desse vínculo vigente deriva `RESPONSAVEL_SETOR`. Usuários que
-coordenam o ciclo demissional recebem o papel atribuível `DP`. As duas
+coordenam o ciclo demissional recebem o papel atribuível `DP` — ou
+`DP_GERENTE`, que o contém. As duas
 capacidades podem coexistir na mesma conta.
 
 O SGPD deverá preservar autenticação local para contas não vinculadas e
@@ -91,18 +92,30 @@ A configuração técnica de LDAP e autenticação deverá:
 
 ### RF-002 — Papéis funcionais e permissões
 
-O catálogo de papéis atribuíveis conterá somente `DP`, que habilita iniciar,
-acompanhar, avaliar, liberar, cancelar e encerrar o processo demissional
-dentro do escopo organizacional atribuído.
+O catálogo de papéis atribuíveis é fixo em cinco códigos (ADR-054):
+
+- `DP` habilita iniciar, acompanhar, avaliar, liberar, cancelar e encerrar o
+  processo demissional dentro do escopo organizacional atribuído;
+- `DP_GERENTE` faz tudo o que o `DP` faz no mesmo escopo e ainda pode liberar e
+  encerrar processo com impedimentos, mediante justificativa obrigatória e
+  trilha;
+- `GRUPOS_TEMPLATE_ADMIN` mantém templates, perguntas, grupos e regras de
+  aplicabilidade;
+- `SETORES_ADMIN` mantém setores, escopos e responsáveis vigentes;
+- `USUARIOS_ADMIN` mantém contas locais, vínculos com o AD e consulta a
+  auditoria de contas.
+
+Os três últimos só existem em escopo global. Nenhum deles atribui papel:
+atribuir e revogar é ato exclusivo do SuperAdmin.
 
 `RESPONSAVEL_SETOR` não é atribuível: é uma capacidade derivada de ao menos um
 vínculo vigente entre usuário e setor. O vínculo herda integralmente o escopo
-organizacional do setor. `DP` e a capacidade derivada podem coexistir na mesma
-conta. Não haverá criação ou edição dinâmica de outros papéis. A atribuição
-`DP` possui validade, revogação lógica, responsável, escopo e auditoria. `DP`
-recebe a permissão de consultar
-referências do Senior para selecionar o colaborador, mas não recebe
-administração de usuários, papéis ou setores.
+organizacional do setor. Os papéis do catálogo e a capacidade derivada podem
+coexistir na mesma conta. Não haverá criação ou edição dinâmica de outros
+papéis. Toda atribuição possui validade, revogação lógica, responsável, escopo
+e auditoria. `DP` e `DP_GERENTE` recebem a permissão de consultar referências
+do Senior para selecionar o colaborador, mas não recebem administração de
+usuários, papéis ou setores.
 
 SuperAdmin é a autoridade global explícita definida por `IS_SUPERUSER`, fora do
 catálogo funcional. Uma conta SuperAdmin ativa e autenticada deverá acessar
@@ -666,6 +679,11 @@ A liberação deverá verificar:
 - aprovações concluídas;
 - evidências obrigatórias presentes;
 - ausência de inconsistência crítica.
+
+Qualquer uma dessas verificações pode ser dispensada pelo `DP_GERENTE` — ou
+pelo SuperAdmin — com justificativa obrigatória registrada no processo e na
+trilha (ADR-054). O mesmo vale para os impedimentos do encerramento. `DP` puro
+não dispensa nenhuma.
 
 ### RF-031 — Cancelamento
 

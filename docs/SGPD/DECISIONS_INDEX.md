@@ -25,7 +25,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 005–012 | Vigentes | Snapshot, versionamento, services, pendências, valores, async, evidências e liberação |
 | 033 | Vigente | Escopo explícito e inativação de setores |
 | 034–035 | Parcial | Papéis e responsabilidade; ler 036, 038 e 044 |
-| 036 | Parcial por 044 | DP cumulativo e separado do setor |
+| 036 | Parcial por 044 e 054 | DP cumulativo e separado do setor |
 | 037 | Vigente | Abertura transacional em rascunho |
 | 038 | Parcial por 044 | Responsabilidade derivada do setor |
 | 039–043 | Vigentes | Configuração versionada, templates, códigos e execução concorrente |
@@ -34,6 +34,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 046 | Vigente | Regra de aplicabilidade como sugestão não vinculante |
 | 048 | Vigente | Segregação nos valores e SuperAdmin sem barreira |
 | 051 | Vigente | Estado formal persistido e situação funcional calculada |
+| 054 | Vigente | Cinco papéis funcionais, atribuição só do SuperAdmin e override dos impedimentos |
 
 ## Integrações, identidade e frontend
 
@@ -41,7 +42,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | --- | --- | --- |
 | 020 | Vigente | Consulta direta e somente leitura ao Senior |
 | 021 | Vigente | Cadastro local e vínculo posterior ao AD |
-| 024 | Parcial | Papéis com escopo; ler 036, 038 e 044 |
+| 024 | Parcial | Papéis com escopo; ler 036, 038, 044 e 054 |
 | 025–028 | Vigentes | SPA Angular, mesma origem, PrimeNG e mobile first |
 | 029 | Vigente | AD com provisionamento explícito |
 | 030 | Exceção DEV | LDAP sem TLS, com aviso explícito |

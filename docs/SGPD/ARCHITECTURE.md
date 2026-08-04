@@ -115,7 +115,10 @@ O cadastro funcional de usuários pertence ao SGPD:
   `/api/v1/accounts/` e consumidos pela SPA;
 - os services administrativos repetem a autorização no limite do caso de uso,
   independentemente da proteção aplicada pelos endpoints;
-- o catálogo de papéis atribuíveis é fixo em `DP`; `RESPONSAVEL_SETOR` é
+- o catálogo de papéis atribuíveis é fixo em cinco códigos — `DP`,
+  `DP_GERENTE`, `GRUPOS_TEMPLATE_ADMIN`, `SETORES_ADMIN` e `USUARIOS_ADMIN`
+  (ADR-054) —, com `DP_GERENTE` satisfazendo toda exigência de `DP` e os três
+  administrativos aceitos somente em escopo global; `RESPONSAVEL_SETOR` é
   derivado do vínculo vigente com o setor e herda o escopo organizacional
   desse setor;
 - SuperAdmin é a autoridade global explícita por `is_superuser`, fora do
@@ -437,7 +440,9 @@ papel, a autoridade global do SuperAdmin é revalidada no service. Conta,
 atribuição e seus
 dois eventos de auditoria são confirmados ou desfeitos em conjunto.
 
-O `AssignRoleService` aceita somente `DP` e também atende
+O `AssignRoleService` aceita os cinco códigos de `FUNCTIONAL_ROLE_CODES`,
+recusa escopo de empresa ou filial para os três de `GLOBAL_ONLY_ROLE_CODES`
+(ADR-054) e também atende
 criação, reativação e atualização de validade da atribuição. Esses fluxos não
 recebem justificativa digitada e auditam um motivo operacional padronizado. A
 revogação continua isolada no `RevokeRoleService`, sem justificativa digitada
@@ -448,7 +453,12 @@ Criação e edição dinâmica de papéis, o catálogo de permissões e a tela
 `has_effective_role()` é o limite reutilizável para os services do workflow:
 para usuários funcionais, o papel `DP` deve estar ativo, vigente e cobrir a
 empresa/filial do processo; para SuperAdmin ativo, a ADR-044 concede autoridade
-global explícita. `DP` recebe `query_senior_references`.
+global explícita. `DP` recebe `query_senior_references`. A exigência é resolvida
+por `role_codes_satisfying()`, então `DP_GERENTE` a satisfaz sem atribuição
+`DP` própria; os pontos que filtram a atribuição por queryset usam
+`PEOPLE_DEPARTMENT_ROLE_CODES` com `__in`, e nenhum compara o código
+diretamente. `requirement_codes_satisfied_by()` faz o caminho inverso e é o que
+`authorization_context()` publica em `roles` para a SPA.
 
 A API emite `account_role_assignment_requested` ao receber a operação e
 `account_role_assignment_completed` após o commit do service. O cadastro
@@ -590,6 +600,14 @@ impedimento em `details`; a negativa de autoridade responde `403` com o motivo
 legível — a reabertura é exclusiva do SuperAdmin, e a mensagem precisa dizê-lo.
 A prontidão que a leitura mostrou não autoriza nada: o service a refaz sob lock
 e pode recusar o que a tela exibia como pronto.
+
+A liberação e o encerramento aceitam `override_reason` (ADR-054). A leitura
+publica `can_override_blockers` para o ator autenticado, e `release`/`close`
+só passam por cima do impedimento quando quem chama tem
+`offboarding.override_process_blockers` no escopo — o catálogo a concede a
+`DP_GERENTE`, e a autoridade global a satisfaz. Justificativa sem impedimento é
+recusada, override sem justificativa também; o motivo fica no processo e a
+trilha grava `overridden_blockers` e `override_reason`.
 
 Endpoints da Fase 5 implementados:
 

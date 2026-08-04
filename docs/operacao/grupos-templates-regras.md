@@ -14,6 +14,12 @@ Este manual trata do que existe **antes** de qualquer desligamento: as peças qu
 o processo usa quando é iniciado. Configurar bem aqui é o que faz o processo do
 dia a dia funcionar sem improviso.
 
+Quem faz isso tem a atribuição **GRUPOS_TEMPLATE_ADMIN** (templates, grupos e
+regras) ou **SETORES_ADMIN** (setores e responsáveis) — ou é SuperAdmin. As duas
+atribuições valem para o sistema inteiro, não por empresa, e nenhuma delas
+coordena processo demissional nem atribui papel a ninguém: atribuir papel é ato
+exclusivo do SuperAdmin.
+
 São quatro peças, e elas se encaixam nesta ordem:
 
 | Peça | O que é | Onde fica |

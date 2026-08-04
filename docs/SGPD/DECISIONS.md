@@ -2212,3 +2212,115 @@ manual de vinte páginas se consulta melhor ao lado do sistema do que dentro del
   na lista branca;
 - o manual não é auditado como a evidência: é documento de procedimento, não
   dado pessoal. Exige sessão, e só.
+
+## ADR-054 — Catálogo de cinco papéis funcionais, atribuição exclusiva do SuperAdmin e override dos impedimentos
+
+### Estado
+
+Aceita em 2026-08-03. Amplia a ADR-024 e a ADR-036 no ponto do catálogo
+funcional, sem revogá-las: escopo, cumulatividade, validade e auditoria da
+atribuição continuam como as duas fixaram. Não altera a ADR-038
+(responsabilidade de setor derivada do vínculo) nem a ADR-044 (autoridade
+global do SuperAdmin).
+
+### Contexto
+
+Até aqui o catálogo tinha um único código atribuível — `DP` —, e as demais
+capacidades administrativas eram concedidas por permissão direta na conta.
+Isso funcionava enquanto havia poucas contas técnicas, mas produzia três
+efeitos indesejados:
+
+- quem administra usuários, setores ou a configuração de workflow não tinha
+  nome no sistema. A conta acumulava permissões soltas, e a pergunta “quem
+  pode publicar template?” só era respondida lendo permissões uma a uma;
+- `accounts.manage_roles` era permissão delegável. Um administrador de
+  usuários podia atribuir a si mesmo qualquer papel — inclusive um papel com
+  autoridade sobre o processo demissional. A escalada não exigia nenhum
+  defeito: era o desenho;
+- a gerência do DP não existia como papel. Um processo travado por
+  impedimento — tarefa não concluída, pendência bloqueante, pretensão sem
+  decisão — só podia ser destravado resolvendo o impedimento ou chamando o
+  SuperAdmin, que é conta técnica e não posição funcional.
+
+### Decisão
+
+**1. O catálogo funcional atribuível passa a ter cinco códigos fixos:** `DP`,
+`DP_GERENTE`, `GRUPOS_TEMPLATE_ADMIN`, `SETORES_ADMIN` e `USUARIOS_ADMIN`.
+`FUNCTIONAL_ROLE_CODES` (`apps/accounts/models.py`) é a fonte única e a check
+constraint `SGPD_CK_ROLE_ACTIVE_CODE` a repete no Oracle: fora dela, um papel
+só existe inativo. `RESPONSAVEL_SETOR` continua derivado do vínculo vigente
+com o setor e não entra no catálogo.
+
+**2. `DP_GERENTE` é superconjunto de `DP`.** A implicação vive em
+`ROLE_IMPLICATIONS` e é consultada por `role_codes_satisfying()`: onde uma
+regra exige o `DP` vigente no escopo, o gerente satisfaz. Nenhum ponto compara
+o código diretamente. `requirement_codes_satisfied_by()` é o inverso — o que um
+papel atribuído alcança — e é o que o contexto de autorização publica para a
+SPA decidir menu e telas.
+
+A implicação vale para **papel exigido**, não para **permissão concedida**:
+quem chama `has_permission()` não conhece a hierarquia. Por isso o catálogo do
+`bootstrap_roles` repete em `DP_GERENTE` as permissões do `DP`, em vez de
+derivá-las.
+
+**3. Os três papéis administrativos só existem em escopo global.**
+`has_permission()` consultado sem empresa e sem filial já exige atribuição
+global; oferecer `SETORES_ADMIN` por empresa seria promessa que a autorização
+não cumpre. `GLOBAL_ONLY_ROLE_CODES` fixa a lista e `AssignRoleService` recusa
+qualquer outro escopo para eles. `DP` e `DP_GERENTE` continuam aceitando
+escopo global, por empresa ou por filial.
+
+**4. Atribuir e revogar papel é ato exclusivo do SuperAdmin.**
+`accounts.manage_roles` sai de `DELEGABLE_PERMISSIONS` e nenhum papel do
+catálogo a carrega; os quatro endpoints de papel — atribuir, revogar, listar e
+ler o catálogo — declaram `requires_global_authority`, e os services revalidam
+`is_superuser` no próprio limite. A designação inicial da criação de usuário
+segue a mesma barra: quem tem `manage_users` cria a conta, mas a recusa do
+papel desfaz a criação na mesma transação. A permissão permanece declarada no
+model porque a linha já existe no Oracle e apagá-la seria migration destrutiva
+sem ganho — nenhum caminho de autorização volta a lê-la.
+
+**5. `DP_GERENTE` pode liberar e encerrar processo com impedimentos, mediante
+justificativa.** A autoridade é a permissão `offboarding.override_process_blockers`,
+concedida pelo catálogo apenas a esse papel. `_validate_blocker_override`
+(`apps/offboarding/services.py`) é a fonte única da regra:
+
+- sem impedimento, justificativa de override é recusada — não existe override
+  do que não trava;
+- com impedimento, passa somente quem tem a permissão **no escopo do
+  processo**, e somente com justificativa não vazia;
+- `DP` puro continua barrado pelo `readiness.blockers` e pelo
+  `closing_blockers` de sempre, mesmo enviando justificativa.
+
+O SuperAdmin exerce o override sem passo extra, porque a ADR-044 já lhe
+concede toda permissão — o mesmo desenho que a ADR-048 fixou para a decisão de
+valor.
+
+O ato fica gravado em duas colunas anuláveis do processo
+(`RELEASE_OVERRIDE_REASON`, `CLOSING_OVERRIDE_REASON`), vazias em toda
+liberação e todo encerramento comuns, e a auditoria de `PROCESS_RELEASED` e
+`PROCESS_CLOSED` ganha `overridden_blockers` — a lista do que foi passado por
+cima — e `override_reason`.
+
+### Consequências
+
+- o override **não relaxa nenhuma outra regra**: estado formal, ordem das
+  transições, versão otimista, `Idempotency-Key`, locks e auditoria continuam
+  valendo. Ele dispensa a prontidão, e só ela;
+- a trilha é a única evidência do rompimento, como em `segregation_override`
+  (ADR-048). Um override sem justificativa útil é indistinguível de um
+  processo liberado por engano — a qualidade do texto é responsabilidade de
+  quem exerce;
+- um papel novo no catálogo exige migration da constraint, entrada em
+  `ROLE_CATALOG` e execução do `bootstrap_roles`. É deliberado: catálogo fixo
+  em código, não cadastro dinâmico de papéis (ADR-024);
+- quem hoje tem permissões administrativas concedidas diretamente na conta
+  continua funcionando — a concessão direta não foi removida —, mas a forma
+  recomendada passa a ser o papel;
+- a SPA lê `roles` já expandido pela implicação e `can_override_blockers`
+  calculado para o ator; nenhuma hierarquia de papel é reimplementada no
+  cliente;
+- só o SuperAdmin atribui papel, então a delegação da administração de contas
+  para de ser caminho de escalada. O custo é operacional: toda mudança de
+  papel exige uma conta técnica, inclusive a primeira atribuição de
+  `DP_GERENTE`.

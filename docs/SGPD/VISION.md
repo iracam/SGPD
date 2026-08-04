@@ -57,9 +57,11 @@ O SGPD será uma aplicação web corporativa para:
 
 ## 3. Usuários
 
-Todos os participantes abaixo pertencem ao SGPD. `DP` é o único papel
-funcional atribuível; `RESPONSAVEL_SETOR` é derivado do vínculo vigente com um
-setor. As duas capacidades podem coexistir na mesma conta. Gestores, e-mails,
+Todos os participantes abaixo pertencem ao SGPD. O catálogo funcional
+atribuível tem cinco papéis — `DP`, `DP_GERENTE` e os três administrativos
+`GRUPOS_TEMPLATE_ADMIN`, `SETORES_ADMIN` e `USUARIOS_ADMIN` (ADR-054) —, e
+`RESPONSAVEL_SETOR` é derivado do vínculo vigente com um setor. As capacidades
+podem coexistir na mesma conta. Gestores, e-mails,
 papéis, associações e escopos não virão do Senior HCM
 nem de grupos AD. A conta poderá ser cadastrada
 localmente e vinculada depois, ou criada explicitamente a partir de uma
@@ -86,6 +88,24 @@ contas previamente vinculadas e nunca provisionará usuário durante o login.
 - analisa pendências;
 - libera o processo;
 - registra encerramento.
+
+### Gerência do Departamento Pessoal
+
+- possui o papel `DP_GERENTE` vigente no escopo do processo;
+- faz tudo o que o Departamento Pessoal faz, sem precisar de atribuição `DP`
+  própria;
+- pode liberar e encerrar processo com impedimentos, informando justificativa
+  que fica no processo e na trilha;
+- não atribui papel: isso é ato do SuperAdmin.
+
+### Administração funcional
+
+- `GRUPOS_TEMPLATE_ADMIN` mantém templates, perguntas, grupos e regras;
+- `SETORES_ADMIN` mantém setores, escopos e responsáveis;
+- `USUARIOS_ADMIN` mantém contas, vínculos com o AD e consulta a auditoria de
+  contas;
+- os três existem somente em escopo global e nenhum deles coordena processo
+  nem atribui papel.
 
 O papel `DP` coordena o ciclo do processo e não associa o usuário
 automaticamente ao setor de validação Departamento Pessoal. Quando a mesma
