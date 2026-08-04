@@ -3,8 +3,10 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AuthService } from '../../core/auth/auth.service';
+import { AuthContext } from '../../core/auth/models/auth.models';
 import { Indicadores } from './models/painel.models';
 import { PainelPage } from './painel';
 
@@ -122,5 +124,31 @@ describe('PainelPage', () => {
     carregar({ coordination: null, sector: null });
 
     expect(fixture.nativeElement.textContent).toContain('ainda não coordena processos');
+  });
+
+  it('nomeia todo papel do catálogo em Seu acesso, sem enum cru', () => {
+    // O rótulo cobria só `DP`: uma conta administrativa lia `USUARIOS_ADMIN`
+    // na própria tela, contra a ADR-047.
+    vi.spyOn(TestBed.inject(AuthService), 'currentContext').mockReturnValue({
+      roles: ['DP_GERENTE', 'USUARIOS_ADMIN', 'RESPONSAVEL_SETOR'],
+      scopes: { is_superuser: false, assignments: [] },
+    } as unknown as AuthContext);
+    carregar({ coordination: null, sector: null });
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Gerência do Departamento Pessoal');
+    expect(texto).toContain('Administração de usuários');
+    expect(texto).toContain('Responsável de setor');
+    expect(texto).not.toContain('USUARIOS_ADMIN');
+    expect(texto).not.toContain('DP_GERENTE');
+  });
+
+  it('oferece a ajuda da tela na seção do manual comum a toda conta', () => {
+    carregar();
+
+    const ajuda = fixture.nativeElement.querySelector(
+      '.pagina-acoes a[target="_blank"]',
+    ) as HTMLAnchorElement | null;
+    expect(ajuda?.getAttribute('href')).toBe('/ajuda/primeiros-passos/#o-painel');
   });
 });

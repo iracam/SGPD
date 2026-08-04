@@ -1,8 +1,11 @@
 /** Manuais operacionais servidos por `apps.core.views.manual`. */
 export type ManualSlug =
+  | 'primeiros-passos'
   | 'responsaveis-de-area'
   | 'departamento-pessoal'
-  | 'grupos-templates-regras';
+  | 'grupos-templates-regras'
+  | 'usuarios-e-auditoria'
+  | 'configuracao-do-sistema';
 
 /**
  * O `slug` precisa existir na lista branca do backend (`OPERATION_MANUALS`) e o

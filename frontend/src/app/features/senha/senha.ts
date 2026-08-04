@@ -8,12 +8,13 @@ import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
 import { finalize } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { AuthService } from '../../core/auth/auth.service';
 import { ApiError } from '../../core/auth/models/auth.models';
 
 @Component({
   selector: 'app-senha-page',
-  imports: [ReactiveFormsModule, ButtonModule, MessageModule, PasswordModule],
+  imports: [ReactiveFormsModule, ButtonModule, MessageModule, PasswordModule, AjudaLink],
   templateUrl: './senha.html',
   styleUrl: './senha.scss',
 })

@@ -9,6 +9,7 @@ import { MessageModule } from 'primeng/message';
 import { PasswordModule } from 'primeng/password';
 import { finalize } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
 import { ConfiguracoesService } from './configuracoes.service';
 import {
@@ -34,6 +35,7 @@ import {
     InputTextModule,
     MessageModule,
     PasswordModule,
+    AjudaLink,
   ],
   templateUrl: './email-configuracao.html',
   styleUrl: './email-configuracao.scss',

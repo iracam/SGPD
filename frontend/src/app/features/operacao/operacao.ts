@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { MessageModule } from 'primeng/message';
 import { finalize } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { errorMessage } from '../../core/api/api-error';
 import { Operacao } from './models/operacao.models';
 import { OperacaoService } from './operacao.service';
@@ -19,7 +20,7 @@ import { OperacaoService } from './operacao.service';
  */
 @Component({
   selector: 'app-operacao-page',
-  imports: [DatePipe, MessageModule, RouterLink],
+  imports: [DatePipe, MessageModule, RouterLink, AjudaLink],
   templateUrl: './operacao.html',
   styleUrl: './operacao.scss',
 })

@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { MessageModule } from 'primeng/message';
 import { finalize } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { errorMessage } from '../../core/api/api-error';
 import { AuthService } from '../../core/auth/auth.service';
 import { ScopeAssignment } from '../../core/auth/models/auth.models';
@@ -21,7 +22,7 @@ import { PainelService } from './painel.service';
  */
 @Component({
   selector: 'app-painel-page',
-  imports: [DatePipe, MessageModule, RouterLink],
+  imports: [DatePipe, MessageModule, RouterLink, AjudaLink],
   templateUrl: './painel.html',
   styleUrl: './painel.scss',
 })
@@ -48,9 +49,22 @@ export class PainelPage {
       });
   }
 
-  /** Enum cru nunca chega ao usuário (ADR-047). */
+  /**
+   * Enum cru nunca chega ao usuário (ADR-047). O contexto publica os cinco
+   * códigos atribuíveis do catálogo (ADR-054) já expandidos pela implicação,
+   * mais a capacidade derivada do vínculo de setor.
+   */
   protected rotuloPapel(role: string): string {
-    return { DP: 'Departamento Pessoal' }[role] ?? role;
+    return (
+      {
+        DP: 'Departamento Pessoal',
+        DP_GERENTE: 'Gerência do Departamento Pessoal',
+        GRUPOS_TEMPLATE_ADMIN: 'Administração de grupos e templates',
+        SETORES_ADMIN: 'Administração de setores',
+        USUARIOS_ADMIN: 'Administração de usuários',
+        RESPONSAVEL_SETOR: 'Responsável de setor',
+      }[role] ?? role
+    );
   }
 
   protected registroEscopo(scope: ScopeAssignment): string {

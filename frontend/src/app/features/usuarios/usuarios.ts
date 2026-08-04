@@ -11,6 +11,7 @@ import { PasswordModule } from 'primeng/password';
 import { SelectModule } from 'primeng/select';
 import { debounceTime, distinctUntilChanged, finalize, switchMap } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
 import { AuthService } from '../../core/auth/auth.service';
 import { Papel } from '../papeis/models/papeis.models';
@@ -34,6 +35,7 @@ import { UsuariosService } from './usuarios.service';
     MessageModule,
     PasswordModule,
     SelectModule,
+    AjudaLink,
   ],
   templateUrl: './usuarios.html',
   styleUrl: './usuarios.scss',

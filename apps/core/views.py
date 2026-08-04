@@ -14,9 +14,12 @@ logger = logging.getLogger(__name__)
 #: caminho no disco nunca é montado a partir da URL, então não há travessia
 #: possível por mais criativo que seja o pedido.
 OPERATION_MANUALS: dict[str, str] = {
+    "primeiros-passos": "Primeiros Passos no SGPD",
     "responsaveis-de-area": "Manual do Responsável de Área",
     "departamento-pessoal": "Manual do Departamento Pessoal",
     "grupos-templates-regras": "Manual de Configuração",
+    "usuarios-e-auditoria": "Manual de Administração de Usuários",
+    "configuracao-do-sistema": "Manual do SuperAdmin",
 }
 
 SPA_LOGIN_PATH = "/fe/login"

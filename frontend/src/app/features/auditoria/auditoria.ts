@@ -7,6 +7,7 @@ import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
 import { finalize } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { errorMessage } from '../../core/api/api-error';
 import { AuditoriaService } from './auditoria.service';
 import { EventoAuditoria } from './models/auditoria.models';
@@ -15,7 +16,14 @@ const PAGINA = 50;
 
 @Component({
   selector: 'app-auditoria-page',
-  imports: [DatePipe, ReactiveFormsModule, ButtonModule, MessageModule, SelectModule],
+  imports: [
+    DatePipe,
+    ReactiveFormsModule,
+    ButtonModule,
+    MessageModule,
+    SelectModule,
+    AjudaLink,
+  ],
   templateUrl: './auditoria.html',
   styleUrl: './auditoria.scss',
 })

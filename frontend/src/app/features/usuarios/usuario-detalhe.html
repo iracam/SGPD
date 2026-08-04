@@ -15,6 +15,10 @@
       <p class="page-lead">{{ alvo.username }} · {{ alvo.email }}</p>
     </div>
     <div class="pagina-acoes">
+      <app-ajuda-link
+        manual="usuarios-e-auditoria"
+        secao="a-ficha-do-usuario"
+      ></app-ajuda-link>
       <p-button type="button" [outlined]="true" icon="pi pi-pencil" label="Editar" (onClick)="abrir('editar')"></p-button>
       <p-button
         type="button"

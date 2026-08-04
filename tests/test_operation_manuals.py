@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,13 @@ from apps.accounts.models import User
 from apps.core.views import OPERATION_MANUALS
 
 pytestmark = pytest.mark.django_db
+
+#: `<app-ajuda-link manual="…" secao="…">` como a SPA o escreve, em uma ou mais
+#: linhas. `secao` é opcional: sem ela o manual abre na capa.
+AJUDA_LINK = re.compile(
+    r"<app-ajuda-link\b(?P<atributos>[^>]*)>",
+    re.DOTALL,
+)
 
 
 @pytest.fixture
@@ -146,3 +154,45 @@ def test_every_published_manual_exists_in_the_repository() -> None:
     for slug in OPERATION_MANUALS:
         caminho = django_settings.OPERATION_MANUALS_DIR / f"{slug}.html"
         assert caminho.is_file(), f"gere {caminho} com `node docs/operacao/build.mjs`"
+
+
+def _links_de_ajuda_da_spa() -> list[tuple[Path, str, str]]:
+    raiz = Path(__file__).resolve().parent.parent / "frontend" / "src" / "app"
+    encontrados: list[tuple[Path, str, str]] = []
+    for template in sorted(raiz.rglob("*.html")):
+        for ocorrencia in AJUDA_LINK.finditer(template.read_text(encoding="utf-8")):
+            atributos = ocorrencia.group("atributos")
+            manual = re.search(r'manual="([^"]+)"', atributos)
+            if manual is None:
+                continue
+            secao = re.search(r'secao="([^"]+)"', atributos)
+            encontrados.append((template, manual.group(1), secao.group(1) if secao else ""))
+    return encontrados
+
+
+def test_the_spa_only_asks_for_manuals_that_exist() -> None:
+    links = _links_de_ajuda_da_spa()
+
+    assert links, "nenhum <app-ajuda-link> encontrado: o casamento abaixo perderia sentido"
+    for template, slug, _ in links:
+        assert slug in OPERATION_MANUALS, f"{template.name} pede o manual inexistente {slug!r}"
+
+
+def test_every_screen_anchor_still_exists_in_the_generated_manual() -> None:
+    # A ADR-053 registra a armadilha: renomear um título muda o `id` e o link
+    # continua válido, abrindo o manual na capa. Só um teste percebe isso.
+    from django.conf import settings as django_settings
+
+    gerados: dict[str, set[str]] = {}
+    for template, slug, secao in _links_de_ajuda_da_spa():
+        if not secao:
+            continue
+        if slug not in gerados:
+            html = (django_settings.OPERATION_MANUALS_DIR / f"{slug}.html").read_text(
+                encoding="utf-8"
+            )
+            gerados[slug] = set(re.findall(r'<h[1-4] id="([^"]+)"', html))
+        assert secao in gerados[slug], (
+            f"{template.name} aponta para {slug}#{secao}, que não existe no manual gerado — "
+            "confira se a seção foi renomeada"
+        )

@@ -11,6 +11,7 @@ import { PasswordModule } from 'primeng/password';
 import { SelectModule } from 'primeng/select';
 import { Observable, finalize } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
 import { AuthService } from '../../core/auth/auth.service';
 import { Papel } from '../papeis/models/papeis.models';
@@ -42,6 +43,7 @@ const TITULOS: Record<Exclude<Acao, null>, string> = {
     MessageModule,
     PasswordModule,
     SelectModule,
+    AjudaLink,
   ],
   templateUrl: './usuario-detalhe.html',
   styleUrl: './usuario-detalhe.scss',
