@@ -174,6 +174,20 @@ def test_bootstrap_catalog_covers_every_assignable_role_code() -> None:
     assert sorted(
         Role.objects.get(code=USERS_ADMIN_ROLE_CODE).permissions.values_list("codename", flat=True)
     ) == ["link_ad_identity", "manage_users", "view_account_audit"]
+    # Fatia 3 do plano dos papéis: só a gerência do DP carrega o override dos
+    # impedimentos de liberação e encerramento (ADR-054).
+    assert sorted(
+        Role.objects.get(code=PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE).permissions.values_list(
+            "codename",
+            flat=True,
+        )
+    ) == ["override_process_blockers", "query_senior_references"]
+    assert list(
+        Role.objects.get(code=PEOPLE_DEPARTMENT_ROLE_CODE).permissions.values_list(
+            "codename",
+            flat=True,
+        )
+    ) == ["query_senior_references"]
     assert list(
         Role.objects.get(code=SECTORS_ADMIN_ROLE_CODE).permissions.values_list(
             "codename",

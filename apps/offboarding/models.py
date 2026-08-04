@@ -147,6 +147,14 @@ class OffboardingProcess(models.Model):
         related_name="released_offboarding_processes",
     )
     release_notes = models.CharField("parecer da liberação", max_length=1000, blank=True)
+    # Só é preenchida quando `DP_GERENTE` ou SuperAdmin libera com impedimento
+    # aberto (`offboarding.override_process_blockers`, ADR-054); em toda outra
+    # liberação permanece vazia.
+    release_override_reason = models.CharField(
+        "justificativa do override de impedimentos na liberação",
+        max_length=1000,
+        blank=True,
+    )
     # Declaração do DP sobre o que foi processado no Senior HCM. O SGPD não lê
     # nem escreve a rescisão (ADR-020, ADR-051): isto é prova de conferência
     # humana, não espelho da fonte oficial.
@@ -188,6 +196,13 @@ class OffboardingProcess(models.Model):
         related_name="closed_offboarding_processes",
     )
     closing_notes = models.CharField("observação do encerramento", max_length=1000, blank=True)
+    # Mesma régua da liberação: só existe quando o encerramento ocorreu com
+    # pendência em curso, sob a mesma permissão de override.
+    closing_override_reason = models.CharField(
+        "justificativa do override de impedimentos no encerramento",
+        max_length=1000,
+        blank=True,
+    )
     cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
     cancelled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -211,6 +226,12 @@ class OffboardingProcess(models.Model):
         ordering = ("-opened_at", "-id")
         verbose_name = "processo demissional"
         verbose_name_plural = "processos demissionais"
+        permissions = [
+            (
+                "override_process_blockers",
+                "Pode liberar e encerrar processo com impedimentos, mediante justificativa",
+            ),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(
@@ -359,8 +380,10 @@ class OffboardingProcess(models.Model):
         if not self.priority:
             raise ValidationError({"priority": "A prioridade é obrigatória."})
         self.release_notes = self.release_notes.strip()
+        self.release_override_reason = self.release_override_reason.strip()
         self.processing_notes = self.processing_notes.strip()
         self.closing_notes = self.closing_notes.strip()
+        self.closing_override_reason = self.closing_override_reason.strip()
         self.cancellation_reason = self.cancellation_reason.strip()
         self.termination_reference = self.termination_reference.strip()
         started_values = (self.started_at is not None, self.started_by_id is not None)

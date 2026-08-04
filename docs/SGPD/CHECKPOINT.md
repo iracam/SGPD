@@ -9,11 +9,12 @@
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
   2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052)
-- Em andamento: os cinco papéis funcionais atribuíveis — fatias 1 e 2
-  implementadas, com a migration `accounts.0011` **ainda não aplicada no Oracle
-  DEV**
-- Próximo incremento: fatia 3 dos papéis (override dos impedimentos de liberação
-  e encerramento pelo `DP_GERENTE`, com justificativa e trilha);
+- Em andamento: os cinco papéis funcionais atribuíveis — fatias 1, 2 e 3
+  implementadas, com as migrations `accounts.0011` e
+  `offboarding.0011_alter_offboardingprocess_options_and_more` **ainda não
+  aplicadas no Oracle DEV**
+- Próximo incremento: fatia 4 dos papéis (SPA — menu por papel, botão de
+  override na tela de encerramento, bloco de papéis só para SuperAdmin);
   fora do repositório, rotacionar as senhas fracas do Oracle e do SMTP e trocar
   o bind do AD por conta de serviço com TLS (riscos R66 e R67); validar backup e
   restauração com o DBA (`RUNBOOK.md` §6)
@@ -1035,7 +1036,7 @@ destinatário, então a varredura seguinte não repete nada.
 
 O catálogo funcional deixou de ter um único código. A fase é fatiada em cinco —
 catálogo, atribuição exclusiva do SuperAdmin, override dos impedimentos, SPA e
-documentação/homologação — e **as fatias 1 e 2 estão implementadas e
+documentação/homologação — e **as fatias 1, 2 e 3 estão implementadas e
 comitadas**.
 
 Fatia 1 — catálogo, migration `accounts.0011`, **ainda não aplicada no Oracle
@@ -1113,6 +1114,54 @@ testes novos cobrem o service recusando quem tem `manage_roles` concedida
 diretamente (com a revogação também recusada e a atribuição intacta), os quatro
 endpoints respondendo 403 com a mensagem legível e sem efeito colateral, e o
 contexto que não acende `manage_roles` para essa mesma conta.
+
+Fatia 3 — override dos impedimentos, migration
+`offboarding.0011_alter_offboardingprocess_options_and_more`, **ainda não
+aplicada no Oracle DEV**:
+
+- `offboarding.override_process_blockers` é a permissão nova, declarada em
+  `OffboardingProcess.Meta.permissions`; `bootstrap_roles` passa a concedê-la
+  só ao `DP_GERENTE` — o `DP` puro continua sem ela, e a implicação
+  `DP_GERENTE → DP` não a estende, porque a implicação vale para papel
+  exigido, não para permissão concedida (a mesma régua já registrada na
+  fatia 1);
+- `release_override_reason` e `closing_override_reason` são as duas colunas
+  anuláveis do plano: ficam vazias em toda liberação e encerramento comuns, e
+  só recebem texto quando o override é exercido. `_validate_blocker_override`
+  (`apps/offboarding/services.py`) é a fonte única da regra: sem impedimento a
+  justificativa não faz sentido e é recusada; com impedimento, só quem tem a
+  permissão no escopo do processo passa, e só com justificativa — do
+  contrário `ReleaseProcessService` e `CloseProcessService` continuam
+  recusando pelo `readiness.blockers` e pelo `closing_blockers` de sempre;
+- o SuperAdmin também exerce o override, sem passo extra: `has_permission()`
+  já concede toda permissão à autoridade global (ADR-044), e não havia motivo
+  para abrir uma exceção só para esta — é o mesmo desenho que a ADR-048 já
+  fixou para a decisão de valor;
+- a auditoria de `PROCESS_RELEASED` e `PROCESS_CLOSED` ganhou
+  `overridden_blockers` (a lista de impedimentos, vazia quando não houve
+  override) e `override_reason`: é a única evidência do rompimento, no mesmo
+  espírito do `segregation_override` da ADR-048;
+- a leitura de prontidão (`GET …/readiness/`) ganhou `can_override_blockers`,
+  calculado para o ator autenticado, e o payload do processo passou a expor as
+  duas justificativas — a SPA da fatia 4 só precisa consumir o contrato, que
+  já chegou pronto.
+
+A migration é aditiva: duas colunas `VARCHAR2(1000)` anuláveis com valor
+inicial vazio e uma troca de metadados de permissão, sem SQL de constraint
+nova. Precisa da mesma revisão e aplicação pendente da fatia 1 — nenhuma das
+duas foi aplicada no Oracle DEV ainda, e a aplicação deve juntar as duas nessa
+ordem.
+
+Validação padrão do backend e do frontend por inteiro: 519 testes backend e
+123 frontend, Ruff, formatação, Mypy em 226 arquivos, Django check, verificação
+de migrations (`No changes detected`), `check --deploy` com os dois avisos de
+HSTS que são opção deliberada e build Angular sem avisos. Os sete testes novos
+cobrem o `DP` puro barrado mesmo enviando justificativa, o `DP_GERENTE` exigido
+a informar a justificativa antes de liberar e o registro completo na trilha, a
+justificativa recusada quando não há impedimento, o SuperAdmin liberando por
+cima do impedimento sem passo extra, o mesmo trio de barreiras no encerramento
+e o ciclo do override pela própria API, incluindo `can_override_blockers` nas
+duas leituras.
 
 ## Endurecimento do host publicado (2026-08-03)
 

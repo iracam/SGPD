@@ -35,7 +35,10 @@ ROLE_CATALOG: dict[str, tuple[str, str, tuple[str, ...]]] = {
             "Tudo o que o Departamento Pessoal faz no escopo atribuído, com a "
             "autoridade adicional prevista para a gerência."
         ),
-        ("accounts.query_senior_references",),
+        (
+            "accounts.query_senior_references",
+            "offboarding.override_process_blockers",
+        ),
     ),
     WORKFLOW_CONFIG_ADMIN_ROLE_CODE: (
         "Administração de grupos e templates",

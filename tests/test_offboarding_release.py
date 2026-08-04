@@ -8,10 +8,12 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
 from apps.accounts.models import (
+    PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
     PEOPLE_DEPARTMENT_ROLE_CODE,
     Role,
     RoleAssignment,
@@ -118,6 +120,34 @@ def second_coordinator(actor: User) -> User:
     return user
 
 
+def manager_coordinator(actor: User) -> User:
+    """`DP_GERENTE` com a permissão de override, como o `bootstrap_roles` concede."""
+
+    role, _ = Role.objects.get_or_create(
+        code=PEOPLE_DEPARTMENT_MANAGER_ROLE_CODE,
+        defaults={"name": "Gerência do Departamento Pessoal"},
+    )
+    permission = Permission.objects.get(
+        content_type__app_label="offboarding",
+        codename="override_process_blockers",
+    )
+    role.permissions.add(permission)
+    user = User.objects.create_user(
+        username="dp.gerente",
+        email="dp.gerente@example.invalid",
+        password=PASSWORD,
+    )
+    RoleAssignment.objects.create(
+        user=user,
+        role=role,
+        scope_type=ScopeType.GLOBAL,
+        scope_key=build_scope_key(ScopeType.GLOBAL, None, None),
+        valid_from=timezone.now() - timedelta(days=1),
+        assigned_by=actor,
+    )
+    return user
+
+
 def release(
     actor: User,
     process: OffboardingProcess,
@@ -125,6 +155,7 @@ def release(
     key: str = "release-1",
     expected_version: int | None = None,
     notes: str = "Consolidado conferido.",
+    override_reason: str = "",
 ) -> Any:
     return ReleaseProcessService().execute(
         ReleaseProcessCommand(
@@ -133,6 +164,7 @@ def release(
             expected_version=expected_version or process.version,
             idempotency_key=key,
             notes=notes,
+            override_reason=override_reason,
         )
     )
 
@@ -165,6 +197,7 @@ def close(
     *,
     key: str = "close-1",
     expected_version: int | None = None,
+    override_reason: str = "",
 ) -> Any:
     return CloseProcessService().execute(
         CloseProcessCommand(
@@ -173,6 +206,7 @@ def close(
             expected_version=expected_version or process.version,
             idempotency_key=key,
             notes="Encerramento formal.",
+            override_reason=override_reason,
         )
     )
 
@@ -308,6 +342,84 @@ def test_release_refuses_open_task_and_records_trail_when_ready(
     )
     assert events.count() == 1
     assert events.get().data["task_count"] == 1
+
+
+def test_release_override_is_barred_to_plain_dp_even_with_reason(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """A permissão de override é do `DP_GERENTE`; `DP` puro continua barrado (ADR-054)."""
+
+    started_task(actor, process)
+    process.refresh_from_db()
+
+    with pytest.raises(ValidationError) as blocked:
+        release(actor, process, override_reason="Urgência do desligamento.")
+    assert "release" in blocked.value.message_dict
+    process.refresh_from_db()
+    assert process.status == ProcessStatus.STARTED
+    assert process.release_override_reason == ""
+
+
+def test_release_override_by_manager_requires_reason_and_is_audited(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    started_task(actor, process)
+    process.refresh_from_db()
+    manager = manager_coordinator(actor)
+
+    with pytest.raises(ValidationError) as missing_reason:
+        release(manager, process, key="release-sem-motivo")
+    assert "override_reason" in missing_reason.value.message_dict
+    process.refresh_from_db()
+    assert process.status == ProcessStatus.STARTED
+
+    reason = "Desligamento urgente autorizado pela gerência."
+    result = release(manager, process, key="release-override", override_reason=reason)
+    process.refresh_from_db()
+
+    assert not result.replayed
+    assert process.status == ProcessStatus.RELEASED
+    assert process.released_by == manager
+    assert process.release_override_reason == reason
+    event = ProcessAuditEvent.objects.get(process=process, event_type=ProcessEventType.RELEASED)
+    assert event.data["overridden_blockers"]
+    assert event.data["override_reason"] == reason
+
+
+def test_override_reason_is_refused_when_there_is_no_blocker(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    process, _ = ready_process(actor, process)
+    manager = manager_coordinator(actor)
+
+    with pytest.raises(ValidationError) as extra_reason:
+        release(manager, process, override_reason="Não deveria ser aceita.")
+    assert "override_reason" in extra_reason.value.message_dict
+    process.refresh_from_db()
+    assert process.status == ProcessStatus.STARTED
+
+
+def test_release_override_also_available_to_superadmin(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    started_task(actor, process)
+    process.refresh_from_db()
+    superadmin = User.objects.create_superuser(
+        username="super.override",
+        email="super.override@example.invalid",
+        password=PASSWORD,
+    )
+    reason = "SuperAdmin decide sem barreira (ADR-044)."
+
+    release(superadmin, process, key="release-super-override", override_reason=reason)
+    process.refresh_from_db()
+
+    assert process.status == ProcessStatus.RELEASED
+    assert process.release_override_reason == reason
 
 
 def test_release_refuses_stale_version_and_reused_key_with_other_content(
@@ -563,6 +675,81 @@ def test_closing_requires_processed_status_and_no_pending_in_progress(
         process=process,
         event_type=ProcessEventType.CLOSED,
     ).exists()
+
+
+def test_close_override_is_barred_to_plain_dp_even_with_reason(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    task = started_task(actor, process)
+    start_task(actor, task)
+    task.refresh_from_db()
+    create_pending(
+        actor,
+        task,
+        key="pending-close-dp-barrado",
+        blocking_level=BlockingLevel.NON_BLOCKING,
+    )
+    task.refresh_from_db()
+    complete_task(actor, task)
+    process.refresh_from_db()
+    release(actor, process, key="release-close-dp-barrado")
+    process.refresh_from_db()
+    register_processing(actor, process, key="processing-close-dp-barrado")
+    process.refresh_from_db()
+    assert closing_blockers(process)
+
+    with pytest.raises(ValidationError) as blocked:
+        close(actor, process, override_reason="Tentativa sem permissão.")
+    assert "close" in blocked.value.message_dict
+    process.refresh_from_db()
+    assert process.status == ProcessStatus.PROCESSED
+    assert process.closing_override_reason == ""
+
+
+def test_close_override_by_manager_requires_reason_and_is_audited(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    task = started_task(actor, process)
+    start_task(actor, task)
+    task.refresh_from_db()
+    pending_item = create_pending(
+        actor,
+        task,
+        key="pending-close-override",
+        blocking_level=BlockingLevel.NON_BLOCKING,
+    ).pending_item
+    task.refresh_from_db()
+    complete_task(actor, task)
+    process.refresh_from_db()
+    release(actor, process, key="release-close-override")
+    process.refresh_from_db()
+    register_processing(actor, process, key="processing-close-override")
+    process.refresh_from_db()
+    assert closing_blockers(process)
+
+    manager = manager_coordinator(actor)
+
+    with pytest.raises(ValidationError) as missing_reason:
+        close(manager, process, key="close-sem-motivo")
+    assert "override_reason" in missing_reason.value.message_dict
+    process.refresh_from_db()
+    assert process.status == ProcessStatus.PROCESSED
+
+    reason = "Pendência informativa aceita pela gerência."
+    close(manager, process, key="close-override", override_reason=reason)
+    process.refresh_from_db()
+    pending_item.refresh_from_db()
+
+    assert process.status == ProcessStatus.CLOSED
+    assert process.closing_override_reason == reason
+    event = ProcessAuditEvent.objects.get(process=process, event_type=ProcessEventType.CLOSED)
+    assert event.data["overridden_blockers"]
+    assert event.data["override_reason"] == reason
+    # O override libera o encerramento, não a pendência: ela segue no próprio
+    # ciclo, e a auditoria é a única evidência do rompimento.
+    assert pending_item.status == PendingStatus.OPEN
 
 
 def test_closing_frees_the_employee_key_for_a_new_process(

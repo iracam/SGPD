@@ -96,6 +96,15 @@ class ReleaseProcessSerializer(serializers.Serializer[dict[str, Any]]):
         default="",
         trim_whitespace=True,
     )
+    # Só o service sabe se há impedimento: a obrigatoriedade condicional
+    # (ADR-054) é decidida lá, não aqui.
+    override_reason = serializers.CharField(
+        max_length=1000,
+        required=False,
+        allow_blank=True,
+        default="",
+        trim_whitespace=True,
+    )
 
 
 class RegisterTerminationProcessingSerializer(serializers.Serializer[dict[str, Any]]):
@@ -116,6 +125,13 @@ class RegisterTerminationProcessingSerializer(serializers.Serializer[dict[str, A
 class CloseProcessSerializer(serializers.Serializer[dict[str, Any]]):
     expected_version = serializers.IntegerField(min_value=1)
     notes = serializers.CharField(
+        max_length=1000,
+        required=False,
+        allow_blank=True,
+        default="",
+        trim_whitespace=True,
+    )
+    override_reason = serializers.CharField(
         max_length=1000,
         required=False,
         allow_blank=True,

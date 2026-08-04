@@ -14,7 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.authorization import active_assignments, has_global_authority
+from apps.accounts.authorization import active_assignments, has_global_authority, has_permission
 from apps.accounts.models import PEOPLE_DEPARTMENT_ROLE_CODES, ScopeType, User
 from apps.integrations.senior.exceptions import (
     SeniorContractError,
@@ -151,6 +151,7 @@ def _formal_marks_payload(process: OffboardingProcess) -> dict[str, Any]:
         "released_at": process.released_at.isoformat() if process.released_at else None,
         "released_by": _actor_ref(process, "released_by"),
         "release_notes": process.release_notes,
+        "release_override_reason": process.release_override_reason,
         # Declaração de conferência humana, não espelho do Senior.
         "termination_reference": process.termination_reference,
         "termination_processed_on": (
@@ -168,6 +169,7 @@ def _formal_marks_payload(process: OffboardingProcess) -> dict[str, Any]:
         "closed_at": process.closed_at.isoformat() if process.closed_at else None,
         "closed_by": _actor_ref(process, "closed_by"),
         "closing_notes": process.closing_notes,
+        "closing_override_reason": process.closing_override_reason,
         "cancelled_at": process.cancelled_at.isoformat() if process.cancelled_at else None,
         "cancelled_by": _actor_ref(process, "cancelled_by"),
         "cancellation_reason": process.cancellation_reason,
@@ -659,6 +661,14 @@ def _formal_payload(actor: User, process_uuid: Any) -> dict[str, Any]:
         # Impedimento do encerramento é outra pergunta: a liberação admite
         # pendência que o encerramento não admite.
         "closing_blockers": list(closing_blockers(process)),
+        # A SPA só oferece o override a quem o service aceitaria (ADR-054); a
+        # decisão em si continua sendo revalidada sob lock no service.
+        "can_override_blockers": has_permission(
+            actor,
+            "offboarding.override_process_blockers",
+            company_code=process.company_code,
+            branch_code=process.branch_code,
+        ),
         "tasks": [_task_payload(task) for task in tasks],
     }
 
@@ -733,6 +743,7 @@ class ProcessReleaseView(_ProcessTransitionView):
                 expected_version=data["expected_version"],
                 idempotency_key=idempotency_key,
                 notes=data["notes"],
+                override_reason=data["override_reason"],
             )
         )
 
@@ -779,6 +790,7 @@ class ProcessCloseView(_ProcessTransitionView):
                 expected_version=data["expected_version"],
                 idempotency_key=idempotency_key,
                 notes=data["notes"],
+                override_reason=data["override_reason"],
             )
         )
 

@@ -18,7 +18,7 @@ from apps.offboarding.models import (
     ProcessStatus,
     SectorTaskStatus,
 )
-from tests.test_offboarding_release import ready_process
+from tests.test_offboarding_release import manager_coordinator, ready_process
 from tests.test_offboarding_start import (  # noqa: F401
     PASSWORD,
     actor,
@@ -200,6 +200,60 @@ def test_release_is_refused_with_blockers_a_stale_version_and_a_reused_key(
     )
     assert conflict.status_code == 409
     assert conflict.json()["code"] == "idempotency_conflict"
+
+
+def test_release_override_reaches_the_api_with_permission_and_mandatory_reason(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Fatia 3 do plano dos papéis: override de impedimento pela API (ADR-054)."""
+
+    started_task(actor, process)
+    process.refresh_from_db()
+    manager = manager_coordinator(actor)
+    manager_client = logged_client(manager)
+    dp_client = logged_client(actor)
+
+    manager_readiness = manager_client.get(f"/api/v1/processes/{process.uuid}/readiness/").json()
+    assert manager_readiness["can_override_blockers"] is True
+    dp_readiness = dp_client.get(f"/api/v1/processes/{process.uuid}/readiness/").json()
+    assert dp_readiness["can_override_blockers"] is False
+
+    missing_reason = post(
+        manager_client,
+        process,
+        "release",
+        {"expected_version": process.version},
+        key="api-release-override-sem-motivo",
+    )
+    assert missing_reason.status_code == 400
+    assert "override_reason" in missing_reason.json()["details"]
+
+    dp_barred = post(
+        dp_client,
+        process,
+        "release",
+        {
+            "expected_version": process.version,
+            "override_reason": "Tentativa sem a permissão de override.",
+        },
+        key="api-release-override-dp-barrado",
+    )
+    assert dp_barred.status_code == 400
+    assert "release" in dp_barred.json()["details"]
+
+    reason = "Desligamento urgente autorizado pela gerência."
+    released = post(
+        manager_client,
+        process,
+        "release",
+        {"expected_version": process.version, "override_reason": reason},
+        key="api-release-override",
+    )
+    assert released.status_code == 200
+    body = released.json()
+    assert body["process"]["status"] == ProcessStatus.RELEASED
+    assert body["process"]["formal"]["release_override_reason"] == reason
 
 
 def test_processing_refuses_a_future_date_by_contract_of_the_service(

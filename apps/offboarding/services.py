@@ -19,6 +19,7 @@ from apps.accounts.authorization import (
     active_assignments,
     has_effective_role,
     has_global_authority,
+    has_permission,
 )
 from apps.accounts.models import (
     PEOPLE_DEPARTMENT_ROLE_CODE,
@@ -1645,6 +1646,7 @@ class ReleaseProcessCommand:
     expected_version: int
     idempotency_key: str
     notes: str = ""
+    override_reason: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1665,6 +1667,7 @@ class CloseProcessCommand:
     expected_version: int
     idempotency_key: str
     notes: str = ""
+    override_reason: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1680,6 +1683,43 @@ def _validated_notes(value: str, field: str, *, required: bool = False) -> str:
     if len(notes) > 1000:
         raise ValidationError({field: "O texto aceita até 1000 caracteres."})
     return notes
+
+
+def _validate_blocker_override(
+    *,
+    actor: User,
+    process: OffboardingProcess,
+    blockers: tuple[str, ...],
+    override_reason: str,
+    field: str,
+) -> None:
+    """Aplicar a regra do override de impedimentos (ADR-054) a `override_reason`.
+
+    O texto já chegou validado quanto à forma por `_validated_notes`; aqui só
+    se decide se ele pode existir. Sem impedimento a justificativa não faz
+    sentido e é recusada; com impedimento, só quem tem
+    `offboarding.override_process_blockers` no escopo do processo passa, e só
+    com justificativa — `DP` puro continua barrado pelos impedimentos, como
+    antes.
+    """
+
+    if not blockers:
+        if override_reason:
+            raise ValidationError(
+                {"override_reason": "A justificativa só é aceita quando há impedimento."}
+            )
+        return
+    if not has_permission(
+        actor,
+        "offboarding.override_process_blockers",
+        company_code=process.company_code,
+        branch_code=process.branch_code,
+    ):
+        raise ValidationError({field: list(blockers)})
+    if not override_reason:
+        raise ValidationError(
+            {"override_reason": "A justificativa do override de impedimentos é obrigatória."}
+        )
 
 
 def _lock_process_for_transition(
@@ -1748,8 +1788,13 @@ class ReleaseProcessService:
     def execute(self, command: ReleaseProcessCommand) -> ProcessTransitionResult:
         key = _validated_idempotency_key(command.idempotency_key)
         notes = _validated_notes(command.notes, "notes")
+        override_reason = _validated_notes(command.override_reason, "override_reason")
         request_hash = _canonical_hash(
-            {"expected_version": command.expected_version, "notes": notes}
+            {
+                "expected_version": command.expected_version,
+                "notes": notes,
+                "override_reason": override_reason,
+            }
         )
         actor, process = _lock_process_for_transition(command.actor, command.process_uuid)
         replay = _process_idempotency_replay(
@@ -1767,14 +1812,20 @@ class ReleaseProcessService:
             raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
 
         readiness = evaluate_process_readiness(process, lock=True)
-        if readiness.blockers:
-            raise ValidationError({"release": list(readiness.blockers)})
+        _validate_blocker_override(
+            actor=actor,
+            process=process,
+            blockers=readiness.blockers,
+            override_reason=override_reason,
+            field="release",
+        )
 
         released_at = timezone.now()
         process.status = ProcessStatus.RELEASED
         process.released_at = released_at
         process.released_by = actor
         process.release_notes = notes
+        process.release_override_reason = override_reason
         process.version += 1
         process.full_clean(exclude={"active_employee_key"})
         process.save(
@@ -1783,6 +1834,7 @@ class ReleaseProcessService:
                 "released_at",
                 "released_by",
                 "release_notes",
+                "release_override_reason",
                 "version",
             )
         )
@@ -1798,6 +1850,11 @@ class ReleaseProcessService:
                 # O que não impedia mas merecia conferência fica registrado: é
                 # a prova de que o liberador viu o que estava aberto.
                 "warnings": list(readiness.warnings),
+                # Vazio na liberação comum; preenchido só quando o
+                # `DP_GERENTE` ou o SuperAdmin liberou por cima de impedimento
+                # (ADR-054) — a auditoria é a única evidência do rompimento.
+                "overridden_blockers": list(readiness.blockers),
+                "override_reason": override_reason,
                 "process_version": process.version,
             },
             correlation_id=correlation_id.get(),
@@ -1911,8 +1968,13 @@ class CloseProcessService:
     def execute(self, command: CloseProcessCommand) -> ProcessTransitionResult:
         key = _validated_idempotency_key(command.idempotency_key)
         notes = _validated_notes(command.notes, "notes")
+        override_reason = _validated_notes(command.override_reason, "override_reason")
         request_hash = _canonical_hash(
-            {"expected_version": command.expected_version, "notes": notes}
+            {
+                "expected_version": command.expected_version,
+                "notes": notes,
+                "override_reason": override_reason,
+            }
         )
         actor, process = _lock_process_for_transition(command.actor, command.process_uuid)
         replay = _process_idempotency_replay(
@@ -1929,13 +1991,19 @@ class CloseProcessService:
         if process.version != command.expected_version:
             raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
         blockers = closing_blockers(process, lock=True)
-        if blockers:
-            raise ValidationError({"close": list(blockers)})
+        _validate_blocker_override(
+            actor=actor,
+            process=process,
+            blockers=blockers,
+            override_reason=override_reason,
+            field="close",
+        )
 
         process.status = ProcessStatus.CLOSED
         process.closed_at = timezone.now()
         process.closed_by = actor
         process.closing_notes = notes
+        process.closing_override_reason = override_reason
         # A chave só é liberada aqui e no cancelamento: é o que permite abrir um
         # processo novo para o mesmo colaborador.
         process.active_employee_key = None
@@ -1947,6 +2015,7 @@ class CloseProcessService:
                 "closed_at",
                 "closed_by",
                 "closing_notes",
+                "closing_override_reason",
                 "active_employee_key",
                 "version",
             )
@@ -1959,6 +2028,8 @@ class CloseProcessService:
             data={
                 "status": process.status,
                 "employee_key_released": True,
+                "overridden_blockers": list(blockers),
+                "override_reason": override_reason,
                 "process_version": process.version,
             },
             correlation_id=correlation_id.get(),
