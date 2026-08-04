@@ -30,7 +30,7 @@ export interface Usuario {
 export interface Atribuicao {
   id: number;
   user_id: number;
-  role: { id: number; code: string };
+  role: { id: number; code: string; name: string };
   scope_type: 'GLOBAL' | 'COMPANY' | 'BRANCH';
   company_code: number | null;
   branch_code: number | null;

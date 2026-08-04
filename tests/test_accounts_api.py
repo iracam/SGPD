@@ -458,6 +458,7 @@ def test_user_detail_includes_role_assignments(admin_client: Client, plain_user:
     ).json()
 
     assert body["role_assignments"][0]["role"]["code"] == "DP"
+    assert body["role_assignments"][0]["role"]["name"] == "Departamento Pessoal"
 
 
 def test_unknown_user_returns_404(admin_client: Client) -> None:

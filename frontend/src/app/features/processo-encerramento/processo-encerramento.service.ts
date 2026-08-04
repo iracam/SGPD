@@ -21,7 +21,7 @@ export class ProcessoEncerramentoService {
 
   liberar(
     processUuid: string,
-    payload: { expected_version: number; notes: string },
+    payload: { expected_version: number; notes: string; override_reason?: string },
     idempotencyKey: string,
   ): Observable<ConferenciaEncerramento> {
     return this.transicao(processUuid, 'release', payload, idempotencyKey);
@@ -42,7 +42,7 @@ export class ProcessoEncerramentoService {
 
   encerrar(
     processUuid: string,
-    payload: { expected_version: number; notes: string },
+    payload: { expected_version: number; notes: string; override_reason?: string },
     idempotencyKey: string,
   ): Observable<ConferenciaEncerramento> {
     return this.transicao(processUuid, 'close', payload, idempotencyKey);

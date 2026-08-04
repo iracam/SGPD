@@ -55,6 +55,21 @@ def role_codes_satisfying(role_code: str) -> tuple[str, ...]:
     return ROLE_IMPLICATIONS.get(normalized, (normalized,))
 
 
+def requirement_codes_satisfied_by(role_code: str) -> tuple[str, ...]:
+    """Inverso de `role_codes_satisfying`: o que `role_code` alcança.
+
+    Um `DP_GERENTE` atribuído satisfaz tanto a própria exigência quanto a de
+    `DP`; a SPA usa isto para decidir menu e telas sem repetir a hierarquia.
+    """
+
+    normalized = role_code.strip().upper()
+    satisfied = {normalized}
+    satisfied.update(
+        requirement for requirement, codes in ROLE_IMPLICATIONS.items() if normalized in codes
+    )
+    return tuple(sorted(satisfied))
+
+
 #: Atalho para os pontos que consultam a atribuição de `DP` por queryset.
 PEOPLE_DEPARTMENT_ROLE_CODES = role_codes_satisfying(PEOPLE_DEPARTMENT_ROLE_CODE)
 

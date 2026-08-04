@@ -27,7 +27,12 @@ from apps.integrations.senior.permissions import SENIOR_REFERENCE_PERMISSION
 from config.api import api_error
 
 from .authorization import active_assignments, allowed_company_codes, has_global_authority
-from .models import RESPONSIBLE_SECTOR_ROLE_CODE, AccountEventType, User
+from .models import (
+    RESPONSIBLE_SECTOR_ROLE_CODE,
+    AccountEventType,
+    User,
+    requirement_codes_satisfied_by,
+)
 from .serializers import ChangeOwnPasswordSerializer, LoginSerializer
 from .services import (
     ChangeOwnPasswordCommand,
@@ -131,9 +136,19 @@ def authorization_context(user: User) -> dict[str, Any]:
     ]
     all_scopes = scopes + derived_scopes
 
+    # `DP_GERENTE` não aparece cru: a SPA decide menu e telas pelo que o papel
+    # atribuído satisfaz, não pelo código exato, para não repetir a hierarquia
+    # de `ROLE_IMPLICATIONS` no cliente.
+    roles = {
+        satisfied
+        for scope in all_scopes
+        if isinstance(scope["role"], str)
+        for satisfied in requirement_codes_satisfied_by(scope["role"])
+    }
+
     return {
         "user": user_payload(user),
-        "roles": sorted({scope["role"] for scope in all_scopes if isinstance(scope["role"], str)}),
+        "roles": sorted(roles),
         "permissions": permissions,
         "scopes": {"is_superuser": user.is_superuser, "assignments": all_scopes},
         "features": features,

@@ -33,6 +33,7 @@ function conferencia(
         released_at: null,
         released_by: null,
         release_notes: '',
+        release_override_reason: '',
         termination_reference: '',
         termination_processed_on: null,
         processing_registered_at: null,
@@ -41,6 +42,7 @@ function conferencia(
         closed_at: null,
         closed_by: null,
         closing_notes: '',
+        closing_override_reason: '',
         cancelled_at: null,
         cancelled_by: null,
         cancellation_reason: '',
@@ -65,6 +67,7 @@ function conferencia(
       undecided_amount_count: 0,
     },
     closing_blockers: [],
+    can_override_blockers: false,
     tasks: [
       {
         id: 11,
@@ -113,6 +116,15 @@ describe('ProcessoEncerramentoPage', () => {
 
   function preencher(seletor: string, valor: string): void {
     const campo = fixture.nativeElement.querySelector(seletor) as HTMLTextAreaElement;
+    campo.value = valor;
+    campo.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  function preencherIndice(indice: number, valor: string): void {
+    const campo = fixture.nativeElement.querySelectorAll('textarea')[
+      indice
+    ] as HTMLTextAreaElement;
     campo.value = valor;
     campo.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -225,6 +237,116 @@ describe('ProcessoEncerramentoPage', () => {
     expect(fixture.nativeElement.textContent).toContain(
       'A tarefa obrigatória de Financeiro não foi concluída.',
     );
+  });
+
+  it('não oferece override da liberação sem can_override_blockers', () => {
+    carregar(
+      conferencia({
+        readiness: {
+          ...conferencia().readiness,
+          is_ready: false,
+          blockers: ['A tarefa obrigatória de Financeiro não foi concluída.'],
+        },
+        can_override_blockers: false,
+      }),
+    );
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'A liberação fica indisponível enquanto houver impedimento acima.',
+    );
+    expect(
+      fixture.nativeElement.querySelector(
+        'p-button[label="Liberar com override dos impedimentos"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('libera com override dos impedimentos quando autorizado', () => {
+    carregar(
+      conferencia({
+        readiness: {
+          ...conferencia().readiness,
+          is_ready: false,
+          blockers: ['A tarefa obrigatória de Financeiro não foi concluída.'],
+        },
+        can_override_blockers: true,
+      }),
+    );
+
+    const override = () =>
+      fixture.nativeElement.querySelector(
+        'p-button[label="Liberar com override dos impedimentos"] button',
+      ) as HTMLButtonElement;
+    expect(override().disabled).toBe(true);
+
+    preencherIndice(1, 'DP_GERENTE autoriza a liberação com pendência residual.');
+    expect(override().disabled).toBe(false);
+    override().click();
+
+    const request = httpMock.expectOne(`/api/v1/processes/${UUID}/release/`);
+    expect(request.request.body).toEqual({
+      expected_version: 4,
+      notes: '',
+      override_reason: 'DP_GERENTE autoriza a liberação com pendência residual.',
+    });
+    request.flush(
+      conferencia({
+        process: { ...conferencia().process, status: 'LIBERADO_PARA_RESCISAO' },
+      }),
+    );
+  });
+
+  it('encerra com override dos impedimentos quando autorizado', () => {
+    carregar(
+      conferencia({
+        process: { ...conferencia().process, status: 'RESCISAO_PROCESSADA' },
+        readiness: { ...conferencia().readiness, situation: 'RESCISAO_PROCESSADA' },
+        closing_blockers: ['A pendência Crachá de Portaria continua aberta.'],
+        can_override_blockers: true,
+      }),
+    );
+
+    const override = () =>
+      fixture.nativeElement.querySelector(
+        'p-button[label="Encerrar com override dos impedimentos"] button',
+      ) as HTMLButtonElement;
+    expect(override().disabled).toBe(true);
+
+    preencherIndice(1, 'DP_GERENTE autoriza o encerramento com pendência residual.');
+    expect(override().disabled).toBe(false);
+    override().click();
+
+    const request = httpMock.expectOne(`/api/v1/processes/${UUID}/close/`);
+    expect(request.request.body).toEqual({
+      expected_version: 4,
+      notes: '',
+      override_reason: 'DP_GERENTE autoriza o encerramento com pendência residual.',
+    });
+    request.flush(
+      conferencia({
+        process: { ...conferencia().process, status: 'ENCERRADO' },
+      }),
+    );
+  });
+
+  it('não oferece override do encerramento sem can_override_blockers', () => {
+    carregar(
+      conferencia({
+        process: { ...conferencia().process, status: 'RESCISAO_PROCESSADA' },
+        readiness: { ...conferencia().readiness, situation: 'RESCISAO_PROCESSADA' },
+        closing_blockers: ['A pendência Crachá de Portaria continua aberta.'],
+        can_override_blockers: false,
+      }),
+    );
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'O encerramento fica indisponível enquanto houver impedimento acima.',
+    );
+    expect(
+      fixture.nativeElement.querySelector(
+        'p-button[label="Encerrar com override dos impedimentos"]',
+      ),
+    ).toBeNull();
   });
 
   it('exige motivo para cancelar e envia o texto informado', () => {

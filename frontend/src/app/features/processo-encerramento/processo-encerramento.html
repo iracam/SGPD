@@ -143,6 +143,11 @@
           @if (conferencia.process.formal.release_notes) {
             <p>{{ conferencia.process.formal.release_notes }}</p>
           }
+          @if (conferencia.process.formal.release_override_reason) {
+            <p class="marca--override">
+              Override do impedimento: {{ conferencia.process.formal.release_override_reason }}
+            </p>
+          }
         </li>
       }
       @if (conferencia.process.formal.processing_registered_at) {
@@ -170,6 +175,11 @@
           </span>
           @if (conferencia.process.formal.closing_notes) {
             <p>{{ conferencia.process.formal.closing_notes }}</p>
+          }
+          @if (conferencia.process.formal.closing_override_reason) {
+            <p class="marca--override">
+              Override do impedimento: {{ conferencia.process.formal.closing_override_reason }}
+            </p>
           }
         </li>
       }
@@ -220,9 +230,32 @@
         ></p-button>
       </div>
       @if (!conferencia.readiness.is_ready) {
-        <p class="vazio-inline">
-          A liberação fica indisponível enquanto houver impedimento acima.
-        </p>
+        @if (podeLiberarComOverride()) {
+          <label class="campo">
+            Justificativa do override dos impedimentos
+            <textarea
+              rows="3"
+              maxlength="1000"
+              [value]="justificativaOverride()"
+              (input)="texto('justificativaOverride', $event)"
+            ></textarea>
+          </label>
+          <div class="acoes">
+            <p-button
+              type="button"
+              severity="warn"
+              icon="pi pi-exclamation-triangle"
+              label="Liberar com override dos impedimentos"
+              [loading]="enviando()"
+              [disabled]="enviando() || !justificativaOverride().trim()"
+              (onClick)="liberar()"
+            ></p-button>
+          </div>
+        } @else {
+          <p class="vazio-inline">
+            A liberação fica indisponível enquanto houver impedimento acima.
+          </p>
+        }
       }
     </section>
   }
@@ -308,6 +341,34 @@
           (onClick)="encerrar()"
         ></p-button>
       </div>
+      @if (conferencia.closing_blockers.length > 0) {
+        @if (podeEncerrarComOverride()) {
+          <label class="campo">
+            Justificativa do override dos impedimentos
+            <textarea
+              rows="3"
+              maxlength="1000"
+              [value]="justificativaOverride()"
+              (input)="texto('justificativaOverride', $event)"
+            ></textarea>
+          </label>
+          <div class="acoes">
+            <p-button
+              type="button"
+              severity="warn"
+              icon="pi pi-exclamation-triangle"
+              label="Encerrar com override dos impedimentos"
+              [loading]="enviando()"
+              [disabled]="enviando() || !justificativaOverride().trim()"
+              (onClick)="encerrar()"
+            ></p-button>
+          </div>
+        } @else {
+          <p class="vazio-inline">
+            O encerramento fica indisponível enquanto houver impedimento acima.
+          </p>
+        }
+      }
     </section>
   }
 

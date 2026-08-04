@@ -130,6 +130,11 @@ section.grupo {
   font-size: 0.8rem;
 }
 
+.marca--override {
+  color: var(--status-pending-color);
+  font-weight: 600;
+}
+
 .campos {
   display: grid;
   gap: 0.75rem;

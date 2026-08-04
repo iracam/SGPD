@@ -29,6 +29,8 @@ export interface MarcasFormais {
   released_at: string | null;
   released_by: AtorRegistrado | null;
   release_notes: string;
+  /** Só existe quando `DP_GERENTE` ou SuperAdmin liberou por cima de impedimento. */
+  release_override_reason: string;
   /** Declaração do DP sobre o Senior, não leitura dele (ADR-051). */
   termination_reference: string;
   termination_processed_on: string | null;
@@ -38,6 +40,8 @@ export interface MarcasFormais {
   closed_at: string | null;
   closed_by: AtorRegistrado | null;
   closing_notes: string;
+  /** Só existe quando `DP_GERENTE` ou SuperAdmin encerrou por cima de impedimento. */
+  closing_override_reason: string;
   cancelled_at: string | null;
   cancelled_by: AtorRegistrado | null;
   cancellation_reason: string;
@@ -87,6 +91,8 @@ export interface ConferenciaEncerramento {
   readiness: Prontidao;
   /** Pendência ainda em curso impede o encerramento, não a liberação. */
   closing_blockers: string[];
+  /** A SPA só oferece o override a quem o service aceitaria (ADR-054). */
+  can_override_blockers: boolean;
   tasks: TarefaDoCiclo[];
   idempotency_replayed?: boolean;
 }

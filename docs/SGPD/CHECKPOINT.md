@@ -9,15 +9,16 @@
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
   2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052)
-- Em andamento: os cinco papéis funcionais atribuíveis — fatias 1, 2 e 3
+- Em andamento: os cinco papéis funcionais atribuíveis — fatias 1 a 4
   implementadas, com as migrations `accounts.0011` e
   `offboarding.0011_alter_offboardingprocess_options_and_more` **ainda não
   aplicadas no Oracle DEV**
-- Próximo incremento: fatia 4 dos papéis (SPA — menu por papel, botão de
-  override na tela de encerramento, bloco de papéis só para SuperAdmin);
-  fora do repositório, rotacionar as senhas fracas do Oracle e do SMTP e trocar
-  o bind do AD por conta de serviço com TLS (riscos R66 e R67); validar backup e
-  restauração com o DBA (`RUNBOOK.md` §6)
+- Próximo incremento: fatia 5 dos papéis (documentação, ADR-054 e
+  homologação no Oracle DEV, incluindo a aplicação das duas migrations
+  pendentes e o `bootstrap_roles` no ambiente); fora do repositório,
+  rotacionar as senhas fracas do Oracle e do SMTP e trocar o bind do AD por
+  conta de serviço com TLS (riscos R66 e R67); validar backup e restauração
+  com o DBA (`RUNBOOK.md` §6)
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -1036,7 +1037,7 @@ destinatário, então a varredura seguinte não repete nada.
 
 O catálogo funcional deixou de ter um único código. A fase é fatiada em cinco —
 catálogo, atribuição exclusiva do SuperAdmin, override dos impedimentos, SPA e
-documentação/homologação — e **as fatias 1, 2 e 3 estão implementadas e
+documentação/homologação — e **as fatias 1 a 4 estão implementadas e
 comitadas**.
 
 Fatia 1 — catálogo, migration `accounts.0011`, **ainda não aplicada no Oracle
@@ -1162,6 +1163,54 @@ justificativa recusada quando não há impedimento, o SuperAdmin liberando por
 cima do impedimento sem passo extra, o mesmo trio de barreiras no encerramento
 e o ciclo do override pela própria API, incluindo `can_override_blockers` nas
 duas leituras.
+
+Fatia 4 — SPA, **sem migration**:
+
+- o contexto de autorização (`GET /api/v1/auth/context/`) publicava `roles` a
+  partir do código bruto de cada atribuição. Um `DP_GERENTE` sem a atribuição
+  `DP` explícita ficava sem o menu de Processos, Relatórios e Notificações — a
+  única barreira que os lia é `role: 'DP'` em `authenticated-layout.ts`,
+  comparado por `.includes()`, e a implicação `DP_GERENTE → DP` nunca chegava
+  ao cliente. `requirement_codes_satisfied_by()` (`apps/accounts/models.py`) é
+  o inverso de `role_codes_satisfying()` — o que um papel atribuído alcança,
+  não o que uma exigência aceita — e `authorization_context()` passou a
+  expandir `roles` por ele; os três papéis administrativos, gated por
+  permissão (`feature`) e não por código de papel, já funcionavam sem
+  mudança, porque `bootstrap_roles` já concede `manage_sectors`,
+  `manage_workflow_configuration` e o trio de `USUARIOS_ADMIN` a cada um
+  desde a fatia 1;
+- o bloco de papéis em `usuario-detalhe` já escondia "Atribuir papel" e
+  "Revogar" de quem não é SuperAdmin desde a fatia 2, porque `manage_roles`
+  só acende no contexto para `has_global_authority`. Ficou pendente o
+  ADR-047: a lista de atribuições mostrava `atribuicao.role.code`
+  (`DP_GERENTE`, `GRUPOS_TEMPLATE_ADMIN`) cru, e o texto de ajuda ainda dizia
+  "DP é o único papel funcional atribuível" — falso desde a fatia 1. O
+  payload de `role_assignments` ganhou `role.name`, a tela passou a exibi-lo
+  em vez do código nas listas ativa e revogada e no diálogo de revogação, o
+  seletor de atribuição trocou `optionLabel="code"` por `"name"` e o texto de
+  ajuda passou a nomear os cinco papéis;
+- a tela de encerramento (`/fe/processos/:uuid/encerramento`) ganhou o botão
+  de override que a fatia 3 preparou no contrato: quando há impedimento e
+  `can_override_blockers` está ligado, um bloco próprio pede a justificativa
+  e chama o mesmo `liberar()`/`encerrar()` da API, que só inclui
+  `override_reason` no corpo quando a justificativa foi preenchida — sem
+  impedimento o botão comum continua sendo o único caminho, e o corpo
+  enviado por ele não muda. Sem a permissão, a tela mantém a mensagem "fica
+  indisponível" de sempre, sem oferecer o que a API recusaria. As duas
+  justificativas gravadas (`release_override_reason`,
+  `closing_override_reason`) passaram a aparecer em "Atos registrados" quando
+  existem.
+
+Validação padrão do backend e do frontend por inteiro: 520 testes backend e
+127 frontend, Ruff, formatação, Mypy em 226 arquivos, Django check,
+verificação de migrations (`No changes detected`), `check --deploy` com os
+dois avisos de HSTS que são opção deliberada e build Angular sem avisos. O
+teste novo do backend cobre a expansão de `DP_GERENTE` para `DP` no
+contexto; o nome do papel no payload de atribuição ganhou uma asserção no
+teste já existente. Os quatro testes novos do frontend cobrem a ausência do
+botão de override sem `can_override_blockers` na liberação e no
+encerramento, e o override de cada um com a justificativa exigida antes de
+habilitar o botão e o corpo enviado.
 
 ## Endurecimento do host publicado (2026-08-03)
 

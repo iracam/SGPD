@@ -59,8 +59,10 @@
       }
     </div>
     <p class="secao__ajuda">
-      DP é o único papel funcional atribuível. A responsabilidade por setor é
-      derivada dos vínculos exibidos na seção seguinte.
+      Departamento Pessoal, Gerência do Departamento Pessoal e as
+      administrações de grupos e templates, de setores e de usuários compõem
+      o catálogo atribuível. A responsabilidade por setor continua derivada
+      dos vínculos exibidos na seção seguinte.
     </p>
 
     @if (ativas().length) {
@@ -68,7 +70,7 @@
         @for (atribuicao of ativas(); track atribuicao.id) {
           <li class="atribuicao">
             <div class="atribuicao__dados">
-              <strong>{{ atribuicao.role.code }}</strong>
+              <strong>{{ atribuicao.role.name }}</strong>
               <small>
                 {{ rotuloEscopo(atribuicao.scope_type) }}
                 @if (atribuicao.company_code) { · empresa {{ atribuicao.company_code }} }
@@ -100,7 +102,7 @@
           @for (atribuicao of revogadas(); track atribuicao.id) {
             <li class="atribuicao atribuicao--revogada">
               <div class="atribuicao__dados">
-                <strong>{{ atribuicao.role.code }}</strong>
+                <strong>{{ atribuicao.role.name }}</strong>
                 <small>revogada por {{ atribuicao.revoked_by || '—' }}</small>
               </div>
             </li>
@@ -255,7 +257,7 @@
               inputId="p_role"
               formControlName="role_id"
               [options]="papeis()"
-              optionLabel="code"
+              optionLabel="name"
               optionValue="id"
               placeholder="Selecione o papel"
               [loading]="carregandoPapeis()"
@@ -373,7 +375,7 @@
         <div class="formulario">
           @if (acao() === 'revogar' && atribuicaoAlvo(); as atribuicao) {
             <p>
-              Confirme a revogação de <strong>{{ atribuicao.role.code }}</strong>
+              Confirme a revogação de <strong>{{ atribuicao.role.name }}</strong>
               no escopo {{ atribuicao.scope_key }}.
             </p>
           } @else if (acao() === 'desvincular') {

@@ -200,7 +200,11 @@ def assignment_payload(assignment: RoleAssignment) -> dict[str, Any]:
     return {
         "id": assignment.pk,
         "user_id": assignment.user_id,
-        "role": {"id": assignment.role_id, "code": assignment.role.code},
+        "role": {
+            "id": assignment.role_id,
+            "code": assignment.role.code,
+            "name": assignment.role.name,
+        },
         "scope_type": assignment.scope_type,
         "company_code": assignment.company_code,
         "branch_code": assignment.branch_code,

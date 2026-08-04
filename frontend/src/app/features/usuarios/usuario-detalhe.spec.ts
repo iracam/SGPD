@@ -132,7 +132,7 @@ describe('UsuarioDetalhePage', () => {
   it('atribui papel sem solicitar ou enviar justificativa manual', async () => {
     await render();
     expect(fixture.nativeElement.textContent).toContain(
-      'DP é o único papel funcional atribuível.',
+      'Gerência do Departamento Pessoal',
     );
     expect(fixture.nativeElement.textContent).toContain('PATRIMONIO — Patrimônio');
     fixture.componentInstance.abrir('papel');

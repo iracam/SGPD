@@ -368,6 +368,31 @@ def test_context_exposes_company_scoped_permission(user: User) -> None:
     assert body["scopes"]["assignments"][0]["company_code"] == 7
 
 
+def test_context_expands_dp_gerente_into_the_dp_it_satisfies(user: User) -> None:
+    """A SPA decide menu por `roles.includes('DP')`; sem expandir a implicação
+
+    aqui, um `DP_GERENTE` sem a atribuição `DP` explícita ficaria sem acesso a
+    Processos, Relatórios e Notificações, apesar de o backend já tratar
+    `DP_GERENTE` como superconjunto de `DP` em toda regra de autorização.
+    """
+
+    role = Role.objects.create(code="DP_GERENTE", name="Gerência do Departamento Pessoal")
+    RoleAssignment.objects.create(
+        user=user,
+        role=role,
+        scope_type=ScopeType.GLOBAL,
+        scope_key="GLOBAL:-:-",
+        valid_from=timezone.now(),
+        assigned_by=user,
+    )
+    client = Client()
+    client.force_login(user)
+
+    body = client.get(reverse("auth-api:context")).json()
+
+    assert body["roles"] == ["DP", "DP_GERENTE"]
+
+
 def test_manage_roles_capability_is_published_only_to_the_superadmin(user: User) -> None:
     """A SPA não pode oferecer o que a API recusa.
 

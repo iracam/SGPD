@@ -48,9 +48,23 @@ export class ProcessoEncerramentoPage {
   readonly numeroRescisao = signal('');
   readonly dataProcessamento = signal(this.hoje());
   readonly tarefasSelecionadas = signal<number[]>([]);
+  readonly justificativaOverride = signal('');
 
   /** A reabertura é exclusiva do SuperAdmin; a API repete a decisão. */
   readonly podeReabrir = computed(() => this.auth.currentUser()?.is_superuser === true);
+
+  /**
+   * A SPA só oferece o override a quem `can_override_blockers` autoriza; a
+   * decisão em si é sempre revalidada pelo service sob lock (ADR-054).
+   */
+  readonly podeLiberarComOverride = computed(
+    () => !this.dados()?.readiness.is_ready && this.dados()?.can_override_blockers === true,
+  );
+  readonly podeEncerrarComOverride = computed(
+    () =>
+      (this.dados()?.closing_blockers.length ?? 0) > 0 &&
+      this.dados()?.can_override_blockers === true,
+  );
 
   readonly tarefasConcluidas = computed(() =>
     (this.dados()?.tasks ?? []).filter((tarefa) => tarefa.status === 'CONCLUIDA'),
@@ -78,7 +92,7 @@ export class ProcessoEncerramentoPage {
     this.executar(
       this.service.liberar(
         this.uuid,
-        { expected_version: processo.version, notes: this.observacao() },
+        this.comOverride({ expected_version: processo.version, notes: this.observacao() }),
         this.chave(),
       ),
       'Processo liberado para rescisão.',
@@ -113,7 +127,7 @@ export class ProcessoEncerramentoPage {
     this.executar(
       this.service.encerrar(
         this.uuid,
-        { expected_version: processo.version, notes: this.observacao() },
+        this.comOverride({ expected_version: processo.version, notes: this.observacao() }),
         this.chave(),
       ),
       'Processo encerrado.',
@@ -166,9 +180,21 @@ export class ProcessoEncerramentoPage {
     return this.tarefasSelecionadas().includes(tarefa.id);
   }
 
-  protected texto(destino: 'observacao' | 'motivo' | 'numeroRescisao', event: Event): void {
+  protected texto(
+    destino: 'observacao' | 'motivo' | 'numeroRescisao' | 'justificativaOverride',
+    event: Event,
+  ): void {
     const valor = (event.target as HTMLInputElement | HTMLTextAreaElement).value;
     this[destino].set(valor);
+  }
+
+  /** `override_reason` só entra no corpo quando há justificativa preenchida —
+   * o campo é opcional no serializer e não faz sentido fora do override. */
+  private comOverride<T extends { expected_version: number; notes: string }>(
+    payload: T,
+  ): T & { override_reason?: string } {
+    const justificativa = this.justificativaOverride().trim();
+    return justificativa ? { ...payload, override_reason: justificativa } : payload;
   }
 
   protected data(event: Event): void {
@@ -246,6 +272,7 @@ export class ProcessoEncerramentoPage {
           this.motivo.set('');
           this.numeroRescisao.set('');
           this.tarefasSelecionadas.set([]);
+          this.justificativaOverride.set('');
           this.aviso.set(
             result.idempotency_replayed ? 'O ato já havia sido registrado.' : sucesso,
           );
