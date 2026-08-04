@@ -664,7 +664,13 @@ público, e a aplicação está publicada na internet (ADR-052). Por isso:
   resposta quais manuais existem;
 - não carregam dado pessoal — nenhum nome, matrícula, CPF ou valor real —, então
   o acesso exige sessão mas não gera trilha própria, ao contrário da evidência
-  (§7) e da exportação (§13.3).
+  (§7) e da exportação (§13.3);
+- **sessão é a única exigência, inclusive para os manuais administrativos.** O
+  manual do administrador de usuários e o do SuperAdmin descrevem procedimento —
+  ordem de ativação do login AD, regra de escopo de papel, o que a autoridade
+  global não dispensa —, não credencial nem segredo: nenhum deles cita senha,
+  bind, host ou hash do ambiente. Restringi-los por papel duplicaria a
+  autorização da tela correspondente sem reduzir exposição.
 
 ## 14. Retenção
 

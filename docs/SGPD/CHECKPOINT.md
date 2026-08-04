@@ -63,10 +63,14 @@
   da fila e marcos de lembrete editáveis por SuperAdmin, com prova de envio;
 - indicadores do painel, relatórios por período, exportação CSV auditada e sonda
   de operação, todos somente leitura em `apps/reporting`;
-- manuais operacionais em `docs/operacao/` — responsável de área, Departamento
-  Pessoal e configuração —, gerados de `.md` para HTML e PDF por
-  `docs/operacao/build.mjs` e servidos em `/ajuda/<slug>/` atrás da sessão, com
-  botão **Ajuda** em Minhas tarefas, Processos e Grupos e templates (ADR-053).
+- manuais operacionais em `docs/operacao/`, um por público do catálogo de papéis
+  (ADR-054) — primeiros passos, responsável de área, Departamento Pessoal,
+  configuração, administração de usuários e SuperAdmin —, gerados de `.md` para
+  HTML e PDF por `docs/operacao/build.mjs` e servidos em `/ajuda/<slug>/` atrás
+  da sessão (ADR-053), com botão **Ajuda** em Painel, Minha senha, Minhas
+  tarefas, Processos, Grupos e templates, Usuários, ficha do usuário, Auditoria,
+  Configurações, LDAP, E-mail e Operação — 12 telas, com teste que casa cada
+  âncora com o `id` do HTML gerado.
 
 ## Estado corrente
 
@@ -1355,6 +1359,56 @@ deliberada.
 Continua aberto e depende de infraestrutura: senhas fracas do Oracle e do SMTP
 (R66), bind do AD com conta nominal sobre LDAP simples (R67) e `runserver`
 atendendo o tráfego real (R68).
+
+## Manuais por papel (2026-08-03)
+
+Os manuais deixaram de cobrir três telas e passaram a cobrir **um público por
+papel** do catálogo da ADR-054. Entraram três documentos em `docs/operacao/`,
+gerados de `.md` para HTML e PDF pelo mesmo `build.mjs`:
+
+- `primeiros-passos.md` — comum a toda conta autenticada: entrada, senha
+  temporária, o Painel e **a matriz de menu por papel**, que é onde a pergunta
+  “por que eu não vejo isso?” se responde sem chamado;
+- `usuarios-e-auditoria.md` — `USUARIOS_ADMIN`: lista, criação local, importação
+  do AD, ficha, redefinição de senha, vínculo de identidade e a trilha de
+  contas. Documenta explicitamente o que o papel **não** faz — atribuir papel,
+  excluir conta, vincular setor;
+- `configuracao-do-sistema.md` — SuperAdmin: central de configurações, ordem
+  imposta de ativação do login AD, e-mail e ritmo da fila, leitura da tela de
+  operação, atribuição de papel por escopo e reabertura de processo. A seção
+  *O que a sua autoridade não dispensa* fixa que o override de impedimento
+  continua exigindo justificativa mesmo do SuperAdmin, como o service já
+  garante.
+
+O botão **Ajuda** foi de 3 para 12 telas: Painel, Minha senha, Minhas tarefas,
+Processos, Grupos e templates, Usuários, ficha do usuário, Auditoria,
+Configurações, LDAP, E-mail e Operação. **Setores** e **Relatórios** ficaram sem
+botão de propósito — o procedimento delas está nos manuais de configuração e do
+DP, sem seção própria para ancorar.
+
+Dois cuidados que a entrega acrescentou:
+
+- `tests/test_operation_manuals.py` varre os `<app-ajuda-link>` da SPA e exige
+  que o slug esteja na lista branca e que a âncora exista como `id` no HTML
+  gerado. Era a única falha silenciosa que a ADR-053 previa e ninguém percebia
+  em revisão: título renomeado abre o manual na capa;
+- `rotuloPapel` do painel só nomeava `DP` — as contas administrativas viam
+  `USUARIOS_ADMIN` cru na seção *Seu acesso*, contra a ADR-047. Passou a nomear
+  os cinco papéis do catálogo e a capacidade derivada do setor.
+
+A decisão de **não** restringir o manual por papel está registrada na ADR-053 e
+em `SECURITY.md` §13.4: os manuais administrativos descrevem procedimento, não
+credencial, e sessão continua sendo a única exigência.
+
+Validação padrão executada por inteiro: 522 testes backend e 129 frontend, Ruff,
+formatação, Mypy em 226 arquivos, Django check, verificação de migrations,
+`check --deploy` com os dois avisos de HSTS já deliberados e build Angular sem
+avisos. Nenhuma migration — a entrega é documento, template e lista branca. Os
+três testes backend novos cobrem o slug fora da lista branca, a âncora
+inexistente e a varredura que não pode voltar vazia; os dois do frontend cobrem
+o rótulo dos papéis administrativos e o destino da ajuda do painel. Os três
+manuais novos foram conferidos em Chromium headless a 1100 e 420 px, sem rolagem
+horizontal.
 
 ## Histórico
 

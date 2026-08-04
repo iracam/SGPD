@@ -2160,7 +2160,13 @@ força bruta menos protegido do sistema.
 ### Estado
 
 Aceita em 2026-08-03, junto com a entrega dos três manuais em `docs/operacao/`.
-Governa como a documentação de uso chega a quem opera o sistema.
+Governa como a documentação de uso chega a quem opera o sistema. Estendida na
+mesma data para os seis manuais: um por público do catálogo de papéis da ADR-054
+(mais o de primeiros passos, comum a toda conta), com botão **Ajuda** em toda
+tela coberta. O mecanismo não mudou — a exigência continua sendo **apenas
+sessão**, e não papel: restringir o documento duplicaria a autorização da tela
+sem ganho, e quem trabalha com outro papel tem motivo legítimo para ler o manual
+dele.
 
 ### Contexto
 
@@ -2206,8 +2212,10 @@ manual de vinte páginas se consulta melhor ao lado do sistema do que dentro del
   de rodar `node docs/operacao/build.mjs`, em vez de 500;
 - o vínculo entre tela e seção é por `id` de `h2` do HTML gerado, que vem do
   título em português. **Renomear um título de seção quebra a âncora sem quebrar
-  o link** — o manual abre na capa. Quem renomeia seção confere os usos de
-  `secao` na SPA;
+  o link** — o manual abre na capa. Como falha silenciosa não se percebe em
+  revisão, `tests/test_operation_manuals.py` varre os `<app-ajuda-link>` da SPA
+  e exige que cada `manual` esteja na lista branca e cada `secao` exista como
+  `id` no HTML gerado;
 - acrescentar ajuda a outra tela é uma linha de template mais o registro do slug
   na lista branca;
 - o manual não é auditado como a evidência: é documento de procedimento, não
