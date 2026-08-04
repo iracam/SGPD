@@ -64,7 +64,6 @@
   gap: 0.4rem;
   font-size: 0.9rem;
   color: var(--p-text-muted-color);
-  overflow-wrap: anywhere;
 
   dt {
     margin: 0;
@@ -73,6 +72,10 @@
 
   dd {
     margin: 0;
+    min-width: 0;
+    // Só o valor pode quebrar em qualquer ponto: em 360 o `anywhere` no `dl`
+    // zerava o mínimo do rótulo e partia "Identificador" no meio da palavra.
+    overflow-wrap: anywhere;
   }
 }
 
