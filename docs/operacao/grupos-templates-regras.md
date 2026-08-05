@@ -83,12 +83,51 @@ versões seguintes.
 
 ---
 
-## Setores de validação
+## A tela Setores
 
 O setor é a base de tudo: um grupo só pode apontar para setores que existam, e
-uma tarefa só é gerada se o setor tiver responsável.
+uma tarefa só é gerada se o setor tiver responsável vigente.
 
-Acesse **Setores** e use **Novo setor**, ou **Editar** em um existente.
+A tela abre pelo menu **Setores** e é alcançada por quem tem **SETORES_ADMIN**
+ou é SuperAdmin. Ela mostra o catálogo inteiro — não há recorte por empresa — e
+concentra em um único lugar o cadastro da área, o alcance organizacional dela e
+quem responde por ela.
+
+### O que a lista mostra
+
+Cada setor aparece como um cartão no celular e como uma linha da tabela em telas
+largas. O conteúdo é o mesmo:
+
+| Coluna | O que diz |
+| --- | --- |
+| **Código** | Número curto do setor, precedido de `#`. É gerado pelo sistema ao salvar o primeiro cadastro e nunca muda — é por ele que a área é citada em conversas e chamados. |
+| **Nome** | Como a área aparece para todo mundo no sistema. |
+| **Prazo** | Prazo padrão em horas. |
+| **Escopo** | Uma etiqueta por linha de escopo: `Todas as empresas`, `Empresa 1`, `Empresa 1 · Filial 3`. |
+| **Responsável** | `N vigente(s)` em verde, ou `Não designado` em âmbar. Abaixo, `N agendado(s)` quando há responsável com início de validade no futuro. |
+| **Regras** | Resumo das três chaves de comportamento, uma etiqueta por chave **ligada**: `Bloqueante` = o setor está marcado como crítico; `Valores` = a área pode lançar pretensão de cobrança nas pendências; `Evidência` = a área declara exigir comprovante. Chave desligada não gera etiqueta — a ausência é a leitura de que ela está desligada. O que cada uma faz de fato está em *As três chaves de comportamento*, adiante. |
+| **Situação** | `Ativo` ou `Inativo`. |
+
+> **Atenção** `Não designado` é o alerta mais importante da tela. Um setor
+> obrigatório sem responsável vigente **impede o início do processo**, e o DP não
+> tem como resolver isso sozinho — a correção é aqui.
+
+Um setor com `N agendado(s)` e nenhum vigente também está descoberto **agora**:
+o vínculo agendado só passa a valer na data de início marcada.
+
+### Criar e editar
+
+**Novo setor** abre o formulário em branco; **Editar** abre o setor existente com
+o que já está gravado. É a mesma janela nos dois casos, e ela reúne quatro
+blocos: os dados da área, o comportamento padrão, as empresas e filiais atendidas
+e os responsáveis.
+
+**Salvar setor** grava os quatro blocos de uma vez. Se qualquer parte for
+recusada — um escopo inválido, um usuário inativo —, **nada** é gravado: a
+mensagem aparece no campo correspondente e o setor continua como estava.
+
+> **Importante** No cadastro novo, o campo **Setor ativo** não aparece: todo setor
+> nasce ativo. Ele só existe na edição.
 
 ### Os campos do setor
 
@@ -96,56 +135,176 @@ Acesse **Setores** e use **Novo setor**, ou **Editar** em um existente.
 | --- | --- | --- |
 | **Nome** | Sim | Até 120 caracteres. Como a área aparece para todo mundo: `Tecnologia da Informação`, `Almoxarifado BSA`. |
 | **Descrição** | Não | O que a área confere no desligamento. Ajuda quem for configurar depois. |
-| **Prazo padrão em horas** | Sim | Maior que zero. É o SLA do setor — usado quando nem o grupo nem o template definirem um prazo próprio. `48` significa dois dias corridos. |
-| **Setor de escalada** | Não | Para onde vai o aviso quando a tarefa passa 48 h do vencimento. Um setor não pode escalar para si mesmo. Deixe vazio para não escalar. |
+| **Prazo padrão em horas** | Sim | De 1 a 8760 horas (um ano). É o SLA do setor — usado quando nem o grupo nem o template definirem um prazo próprio. `48` significa dois dias corridos. |
+| **Setor de escalada** | Não | Para onde vai a cópia do aviso quando a tarefa entra em atraso crítico. A lista só oferece setores **ativos**, e nunca o próprio setor. Deixe vazio para não escalar. |
 | **Bloqueia o processo** | — | Ver tabela abaixo. |
 | **Permite lançar valores** | — | Ver tabela abaixo. |
 | **Exige evidência** | — | Ver tabela abaixo. |
-| **Setor ativo** | — | Desmarcado, o setor não entra em novas seleções. Setores **não são excluídos**, apenas inativados — há histórico dependendo deles. |
+| **Setor ativo** | — | Só na edição. Desmarcado, o setor não entra em novas seleções. Setores **não são excluídos**, apenas inativados — há histórico dependendo deles. |
 
 ### As três chaves de comportamento
 
-| Chave | Ligada | Desligada |
-| --- | --- | --- |
-| **Bloqueia o processo** | A tarefa deste setor precisa estar concluída para o processo ser liberado. É o padrão. | A tarefa é opcional para a liberação: fica como aviso na prontidão, não como impedimento. |
-| **Permite lançar valores** | Este setor pode registrar pretensão de cobrança em pendências de categoria `Valor`. | Os campos de valor simplesmente não aparecem para a área. |
-| **Exige evidência** | Marca a postura padrão do setor quanto a comprovantes. A exigência efetiva de cada pergunta é definida no template. | Sem postura padrão. |
+São as chaves que a lista resume na coluna **Regras**. Duas delas descrevem a
+área — servem de sinalização e de critério de configuração. Só uma muda o que o
+sistema aceita na operação do dia a dia.
+
+| Chave | O que faz quando ligada | O que acontece quando desligada | Efeito na operação |
+| --- | --- | --- | --- |
+| **Bloqueia o processo** | Marca o setor como **crítico** no catálogo: a etiqueta `Bloqueante` passa a aparecer na coluna **Regras**. É a declaração de que a validação desta área não deveria ser dispensada. Nasce ligada. | O setor não é sinalizado como crítico. | Nenhum. **Quem trava a liberação é o campo Obrigatório da regra do setor dentro do grupo** — é lá, e só lá, que se decide se a tarefa impede liberar o processo. Esta chave orienta quem monta o grupo; não substitui o *Obrigatório*. |
+| **Permite lançar valores** | Habilita a área a informar **pretensão de cobrança** em pendências de categoria `Valor`: o campo de valor aparece na tela da pendência e o lançamento é aceito. | O campo de valor não aparece, e um lançamento enviado assim mesmo é recusado com *O setor não está habilitado a lançar valores*. | **Real e imediato.** É a única das três que o sistema verifica ao gravar. Vale para lançamentos feitos dali em diante; pretensões já registradas não são afetadas. |
+| **Exige evidência** | Registra a **postura padrão** da área quanto a comprovantes e exibe a etiqueta `Evidência`. Serve de lembrete a quem escreve o template desta área. | Sem postura declarada. | Nenhum por si só. A cobrança de comprovante é **por pergunta**, pelo marcador *Exige evidência* do template — é ele que impede concluir a tarefa sem arquivo. |
 
 > **Atenção** **Permite lançar valores** costuma ser o campo mais esquecido. Se
 > uma área reclamar que não consegue informar um valor, verifique aqui primeiro.
 > A mudança vale para pendências criadas dali em diante.
 
-### Escopos de atendimento
+> **Importante** Não confie em **Bloqueia o processo** para tornar uma validação
+> obrigatória. Um setor com essa chave ligada, incluído num grupo com
+> *Obrigatório* desligado, **não** impede a liberação — a tarefa dele vira
+> apenas um aviso na prontidão.
 
-Um setor não atende necessariamente a empresa inteira. Cada escopo é uma linha,
-e um setor pode ter vários.
+### Empresas e filiais atendidas
+
+Um setor não atende necessariamente a empresa inteira. Cada escopo é uma linha do
+bloco **Empresas e filiais atendidas**, e um setor pode ter várias.
 
 | Abrangência | Campos que exige | Quando usar |
 | --- | --- | --- |
-| `Global` | Nenhum | O setor atende todas as empresas e filiais. Típico de TI corporativo e Departamento Pessoal. |
+| `Todas as empresas` | Nenhum | O setor atende todas as empresas e filiais. Típico de TI corporativo e Departamento Pessoal. |
 | `Empresa` | Empresa | O setor atende só aquela empresa, em todas as filiais dela. |
 | `Filial` | Empresa **e** Filial | O setor atende só aquela filial. Típico de almoxarifado e portaria. |
 
-Filial sem empresa é recusado — a filial só existe dentro de uma empresa.
+Empresa e filial são informadas pelo **código numérico oficial do Senior**, não
+pelo nome. É o mesmo código que o DP vê na cascata de abertura do processo — se
+tiver dúvida, confira lá antes de cadastrar.
+
+Quatro combinações são recusadas na hora de salvar:
+
+- **nenhum escopo** — o setor precisa de pelo menos uma linha;
+- **`Todas as empresas` junto com qualquer outra linha** — quem atende tudo não
+  precisa de recorte. Ao escolher essa abrangência, a tela apaga as demais linhas
+  e desabilita **Adicionar escopo**;
+- **o mesmo escopo duas vezes**;
+- **uma filial cuja empresa inteira já é atendida** por outra linha — a segunda
+  linha não acrescenta nada.
+
+Filial sem empresa também é recusado: a filial só existe dentro de uma empresa.
 
 > **Importante** O escopo decide se o setor pode aparecer em um processo. Um
 > grupo pode listar o setor, mas se o escopo dele não alcançar a empresa ou a
 > filial do colaborador, o setor não gera tarefa.
 
-### Responsáveis
+### Responsáveis pelo setor
 
 Cada linha liga um **usuário** ao setor, com **Início da validade** e,
-opcionalmente, **Fim da validade**.
+opcionalmente, **Fim da validade**. A lista de usuários oferece apenas contas
+ativas e aceita busca por nome, login ou e-mail.
 
-- Todos os responsáveis vigentes têm **a mesma autoridade** sobre a tarefa. Não
-  existe dono individual: qualquer um pode iniciar, responder e concluir.
-- Os avisos de prazo vão para **todos** eles.
-- Responsabilidade se **revoga** (preenchendo o fim da validade), não se exclui.
+| Campo | Em branco significa |
+| --- | --- |
+| **Início da validade** | Vigência imediata — vale a partir do momento em que você salvar. |
+| **Fim da validade** | Sem término previsto. |
+
+O fim precisa ser posterior ao início, e o mesmo usuário não pode aparecer duas
+vezes no mesmo setor.
+
+A lista da tela traduz esses campos em três situações:
+
+| Situação | O que é | Efeito |
+| --- | --- | --- |
+| **Vigente** | Início já passou e o fim ainda não chegou. | Recebe tarefa e aviso. É o que conta para o setor estar coberto. |
+| **Agendado** | Início marcado para o futuro. | Ainda não recebe nada. Serve para preparar uma troca de responsável. |
+| **Revogado** | Linha removida do formulário, ou fim da validade já passado. | Não recebe mais nada, mas o histórico do que a pessoa fez continua íntegro. |
+
+Como isso se comporta na prática:
+
+- todos os responsáveis vigentes têm **a mesma autoridade** sobre a tarefa. Não
+  existe dono individual: qualquer um pode iniciar, responder e concluir;
+- os avisos de prazo vão para **todos** eles;
+- **remover a linha revoga, não apaga.** O vínculo fica registrado como revogado,
+  com o seu nome e a data. Se você designar a mesma pessoa de novo mais tarde, o
+  vínculo é reativado com a nova validade;
+- o responsável **herda automaticamente** os escopos cadastrados acima. Não há
+  escopo por pessoa: quem responde pelo setor responde por tudo o que o setor
+  atende;
+- **ser responsável é o que dá acesso** ao menu *Minhas tarefas*. Não existe papel
+  a atribuir para isso — a capacidade vem do vínculo vigente e some quando ele é
+  revogado. Se alguém pede acesso às tarefas de uma área, a resposta é designar a
+  pessoa aqui, não pedir papel ao SuperAdmin.
 
 > **Nunca** Não deixe um setor obrigatório sem responsável vigente. O início do
 > processo é **bloqueado** quando isso acontece, e o DP fica travado sem poder
-> resolver sozinho. Ao desligar alguém que responde por um setor, transfira a
-> responsabilidade antes.
+> resolver sozinho. Ao desligar alguém que responde por um setor, designe o
+> substituto **antes** de revogar.
+
+### Escalada
+
+O **setor de escalada** só entra em cena no atraso crítico — 48 horas depois do
+vencimento da tarefa, por padrão. O marco é configurável pelo SuperAdmin em
+*Configurações → E-mail e notificações*, e vale para o sistema inteiro.
+
+Nesse momento, os responsáveis vigentes do setor de escalada passam a receber o
+aviso **junto** com os responsáveis do próprio setor e com o DP do processo. A
+escalada não transfere a tarefa: ela continua sendo do setor de origem, e quem
+conclui é ele.
+
+O sistema recusa três configurações de escalada:
+
+- escalar para **si mesmo**;
+- escalar para um setor **inativo**;
+- montar um **ciclo** — A escala para B, B escala para C e C escala para A. A
+  cadeia é conferida inteira, não só o próximo salto.
+
+> **Atenção** Um setor usado como destino de escalada por outro setor ativo **não
+> pode ser inativado**. Ajuste primeiro quem escala para ele.
+
+### Ativar, inativar e o que nunca acontece
+
+Setores **não são excluídos**. A tela não tem botão de excluir porque há
+processos, tarefas e trilha de auditoria dependendo de cada setor — apagar um
+deles apagaria o passado.
+
+Desmarcar **Setor ativo** faz o setor parar de entrar em novas seleções: ele some
+das listas de grupo e de escalada e não gera tarefa em processo novo. Tarefas já
+criadas continuam vivas e precisam ser concluídas normalmente.
+
+Toda criação, alteração, ativação, inativação, designação e revogação fica
+registrada com o seu nome, a data e o conteúdo do que mudou. Esse registro é
+permanente.
+
+### O que o sistema recusa, e o que fazer
+
+| Mensagem | O que resolve |
+| --- | --- |
+| *Informe ao menos um escopo de atendimento.* | Adicione a linha de abrangência do setor. |
+| *O escopo global não pode ser combinado com empresa ou filial.* | Deixe só `Todas as empresas`, ou troque por linhas específicas. |
+| *O mesmo escopo foi informado mais de uma vez.* | Remova a linha repetida. |
+| *Uma filial não deve ser repetida quando toda a empresa já é atendida.* | Remova a linha da filial: a linha da empresa já a cobre. |
+| *O mesmo usuário foi informado mais de uma vez.* | Um usuário, uma linha. Ajuste a validade na linha existente. |
+| *A validade final deve ser posterior à inicial.* | Corrija as datas do responsável. |
+| *O usuário precisa estar ativo.* | A conta foi desativada. Designe outra pessoa, ou peça a reativação da conta a quem administra usuários. |
+| *O setor não pode escalar para ele próprio.* | Escolha outro setor, ou deixe a escalada vazia. |
+| *O setor de escalada precisa estar ativo.* | Reative o setor de destino ou escolha outro. |
+| *A configuração criaria um ciclo de escalada.* | Refaça a cadeia: ela precisa terminar em algum setor sem escalada. |
+| *O setor é usado como destino de escalada por um setor ativo.* | Troque a escalada do outro setor antes de inativar este. |
+| *O setor foi alterado por outra sessão. Recarregue a página.* | Alguém salvou o mesmo setor enquanto você editava. Recarregue, confira o que mudou e refaça a sua alteração — o sistema não sobrescreve o trabalho do outro. |
+
+### Um roteiro para o setor novo
+
+1. **Novo setor**, nome e descrição que a área reconheça.
+2. Prazo padrão compatível com o trabalho real — não com o prazo ideal.
+3. As três chaves: **Bloqueia o processo** ligado é o padrão e sinaliza a área
+   como crítica; ligue **Permite lançar valores** se a área cobra alguma coisa
+   no desligamento — sem ela a área não consegue informar valor nenhum; ligue
+   **Exige evidência** se a área trabalha com comprovante, como lembrete para
+   quem for escrever o template dela.
+4. Escopo: `Todas as empresas` para área corporativa; empresa ou filial para área
+   local, usando os códigos do Senior.
+5. Pelo menos **dois responsáveis vigentes**, para a área não parar em férias.
+6. Escalada, se a área for crítica.
+7. **Salvar setor** e conferir na lista: o cartão precisa mostrar `Ativo` e
+   `responsáveis vigentes` em verde.
+8. Só então use o setor em um grupo de validação.
 
 ---
 
@@ -193,12 +352,17 @@ mais compensa pensar antes.
 
 #### Os quatro marcadores
 
-| Marcador | Ligado | Desligado |
+| Marcador | O que faz quando ligado | O que acontece quando desligado |
 | --- | --- | --- |
-| **Obrigatória** | A tarefa **não conclui** sem esta resposta. A pergunta aparece com asterisco. | O setor pode deixar em branco. |
-| **Bloqueante** | Sinaliza que esta pergunta é crítica para a liberação. | Pergunta comum. |
-| **Exige evidência** | O setor precisa anexar arquivo. Combinada com *Obrigatória*, a falta do arquivo impede a conclusão. | Sem exigência de comprovante. |
-| **Permite pendência** | O setor pode vincular uma pendência a esta pergunta específica. | A pergunta não aparece na lista *Item relacionado* do formulário de pendência. |
+| **Obrigatória** | **Trava a conclusão da tarefa** enquanto a pergunta estiver sem resposta. A pergunta aparece com asterisco (**\***) para quem responde. Em pergunta do tipo `Arquivo`, o que ela cobra é o arquivo, não uma resposta digitada. | O setor pode deixar em branco e concluir mesmo assim. |
+| **Bloqueante** | Marca a pergunta como **crítica**: a pré-visualização passa a exibir a nota *Sinalizada como crítica*. É destaque para quem responde e para quem confere, não uma trava. | Pergunta comum, sem destaque. |
+| **Exige evidência** | **Trava a conclusão da tarefa** enquanto não houver arquivo anexado a esta pergunta. A cobrança vale quando a pergunta é *Obrigatória* **ou** quando ela foi respondida — pergunta opcional deixada em branco não cobra comprovante. | Responder basta; anexar arquivo continua permitido, mas é opcional. |
+| **Permite pendência** | O setor pode vincular uma pendência a esta pergunta específica: ela aparece na lista *Item relacionado* do formulário de pendência. | A pergunta não aparece nessa lista. A área ainda pode registrar pendência da tarefa, só não amarrada a esta pergunta. |
+
+> **Importante** Dos quatro, **Obrigatória** e **Exige evidência** são os que de
+> fato impedem o setor de concluir a tarefa. **Bloqueante** destaca a pergunta
+> mas não acrescenta trava, e **Permite pendência** apenas decide onde a
+> pergunta pode ser citada.
 
 > **Dica** Nem toda pergunta precisa ser obrigatória. Excesso de obrigatoriedade
 > leva a resposta de fachada — o setor preenche qualquer coisa para conseguir
@@ -246,8 +410,8 @@ Cada linha liga um setor a um template publicado.
 | **Setor** | Sim | Um setor cadastrado. Não pode repetir o mesmo setor duas vezes no grupo. |
 | **Template publicado** | Sim | Só aparecem versões **publicadas**. Um rascunho não pode ser usado. |
 | **SLA específico (horas)** | Não | De 1 a 8760. Sobrepõe o SLA do template e o prazo do setor **apenas neste grupo**. |
-| **Obrigatório** | — | Ligado, a tarefa deste setor precisa ser concluída para liberar o processo. Desligado, ela vira aviso na prontidão, não impedimento. |
-| **Bloqueante** | — | Ligado, marca a validação deste setor como crítica dentro do grupo. |
+| **Obrigatório** | — | **É a chave que decide se a validação trava a liberação.** Ligado, a tarefa deste setor precisa estar concluída para o processo ser liberado, e o processo nem começa se o setor estiver sem responsável vigente. Desligado, a tarefa vira aviso na prontidão, não impedimento. Nasce ligado. |
+| **Bloqueante** | — | Ligado, marca a validação deste setor como **crítica** dentro do grupo: a etiqueta `Bloqueante` aparece em **Setores que serão gerados**, no rascunho do processo, e sinaliza ao DP que essa área não deveria ser dispensada. Não acrescenta trava além do que *Obrigatório* já faz. Nasce ligado. |
 
 ### A precedência do prazo
 
@@ -401,6 +565,8 @@ Passe por esta lista antes de tornar qualquer coisa vigente.
 **Grupo**
 
 - Todo setor aponta para o template certo, na versão certa?
+- Os setores que não podem ser dispensados estão com **Obrigatório** ligado? É
+  esta chave — não a do cadastro do setor — que impede liberar o processo.
 - Os prazos específicos são realistas?
 - Se este grupo puder ser selecionado junto com outro, os setores em comum usam
   o **mesmo template**?
@@ -429,6 +595,21 @@ já iniciados **não** recebem a correção.
 **Preciso apagar um setor que não uso mais.**
 Não é possível apagar. Desmarque **Setor ativo** — ele deixa de entrar em novas
 seleções e o histórico continua íntegro.
+
+**Designei a pessoa, mas ela não vê Minhas tarefas.**
+Confira, nesta ordem: o **Início da validade** já passou (responsável agendado
+ainda não vale)? O **setor** está ativo? A **conta** dela está ativa? O menu
+aparece a partir do vínculo vigente, sem papel a atribuir — se o vínculo está
+vigente, basta ela recarregar a página.
+
+**Removi um responsável por engano.**
+Designe a pessoa de novo no mesmo setor e salve: o vínculo é reativado com a nova
+validade. O período revogado continua registrado na trilha, como deve ser.
+
+**O setor não gera tarefa em uma filial.**
+O escopo não alcança aquela filial. Confira as linhas de **Empresas e filiais
+atendidas** contra o código de empresa e filial do colaborador — são os códigos
+do Senior, não os nomes.
 
 **Mudei o template mas as tarefas antigas continuam iguais.**
 É o comportamento correto. Cada tarefa guarda as perguntas da versão vigente

@@ -303,13 +303,16 @@ export class WorkflowConfigPage {
       : [];
   }
 
+  // Notas do que a configuração faz, não do que ela parece prometer: `blocks_process`
+  // é sinalização e não impede nada — quem trava a conclusão é `is_required` e
+  // `requires_evidence`, e quem trava a liberação é o `Obrigatório` da regra do grupo.
   notasConfiguracao(blocksProcess: boolean, allowsPending: boolean): string {
     const notas: string[] = [];
     if (blocksProcess) {
-      notas.push('Bloqueia a conclusão do processo');
+      notas.push('Sinalizada como crítica');
     }
     if (allowsPending) {
-      notas.push('Permite registrar pendência');
+      notas.push('Aceita pendência vinculada');
     }
     return notas.join(' · ');
   }

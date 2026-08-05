@@ -147,7 +147,16 @@ seleção**.
 
 O bloco **Setores que serão gerados** mostra o resultado: cada setor que vai
 receber tarefa, com o template e a versão que serão usados, o SLA em horas e as
-marcas **Obrigatório** e **Bloqueante**.
+marcas **Obrigatório** e **Bloqueante**:
+
+| Marca | O que significa para o processo |
+| --- | --- |
+| **Obrigatório** | A tarefa deste setor **precisa estar concluída** para o processo ser liberado, e o início é bloqueado se a área estiver sem responsável vigente. Sem a marca, a tarefa é criada do mesmo jeito, mas fica como **aviso** na prontidão — não impede liberar. |
+| **Bloqueante** | O setor foi configurado como **crítico** por quem montou o grupo: é a sinalização de que essa validação não deveria ser dispensada. É um alerta de leitura, não uma trava adicional — quem impede a liberação é a marca **Obrigatório**. |
+
+Marca ausente é chave desligada. As duas vêm da regra do setor dentro do grupo
+selecionado; se estiverem erradas, a correção é em **Grupos e templates**, com
+quem tem `GRUPOS_TEMPLATE_ADMIN` — não há como ajustá-las no rascunho.
 
 ### Iniciar o processo
 

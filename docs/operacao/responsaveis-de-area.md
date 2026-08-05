@@ -172,6 +172,19 @@ Cada pergunta tem um tipo, e o tipo determina o campo que aparece na tela.
 Algumas perguntas exigem comprovante. Nesses casos aparece o bloco **Evidências
 privadas**, com o botão *Selecionar PDF, PNG ou JPEG*.
 
+Quando a exigência trava a conclusão:
+
+| Situação da pergunta que exige comprovante | O que o sistema faz |
+| --- | --- |
+| Obrigatória (com **\***) | **Não conclui** sem arquivo, respondida ou não. |
+| Opcional e **você respondeu** | **Não conclui** sem arquivo. Ao responder, você assume o comprovante junto. |
+| Opcional e deixada em branco | Conclui normalmente. Sem resposta, não há o que comprovar. |
+| Tipo **Arquivo** e obrigatória | O arquivo *é* a resposta: **não conclui** sem ele. |
+
+Quem decide isso é quem monta o checklist, pergunta a pergunta. Não há como
+dispensar o comprovante pela tela da tarefa — se a exigência estiver errada,
+fale com quem configura os templates.
+
 | Regra | Valor |
 | --- | --- |
 | Formatos aceitos | `PDF`, `PNG`, `JPG` / `JPEG` — e mais nenhum |

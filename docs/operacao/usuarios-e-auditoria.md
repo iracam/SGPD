@@ -334,7 +334,7 @@ Se a conta é local, **Redefinir senha** com troca obrigatória. Se a conta usa 
 Active Directory, o botão fica indisponível: a senha é a da rede e quem resolve
 é o suporte de TI.
 
-**O botão *Atribuir papel* não aparece na ficha.**
+**O botão Atribuir papel não aparece na ficha.**
 Não é falha de tela. Atribuir papel é ato exclusivo do SuperAdmin.
 
 **Importei do AD e o login ficou diferente do que eu esperava.**

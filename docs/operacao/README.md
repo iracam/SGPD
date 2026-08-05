@@ -102,6 +102,7 @@ o manual do papel que a usa:
 | Minha senha | qualquer conta | `primeiros-passos` | `minha-senha` |
 | Minhas tarefas | `RESPONSAVEL_SETOR` | `responsaveis-de-area` | `a-tela-minhas-tarefas` |
 | Processos | `DP`, `DP_GERENTE` | `departamento-pessoal` | `acompanhar-os-processos` |
+| Setores | `SETORES_ADMIN` | `grupos-templates-regras` | `a-tela-setores` |
 | Grupos e templates | `GRUPOS_TEMPLATE_ADMIN` | `grupos-templates-regras` | `o-que-voce-vai-configurar` |
 | Usuários | `USUARIOS_ADMIN` | `usuarios-e-auditoria` | `a-tela-usuarios` |
 | Ficha do usuário | `USUARIOS_ADMIN` | `usuarios-e-auditoria` | `a-ficha-do-usuario` |
@@ -111,9 +112,8 @@ o manual do papel que a usa:
 | E-mail e notificações | SuperAdmin | `configuracao-do-sistema` | `e-mail-e-notificacoes` |
 | Operação e monitoramento | SuperAdmin | `configuracao-do-sistema` | `operacao-e-monitoramento` |
 
-**Setores** e **Relatórios** ainda não têm botão: o procedimento delas está,
-respectivamente, no *Manual de Configuração* e no *Manual do Departamento
-Pessoal*, sem seção própria para ancorar.
+**Relatórios** ainda não tem botão: o procedimento dela está no *Manual do
+Departamento Pessoal*, sem seção própria para ancorar.
 
 O manual continua exigindo **apenas sessão** — a coluna “quem alcança” descreve
 quem chega à tela, não uma barreira na rota `/ajuda/`. Restringir o documento por

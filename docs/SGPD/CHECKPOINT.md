@@ -68,9 +68,9 @@
   configuração, administração de usuários e SuperAdmin —, gerados de `.md` para
   HTML e PDF por `docs/operacao/build.mjs` e servidos em `/ajuda/<slug>/` atrás
   da sessão (ADR-053), com botão **Ajuda** em Painel, Minha senha, Minhas
-  tarefas, Processos, Grupos e templates, Usuários, ficha do usuário, Auditoria,
-  Configurações, LDAP, E-mail e Operação — 12 telas, com teste que casa cada
-  âncora com o `id` do HTML gerado.
+  tarefas, Processos, Setores, Grupos e templates, Usuários, ficha do usuário,
+  Auditoria, Configurações, LDAP, E-mail e Operação — 13 telas, com teste que
+  casa cada âncora com o `id` do HTML gerado; só Relatórios segue sem botão.
 
 ## Estado corrente
 
@@ -1409,6 +1409,76 @@ inexistente e a varredura que não pode voltar vazia; os dois do frontend cobrem
 o rótulo dos papéis administrativos e o destino da ajuda do painel. Os três
 manuais novos foram conferidos em Chromium headless a 1100 e 420 px, sem rolagem
 horizontal.
+
+## Ajuda da tela Setores (2026-08-04)
+
+Setores era a única tela de configuração sem ajuda: o *Manual de Configuração*
+tratava do setor como peça do processo — campos, chaves, escopo e responsáveis —
+mas não documentava a tela, e por isso não havia seção para ancorar.
+
+O capítulo virou `## A tela Setores` e passou a descrever o que a pessoa vê e o
+que o sistema recusa: a leitura da lista (código automático, escopo, `N
+vigente(s)` contra `Não designado`, os agendados que ainda não cobrem nada), o
+salvamento único dos quatro blocos, as quatro combinações de escopo recusadas, as
+três situações do responsável — com a revogação que preserva histórico e reativa
+no redesígnio —, o que a escalada faz no atraso crítico e o que ela recusa
+(ciclo, destino inativo, inativar quem é destino de escalada ativo), além de uma
+tabela de mensagem de recusa → o que fazer, incluindo a versão otimista.
+
+Dois fatos que faltavam por escrito em qualquer manual e agora estão no lugar
+certo: escopo de setor é informado pelo **código do Senior**, não pelo nome; e
+designar responsável é o que dá acesso a *Minhas tarefas* — `RESPONSAVEL_SETOR`
+é derivado do vínculo, não papel a pedir ao SuperAdmin.
+
+A tela ganhou o botão **Ajuda** apontando para `a-tela-setores`, cobertos pelo
+teste que casa âncora e `id`. Restam **Relatórios** sem botão. Validação padrão
+por inteiro, sem migration: 522 testes backend e 129 frontend, Ruff, formatação,
+Mypy em 226 arquivos, Django check e build Angular.
+
+## Função das chaves nos manuais (2026-08-04)
+
+Os manuais nomeavam as chaves de configuração — as etiquetas `Bloqueante`,
+`Valores` e `Evidência` da lista de setores, os quatro marcadores da pergunta, o
+par *Obrigatório* / *Bloqueante* da regra de grupo — sem dizer o que cada uma
+faz. Agora cada uma tem a ação declarada, separando o que trava do que apenas
+sinaliza.
+
+A revisão corrigiu uma afirmação falsa: o *Manual de Configuração* dizia que
+**Bloqueia o processo**, no cadastro do setor, exigia a conclusão da tarefa para
+liberar. Não exige. Confrontado com o código, `blocks_process` é copiado do setor
+para a regra de grupo, da regra para a tarefa e do item de template para o item
+do checklist, mas **nenhuma decisão o lê**: quem trava a liberação é
+`is_required` da tarefa (`readiness.py`), quem trava a conclusão da tarefa é
+`is_required` e `requires_evidence` do item (`services.py`), e a única das três
+chaves do setor com efeito de gravação é `allows_amount`, verificada ao lançar
+pretensão. Os manuais passaram a descrever esse comportamento real; o texto de
+`Bloqueante` é sinalização, com aviso explícito de não confiar nela para tornar
+uma validação obrigatória.
+
+Também documentada a régua exata da evidência, que nenhum manual trazia: o
+comprovante é cobrado quando a pergunta é obrigatória **ou** foi respondida —
+pergunta opcional deixada em branco não cobra nada.
+
+A pré-visualização do checklist prometia o mesmo que o manual: exibia *Bloqueia a
+conclusão do processo* para pergunta marcada como bloqueante. A nota passou a
+*Sinalizada como crítica*, e *Permite registrar pendência* virou *Aceita pendência
+vinculada* — `allows_pending` decide se a pergunta pode ser o item relacionado da
+pendência, não se a área pode registrar pendência. `notasConfiguracao`
+(`workflow-config.ts`) carrega o comentário do porquê, para a redação não
+regredir.
+
+A divergência foi resolvida pelo texto, não transformando `blocks_process` em
+trava. Nenhuma ADR define o bloqueio como segunda régua de liberação: a ADR-039
+o trata como atributo que a resolução combina por `OR` entre grupos, e a
+prontidão sempre decidiu por obrigatoriedade. Promover o bloqueio a trava daria
+duas réguas para a mesma decisão e mudaria, sem aviso, o comportamento de toda
+configuração já publicada — decisão de produto, não conserto de redação. Fica
+disponível se algum dia se quiser distinguir *crítico* de *obrigatório*.
+
+Manuais tocados: Configuração, Departamento Pessoal e Responsável de Área.
+Aproveitado o mesmo passe para corrigir ênfase aninhada (`**… *x* …**`) que
+vazava `**` literal no PDF de Configuração, Primeiros Passos e Usuários. Os seis
+`.html`/`.pdf` foram regerados; `tests/test_operation_manuals.py` passa (13).
 
 ## Histórico
 

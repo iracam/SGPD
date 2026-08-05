@@ -17,6 +17,7 @@ import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 import { Observable, finalize, forkJoin } from 'rxjs';
 
+import { AjudaLink } from '../../core/ajuda/ajuda-link';
 import { FieldErrors, errorMessage, fieldErrors } from '../../core/api/api-error';
 import {
   EdicaoSetor,
@@ -53,6 +54,7 @@ type ResponsavelForm = FormGroup<{
     MessageModule,
     SelectModule,
     TextareaModule,
+    AjudaLink,
   ],
   templateUrl: './setores.html',
   styleUrl: './setores.scss',

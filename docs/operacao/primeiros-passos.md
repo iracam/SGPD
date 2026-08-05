@@ -192,7 +192,7 @@ Confira se está usando a senha da rede ou a senha temporária do SGPD — depen
 como o ambiente está configurado. Repetir a tentativa errada não resolve, e cada
 falha fica registrada na auditoria. Procure quem administra usuários.
 
-**O sistema me leva sempre para *Minha senha*.**
+**O sistema me leva sempre para Minha senha.**
 Sua senha é temporária. Troque-a e o restante do sistema se abre.
 
 **Vejo menos itens de menu que um colega da mesma área.**
