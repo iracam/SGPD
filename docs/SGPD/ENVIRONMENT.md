@@ -5,7 +5,7 @@
 Levantamento executado em 2026-07-27 no ambiente DEV.
 
 Desde 2026-08-05 existe um segundo ambiente: o host de produção da ADR-055, em
-`/opt/sgpd` sob usuário de serviço, apontando para o mesmo schema `SGPD`. HML
+`/home/macari/prd/SGPD`, apontando para o mesmo schema `SGPD`. HML
 continua fora do escopo.
 
 Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nomes de variáveis, executáveis, versões, estado de serviços e arquivos de configuração; as credenciais locais foram usadas somente pelo cliente Oracle durante o teste de conexão.
@@ -87,7 +87,8 @@ estão no `RUNBOOK.md` §2 — fonte canônica do procedimento.
 | Item | DEV | PRD (ADR-055) |
 |---|---|---|
 | Host/SO | Debian 13.6 confirmado | Debian 13, host próprio |
-| Diretório | Árvore de trabalho do desenvolvedor | `/opt/sgpd`, usuário de serviço `sgpd` sem shell de login |
+| Diretório | `/home/macari/dev/SGPD` | `/home/macari/prd/SGPD`, a estrutura já usada pelos demais sistemas do host |
+| Usuário do SO | `macari` | `macari` — `/home/macari` é `0700` e conta de serviço separada não leria a árvore (R72) |
 | Python | 3.13 homologado; dependências gerenciadas por `uv` | Mesmo `uv.lock`, instalado com `uv sync --frozen --no-dev` |
 | Oracle | Database 19c e Instant Client 19.28 confirmados | Mesmos |
 | Oracle SGPD | Owner `SGPD` como conexão única; `CREATE TABLE` e `CREATE SEQUENCE` sem `ADMIN OPTION`; quota de 500 MB em `PIMS_DATA`; migrations aplicadas | **O mesmo schema**, promovido a produtivo; ADR-022 estendida como risco aceito |
@@ -100,7 +101,7 @@ estão no `RUNBOOK.md` §2 — fonte canônica do procedimento.
 | Autenticação | Local operacional; descoberta e login AD compartilham o transporte definido pelo SuperAdmin; LDAP simples funciona com warning; login AD desligado até teste controlado | Mesma configuração, lida do mesmo schema |
 | Estáticos | WhiteNoise configurado para assets da SPA e Django Admin | Mesmo, sem releitura de disco |
 | Frontend | SPA Angular 21 + PrimeNG 21 em operação; Node 24.18.0 e npm 11.16.0 homologados | Mesmo build, gerado no host pelo `scripts/deploy.sh` |
-| Evidências | Filesystem local privado em `media/evidence` | `/var/lib/sgpd/evidence`, fora da árvore da aplicação |
+| Evidências | Filesystem local privado em `media/evidence` | `/home/macari/prd/sgpd-data/evidence`, fora da árvore da aplicação |
 | Django Admin | Ligado | Desligado (`DJANGO_ADMIN_ENABLED=false`) |
 | Publicação | Acesso local | `https://sgpd.bsabioenergia.com.br` por proxy em `192.168.1.6`, que termina o TLS e encaminha para `:8002` repassando `X-Forwarded-Proto` e `X-Forwarded-For`; settings `config.settings.production` (ADR-052) |
 | Secrets | `.env` local; usuários individuais no formato `nome.sobrenome` | `.env` em modo `600`; **mesmo `DJANGO_SECRET_KEY` enquanto o schema for compartilhado** (R69) |

@@ -23,7 +23,8 @@
   no host de produção**
 - Próximo incremento: executar o corte pelo checklist do `RUNBOOK.md` §11 —
   provisionar o host, levar o mesmo `DJANGO_SECRET_KEY` (ou reinformar as senhas
-  da central), copiar `/var/lib/sgpd/evidence`, parar o serviço anterior e
+  da central), copiar as evidências para `/home/macari/prd/sgpd-data/evidence`,
+  parar o serviço anterior e
   reapontar o proxy. Fora do repositório e aceitos com prazo: rotacionar as
   senhas do Oracle e do SMTP (R66), trocar o bind do AD por conta de serviço com
   TLS (R67), validar backup e restauração com o DBA (`RUNBOOK.md` §6) e criar o

@@ -9,13 +9,12 @@ After=network-online.target sgpd-web.service
 
 [Service]
 Type=oneshot
-User=sgpd
-Group=sgpd
-WorkingDirectory=/opt/sgpd
-ExecStart=/opt/sgpd/.venv/bin/python manage.py sgpd_scan_notifications --dispatch
+User=macari
+Group=macari
+WorkingDirectory=/home/macari/prd/SGPD
+ExecStart=/home/macari/prd/SGPD/.venv/bin/python manage.py sgpd_scan_notifications --dispatch
 
+# Sem ProtectHome: a aplicação está dentro de /home (ver sgpd-web.service).
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
-ReadWritePaths=/var/lib/sgpd

@@ -162,8 +162,8 @@ schema `SGPD` no Oracle 19c é o alvo. O que precisa estar coberto:
    checklists, pendências, valores, decisões, notificações, auditoria e a
    trilha de exportações;
 2. **Storage de evidências** — o diretório privado do `.env`
-   (`media/evidence` no DEV, `/var/lib/sgpd/evidence` no PRD). Os bytes não
-   estão no banco: backup do Oracle sozinho não restaura evidência;
+   (`media/evidence` no DEV, `/home/macari/prd/sgpd-data/evidence` no PRD). Os
+   bytes não estão no banco: backup do Oracle sozinho não restaura evidência;
 3. **Configuração** — o `.env` (fora do Git, com segredos) e, no banco, os
    singletons de LDAP e de e-mail.
 
@@ -293,52 +293,56 @@ Pontos que costumam gerar dúvida e valem ser ditos em voz alta no treinamento:
 
 ## 11. Deploy e go-live do PRD
 
-O ambiente produtivo é o da ADR-055: host próprio em `/opt/sgpd`, usuário de
-serviço `sgpd`, Gunicorn sob systemd e **o mesmo schema `SGPD` do host anterior**.
-Não há carga inicial: o acervo atual é promovido a produtivo.
+O ambiente produtivo é o da ADR-055: `/home/macari/prd/SGPD`, Gunicorn sob
+systemd e **o mesmo schema `SGPD` do host anterior**. Não há carga inicial: o
+acervo atual é promovido a produtivo.
+
+O serviço roda como `macari`, dono do diretório — `/home/macari` é `0700` e uma
+conta de serviço separada não leria a árvore. O mesmo usuário roda o DEV em
+`/home/macari/dev/SGPD`: os dois `.env` são visíveis um ao outro, e o cuidado
+com o diretório corrente deixa de ser cosmético (R72).
 
 ### 11.1 Provisionamento (uma vez)
 
 ```bash
-sudo useradd --system --home-dir /opt/sgpd --shell /usr/sbin/nologin sgpd
-sudo install -d -o sgpd -g sgpd -m 750 /opt/sgpd
-sudo install -d -o sgpd -g sgpd -m 700 /var/lib/sgpd/evidence
-sudo install -d -o sgpd -g sgpd -m 700 /var/lib/sgpd/system-configuration
+install -d -m 750 /home/macari/prd
+install -d -m 700 /home/macari/prd/sgpd-data/evidence
+install -d -m 700 /home/macari/prd/sgpd-data/system-configuration
 # Oracle Instant Client 19.28, Node 24 e uv conforme ENVIRONMENT.md §2.
 
-sudo -u sgpd git clone git@github.com:iracam/SGPD.git /opt/sgpd
+git clone git@github.com:iracam/SGPD.git /home/macari/prd/SGPD
 
 # As units precisam existir antes do primeiro deploy: o script termina com
-# `systemctl restart` e abortaria sem elas. Instalar sem `enable` — o serviço
-# só sobe depois que o primeiro `uv sync` criar o /opt/sgpd/.venv.
-sudo cp /opt/sgpd/scripts/systemd/sgpd-*.service /opt/sgpd/scripts/systemd/sgpd-*.timer /etc/systemd/system/
+# `systemctl restart` e abortaria sem elas. Instalar sem `enable` — o serviço só
+# sobe depois que o primeiro `uv sync` criar o .venv.
+sudo cp /home/macari/prd/SGPD/scripts/systemd/sgpd-*.service \
+        /home/macari/prd/SGPD/scripts/systemd/sgpd-*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
-O deploy roda como `sgpd`, para que os artefatos fiquem com o dono que o serviço
-usa. O script só precisa de privilégio para reiniciar o próprio serviço:
+O storage fica **fora** de `/home/macari/prd/SGPD` de propósito: `git checkout`,
+`npm ci` e `collectstatic` nunca chegam perto dos bytes das evidências.
 
-```bash
-# /etc/sudoers.d/sgpd-deploy
-sgpd ALL=(root) NOPASSWD: /usr/bin/systemctl restart sgpd-web
-```
-
-O `.env` é criado à mão, com modo `600` e dono `sgpd`, a partir do bloco
-**Host de produção** do `.env.example`.
+O `.env` é criado à mão, com modo `600`, a partir do bloco **Host de produção**
+do `.env.example`.
 
 ### 11.2 Deploy
 
 ```bash
-sudo -u sgpd /opt/sgpd/scripts/deploy.sh              # origin/main
-sudo -u sgpd /opt/sgpd/scripts/deploy.sh v1.2.0       # uma tag
+/home/macari/prd/SGPD/scripts/deploy.sh              # origin/main
+/home/macari/prd/SGPD/scripts/deploy.sh v1.2.0       # uma tag
 ```
+
+Rode **de dentro do diretório do PRD**, ou pelo caminho absoluto acima. O script
+opera sobre a árvore onde ele mesmo está, então chamá-lo pelo caminho certo é o
+que separa um deploy de produção de um deploy no DEV.
 
 **Na primeira execução, aponte a sonda para o próprio host.** O passo final bate
 na URL publicada, que ainda resolve para o host anterior: sem isto o script
 diria "ok" depois de checar a máquina errada.
 
 ```bash
-sudo -u sgpd SGPD_HEALTH_BASE_URL=http://127.0.0.1:8002 /opt/sgpd/scripts/deploy.sh
+SGPD_HEALTH_BASE_URL=http://127.0.0.1:8002 /home/macari/prd/SGPD/scripts/deploy.sh
 ```
 
 `/health/` é isento do redirecionamento para HTTPS justamente para isso
@@ -363,7 +367,7 @@ deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
       central (senha de bind do AD e senha SMTP): chave nova torna as duas
       ilegíveis (R69). Alternativa aceitável, se a chave mudar: reinformá-las em
       `/fe/configuracoes/ldap` e `/fe/configuracoes/email` logo após o corte
-- [ ] `/var/lib/sgpd/evidence` populado a partir do host anterior. Os bytes não
+- [ ] `/home/macari/prd/sgpd-data/evidence` populado a partir do host anterior. Os bytes não
       estão no Oracle: sem essa cópia, o banco aponta para arquivos que não
       existem. Conferir o SHA-256 de uma amostra contra `SGPD_EVIDENCE`
 - [ ] Oracle alcançável do host novo; porta `8002` liberada só para `192.168.1.6`

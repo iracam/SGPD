@@ -2363,9 +2363,17 @@ O que sobrou dessa meia-medida:
 
 ### Decisão
 
-**Existe um ambiente de produção**, em host próprio, provisionado em `/opt/sgpd`
-sob um usuário de serviço `sgpd`, com storage privado fora da árvore da
-aplicação (`/var/lib/sgpd/evidence` e `/var/lib/sgpd/system-configuration`).
+**Existe um ambiente de produção**, em host próprio, provisionado em
+`/home/macari/prd/SGPD` — a estrutura já usada pelos demais sistemas do host —,
+com storage privado **fora da árvore da aplicação**
+(`/home/macari/prd/sgpd-data/evidence` e `.../system-configuration`), para que
+nenhum passo do deploy alcance os bytes das evidências.
+
+O serviço roda como o dono desse diretório, e não sob usuário de serviço
+dedicado: `/home/macari` é `0700`, então uma conta separada não conseguiria ler
+a árvore da aplicação. Abrir o home para viabilizar o isolamento custaria mais
+do que entrega — o compartilhamento de conta entre DEV e PRD fica registrado
+como R72.
 
 **O PRD aponta para o schema `SGPD` que já existe.** Não há carga inicial nem
 schema novo: os dados atuais são promovidos a produtivos. Isso preserva o
@@ -2447,6 +2455,11 @@ checks pela URL publicada. **Ele para diante de migration pendente** e imprime o
   notificações e `SGPD_REPORT_EXPORT` são append-only por decisão e não podem
   ser apagados. O saneamento possível antes do corte é o do domínio: encerrar ou
   cancelar processos de teste e desativar contas de teste;
+- **DEV e PRD dividem usuário e home.** O `.env` de produção, com a senha do
+  Oracle, passa a ser legível pelo shell interativo do desenvolvedor, e nada
+  além do diretório corrente separa um comando de DEV de um de PRD. Os
+  controles são caminho absoluto nas units e no deploy, `.env` em `600` e o
+  gate manual de migration. É o R72, aceito por decisão;
 - **o rollback é barato justamente porque o schema é o mesmo**: parar o serviço
   novo, reapontar o proxy e subir o anterior. O único passo irreversível seria
   uma migration aplicada no corte — e é por isso que o script não aplica

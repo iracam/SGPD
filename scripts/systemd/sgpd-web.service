@@ -11,9 +11,12 @@ Wants=network-online.target
 
 [Service]
 Type=notify
-User=sgpd
-Group=sgpd
-WorkingDirectory=/opt/sgpd
+# A aplicação vive sob o home do operador, ao lado dos demais sistemas do host.
+# `/home/macari` é 0700, então um usuário de serviço separado não conseguiria
+# ler a árvore — o serviço roda como o dono do diretório. O custo está no R72.
+User=macari
+Group=macari
+WorkingDirectory=/home/macari/prd/SGPD
 
 # Um worker é trava, não default: o limite de tentativas de login vive no cache
 # local de cada processo (config/settings/base.py). `config.settings.production`
@@ -24,7 +27,7 @@ Environment=PYTHONUNBUFFERED=1
 
 # Caminho absoluto do venv em vez de `uv run`: o systemd sobe com PATH mínimo,
 # pela mesma razão já documentada para o agendamento no RUNBOOK.md §2.
-ExecStart=/opt/sgpd/.venv/bin/gunicorn config.wsgi:application \
+ExecStart=/home/macari/prd/SGPD/.venv/bin/gunicorn config.wsgi:application \
     --threads 8 \
     --bind 0.0.0.0:8002 \
     --timeout 60 \
@@ -39,11 +42,11 @@ KillSignal=SIGTERM
 
 # Sem --max-requests: reciclar o worker esvaziaria o balde do limite de login.
 
+# Sem ProtectHome: a aplicação está dentro de /home e a diretiva a esconderia do
+# próprio serviço. ProtectSystem=full segue valendo para /usr, /boot e /etc.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
-ReadWritePaths=/var/lib/sgpd
 
 [Install]
 WantedBy=multi-user.target
