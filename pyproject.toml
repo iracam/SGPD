@@ -9,6 +9,9 @@ dependencies = [
     "django>=5.2.8,<5.3",
     "django-auth-ldap>=5.3,<5.4",
     "djangorestframework>=3.17.1,<3.18",
+    # Servidor WSGI do host publicado. Substitui o `runserver`, que é servidor de
+    # desenvolvimento atendendo tráfego real desde a entrada do proxy (R68).
+    "gunicorn>=23,<24",
     "oracledb>=3.4,<5",
     "python-ldap>=3.4.7,<3.5",
     "python-dotenv>=1.1,<2",

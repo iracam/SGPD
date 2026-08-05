@@ -19,12 +19,19 @@ online pelo contrato SQL homologado e o snapshot histórico é criado na abertur
 
 ## Stack e ambiente vigentes
 
-- DEV único, Debian 13, Python 3.13 e Django 5.2 LTS;
+- DEV e host de produção (ADR-055), Debian 13, Python 3.13 e Django 5.2 LTS;
 - Django REST Framework, Oracle 19c e `python-oracledb` Thick;
 - SPA Angular 21 standalone, PrimeNG 21 Aura e SCSS mobile first;
 - sessão Django, CSRF e API na mesma origem, publicada em
   `https://sgpd.bsabioenergia.com.br` por um proxy que roda em outro host e
   termina o TLS; a aplicação sobe com `config.settings.production` (ADR-052);
+- no PRD o servidor é o Gunicorn sob systemd, com **um worker** — o limite de
+  tentativas de login vive no cache local do processo, e o boot recusa
+  concorrência maior sem cache compartilhado. `runserver` é só de
+  desenvolvimento. Deploy por `scripts/deploy.sh`, à mão, sem CI/CD (ADR-016);
+- estáticos e assets da SPA saem do WhiteNoise, no próprio processo Django, em
+  DEV e em PRD. Não há Nginx (ADR-014): o proxy que publica o domínio só termina
+  o TLS e encaminha. Evidências nunca são servidas por servidor de arquivos;
 - WhiteNoise somente para estáticos e assets da SPA;
 - filesystem privado para evidências;
 - Redis e worker somente quando uma funcionalidade exigir;
@@ -135,6 +142,7 @@ nos incrementos seguintes.
 | indicador, relatório ou exportação | `REQUIREMENTS.md` RF-034 a RF-036 e `SECURITY.md` §5–§6 |
 | operação, monitoramento ou plantão | `RUNBOOK.md` e `ENVIRONMENT.md` §7 |
 | settings, transporte, proxy ou publicação | `SECURITY.md` §10, ADR-052 e `RUNBOOK.md` §7 |
+| deploy, servidor de aplicação ou go-live | ADR-055, `RUNBOOK.md` §11 e `ENVIRONMENT.md` §4 |
 | direção de produto | `VISION.md` |
 | planejamento futuro | `ROADMAP.md` |
 

@@ -1,8 +1,9 @@
 # Runbook operacional
 
-Procedimentos de operação do SGPD no DEV. O inventário do ambiente está em
-`ENVIRONMENT.md`; as decisões, em `DECISIONS.md`. Aqui está o que fazer, na
-ordem, quando algo precisa ser feito ou parou de funcionar.
+Procedimentos de operação do SGPD, no DEV e no host de produção da ADR-055. O
+inventário do ambiente está em `ENVIRONMENT.md`; as decisões, em
+`DECISIONS.md`. Aqui está o que fazer, na ordem, quando algo precisa ser feito
+ou parou de funcionar. Deploy, corte e rollback estão na §11.
 
 Premissa que atravessa o documento: **nenhuma rotina do SGPD decide nada por
 conta própria**. Liberação, encerramento, cancelamento, reabertura, decisão de
@@ -27,7 +28,20 @@ A fila é uma tabela no Oracle e o envio roda fora da requisição (ADR-049). Se
 agendamento instalado, **nada é enviado e nada quebra** — as mensagens se
 acumulam em `PENDENTE` e o sistema segue respondendo. É o risco R63.
 
-Entradas instaladas no `crontab` do usuário da aplicação em 2026-08-01:
+**No PRD** (ADR-055), por timers do systemd instalados de `scripts/systemd/`:
+
+```bash
+sudo cp scripts/systemd/sgpd-*.service scripts/systemd/sgpd-*.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now sgpd-notifications.timer sgpd-operations-check.timer
+```
+
+Varredura com despacho a cada dez minutos; sonda a cada trinta. A vantagem sobre
+o `cron` é o resíduo do R63: a sonda sai com código 1 quando a fila está parada,
+o systemd marca `sgpd-operations-check.service` como `failed`, e isso aparece em
+`systemctl list-units --failed` — ninguém precisa abrir um log para descobrir.
+
+**No DEV**, entradas no `crontab` do usuário da aplicação desde 2026-08-01:
 
 ```cron
 */10 * * * * cd /home/macari/dev/SGPD && /home/macari/.local/bin/uv run manage.py sgpd_scan_notifications --dispatch >> /home/macari/dev/SGPD/var/log/sgpd-notificacoes.log 2>&1
@@ -37,22 +51,31 @@ Entradas instaladas no `crontab` do usuário da aplicação em 2026-08-01:
 Caminho absoluto do `uv` e `cd` explícito não são preciosismo: o `cron` roda com
 `PATH` mínimo e a partir do `HOME`, e `uv run manage.py` fora da raiz do projeto
 falha com `Failed to spawn: manage.py`. Redirecionar o log por caminho absoluto
-pela mesma razão.
+pela mesma razão. Os units do PRD usam o binário do venv pelo caminho absoluto
+pelo mesmo motivo.
 
 A varredura é idempotente: rodar de dez em dez minutos muda a latência do
 aviso, nunca a quantidade. Separar varredura e despacho em duas entradas é
 igualmente válido.
 
-A segunda entrada é a sonda: em modo `--quiet` ela só escreve quando há
-problema e sai com código 1 quando a fila está parada — assim o log fica vazio
-enquanto está tudo bem, e qualquer monitor externo enxerga o código de saída.
+Em modo `--quiet` a sonda só escreve quando há problema — assim o log fica
+vazio enquanto está tudo bem, e o código de saída é o que qualquer monitor
+externo, ou o próprio systemd, enxerga.
 
 ### Verificar
 
 ```bash
+# PRD
+systemctl list-timers 'sgpd-*'               # quando rodou e quando roda de novo
+systemctl list-units --failed 'sgpd-*'       # a sonda acusou fila parada?
+journalctl -u sgpd-notifications -n 50       # a última execução falou o quê
+
+# DEV
 crontab -l                                   # o agendamento existe?
-uv run manage.py sgpd_operations_check       # o que a sonda vê agora
 tail -n 50 var/log/sgpd-notificacoes.log     # a última execução falou o quê
+
+# Nos dois
+uv run manage.py sgpd_operations_check       # o que a sonda vê agora
 ```
 
 ### Sintoma: fila crescendo em `PENDENTE`
@@ -139,8 +162,8 @@ schema `SGPD` no Oracle 19c é o alvo. O que precisa estar coberto:
    checklists, pendências, valores, decisões, notificações, auditoria e a
    trilha de exportações;
 2. **Storage de evidências** — o diretório privado do `.env`
-   (`media/evidence` no DEV). Os bytes não estão no banco: backup do Oracle
-   sozinho não restaura evidência;
+   (`media/evidence` no DEV, `/var/lib/sgpd/evidence` no PRD). Os bytes não
+   estão no banco: backup do Oracle sozinho não restaura evidência;
 3. **Configuração** — o `.env` (fora do Git, com segredos) e, no banco, os
    singletons de LDAP e de e-mail.
 
@@ -162,11 +185,22 @@ restauração e sem cobertura confirmada do storage de evidências.
 
 O host é publicado em `https://sgpd.bsabioenergia.com.br` por um proxy que roda
 em outro servidor e encaminha para a porta `8002` deste (ADR-052). A aplicação
-sobe com os settings escolhidos pelo `DJANGO_SETTINGS_MODULE` do `.env`:
+sobe pelo Gunicorn sob systemd (ADR-055), com os settings escolhidos pelo
+`DJANGO_SETTINGS_MODULE` do `.env`:
 
 ```bash
-uv run manage.py runserver 0.0.0.0:8002
+sudo systemctl status sgpd-web        # está de pé?
+sudo systemctl restart sgpd-web       # reinício limpo
+sudo systemctl reload sgpd-web        # recarga graciosa, sem derrubar conexão
+journalctl -u sgpd-web -n 100 -f      # log de acesso e de erro
 ```
+
+**Um worker é trava, não default.** O limite de tentativas de login vive no
+cache local de cada processo, então dois workers dobrariam a taxa efetiva do
+controle que protege o login contra força bruta. `config.settings.production`
+recusa subir com `WEB_CONCURRENCY` acima de 1 enquanto o cache for local — subir
+a concorrência exige cache compartilhado antes. Threads podem crescer à vontade:
+compartilham o mesmo cache.
 
 Verificação, sempre pela URL publicada — em HTTP puro o navegador descarta o
 cookie `Secure` e o login não completa:
@@ -256,3 +290,115 @@ Pontos que costumam gerar dúvida e valem ser ditos em voz alta no treinamento:
   estado anterior inteiro;
 - o e-mail nunca carrega nome, CPF, valor ou parecer: ele diz o que fazer e
   onde (`SECURITY.md` §13.1).
+
+## 11. Deploy e go-live do PRD
+
+O ambiente produtivo é o da ADR-055: host próprio em `/opt/sgpd`, usuário de
+serviço `sgpd`, Gunicorn sob systemd e **o mesmo schema `SGPD` do host anterior**.
+Não há carga inicial: o acervo atual é promovido a produtivo.
+
+### 11.1 Provisionamento (uma vez)
+
+```bash
+sudo useradd --system --home-dir /opt/sgpd --shell /usr/sbin/nologin sgpd
+sudo install -d -o sgpd -g sgpd -m 750 /opt/sgpd
+sudo install -d -o sgpd -g sgpd -m 700 /var/lib/sgpd/evidence
+sudo install -d -o sgpd -g sgpd -m 700 /var/lib/sgpd/system-configuration
+# Oracle Instant Client 19.28, Node 24 e uv conforme ENVIRONMENT.md §2.
+
+sudo -u sgpd git clone git@github.com:iracam/SGPD.git /opt/sgpd
+
+# As units precisam existir antes do primeiro deploy: o script termina com
+# `systemctl restart` e abortaria sem elas. Instalar sem `enable` — o serviço
+# só sobe depois que o primeiro `uv sync` criar o /opt/sgpd/.venv.
+sudo cp /opt/sgpd/scripts/systemd/sgpd-*.service /opt/sgpd/scripts/systemd/sgpd-*.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+O deploy roda como `sgpd`, para que os artefatos fiquem com o dono que o serviço
+usa. O script só precisa de privilégio para reiniciar o próprio serviço:
+
+```bash
+# /etc/sudoers.d/sgpd-deploy
+sgpd ALL=(root) NOPASSWD: /usr/bin/systemctl restart sgpd-web
+```
+
+O `.env` é criado à mão, com modo `600` e dono `sgpd`, a partir do bloco
+**Host de produção** do `.env.example`.
+
+### 11.2 Deploy
+
+```bash
+sudo -u sgpd /opt/sgpd/scripts/deploy.sh              # origin/main
+sudo -u sgpd /opt/sgpd/scripts/deploy.sh v1.2.0       # uma tag
+```
+
+**Na primeira execução, aponte a sonda para o próprio host.** O passo final bate
+na URL publicada, que ainda resolve para o host anterior: sem isto o script
+diria "ok" depois de checar a máquina errada.
+
+```bash
+sudo -u sgpd SGPD_HEALTH_BASE_URL=http://127.0.0.1:8002 /opt/sgpd/scripts/deploy.sh
+```
+
+`/health/` é isento do redirecionamento para HTTPS justamente para isso
+(ADR-052), e `DJANGO_ALLOWED_HOSTS` precisa incluir `127.0.0.1` — a verificação
+de host acontece antes da view.
+
+O script busca a referência, sincroniza pelo `uv.lock`, constrói a SPA e os
+manuais, coleta estáticos, roda `check --deploy`, reinicia o serviço e confere
+os dois health checks pela URL publicada.
+
+**Ele para diante de migration pendente** e imprime o `sqlmigrate` a rodar. É
+deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
+§9 e a §8 deste runbook. Revise, aplique à mão, rode o script de novo.
+
+### 11.3 Checklist de corte
+
+**Antes**
+
+- [ ] host provisionado conforme §11.1
+- [ ] `.env` de produção criado, modo `600`, com **o mesmo `DJANGO_SECRET_KEY`
+      do host anterior**. Dele deriva a cifra dos segredos já gravados pela
+      central (senha de bind do AD e senha SMTP): chave nova torna as duas
+      ilegíveis (R69). Alternativa aceitável, se a chave mudar: reinformá-las em
+      `/fe/configuracoes/ldap` e `/fe/configuracoes/email` logo após o corte
+- [ ] `/var/lib/sgpd/evidence` populado a partir do host anterior. Os bytes não
+      estão no Oracle: sem essa cópia, o banco aponta para arquivos que não
+      existem. Conferir o SHA-256 de uma amostra contra `SGPD_EVIDENCE`
+- [ ] Oracle alcançável do host novo; porta `8002` liberada só para `192.168.1.6`
+- [ ] saneamento do acervo: processos de teste encerrados ou cancelados, contas
+      de teste desativadas. Auditoria, fila de notificações e
+      `SGPD_REPORT_EXPORT` são append-only e permanecem
+- [ ] validação padrão completa executada (`CONTEXT.md`)
+
+**Corte**
+
+- [ ] serviço do host anterior parado e desabilitado — dois hosts não podem
+      escrever no mesmo schema
+- [ ] `scripts/deploy.sh` no host novo
+- [ ] `sudo systemctl enable --now sgpd-web sgpd-notifications.timer sgpd-operations-check.timer`
+- [ ] proxy de `192.168.1.6` reapontado para o IP novo em `:8002`
+- [ ] `uv run manage.py check --deploy` — só os dois avisos de HSTS deliberados
+
+**Depois**
+
+- [ ] login real pela URL publicada, com cookie `Secure` aceito
+- [ ] `/health/live/` e `/health/ready/` em 200
+- [ ] `uv run manage.py sgpd_operations_check` sem veredito de fila parada
+- [ ] prova de envio em `/fe/configuracoes/email` — é o que comprova que o
+      Fernet decifrou a senha SMTP com a chave em uso
+- [ ] descoberta em `/fe/configuracoes/ldap` — mesma prova para a senha de bind
+- [ ] `SGPD_BASE_URL` preenchida e link de notificação clicável
+- [ ] ensaio de supervisão: `sudo systemctl kill -s SIGKILL sgpd-web` e conferir
+      que o systemd sobe de novo e o health volta a 200
+
+### 11.4 Rollback
+
+Parar `sgpd-web`, reapontar o proxy para o host anterior e subi-lo. O schema é o
+mesmo e os dados ficam intactos.
+
+O único passo irreversível seria uma migration aplicada durante o corte — e é
+exatamente por isso que o script de deploy não aplica nenhuma. Se houve
+migration, o rollback deixa de ser reapontar o proxy e passa a exigir plano
+próprio, com o DBA.

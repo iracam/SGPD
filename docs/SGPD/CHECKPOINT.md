@@ -3,22 +3,31 @@
 ## Status geral
 
 - Projeto: SGPD / DesligaFlow
-- Ambiente: DEV único sobre Oracle 19c
+- Ambiente: DEV e host de produção (ADR-055), ambos sobre o mesmo schema `SGPD`
+  no Oracle 19c
 - Fases estabilizadas: 1, 2, 2.5, 2.7, 3, 6, 7, 8 e **9 — implementada e
   homologada no Oracle DEV em 2026-08-01**
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
-  2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052)
+  2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052) e, no
+  host de produção, pelo Gunicorn sob systemd com um worker (ADR-055)
 - Concluído: os cinco papéis funcionais atribuíveis (ADR-054) — as cinco
   fatias implementadas, comitadas e **homologadas no Oracle DEV em
   2026-08-04**, com `accounts.0011` e
   `offboarding.0011_alter_offboardingprocess_options_and_more` aplicadas e o
   `bootstrap_roles` executado no ambiente
-- Próximo incremento: fora do repositório, rotacionar as senhas fracas do
-  Oracle e do SMTP e trocar o bind do AD por conta de serviço com TLS (riscos
-  R66 e R67); validar backup e restauração com o DBA (`RUNBOOK.md` §6);
-  reiniciar o serviço publicado, que está fora do ar e, quando subir, precisa
-  carregar o código das fatias 1 a 5
+- Concluído: preparação de produção (ADR-055) — Gunicorn sob systemd com um
+  worker, timers substituindo o `crontab`, `scripts/deploy.sh` com gate manual
+  de migration, contrato de `.env` do host publicado e checklist de corte no
+  `RUNBOOK.md` §11. **Implementado e validado localmente; ainda não executado
+  no host de produção**
+- Próximo incremento: executar o corte pelo checklist do `RUNBOOK.md` §11 —
+  provisionar o host, levar o mesmo `DJANGO_SECRET_KEY` (ou reinformar as senhas
+  da central), copiar `/var/lib/sgpd/evidence`, parar o serviço anterior e
+  reapontar o proxy. Fora do repositório e aceitos com prazo: rotacionar as
+  senhas do Oracle e do SMTP (R66), trocar o bind do AD por conta de serviço com
+  TLS (R67), validar backup e restauração com o DBA (`RUNBOOK.md` §6) e criar o
+  usuário Oracle de aplicação separado do owner
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
 - Interface: SPA Angular 21; Django Admin técnico preservado
@@ -150,7 +159,13 @@ Contrato Senior — legibilidade cadastral:
 - login AD só permanece ativo sob configuração homologada e CA válida quando
   TLS estiver selecionado;
 - evidências não podem ser servidas pelo WhiteNoise;
-- migrations exigem inspeção do SQL Oracle antes de aplicação;
+- migrations exigem inspeção do SQL Oracle antes de aplicação; o
+  `scripts/deploy.sh` para diante de migration pendente em vez de aplicá-la;
+- o host publicado roda com **um worker**: o limite de tentativas de login vive
+  no cache local do processo e `config.settings.production` recusa subir com
+  `WEB_CONCURRENCY` acima de 1 enquanto o cache for local;
+- enquanto DEV e PRD apontarem para o mesmo schema, o `DJANGO_SECRET_KEY` é o
+  mesmo nos dois: dele deriva a cifra dos segredos da central (R69);
 - não antecipar desconto automático; liberação e encerramento existem apenas
   como ato humano explícito, nunca como consequência automática de estado;
 - e-mail de notificação não carrega nome do colaborador, CPF, valor nem
@@ -220,9 +235,11 @@ Contrato Senior — legibilidade cadastral:
 ## Baseline de qualidade
 
 A validação padrão vigente, executada por inteiro na última entrega
-(2026-08-04): **522 testes backend e 129 frontend**, Ruff, formatação, Mypy em
+(2026-08-05): **523 testes backend e 129 frontend**, Ruff, formatação, Mypy em
 226 arquivos, Django check, verificação de migrations, `check --deploy` com os
-dois avisos de HSTS já deliberados e build Angular sem avisos. Toda mudança
+dois avisos de HSTS já deliberados e build Angular sem avisos. A trava de worker
+foi conferida também no boot real: `WEB_CONCURRENCY=2 uv run manage.py
+check --deploy` recusa subir. Toda mudança
 executa o subconjunto pertinente e justifica qualquer validação omitida.
 
 Duas armadilhas do Oracle que a suíte já cobre e que nenhuma mudança deve

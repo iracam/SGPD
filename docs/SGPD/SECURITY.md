@@ -505,9 +505,10 @@ Controles que dependem de política corporativa ou do workflow:
 
 A aplicação e a API precisam permanecer na mesma origem. O proxy que publica
 `sgpd.bsabioenergia.com.br` a partir de outro host preserva essa condição —
-serve a mesma origem, não separa frontend de API (ADR-052). Outro domínio para o
-frontend ou um ambiente HML/PRD continuam reabrindo a ADR-026 junto com a
-ADR-014.
+serve a mesma origem, não separa frontend de API (ADR-052). O ambiente de
+produção da ADR-055 mantém a condição — mesmo FQDN, mesma origem, sem CORS —, e
+por isso **não reabre** a ADR-026. Outro domínio para o frontend continua
+reabrindo-a, junto com a ADR-014.
 
 ### Transporte no host publicado
 
@@ -531,6 +532,13 @@ coletivo, e não impediria quem já tem sessão de tentar a senha de terceiros.
 O Django Admin fica desligado onde a aplicação está publicada: seu login nativo
 não passa pelo limite de tentativas do DRF.
 
+O limite de tentativas mora no cache local do processo, e é isso que fixa o
+servidor do host publicado em **um worker** (ADR-055): dois processos manteriam
+dois baldes independentes e dobrariam a taxa efetiva. `config.settings.production`
+recusa subir com `WEB_CONCURRENCY` acima de 1 enquanto o cache for local — a
+trava é de boot, não de convenção. Threads do mesmo processo compartilham o
+cache e não têm esse efeito.
+
 ## 11. Logs
 
 Não registrar em log:
@@ -549,7 +557,10 @@ booleana de papel inicial.
 
 ## 12. Banco
 
-- conta única `SGPD` para runtime e migrations no DEV, conforme risco aceito na ADR-022;
+- conta única `SGPD` para runtime e migrations, conforme risco aceito na ADR-022
+  e estendido ao ambiente produtivo pela ADR-055. Um usuário de aplicação com
+  privilégio mínimo, separado do owner, é o desenho correto e permanece como
+  pendência com prazo (`ENVIRONMENT.md` §7);
 - `CREATE TABLE` concedido diretamente ao `SGPD`, sem `ADMIN OPTION`;
 - `CREATE SEQUENCE` concedido diretamente ao `SGPD`, sem `ADMIN OPTION`,
   porque as chaves `IDENTITY` do Django usam geradores internos de sequência;
@@ -576,7 +587,13 @@ booleana de papel inicial.
 - o `DJANGO_SECRET_KEY` não assina apenas a sessão: dele deriva a cifra dos
   segredos da central de configurações (§13.1). Rotacioná-lo derruba as sessões
   ativas e exige reinformar as senhas de bind do AD e do SMTP já salvas — ver
-  R69 no registro de riscos.
+  R69 no registro de riscos;
+- pela mesma razão, ambientes que compartilham schema compartilham a chave. O
+  PRD da ADR-055 aponta para o schema que já existia: os ciphertexts gravados
+  pela central vêm junto, e uma chave diferente no host novo os torna
+  ilegíveis. Ou a chave é a mesma, ou as duas senhas são reinformadas pela
+  interface logo após o corte. A saída definitiva continua sendo uma chave de
+  cifra dedicada, separada da chave de sessão.
 
 ## 12.2 Consulta direta ao Senior
 

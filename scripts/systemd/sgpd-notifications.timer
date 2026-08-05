@@ -1,0 +1,11 @@
+[Unit]
+Description=SGPD — despacha a fila de notificações a cada dez minutos
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+AccuracySec=1min
+Unit=sgpd-notifications.service
+
+[Install]
+WantedBy=timers.target

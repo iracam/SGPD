@@ -726,18 +726,24 @@ Planejado com os módulos de workflow e processamento assíncrono:
 
 ## 8. Ambientes
 
-O escopo atual possui somente o ambiente DEV.
+Existem dois: o DEV e o host de produção criado pela ADR-055, que aponta para o
+mesmo schema `SGPD`. O inventário comparado está em `ENVIRONMENT.md` §4.
 
-HML e PRD não fazem parte da estrutura atual. Caso sejam criados futuramente, deverão ser tratados por nova decisão arquitetural, com credenciais, schema, storage e logs separados.
+HML não faz parte da estrutura atual. Caso seja criado futuramente, deverá ser
+tratado por nova decisão arquitetural, com credenciais, schema, storage e logs
+separados.
 
-## 9. Execução no DEV
+## 9. Execução
 
-- servidor Django no ambiente DEV;
-- WhiteNoise para arquivos estáticos e para os assets da SPA;
+- `runserver` no DEV; Gunicorn sob systemd, com um worker, no host de produção
+  (ADR-055);
+- WhiteNoise para arquivos estáticos e para os assets da SPA, nos dois
+  ambientes;
 - SPA construída por `ng build` e servida pelo próprio Django, em origem única;
 - durante o desenvolvimento, `ng serve` com proxy para o Django;
-- sem Nginx ou reverse proxy no escopo atual;
-- sem pipeline de CI/CD;
+- **sem Nginx** (ADR-014). Desde a ADR-052 há um proxy reverso à frente, em
+  outro host, mas ele apenas termina o TLS e encaminha — não serve arquivo;
+- sem pipeline de CI/CD; deploy por `scripts/deploy.sh`, à mão (ADR-016);
 - Oracle externo;
 - Redis em container somente quando necessário;
 - worker e scheduler somente quando houver casos de uso assíncronos;

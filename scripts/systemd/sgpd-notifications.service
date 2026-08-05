@@ -1,0 +1,21 @@
+# Varredura de prazos e despacho da fila de notificações (ADR-049).
+#
+# Acionado por sgpd-notifications.timer. A varredura é idempotente: rodar com
+# mais frequência muda a latência do aviso, nunca a quantidade.
+
+[Unit]
+Description=SGPD — varredura e despacho da fila de notificações
+After=network-online.target sgpd-web.service
+
+[Service]
+Type=oneshot
+User=sgpd
+Group=sgpd
+WorkingDirectory=/opt/sgpd
+ExecStart=/opt/sgpd/.venv/bin/python manage.py sgpd_scan_notifications --dispatch
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/sgpd

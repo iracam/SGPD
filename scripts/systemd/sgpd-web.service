@@ -1,0 +1,49 @@
+# Aplicação WSGI do host publicado (ADR-052, ADR-055).
+#
+# Instalar em /etc/systemd/system/sgpd-web.service. O proxy que termina o TLS
+# roda em outro servidor e encaminha para :8002 deste host, então o bind é na
+# interface, não em 127.0.0.1.
+
+[Unit]
+Description=SGPD / DesligaFlow — aplicação WSGI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=sgpd
+Group=sgpd
+WorkingDirectory=/opt/sgpd
+
+# Um worker é trava, não default: o limite de tentativas de login vive no cache
+# local de cada processo (config/settings/base.py). `config.settings.production`
+# recusa subir com este número acima de 1 enquanto o cache não for compartilhado.
+# O Gunicorn lê a mesma variável para `--workers`, então há um só lugar a mudar.
+Environment=WEB_CONCURRENCY=1
+Environment=PYTHONUNBUFFERED=1
+
+# Caminho absoluto do venv em vez de `uv run`: o systemd sobe com PATH mínimo,
+# pela mesma razão já documentada para o agendamento no RUNBOOK.md §2.
+ExecStart=/opt/sgpd/.venv/bin/gunicorn config.wsgi:application \
+    --threads 8 \
+    --bind 0.0.0.0:8002 \
+    --timeout 60 \
+    --graceful-timeout 30 \
+    --forwarded-allow-ips 192.168.1.6 \
+    --access-logfile - \
+    --error-logfile -
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5s
+KillSignal=SIGTERM
+
+# Sem --max-requests: reciclar o worker esvaziaria o balde do limite de login.
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/sgpd
+
+[Install]
+WantedBy=multi-user.target

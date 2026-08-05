@@ -63,8 +63,14 @@ uv sync --dev
 npm --prefix frontend ci
 npm --prefix frontend run build
 uv run manage.py check
-uv run manage.py runserver
+uv run manage.py runserver --settings=config.settings.development
 ```
+
+O módulo de settings vem do `.env`; o `--settings` explícito existe porque em
+hosts publicados esse valor é `config.settings.production`, que exige HTTPS.
+`runserver` é ferramenta de desenvolvimento e só isso: o host de produção é
+servido pelo Gunicorn sob systemd, com deploy por `scripts/deploy.sh`
+(ADR-055, `RUNBOOK.md` §11).
 
 O Django serve a SPA construída: os assets saem pelo WhiteNoise na raiz e o
 `index.html` por uma view dedicada, em origem única com a API.

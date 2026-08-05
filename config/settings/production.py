@@ -27,6 +27,19 @@ if len(SECRET_KEY) < 50:  # noqa: F405
         "DJANGO_SECRET_KEY precisa ter ao menos 50 caracteres aleatórios no host publicado."
     )
 
+# `WEB_CONCURRENCY` é a variável que o próprio Gunicorn lê para `--workers`, então
+# a guarda e o servidor enxergam o mesmo número. O limite de tentativas de login
+# vive no `LocMemCache` de `base.py`, que é privado de cada processo: com dois
+# workers a taxa efetiva dobra, e é justamente o controle que protege o login
+# contra força bruta. Mais de um worker só depois de um cache compartilhado.
+WEB_CONCURRENCY = env_int("WEB_CONCURRENCY", 1)  # noqa: F405
+if WEB_CONCURRENCY > 1 and "locmem" in CACHES["default"]["BACKEND"]:  # noqa: F405
+    raise ImproperlyConfigured(
+        f"WEB_CONCURRENCY={WEB_CONCURRENCY} com cache local por processo multiplicaria o "
+        "limite de tentativas de login pelo número de workers. Configure um cache "
+        "compartilhado antes de subir a concorrência."
+    )
+
 init_thick_client()
 
 DATABASES = {

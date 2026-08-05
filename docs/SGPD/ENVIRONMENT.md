@@ -4,7 +4,9 @@
 
 Levantamento executado em 2026-07-27 no ambiente DEV.
 
-Este é o único ambiente no escopo atual. HML e PRD não serão configurados nesta etapa.
+Desde 2026-08-05 existe um segundo ambiente: o host de produção da ADR-055, em
+`/opt/sgpd` sob usuário de serviço, apontando para o mesmo schema `SGPD`. HML
+continua fora do escopo.
 
 Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nomes de variáveis, executáveis, versões, estado de serviços e arquivos de configuração; as credenciais locais foram usadas somente pelo cliente Oracle durante o teste de conexão.
 
@@ -32,8 +34,8 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | SQLcl local | 26.1 em `/opt/sqlcl/bin/sql` | Conexões Oracle validadas |
 | Redis | Somente `redis-cli` 8.0.2; servidor local ausente/inativo | Será iniciado em container quando necessário |
 | Celery / Django-Q2 | Ausentes | Worker adiado até existir caso de uso |
-| Gunicorn | Ausente | O host publicado ainda é servido por `runserver`; risco R68 |
-| Nginx | Ausente neste host | Estáticos são servidos por WhiteNoise. A publicação em HTTPS é feita por um proxy que roda em `192.168.1.6`, fora deste host (ADR-052) |
+| Gunicorn | 23.0.0, bloqueado em `uv.lock` | Servidor WSGI do host de produção, sob systemd com **um worker** (ADR-055). `runserver` volta a ser exclusivo de desenvolvimento |
+| Nginx | Ausente, também no PRD | Estáticos e assets da SPA são servidos pelo WhiteNoise, no próprio processo (ADR-014, reafirmada pela ADR-055). O proxy em `192.168.1.6` só termina o TLS e encaminha; ele não tem o build da SPA e não serve arquivo (ADR-052) |
 | WhiteNoise | 6.12.0 | Serve assets da SPA e estáticos do Django Admin; nunca evidências |
 | LDAP nativo | OpenLDAP 2.6.10; `ldapsearch` e headers de desenvolvimento instalados | Pré-requisitos de build e diagnóstico confirmados |
 | LDAP Python | `django-auth-ldap` 5.3.0 / `python-ldap` 3.4.7 | Instalados e bloqueados em `uv.lock`, sem regressão de Django ou DRF |
@@ -44,7 +46,7 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | Pytest | 9.1.1 no ambiente do projeto | Configurado com pytest-django |
 | Ruff | 0.16.0 no ambiente do projeto | Lint e formatação configurados no `pyproject.toml` |
 | Mypy | 1.20.2 no ambiente do projeto | Modo strict com django-stubs |
-| CI/CD | Nenhum workflow ou arquivo de pipeline | Não será utilizado no escopo atual |
+| CI/CD | Nenhum workflow ou arquivo de pipeline | Não será utilizado (ADR-016). O deploy do PRD é `scripts/deploy.sh`, executado à mão no host |
 
 ## 3. Fundação instalada
 
@@ -71,35 +73,41 @@ execução é o singleton `SGPD_EMAIL_CONFIG`, editado em
 `/fe/configuracoes/email` por SuperAdmin. Enquanto ninguém salvar a primeira
 vez, o `.env` continua governando — nada quebra por não haver registro.
 
-### Agendamento das notificações no DEV
+### Agendamento das notificações
 
 A fila só anda quando o sistema operacional chama os comandos, e a sonda
-`sgpd_operations_check` é quem torna o agendamento parado visível (R63). O
-`crontab` foi instalado em 2026-08-01; as entradas exatas, a verificação e o que
-fazer quando a fila empaca estão no `RUNBOOK.md` §2 — fonte canônica do
-procedimento.
+`sgpd_operations_check` é quem torna o agendamento parado visível (R63). No DEV
+o `crontab` foi instalado em 2026-08-01; no PRD o mesmo par de comandos roda por
+timers do systemd, que expõem a saída diferente de zero da sonda como unidade
+`failed`. As entradas exatas, a verificação e o que fazer quando a fila empaca
+estão no `RUNBOOK.md` §2 — fonte canônica do procedimento.
 
 ## 4. Ambientes
 
-| Item | DEV |
-|---|---|
-| Host/SO | Debian 13.6 confirmado |
-| Python | 3.13 homologado; dependências gerenciadas por `uv` |
-| Oracle | Database 19c e Instant Client 19.28 confirmados |
-| Oracle SGPD | Owner `SGPD` como conexão única; `CREATE TABLE` e `CREATE SEQUENCE` sem `ADMIN OPTION`; quota de 500 MB em `PIMS_DATA`; migrations aplicadas |
-| Senior HCM | Schema `VETORH` no mesmo serviço; cinco grants `SELECT` confirmados para `SGPD` |
-| Redis | Container sob demanda |
-| Worker | Adiado até necessidade |
-| SMTP | Microsoft 365; SMTP AUTH e `Send As` validados com uma mensagem de prova aceita |
-| Autenticação | Local operacional; descoberta e login AD compartilham o transporte definido pelo SuperAdmin; LDAP simples funciona com warning; login AD desligado até teste controlado |
-| Estáticos | WhiteNoise configurado para assets da SPA e Django Admin |
-| Frontend | SPA Angular 21 + PrimeNG 21 em operação; Node 24.18.0 e npm 11.16.0 homologados |
-| Evidências | Filesystem local privado em `media/evidence` |
-| Publicação | `https://sgpd.bsabioenergia.com.br` por proxy em `192.168.1.6`, que termina o TLS e encaminha para este host em `:8002` repassando `X-Forwarded-Proto` e `X-Forwarded-For`; settings `config.settings.production` (ADR-052) |
-| Secrets | `.env` local; usuários individuais no formato `nome.sobrenome` |
-| CI/CD | Não utilizado |
+| Item | DEV | PRD (ADR-055) |
+|---|---|---|
+| Host/SO | Debian 13.6 confirmado | Debian 13, host próprio |
+| Diretório | Árvore de trabalho do desenvolvedor | `/opt/sgpd`, usuário de serviço `sgpd` sem shell de login |
+| Python | 3.13 homologado; dependências gerenciadas por `uv` | Mesmo `uv.lock`, instalado com `uv sync --frozen --no-dev` |
+| Oracle | Database 19c e Instant Client 19.28 confirmados | Mesmos |
+| Oracle SGPD | Owner `SGPD` como conexão única; `CREATE TABLE` e `CREATE SEQUENCE` sem `ADMIN OPTION`; quota de 500 MB em `PIMS_DATA`; migrations aplicadas | **O mesmo schema**, promovido a produtivo; ADR-022 estendida como risco aceito |
+| Senior HCM | Schema `VETORH` no mesmo serviço; cinco grants `SELECT` confirmados para `SGPD` | Mesmo contrato |
+| Servidor | `runserver` com `--settings=config.settings.development` | Gunicorn sob `sgpd-web.service`, **um worker** e oito threads, em `:8002` |
+| Agendamento | `crontab` do usuário (`RUNBOOK.md` §2) | `sgpd-notifications.timer` e `sgpd-operations-check.timer` |
+| Redis | Container sob demanda | Ausente; exigido apenas se a concorrência subir de um worker |
+| Worker | Adiado até necessidade | Adiado |
+| SMTP | Microsoft 365; SMTP AUTH e `Send As` validados com uma mensagem de prova aceita | Mesma conta; transporte efetivo vem da central (ADR-050) |
+| Autenticação | Local operacional; descoberta e login AD compartilham o transporte definido pelo SuperAdmin; LDAP simples funciona com warning; login AD desligado até teste controlado | Mesma configuração, lida do mesmo schema |
+| Estáticos | WhiteNoise configurado para assets da SPA e Django Admin | Mesmo, sem releitura de disco |
+| Frontend | SPA Angular 21 + PrimeNG 21 em operação; Node 24.18.0 e npm 11.16.0 homologados | Mesmo build, gerado no host pelo `scripts/deploy.sh` |
+| Evidências | Filesystem local privado em `media/evidence` | `/var/lib/sgpd/evidence`, fora da árvore da aplicação |
+| Django Admin | Ligado | Desligado (`DJANGO_ADMIN_ENABLED=false`) |
+| Publicação | Acesso local | `https://sgpd.bsabioenergia.com.br` por proxy em `192.168.1.6`, que termina o TLS e encaminha para `:8002` repassando `X-Forwarded-Proto` e `X-Forwarded-For`; settings `config.settings.production` (ADR-052) |
+| Secrets | `.env` local; usuários individuais no formato `nome.sobrenome` | `.env` em modo `600`; **mesmo `DJANGO_SECRET_KEY` enquanto o schema for compartilhado** (R69) |
+| CI/CD | Não utilizado | Não utilizado; `scripts/deploy.sh` à mão |
 
-HML e PRD estão explicitamente fora do escopo atual.
+HML continua fora do escopo. O procedimento de corte, o checklist de go-live e o
+rollback estão no `RUNBOOK.md` §11.
 
 ## 5. Contrato de variáveis
 
@@ -156,6 +164,17 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 5. Validar o backup com o DBA: cobertura do schema `SGPD`, do storage privado
    de evidências e prova de restauração. O procedimento está no `RUNBOOK.md`
    §6 e ainda não foi executado.
+
+Pendências abertas com o PRD, aceitas por decisão em 2026-08-05 (ADR-055) e
+registradas no `RISK_REGISTER.md` com prazo, sem bloquear o go-live:
+
+6. Rotacionar as senhas do Oracle e do SMTP, hoje previsíveis (R66).
+7. Trocar o bind do AD por conta de serviço somente leitura com TLS (R67).
+8. Criar usuário Oracle de aplicação com privilégio mínimo, separado do owner
+   `SGPD`, encerrando a extensão da ADR-022 ao ambiente produtivo.
+9. Substituir a chave de cifra da central por chave dedicada e rotacionável,
+   independente do `DJANGO_SECRET_KEY` (R69) — hoje ela é o que obriga os dois
+   hosts a compartilharem a mesma chave enquanto o schema for o mesmo.
 
 O procedimento de descoberta de domínio, OUs e grupos, os filtros LDAP e a
 sequência de ativação estão em `INTEGRATION_ACTIVE_DIRECTORY.md`.

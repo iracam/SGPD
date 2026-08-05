@@ -88,6 +88,17 @@ def test_the_read_only_admin_is_off_by_default(load_production: Any) -> None:
     assert load_production(DJANGO_ADMIN_ENABLED="true").ADMIN_SITE_ENABLED is True
 
 
+def test_more_than_one_worker_refuses_to_boot_with_a_per_process_cache(
+    load_production: Any,
+) -> None:
+    # O limite de tentativas de login mora no cache local, privado de cada
+    # processo: dois workers dobrariam a taxa efetiva.
+    assert load_production().WEB_CONCURRENCY == 1
+
+    with pytest.raises(ImproperlyConfigured, match="WEB_CONCURRENCY"):
+        load_production(WEB_CONCURRENCY="2")
+
+
 def test_static_assets_are_not_reread_from_disk_on_every_request(load_production: Any) -> None:
     settings = load_production()
 

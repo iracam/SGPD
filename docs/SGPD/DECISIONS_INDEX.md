@@ -17,6 +17,7 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 022 | Vigente no DEV | Owner `SGPD` também como runtime |
 | 023 | Vigente | Fundação Python, Django e conexão Oracle |
 | 052 | Vigente | Publicação atrás de proxy e settings do host publicado |
+| 055 | Vigente | Ambiente de produção em host próprio, Gunicorn supervisionado e deploy |
 
 ## Domínio e workflow
 

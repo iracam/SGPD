@@ -8,15 +8,15 @@
     },
     {
       "file": "ARCHITECTURE.md",
-      "bytes": 34711
+      "bytes": 35047
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 15609
+      "bytes": 16836
     },
     {
       "file": "CONTEXT.md",
-      "bytes": 8877
+      "bytes": 9547
     },
     {
       "file": "DATA_MODEL.md",
@@ -24,15 +24,15 @@
     },
     {
       "file": "DECISIONS.md",
-      "bytes": 104420
+      "bytes": 111864
     },
     {
       "file": "DECISIONS_INDEX.md",
-      "bytes": 3045
+      "bytes": 3139
     },
     {
       "file": "ENVIRONMENT.md",
-      "bytes": 10157
+      "bytes": 12508
     },
     {
       "file": "GLOSSARY.md",
@@ -52,7 +52,7 @@
     },
     {
       "file": "README.md",
-      "bytes": 17265
+      "bytes": 17644
     },
     {
       "file": "REQUIREMENTS.md",
@@ -60,7 +60,7 @@
     },
     {
       "file": "RISK_REGISTER.md",
-      "bytes": 19395
+      "bytes": 21858
     },
     {
       "file": "ROADMAP.md",
@@ -68,11 +68,11 @@
     },
     {
       "file": "RUNBOOK.md",
-      "bytes": 12356
+      "bytes": 19094
     },
     {
       "file": "SECURITY.md",
-      "bytes": 31625
+      "bytes": 32799
     },
     {
       "file": "VISION.md",

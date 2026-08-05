@@ -2332,3 +2332,126 @@ cima — e `override_reason`.
   para de ser caminho de escalada. O custo é operacional: toda mudança de
   papel exige uma conta técnica, inclusive a primeira atribuição de
   `DP_GERENTE`.
+
+## ADR-055 — Ambiente de produção em host próprio, com runtime supervisionado
+
+### Estado
+
+Aceita em 2026-08-05, ao preparar o corte para produção. Governa a existência do
+ambiente produtivo, o servidor de aplicação e o procedimento de deploy.
+
+### Contexto
+
+A ADR-013 fixou "DEV único" e a `ENVIRONMENT.md` §4 registrava, até esta data,
+que "HML e PRD estão explicitamente fora do escopo atual". A ADR-052 não mudou
+isso: ela reconheceu que um proxy passou a publicar
+`https://sgpd.bsabioenergia.com.br` e criou `config/settings/production.py` para
+que o host publicado deixasse de responder com `DEBUG` ligado e cookies sem
+`Secure`. O ambiente continuou sendo o de desenvolvimento, com nome de produção.
+
+O que sobrou dessa meia-medida:
+
+- o tráfego real é atendido pelo `runserver`, servidor de desenvolvimento,
+  monothread e sem supervisão — o risco R68, aberto desde a ADR-052;
+- a aplicação roda a partir do diretório de trabalho de um usuário pessoal, com
+  as evidências dentro da própria árvore do repositório;
+- o agendamento das notificações vive no `crontab` desse usuário, e o código de
+  saída da sonda `sgpd_operations_check` morre num arquivo de log que ninguém lê
+  — o resíduo declarado do R63;
+- não existe procedimento de deploy escrito: cada atualização é uma sequência de
+  comandos reconstruída de memória.
+
+### Decisão
+
+**Existe um ambiente de produção**, em host próprio, provisionado em `/opt/sgpd`
+sob um usuário de serviço `sgpd`, com storage privado fora da árvore da
+aplicação (`/var/lib/sgpd/evidence` e `/var/lib/sgpd/system-configuration`).
+
+**O PRD aponta para o schema `SGPD` que já existe.** Não há carga inicial nem
+schema novo: os dados atuais são promovidos a produtivos. Isso preserva o
+acervo, e cobra três coisas no corte, descritas no `RUNBOOK.md` §11.
+
+**O servidor é o Gunicorn sob systemd, com um worker.** `sgpd-web.service`
+substitui o `runserver` e traz supervisão, `Restart=always` e recarga graciosa. O
+worker é um só por consequência direta do desenho: o limite de tentativas de
+login vive no `LocMemCache` de `config/settings/base.py`, privado de cada
+processo, e dois workers dobrariam a taxa efetiva do controle que protege o
+login contra força bruta. Threads no mesmo processo compartilham o cache e são
+seguras; workers não. `config.settings.production` recusa subir com
+`WEB_CONCURRENCY` acima de 1 enquanto o cache for local — a mesma variável que o
+Gunicorn lê para `--workers`, para que exista um só número a mudar.
+
+**O agendamento sai do `crontab` para timers do systemd**
+(`sgpd-notifications.timer` e `sgpd-operations-check.timer`). O ganho é sobre o
+R63: a sonda que sai com código 1 marca a unidade como `failed`, e a fila parada
+passa a aparecer em `systemctl list-units --failed` sem depender de alguém abrir
+um log.
+
+**O deploy é `scripts/deploy.sh`, executado à mão no host.** A ADR-016 segue
+valendo — não há CI/CD e a validação é local. O script busca a referência,
+sincroniza dependências pelo `uv.lock`, constrói a SPA e os manuais, coleta
+estáticos, roda `check --deploy`, reinicia o serviço e confere os dois health
+checks pela URL publicada. **Ele para diante de migration pendente** e imprime o
+`sqlmigrate` a rodar: aplicar migration sem revisar o SQL Oracle contraria o
+`AGENTS.md` §9, e automatizar isso seria transformar uma regra em exceção.
+
+**Decisões vizinhas, reafirmadas explicitamente:**
+
+- a **ADR-026 não é reaberta**. O PRD serve SPA e API sob o mesmo FQDN, a mesma
+  origem, sem CORS e sem domínio separado para o frontend — pelo mesmo
+  raciocínio já aceito na ADR-052;
+- a **ADR-016 continua valendo**. Sem pipeline; `manage.py check --deploy` no
+  módulo de produção é passo obrigatório do próprio script de deploy.
+  Observação de rastreabilidade: o texto da ADR-052 cita "ADR-014" ao falar de
+  validação local e ausência de CI/CD; a decisão correta é a **ADR-016**, e a
+  ADR-014 é a que exclui o Nginx. O texto da ADR-052 fica como está, por ser
+  registro;
+- a **ADR-014 é reafirmada**: **não entra Nginx**. Estáticos do Django e assets
+  da SPA continuam saindo do WhiteNoise, dentro do próprio processo, e o
+  `index.html` continua sendo servido por view Django, como exige a ADR-027 —
+  o storage com manifesto renomearia o arquivo e quebraria a rota `/`. A
+  cláusula da ADR-014 que previa "nova decisão para proxy, TLS ou
+  balanceamento" já foi exercida pela ADR-052, que aceitou o proxy externo
+  **apenas como terminador de TLS**. Ele não serve arquivo: não tem o build da
+  SPA, e dar-lhe o build significaria copiar artefato para um host fora do
+  ciclo de deploy, com risco de servir versão diferente da que a API responde.
+  Evidências seguem fora de qualquer servidor de arquivos — download é view
+  Django autorizada e auditada (ADR-019);
+- a **ADR-022 é estendida ao PRD, como risco aceito**. O owner `SGPD` segue
+  sendo o usuário de runtime e de migrations. Um usuário de aplicação com
+  privilégio mínimo, separado do owner, é o desenho correto e fica como
+  pendência com prazo, não como bloqueio de go-live;
+- a **ADR-048 é reafirmada sem emenda**. O R62 pedia revê-la antes de operar
+  fora do DEV único, e esta é a revisão: o SuperAdmin continua podendo decidir a
+  pretensão que ele mesmo informou, porque a alternativa — travá-lo — deixaria o
+  sistema sem saída quando não houvesse `DP` vigente no escopo. A trilha
+  `segregation_override` continua sendo a única evidência do rompimento, e a
+  mitigação real é operacional: poucas contas SuperAdmin e revisão periódica
+  (R61).
+
+### Consequências
+
+- **um worker é o teto de concorrência declarado.** Oito threads atendem o
+  volume esperado de um processo demissional, mas a capacidade agora é um número
+  conhecido, não uma surpresa. Subir de verdade exige cache compartilhado antes,
+  e o boot recusa o atalho;
+- **o `DJANGO_SECRET_KEY` é compartilhado entre o host antigo e o novo enquanto
+  o schema for o mesmo.** `apps/system_settings/crypto.py` deriva a cifra Fernet
+  dele, e os segredos da central — senha de bind do AD e senha SMTP — já estão
+  gravados no schema. Chave nova no host novo torna os dois ilegíveis (R69);
+  a saída é levar a mesma chave ou reinformar as duas senhas logo após o corte;
+- **dois hosts não podem escrever no mesmo schema.** O corte desliga o serviço
+  do host anterior antes de subir o novo, e a decisão sobre o que ele vira — DEV
+  com schema próprio ou desativado — passa a ser explícita;
+- **o resíduo das homologações vira acervo produtivo.** Auditoria, fila de
+  notificações e `SGPD_REPORT_EXPORT` são append-only por decisão e não podem
+  ser apagados. O saneamento possível antes do corte é o do domínio: encerrar ou
+  cancelar processos de teste e desativar contas de teste;
+- **o rollback é barato justamente porque o schema é o mesmo**: parar o serviço
+  novo, reapontar o proxy e subir o anterior. O único passo irreversível seria
+  uma migration aplicada no corte — e é por isso que o script não aplica
+  nenhuma;
+- **`runserver` deixa de ser servidor de qualquer host publicado.** Permanece
+  como ferramenta de desenvolvimento, com o módulo de settings passado na mão;
+- o R68 fica **mitigado, não fechado**: ganhou supervisão, mas o teto de um
+  processo continua sendo limitação conhecida.

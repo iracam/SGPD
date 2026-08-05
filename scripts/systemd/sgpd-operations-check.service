@@ -1,0 +1,23 @@
+# Sonda de operação: fila parada, storage e retenção (R63).
+#
+# Em modo --quiet a sonda só escreve quando há problema e sai com código 1 com a
+# fila parada. Sob systemd essa saída marca a unidade como `failed`, então o
+# problema aparece em `systemctl list-units --failed` e em `systemctl
+# list-timers` — não depende de alguém ler um arquivo de log.
+
+[Unit]
+Description=SGPD — sonda de operação
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=sgpd
+Group=sgpd
+WorkingDirectory=/opt/sgpd
+ExecStart=/opt/sgpd/.venv/bin/python manage.py sgpd_operations_check --quiet
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/sgpd
