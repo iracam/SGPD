@@ -1,6 +1,6 @@
 {
   "project": "SGPD / DesligaFlow",
-  "generated_on": "2026-08-04",
+  "generated_on": "2026-08-05",
   "files": [
     {
       "file": "AGENTS.md",
@@ -12,7 +12,7 @@
     },
     {
       "file": "CHECKPOINT.md",
-      "bytes": 85085
+      "bytes": 15609
     },
     {
       "file": "CONTEXT.md",
@@ -84,7 +84,7 @@
     },
     {
       "file": "history/README.md",
-      "bytes": 396
+      "bytes": 986
     },
     {
       "file": "sql/senior_reference_queries.sql",
@@ -97,6 +97,10 @@
     {
       "file": "history/checkpoints/2026-07.md",
       "bytes": 200707
+    },
+    {
+      "file": "history/checkpoints/2026-08.md",
+      "bytes": 77958
     },
     {
       "file": "history/completed-plans/MIGRATION_FRONTEND_SPA.md",
