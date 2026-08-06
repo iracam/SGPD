@@ -5,7 +5,7 @@ import {
 } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ProcessoRascunhoPage } from './processo-rascunho';
@@ -82,6 +82,8 @@ describe('ProcessoRascunhoPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideAnimationsAsync(),
+        // A exclusão do rascunho navega de volta ao hub.
+        provideRouter([{ path: 'fe/processos', children: [] }]),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: { get: () => UUID } } },
@@ -153,6 +155,46 @@ describe('ProcessoRascunhoPage', () => {
     expect(component.formulario.controls.group_version_ids.value).toEqual([10]);
     expect(component.sugestaoAplicada()).toBe(false);
   });
+
+  it('exige confirmação e justificativa antes de excluir o rascunho', () => {
+    fixture.detectChanges();
+
+    // Um clique no botão não apaga nada: só abre a confirmação.
+    (
+      fixture.nativeElement.querySelector(
+        'p-button[label="Excluir rascunho…"] button',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    httpMock.expectNone(`/api/v1/processes/${UUID}/purge/`);
+
+    const confirmar = fixture.nativeElement.querySelector(
+      'p-button[label="Confirmar exclusão"] button',
+    ) as HTMLButtonElement;
+    expect(confirmar.disabled).toBe(true);
+
+    const campo = fixture.nativeElement.querySelector(
+      'section[aria-labelledby="titulo-excluir-rascunho"] textarea',
+    ) as HTMLTextAreaElement;
+    campo.value = 'Aberto para a matrícula errada.';
+    campo.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    (
+      fixture.nativeElement.querySelector(
+        'p-button[label="Confirmar exclusão"] button',
+      ) as HTMLButtonElement
+    ).click();
+
+    const request = httpMock.expectOne(`/api/v1/processes/${UUID}/purge/`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      expected_version: 2,
+      reason: 'Aberto para a matrícula errada.',
+    });
+    expect(request.request.headers.get('Idempotency-Key')).toBeTruthy();
+    request.flush({ purge_uuid: 'x', process_uuid: UUID });
+  });
 });
 
 describe('ProcessoRascunhoPage — sugestão de aplicabilidade', () => {
@@ -165,6 +207,8 @@ describe('ProcessoRascunhoPage — sugestão de aplicabilidade', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideAnimationsAsync(),
+        // A exclusão do rascunho navega de volta ao hub.
+        provideRouter([{ path: 'fe/processos', children: [] }]),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: { get: () => UUID } } },

@@ -66,6 +66,32 @@ section.grupo {
   padding-inline-start: 0.6rem;
 }
 
+/* A exclusão é a única ação que destrói dado: a barra é mais grossa que a dos
+   atos terminais, para que ela não se confunda com cancelar. */
+.grupo--destrutivo .grupo__cabecalho {
+  border-inline-start: 5px solid var(--status-blocked-color);
+  padding-inline-start: 0.6rem;
+}
+
+.aviso-exclusao {
+  border: 1px solid var(--status-blocked-color);
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  margin: 0 0 0.9rem;
+  font-size: 0.95rem;
+}
+
+.aviso-exclusao p {
+  margin: 0;
+}
+
+.resumo-exclusao {
+  margin: 0.4rem 0 0;
+  padding-inline-start: 1.1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
 .contagens {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

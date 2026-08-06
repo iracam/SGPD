@@ -1,8 +1,10 @@
 @use 'breakpoints' as bp;
 @use 'conferencia';
+@use 'listagem';
 
-// Mesmo protocolo de conferência das telas de execução (ADR-047): seções com
-// régua, chips sobre os tokens --status-* e dado técnico em mono.
+// Listagem administrativa padrão (ADR-028): cartões no estado base, tabela a
+// partir de `md`. Os chips ficam sobre os tokens --status-* e o dado técnico em
+// mono, como no protocolo de conferência das telas de execução (ADR-047).
 
 .resumo {
   display: flex;
@@ -40,72 +42,102 @@
   font-weight: 700;
 }
 
-.mensagens {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
+/* Cartões: a situação é a régua lateral, como nas telas de execução. */
 
-.mensagem {
-  display: grid;
-  gap: 0.6rem;
-  min-width: 0;
-  padding: 0.85rem;
-  border: 1px solid var(--p-content-border-color);
+.cartao {
   border-inline-start-width: 3px;
   border-inline-start-color: var(--status-pending-color);
-  border-radius: 0.7rem;
-  background: var(--p-content-background);
 }
 
-.mensagem--blocked {
+.cartao--blocked {
   border-inline-start-color: var(--status-blocked-color);
 }
 
-.mensagem--released {
+.cartao--released {
   border-inline-start-color: var(--status-released-color);
 }
 
-.mensagem--review {
+.cartao--review {
   border-inline-start-color: var(--status-review-color);
 }
 
-.mensagem--canceled {
+.cartao--canceled {
   border-inline-start-color: var(--status-canceled-color);
 }
 
-.mensagem > header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+/* Tabela.
+ *
+ * A troca padrão da listagem é em `md`, mas esta tela leva assunto, e-mail e
+ * duas datas na mesma linha: em 768 a tabela sai com uma palavra por linha.
+ * Aqui o cartão vale até `lg`. */
+
+.lista-tabela {
+  @include bp.from(bp.$md) {
+    display: none;
+  }
+
+  @include bp.from(bp.$lg) {
+    display: block;
+  }
 }
 
-.mensagem > header small {
+.lista-cartoes {
+  @include bp.from(bp.$md) {
+    display: flex;
+  }
+
+  @include bp.from(bp.$lg) {
+    display: none;
+  }
+}
+
+// Nenhuma coluna impõe largura mínima: entre `lg` e `xl` a tabela precisa
+// poder comprimir. Os `max-width` são teto, não piso — com um `min-width`
+// qualquer, a soma passava do contêiner e as ações saíam para fora da rolagem.
+
+.coluna-assunto {
+  max-width: 20rem;
+}
+
+// Endereço de e-mail é uma palavra só: sem quebra forçada ele empurra a coluna
+// vizinha para fora da tabela.
+.coluna-destinatario {
+  max-width: 16rem;
+  overflow-wrap: anywhere;
+}
+
+// A coluna pode quebrar entre o qualificador e a data; a data, não.
+.data {
+  white-space: nowrap;
+}
+
+.tabela td small {
   display: block;
-  color: var(--p-text-muted-color);
-}
-
-.dados {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin: 0;
-}
-
-.dados dt {
   color: var(--p-text-muted-color);
   font-size: 0.75rem;
 }
 
-.dados dd {
-  margin: 0.15rem 0 0;
-  // Endereço de e-mail é uma palavra só: sem quebra forçada ele atravessa a
-  // coluna vizinha em 360 sem esticar o documento — a métrica de overflow
-  // horizontal não acusa, mas o texto fica ilegível.
-  overflow-wrap: anywhere;
+// O erro ocupa uma linha só; o texto inteiro fica no detalhe da mensagem.
+.linha__erro {
+  max-width: 16rem;
+  overflow: hidden;
+  color: var(--status-blocked-color);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.linha-detalhe > td {
+  background: color-mix(in srgb, var(--p-text-color) 3%, transparent);
+}
+
+// A linha de detalhe é continuação da linha acima: o realce de hover em uma
+// sem a outra parte visualmente o par.
+.tabela tbody tr.linha-detalhe:hover {
+  background: none;
+}
+
+/* Detalhe e erros de entrega */
 
 .erro-entrega {
   margin: 0;
@@ -116,33 +148,6 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
-}
-
-.acoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.acao {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid var(--p-content-border-color);
-  border-radius: 0.6rem;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 650;
-}
-
-.acao--primaria {
-  border-color: var(--sgpd-accent);
-  color: var(--status-released-color);
-}
-
-.acao:disabled {
-  cursor: progress;
-  opacity: 0.6;
 }
 
 .detalhe h3 {
@@ -192,14 +197,7 @@
 }
 
 @include bp.from(bp.$md) {
-  .dados {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .mensagem > header {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+  .resumo {
+    margin-block-end: 1rem;
   }
 }

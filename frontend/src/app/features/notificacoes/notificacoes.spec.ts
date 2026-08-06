@@ -82,6 +82,40 @@ describe('NotificacoesPage', () => {
     expect(texto).not.toContain('TAREFA_VENCIDA');
   });
 
+  it('lista a fila como tabela, uma linha por mensagem', () => {
+    carregar({ results: [notificacao(), notificacao({ uuid: 'outro-uuid', status: 'ENVIADA' })] });
+
+    const cabecalhos = Array.from(
+      fixture.nativeElement.querySelectorAll('.tabela thead th') as NodeListOf<HTMLElement>,
+    ).map((th) => th.textContent?.trim());
+    expect(cabecalhos).toEqual([
+      'Situação',
+      'Assunto',
+      'Processo',
+      'Destinatário',
+      'Tentativas',
+      'Envio',
+      'Ações',
+    ]);
+    expect(fixture.nativeElement.querySelectorAll('.tabela tbody tr')).toHaveLength(2);
+  });
+
+  it('expande o detalhe da mensagem em uma linha da própria tabela', () => {
+    carregar();
+
+    const alternar = fixture.nativeElement.querySelector(
+      `.tabela [aria-label^="Ver detalhes de"]`,
+    ) as HTMLElement;
+    expect(alternar).toBeTruthy();
+    alternar.click();
+    fixture.detectChanges();
+
+    const detalhe = fixture.nativeElement.querySelector('.tabela .linha-detalhe td');
+    expect(detalhe).toBeTruthy();
+    expect(detalhe.getAttribute('colspan')).toBe('7');
+    expect(detalhe.textContent).toContain('A tarefa do setor Tecnologia venceu.');
+  });
+
   it('reprocessa a mensagem em falha com versão e chave de idempotência', () => {
     carregar();
 

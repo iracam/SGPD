@@ -1,6 +1,7 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { finalize } from 'rxjs';
 
@@ -30,7 +31,7 @@ const SITUACOES: readonly NotificacaoStatus[] = [
  */
 @Component({
   selector: 'app-notificacoes-page',
-  imports: [DatePipe, MessageModule],
+  imports: [ButtonModule, DatePipe, MessageModule, NgTemplateOutlet],
   templateUrl: './notificacoes.html',
   styleUrl: './notificacoes.scss',
 })

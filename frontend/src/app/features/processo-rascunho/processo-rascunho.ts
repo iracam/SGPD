@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { MultiSelectModule } from 'primeng/multiselect';
@@ -27,6 +27,7 @@ import { ProcessoRascunhoService } from './processo-rascunho.service';
 export class ProcessoRascunhoPage {
   private readonly service = inject(ProcessoRascunhoService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly uuid = this.route.snapshot.paramMap.get('uuid') ?? '';
@@ -38,6 +39,10 @@ export class ProcessoRascunhoPage {
   readonly selecaoAlterada = signal(false);
   readonly erro = signal('');
   readonly aviso = signal('');
+  readonly excluindo = signal(false);
+  /** Só depois de confirmar o rascunho some — um clique não apaga nada. */
+  readonly confirmandoExclusao = signal(false);
+  readonly motivoExclusao = signal('');
   private readonly chaveInicio = signal(this.criarChaveIdempotencia());
   readonly formulario = this.formBuilder.group({
     group_version_ids: this.formBuilder.nonNullable.control<number[]>(
@@ -137,6 +142,49 @@ export class ProcessoRascunhoPage {
           this.erro.set(
             errorMessage(error, 'Não foi possível iniciar o processo.'),
           ),
+      });
+  }
+
+  protected pedirExclusao(): void {
+    this.erro.set('');
+    this.aviso.set('');
+    this.confirmandoExclusao.set(true);
+  }
+
+  protected desistirDaExclusao(): void {
+    this.confirmandoExclusao.set(false);
+    this.motivoExclusao.set('');
+  }
+
+  protected motivo(event: Event): void {
+    this.motivoExclusao.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  /** Apaga o rascunho de vez; resta a lápide em `SGPD_PROCESS_PURGE`. */
+  excluir(): void {
+    const contexto = this.contexto();
+    if (!contexto || this.excluindo() || !this.motivoExclusao().trim()) {
+      return;
+    }
+    this.excluindo.set(true);
+    this.erro.set('');
+    this.aviso.set('');
+    this.service
+      .excluir(
+        this.uuid,
+        contexto.process.version,
+        this.motivoExclusao(),
+        this.criarChaveIdempotencia(),
+      )
+      .pipe(
+        finalize(() => this.excluindo.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        // Não há rascunho para recarregar: esta rota deixou de existir.
+        next: () => void this.router.navigate(['/fe/processos']),
+        error: (error) =>
+          this.erro.set(errorMessage(error, 'Não foi possível excluir o rascunho.')),
       });
   }
 

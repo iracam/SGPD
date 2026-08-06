@@ -3,7 +3,11 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { apiConfig } from '../../core/config/api.config';
-import { ConferenciaEncerramento } from './models/processo-encerramento.models';
+import {
+  ConferenciaEncerramento,
+  PreviaExclusao,
+  ResultadoExclusao,
+} from './models/processo-encerramento.models';
 
 /**
  * Atos formais do ciclo (ADR-051).
@@ -62,6 +66,27 @@ export class ProcessoEncerramentoService {
     idempotencyKey: string,
   ): Observable<ConferenciaEncerramento> {
     return this.transicao(processUuid, 'reopen', payload, idempotencyKey);
+  }
+
+  /**
+   * Prévia da exclusão (ADR-056): o que será destruído, antes de confirmar.
+   *
+   * É leitura pura, e a decisão que ela antecipa é sempre refeita pelo servidor
+   * sob lock — esta tela avisa, não autoriza.
+   */
+  previaExclusao(processUuid: string): Observable<PreviaExclusao> {
+    return this.http.get<PreviaExclusao>(this.rota(processUuid, 'purge'));
+  }
+
+  /** Exclusão definitiva. Não há desfazer: só resta a lápide que volta aqui. */
+  excluir(
+    processUuid: string,
+    payload: { expected_version: number; reason: string },
+    idempotencyKey: string,
+  ): Observable<ResultadoExclusao> {
+    return this.http.post<ResultadoExclusao>(this.rota(processUuid, 'purge'), payload, {
+      headers: new HttpHeaders().set('Idempotency-Key', idempotencyKey),
+    });
   }
 
   private transicao(

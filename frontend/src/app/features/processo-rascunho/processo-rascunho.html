@@ -198,6 +198,56 @@
           <small>Salve a seleção antes de iniciar.</small>
         }
       </div>
+
+      <section class="descarte" aria-labelledby="titulo-excluir-rascunho">
+        <h3 id="titulo-excluir-rascunho">Excluir rascunho</h3>
+        <p>
+          Abriu para o colaborador errado? Apague o rascunho em vez de deixá-lo parado. A
+          exclusão é definitiva; fica apenas o registro de quem excluiu e por quê.
+        </p>
+        @if (confirmandoExclusao()) {
+          <label class="campo">
+            Justificativa da exclusão
+            <textarea
+              rows="2"
+              maxlength="1000"
+              [value]="motivoExclusao()"
+              (input)="motivo($event)"
+            ></textarea>
+          </label>
+          <div class="acoes">
+            <p-button
+              type="button"
+              severity="danger"
+              icon="pi pi-trash"
+              label="Confirmar exclusão"
+              [loading]="excluindo()"
+              [disabled]="excluindo() || !motivoExclusao().trim()"
+              (onClick)="excluir()"
+            ></p-button>
+            <p-button
+              type="button"
+              severity="secondary"
+              [text]="true"
+              label="Manter o rascunho"
+              [disabled]="excluindo()"
+              (onClick)="desistirDaExclusao()"
+            ></p-button>
+          </div>
+        } @else {
+          <div class="acoes">
+            <p-button
+              type="button"
+              severity="danger"
+              [outlined]="true"
+              icon="pi pi-trash"
+              label="Excluir rascunho…"
+              [disabled]="excluindo() || iniciando() || salvando()"
+              (onClick)="pedirExclusao()"
+            ></p-button>
+          </div>
+        }
+      </section>
     }
   </section>
 }

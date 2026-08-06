@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { Observable, finalize } from 'rxjs';
@@ -11,6 +11,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import {
   ConferenciaEncerramento,
   EstadoFormal,
+  PreviaExclusao,
   SituacaoProcesso,
   TarefaDoCiclo,
 } from './models/processo-encerramento.models';
@@ -34,6 +35,7 @@ export class ProcessoEncerramentoPage {
   private readonly service = inject(ProcessoEncerramentoService);
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly uuid = this.route.snapshot.paramMap.get('uuid') ?? '';
 
@@ -49,6 +51,13 @@ export class ProcessoEncerramentoPage {
   readonly dataProcessamento = signal(this.hoje());
   readonly tarefasSelecionadas = signal<number[]>([]);
   readonly justificativaOverride = signal('');
+
+  /** Exclusão definitiva: a prévia só é buscada quando alguém pede (ADR-056). */
+  readonly previaExclusao = signal<PreviaExclusao | null>(null);
+  readonly conferindoExclusao = signal(false);
+  /** Justificativa própria: cancelar e excluir convivem na mesma tela e não
+   * podem dividir o mesmo campo — são atos diferentes, com efeitos diferentes. */
+  readonly motivoExclusao = signal('');
 
   /** A reabertura é exclusiva do SuperAdmin; a API repete a decisão. */
   readonly podeReabrir = computed(() => this.auth.currentUser()?.is_superuser === true);
@@ -69,6 +78,43 @@ export class ProcessoEncerramentoPage {
   readonly tarefasConcluidas = computed(() =>
     (this.dados()?.tasks ?? []).filter((tarefa) => tarefa.status === 'CONCLUIDA'),
   );
+
+  /**
+   * Cancelar o processo já formalizado é ato da gerência (ADR-056). O `DP` puro
+   * continua cancelando rascunho e iniciado; a decisão é refeita no servidor.
+   */
+  readonly podeCancelarFormalizado = computed(() => {
+    const status = this.dados()?.process.status;
+    return (
+      this.dados()?.can_override_blockers === true &&
+      (status === 'LIBERADO_PARA_RESCISAO' ||
+        status === 'RESCISAO_PROCESSADA' ||
+        status === 'ENCERRADO')
+    );
+  });
+
+  /** Processo encerrado nunca é excluído — para ele, o caminho é cancelar. */
+  readonly podeTentarExcluir = computed(() => {
+    const status = this.dados()?.process.status;
+    return status !== undefined && status !== 'ENCERRADO';
+  });
+
+  /** Quantas linhas a exclusão destrói, só as que existem, para o aviso. */
+  readonly resumoDaExclusao = computed(() => {
+    const contagem = this.previaExclusao()?.counts;
+    if (!contagem) {
+      return [];
+    }
+    return [
+      { rotulo: 'tarefas', valor: contagem.tasks },
+      { rotulo: 'tarefas concluídas', valor: contagem.completed_tasks },
+      { rotulo: 'pendências', valor: contagem.pending_items },
+      { rotulo: 'valores informados', valor: contagem.pending_amounts },
+      { rotulo: 'evidências', valor: contagem.evidences },
+      { rotulo: 'notificações', valor: contagem.notifications },
+      { rotulo: 'eventos de trilha', valor: contagem.audit_events },
+    ].filter((linha) => linha.valor > 0);
+  });
 
   constructor() {
     this.service
@@ -168,6 +214,60 @@ export class ProcessoEncerramentoPage {
     );
   }
 
+  /**
+   * Primeiro passo da exclusão: buscar e mostrar o que será destruído.
+   *
+   * O aviso não é decorativo. Quem apaga um processo com tarefa concluída,
+   * pendência ou evidência precisa ver o tamanho do que está descartando antes
+   * de confirmar — depois não há de onde recuperar.
+   */
+  protected conferirExclusao(): void {
+    this.erro.set('');
+    this.aviso.set('');
+    this.conferindoExclusao.set(true);
+    this.service
+      .previaExclusao(this.uuid)
+      .pipe(
+        finalize(() => this.conferindoExclusao.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (previa) => this.previaExclusao.set(previa),
+        error: (error) =>
+          this.erro.set(errorMessage(error, 'Não foi possível conferir a exclusão.')),
+      });
+  }
+
+  protected desistirDaExclusao(): void {
+    this.previaExclusao.set(null);
+    this.motivoExclusao.set('');
+  }
+
+  protected excluir(): void {
+    const processo = this.dados()?.process;
+    if (!processo) {
+      return;
+    }
+    this.erro.set('');
+    this.aviso.set('');
+    this.enviando.set(true);
+    this.service
+      .excluir(
+        this.uuid,
+        { expected_version: processo.version, reason: this.motivoExclusao() },
+        this.chave(),
+      )
+      .pipe(
+        finalize(() => this.enviando.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        // O processo deixou de existir: não há o que recarregar nesta rota.
+        next: () => void this.router.navigate(['/fe/processos']),
+        error: (error) => this.erro.set(this.recusa(error)),
+      });
+  }
+
   protected alternarTarefa(tarefa: TarefaDoCiclo): void {
     this.tarefasSelecionadas.update((atual) =>
       atual.includes(tarefa.id)
@@ -181,7 +281,12 @@ export class ProcessoEncerramentoPage {
   }
 
   protected texto(
-    destino: 'observacao' | 'motivo' | 'numeroRescisao' | 'justificativaOverride',
+    destino:
+      | 'observacao'
+      | 'motivo'
+      | 'motivoExclusao'
+      | 'numeroRescisao'
+      | 'justificativaOverride',
     event: Event,
   ): void {
     const valor = (event.target as HTMLInputElement | HTMLTextAreaElement).value;

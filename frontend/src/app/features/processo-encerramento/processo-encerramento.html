@@ -373,17 +373,27 @@
   }
 
   @if (
-    conferencia.process.status === 'RASCUNHO' || conferencia.process.status === 'INICIADO'
+    conferencia.process.status === 'RASCUNHO' ||
+    conferencia.process.status === 'INICIADO' ||
+    podeCancelarFormalizado()
   ) {
     <section class="grupo grupo--terminal" aria-labelledby="titulo-cancelar">
       <header class="grupo__cabecalho">
         <i class="pi pi-ban" aria-hidden="true"></i>
         <span>
           <h2 class="grupo__titulo" id="titulo-cancelar">Cancelar processo</h2>
-          <small>
-            Cancela as tarefas abertas e libera o colaborador para um processo novo. Não há
-            volta: o histórico permanece inteiro.
-          </small>
+          @if (podeCancelarFormalizado()) {
+            <small>
+              Desfaz um ato formal já praticado, e por isso é da gerência do Departamento
+              Pessoal ou do SuperAdmin. As marcas de liberação, processamento e encerramento
+              continuam gravadas — o cancelamento é o último capítulo, não uma borracha.
+            </small>
+          } @else {
+            <small>
+              Cancela as tarefas abertas e libera o colaborador para um processo novo. Não há
+              volta: o histórico permanece inteiro.
+            </small>
+          }
         </span>
       </header>
       <label class="campo">
@@ -415,6 +425,84 @@
         O cancelamento é terminal. Para retomar o desligamento, abra um processo novo — a
         trilha dos dois é preservada.
       </p>
+    </section>
+  }
+
+  @if (podeTentarExcluir()) {
+    <section class="grupo grupo--destrutivo" aria-labelledby="titulo-excluir">
+      <header class="grupo__cabecalho">
+        <i class="pi pi-trash" aria-hidden="true"></i>
+        <span>
+          <h2 class="grupo__titulo" id="titulo-excluir">Excluir processo</h2>
+          <small>
+            Apaga o processo do banco: tarefas, pendências, evidências, notificações e a
+            trilha. Fica apenas o registro da exclusão — quem excluiu, quando, por quê e uma
+            cópia da trilha. <strong>Não há como desfazer.</strong>
+          </small>
+        </span>
+      </header>
+
+      @if (previaExclusao(); as previa) {
+        @if (previa.can_purge) {
+          <div class="aviso-exclusao" role="alert">
+            @if (resumoDaExclusao().length) {
+              <p>Esta exclusão destrói definitivamente:</p>
+              <ul class="resumo-exclusao">
+                @for (linha of resumoDaExclusao(); track linha.rotulo) {
+                  <li><strong>{{ linha.valor }}</strong> {{ linha.rotulo }}</li>
+                }
+              </ul>
+            } @else {
+              <p>
+                Este processo ainda não produziu nada: nada além dele mesmo será destruído.
+              </p>
+            }
+          </div>
+          <label class="campo">
+            Justificativa da exclusão
+            <textarea
+              rows="3"
+              maxlength="1000"
+              [value]="motivoExclusao()"
+              (input)="texto('motivoExclusao', $event)"
+            ></textarea>
+          </label>
+          <div class="acoes">
+            <p-button
+              type="button"
+              severity="danger"
+              icon="pi pi-trash"
+              label="Confirmar exclusão definitiva"
+              [loading]="enviando()"
+              [disabled]="enviando() || !motivoExclusao().trim()"
+              (onClick)="excluir()"
+            ></p-button>
+            <p-button
+              type="button"
+              severity="secondary"
+              [text]="true"
+              label="Manter o processo"
+              [disabled]="enviando()"
+              (onClick)="desistirDaExclusao()"
+            ></p-button>
+          </div>
+        } @else {
+          <p class="impedimento">{{ previa.refusal }}</p>
+        }
+      } @else {
+        <div class="acoes">
+          <p-button
+            type="button"
+            severity="danger"
+            [outlined]="true"
+            icon="pi pi-trash"
+            label="Excluir processo…"
+            [loading]="conferindoExclusao()"
+            [disabled]="conferindoExclusao() || enviando()"
+            (onClick)="conferirExclusao()"
+          ></p-button>
+        </div>
+      }
     </section>
   }
 

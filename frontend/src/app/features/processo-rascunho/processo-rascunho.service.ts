@@ -39,6 +39,27 @@ export class ProcessoRascunhoService {
     );
   }
 
+  /**
+   * Exclusão definitiva do rascunho (ADR-056).
+   *
+   * Rascunho abandonado é o lixo mais comum da base, e aqui ele nunca produziu
+   * nada: por isso a tela não pede a conferência do que será destruído — não há
+   * o que destruir além do próprio rascunho. O servidor confere de novo.
+   */
+  excluir(
+    uuid: string,
+    expectedVersion: number,
+    reason: string,
+    idempotencyKey: string,
+  ): Observable<unknown> {
+    const headers = new HttpHeaders().set('Idempotency-Key', idempotencyKey);
+    return this.http.post(
+      `${apiConfig.routes.processes}${uuid}/purge/`,
+      { expected_version: expectedVersion, reason },
+      { headers },
+    );
+  }
+
   private draftUrl(uuid: string): string {
     return `${apiConfig.routes.processes}${uuid}/draft/`;
   }

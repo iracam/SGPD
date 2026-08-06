@@ -43,111 +43,192 @@
 </section>
 
 @if (carregando()) {
-  <section class="grupo"><p class="vazio-inline">Carregando fila…</p></section>
+  <p class="vazio">Carregando fila…</p>
 } @else if (fila(); as dados) {
-  <section class="grupo" aria-labelledby="titulo-fila">
-    <header class="grupo__cabecalho">
-      <i class="pi pi-inbox" aria-hidden="true"></i>
-      <span>
-        <h2 class="grupo__titulo" id="titulo-fila">Mensagens</h2>
-        <small>Da mais recente para a mais antiga, com o histórico de tentativas.</small>
-      </span>
-      <span class="grupo__total">{{ dados.results.length }}</span>
-    </header>
+  @if (!dados.results.length) {
+    <p class="vazio">Nenhuma notificação nesta situação.</p>
+  }
 
-    <ul class="mensagens">
-      @for (item of dados.results; track item.uuid) {
-        <li [class]="'mensagem mensagem--' + estadoStatus(item.status)">
-          <header>
-            <span>
-              <strong>{{ item.subject }}</strong>
-              <small>
-                {{ rotuloEvento(item.event) }} · processo
-                <span class="registro">{{ item.process_ref }}</span>
-                @if (item.sector_name) {
-                  · {{ item.sector_name }}
-                }
-              </small>
-            </span>
-            <span [class]="'chip chip--' + estadoStatus(item.status)">
-              {{ rotuloStatus(item.status) }}
-            </span>
-          </header>
-
-          <dl class="dados">
-            <div>
-              <dt>Destinatário</dt>
-              <dd class="registro">{{ item.recipient.email }}</dd>
-            </div>
-            <div>
-              <dt>Tentativas</dt>
-              <dd class="registro">{{ item.attempts }} de {{ item.max_attempts }}</dd>
-            </div>
-            <div>
-              <dt>Enfileirada</dt>
-              <dd class="registro">{{ item.created_at | date: 'dd/MM/yyyy HH:mm' }}</dd>
-            </div>
-            <div>
-              <dt>{{ item.sent_at ? 'Enviada' : 'Próxima tentativa' }}</dt>
-              <dd class="registro">
-                {{ (item.sent_at ?? item.next_attempt_at) | date: 'dd/MM/yyyy HH:mm' }}
-              </dd>
-            </div>
-          </dl>
-
-          @if (item.last_error) {
-            <p class="erro-entrega">{{ item.last_error }}</p>
-          }
-
-          <div class="acoes">
-            <button type="button" class="acao" (click)="alternar(item.uuid)">
-              {{ expandida() === item.uuid ? 'Ocultar detalhes' : 'Ver detalhes' }}
-            </button>
-            @if (item.status === 'FALHA') {
-              <button
-                type="button"
-                class="acao acao--primaria"
-                [disabled]="reprocessando() === item.uuid"
-                (click)="reprocessar(item)"
-              >
-                {{ reprocessando() === item.uuid ? 'Reprocessando…' : 'Reprocessar' }}
-              </button>
+  <!-- Estado base: cartões, até 1024. A tabela desta tela carrega assunto,
+       e-mail e datas: abaixo de `lg` ela ficaria com uma palavra por linha. -->
+  <div class="lista-cartoes">
+    @for (item of dados.results; track item.uuid) {
+      <article [class]="'cartao cartao--' + estadoStatus(item.status)">
+        <div class="cartao__topo">
+          <span class="cartao__titulo">{{ item.subject }}</span>
+          <span [class]="'chip chip--' + estadoStatus(item.status)">
+            {{ rotuloStatus(item.status) }}
+          </span>
+        </div>
+        <dl class="cartao__campo">
+          <dt>Evento</dt>
+          <dd>{{ rotuloEvento(item.event) }}</dd>
+        </dl>
+        <dl class="cartao__campo">
+          <dt>Processo</dt>
+          <dd class="registro">
+            {{ item.process_ref }}
+            @if (item.sector_name) {
+              · {{ item.sector_name }}
             }
-          </div>
+          </dd>
+        </dl>
+        <dl class="cartao__campo">
+          <dt>Destinatário</dt>
+          <dd class="registro">{{ item.recipient.email }}</dd>
+        </dl>
+        <dl class="cartao__campo">
+          <dt>Tentativas</dt>
+          <dd class="registro">{{ item.attempts }} de {{ item.max_attempts }}</dd>
+        </dl>
+        <dl class="cartao__campo">
+          <dt>Enfileirada</dt>
+          <dd class="registro">{{ item.created_at | date: 'dd/MM/yy HH:mm' }}</dd>
+        </dl>
+        <dl class="cartao__campo">
+          <dt>{{ item.sent_at ? 'Enviada' : 'Próxima tentativa' }}</dt>
+          <dd class="registro">
+            {{ (item.sent_at ?? item.next_attempt_at) | date: 'dd/MM/yy HH:mm' }}
+          </dd>
+        </dl>
+        @if (item.last_error) {
+          <p class="erro-entrega">{{ item.last_error }}</p>
+        }
+        <div class="cartao__acoes">
+          <ng-container
+            *ngTemplateOutlet="acoes; context: { $implicit: item, compacto: false }"
+          ></ng-container>
+        </div>
+        @if (expandida() === item.uuid) {
+          <ng-container *ngTemplateOutlet="detalhe; context: { $implicit: item }"></ng-container>
+        }
+      </article>
+    }
+  </div>
 
+  <!-- A partir de lg: tabela -->
+  <div class="lista-tabela">
+    <table class="tabela">
+      <caption class="sr-only">Fila de notificações por e-mail</caption>
+      <thead>
+        <tr>
+          <th scope="col">Situação</th>
+          <th scope="col">Assunto</th>
+          <th scope="col">Processo</th>
+          <th scope="col">Destinatário</th>
+          <th scope="col">Tentativas</th>
+          <th scope="col">Envio</th>
+          <th scope="col"><span class="sr-only">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of dados.results; track item.uuid) {
+          <tr [class]="'linha linha--' + estadoStatus(item.status)">
+            <td>
+              <span [class]="'chip chip--' + estadoStatus(item.status)">
+                {{ rotuloStatus(item.status) }}
+              </span>
+            </td>
+            <td class="coluna-assunto">
+              {{ item.subject }}
+              <small>{{ rotuloEvento(item.event) }}</small>
+              @if (item.last_error) {
+                <!-- Uma linha só: o texto inteiro do erro está no detalhe. -->
+                <small class="linha__erro">{{ item.last_error }}</small>
+              }
+            </td>
+            <td class="registro">
+              {{ item.process_ref }}
+              @if (item.sector_name) {
+                <small>{{ item.sector_name }}</small>
+              }
+            </td>
+            <td class="registro coluna-destinatario">{{ item.recipient.email }}</td>
+            <td class="registro">{{ item.attempts }} de {{ item.max_attempts }}</td>
+            <td class="registro">
+              {{ item.sent_at ? 'enviada' : 'prevista' }}
+              <span class="data">
+                {{ (item.sent_at ?? item.next_attempt_at) | date: 'dd/MM/yy HH:mm' }}
+              </span>
+              <small>
+                enfileirada
+                <span class="data">{{ item.created_at | date: 'dd/MM/yy HH:mm' }}</span>
+              </small>
+            </td>
+            <td class="tabela__acoes">
+              <ng-container
+                *ngTemplateOutlet="acoes; context: { $implicit: item, compacto: true }"
+              ></ng-container>
+            </td>
+          </tr>
           @if (expandida() === item.uuid) {
-            <div class="detalhe">
-              <h3>Mensagem</h3>
-              <pre class="corpo">{{ item.body }}</pre>
-              <h3>Tentativas</h3>
-              <ul class="tentativas">
-                @for (tentativa of item.delivery_attempts; track tentativa.attempt_number) {
-                  <li>
-                    <span class="registro">#{{ tentativa.attempt_number }}</span>
-                    <span class="registro">
-                      {{ tentativa.started_at | date: 'dd/MM/yyyy HH:mm:ss' }}
-                    </span>
-                    <span
-                      [class]="
-                        'chip chip--' + (tentativa.succeeded ? 'released' : 'blocked')
-                      "
-                    >
-                      {{ tentativa.succeeded ? 'Entregue' : 'Recusada' }}
-                    </span>
-                    @if (tentativa.error) {
-                      <span class="tentativa__erro">{{ tentativa.error }}</span>
-                    }
-                  </li>
-                } @empty {
-                  <li class="vazio-inline">Nenhuma tentativa registrada ainda.</li>
-                }
-              </ul>
-            </div>
+            <tr class="linha-detalhe">
+              <td colspan="7">
+                <ng-container
+                  *ngTemplateOutlet="detalhe; context: { $implicit: item }"
+                ></ng-container>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- Ações e detalhe são os mesmos nas duas representações da lista. -->
+<ng-template #acoes let-item let-compacto="compacto">
+  <!-- Na tabela o rótulo do detalhe é só o ícone: o texto alternando entre
+       "Ver" e "Ocultar" muda a largura da coluna a cada clique. -->
+  <p-button
+    type="button"
+    size="small"
+    [text]="compacto"
+    [outlined]="!compacto"
+    severity="secondary"
+    [icon]="expandida() === item.uuid ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+    [label]="compacto ? '' : expandida() === item.uuid ? 'Ocultar detalhes' : 'Ver detalhes'"
+    [ariaLabel]="
+      (expandida() === item.uuid ? 'Ocultar detalhes de ' : 'Ver detalhes de ') + item.subject
+    "
+    (onClick)="alternar(item.uuid)"
+  ></p-button>
+  @if (item.status === 'FALHA') {
+    <p-button
+      type="button"
+      size="small"
+      [text]="compacto"
+      [outlined]="!compacto"
+      icon="pi pi-replay"
+      [label]="reprocessando() === item.uuid ? 'Reprocessando…' : 'Reprocessar'"
+      [disabled]="reprocessando() === item.uuid"
+      (onClick)="reprocessar(item)"
+    ></p-button>
+  }
+</ng-template>
+
+<ng-template #detalhe let-item>
+  <div class="detalhe">
+    <h3>Mensagem</h3>
+    <pre class="corpo">{{ item.body }}</pre>
+    <h3>Tentativas</h3>
+    <ul class="tentativas">
+      @for (tentativa of item.delivery_attempts; track tentativa.attempt_number) {
+        <li>
+          <span class="registro">#{{ tentativa.attempt_number }}</span>
+          <span class="registro">
+            {{ tentativa.started_at | date: 'dd/MM/yyyy HH:mm:ss' }}
+          </span>
+          <span [class]="'chip chip--' + (tentativa.succeeded ? 'released' : 'blocked')">
+            {{ tentativa.succeeded ? 'Entregue' : 'Recusada' }}
+          </span>
+          @if (tentativa.error) {
+            <span class="tentativa__erro">{{ tentativa.error }}</span>
           }
         </li>
       } @empty {
-        <li class="vazio-inline">Nenhuma notificação nesta situação.</li>
+        <li class="vazio-inline">Nenhuma tentativa registrada ainda.</li>
       }
     </ul>
-  </section>
-}
+  </div>
+</ng-template>

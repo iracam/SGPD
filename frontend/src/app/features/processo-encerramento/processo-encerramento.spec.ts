@@ -92,7 +92,9 @@ describe('ProcessoEncerramentoPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideAnimationsAsync(),
-        provideRouter([]),
+        // A exclusão navega de volta ao hub: sem a rota, o teste registraria
+        // uma rejeição não tratada em vez de exercitar o fluxo.
+        provideRouter([{ path: 'fe/processos', children: [] }]),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: { get: () => UUID } } },
@@ -128,6 +130,11 @@ describe('ProcessoEncerramentoPage', () => {
     campo.value = valor;
     campo.dispatchEvent(new Event('input'));
     fixture.detectChanges();
+  }
+
+  /** A tela tem vários textareas; o da seção é o único que importa. */
+  function preencherNaSecao(secao: string, valor: string): void {
+    preencher(`section[aria-labelledby="${secao}"] textarea`, valor);
   }
 
   it('separa o estado formal da situação calculada e lista os impedimentos', () => {
@@ -431,5 +438,160 @@ describe('ProcessoEncerramentoPage', () => {
       task_ids: [11],
     });
     request.flush(conferencia());
+  });
+  it('só oferece o cancelamento do processo formalizado a quem pode passar por cima', () => {
+    // `DP` puro não vê o botão; a decisão real continua sendo do servidor.
+    carregar(
+      conferencia({
+        process: { ...conferencia().process, status: 'LIBERADO_PARA_RESCISAO' },
+        readiness: { ...conferencia().readiness, situation: 'LIBERADO_PARA_RESCISAO' },
+      }),
+    );
+
+    expect(
+      fixture.nativeElement.querySelector('p-button[label="Cancelar processo"]'),
+    ).toBeNull();
+  });
+
+  it('cancela o processo já liberado quando o ator tem o override', () => {
+    carregar(
+      conferencia({
+        process: { ...conferencia().process, status: 'LIBERADO_PARA_RESCISAO' },
+        readiness: { ...conferencia().readiness, situation: 'LIBERADO_PARA_RESCISAO' },
+        can_override_blockers: true,
+      }),
+    );
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Desfaz um ato formal já praticado');
+
+    preencherNaSecao('titulo-cancelar', 'Rescisão anulada em juízo.');
+    (
+      fixture.nativeElement.querySelector(
+        'p-button[label="Cancelar processo"] button',
+      ) as HTMLButtonElement
+    ).click();
+
+    const request = httpMock.expectOne(`/api/v1/processes/${UUID}/cancel/`);
+    expect(request.request.body).toEqual({
+      expected_version: 4,
+      reason: 'Rescisão anulada em juízo.',
+    });
+    request.flush(conferencia());
+  });
+
+  it('avisa o que a exclusão destrói antes de aceitar a confirmação', () => {
+    carregar(conferencia());
+
+    (
+      fixture.nativeElement.querySelector(
+        'p-button[label="Excluir processo…"] button',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+
+    httpMock.expectOne(`/api/v1/processes/${UUID}/purge/`).flush({
+      process: conferencia().process,
+      counts: {
+        tasks: 3,
+        completed_tasks: 2,
+        checklist_items: 9,
+        pending_items: 1,
+        pending_amounts: 0,
+        pending_comments: 4,
+        evidences: 2,
+        notifications: 5,
+        audit_events: 17,
+        validation_groups: 1,
+        sector_overrides: 0,
+      },
+      had_material_history: true,
+      requires_override: true,
+      can_purge: true,
+      refusal: '',
+    });
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Esta exclusão destrói definitivamente');
+    expect(texto).toContain('2 tarefas concluídas');
+    expect(texto).toContain('17 eventos de trilha');
+    // Contagem zerada não vira linha: o aviso lista só o que existe.
+    expect(texto).not.toContain('valores informados');
+
+    const confirmar = fixture.nativeElement.querySelector(
+      'p-button[label="Confirmar exclusão definitiva"] button',
+    ) as HTMLButtonElement;
+    expect(confirmar.disabled).toBe(true);
+
+    preencherNaSecao('titulo-excluir', 'Processo duplicado do mesmo colaborador.');
+    (
+      fixture.nativeElement.querySelector(
+        'p-button[label="Confirmar exclusão definitiva"] button',
+      ) as HTMLButtonElement
+    ).click();
+
+    const request = httpMock.expectOne(`/api/v1/processes/${UUID}/purge/`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      expected_version: 4,
+      reason: 'Processo duplicado do mesmo colaborador.',
+    });
+    expect(request.request.headers.get('Idempotency-Key')).toBeTruthy();
+    request.flush({ purge_uuid: 'x', process_uuid: UUID, deleted_counts: {} });
+  });
+
+  it('mostra a recusa da exclusão em vez do botão quando o ator não pode', () => {
+    carregar(conferencia());
+
+    (
+      fixture.nativeElement.querySelector(
+        'p-button[label="Excluir processo…"] button',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+
+    httpMock.expectOne(`/api/v1/processes/${UUID}/purge/`).flush({
+      process: conferencia().process,
+      counts: {
+        tasks: 1,
+        completed_tasks: 1,
+        checklist_items: 3,
+        pending_items: 0,
+        pending_amounts: 0,
+        pending_comments: 0,
+        evidences: 0,
+        notifications: 1,
+        audit_events: 6,
+        validation_groups: 1,
+        sector_overrides: 0,
+      },
+      had_material_history: true,
+      requires_override: true,
+      can_purge: false,
+      refusal: 'Este processo já possui trabalho registrado; excluí-lo é ato da gerência.',
+    });
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('é ato da gerência');
+    expect(
+      fixture.nativeElement.querySelector(
+        'p-button[label="Confirmar exclusão definitiva"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('não oferece exclusão para o processo encerrado', () => {
+    carregar(
+      conferencia({
+        process: { ...conferencia().process, status: 'ENCERRADO' },
+        readiness: { ...conferencia().readiness, situation: 'ENCERRADO' },
+      }),
+    );
+
+    expect(
+      fixture.nativeElement.querySelector('p-button[label="Excluir processo…"]'),
+    ).toBeNull();
   });
 });

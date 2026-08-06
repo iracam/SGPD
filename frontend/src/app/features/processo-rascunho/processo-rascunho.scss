@@ -134,6 +134,43 @@ p-multiSelect {
   padding-inline-start: 1.25rem;
 }
 
+/* Separado do fluxo de trabalho por uma linha: excluir não é o próximo passo
+   natural da tela, é a saída para quem abriu o rascunho errado. */
+.descarte {
+  margin-block-start: 1.75rem;
+  padding-block-start: 1.25rem;
+  border-block-start: 1px solid var(--p-content-border-color);
+}
+
+.descarte h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.descarte p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--p-text-muted-color);
+}
+
+.descarte .campo {
+  display: grid;
+  gap: 0.3rem;
+  margin-block-start: 0.75rem;
+  font-size: 0.92rem;
+}
+
+.descarte textarea {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.5rem;
+  background: var(--p-content-background);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
 @include bp.from(bp.$md) {
   .resumo,
   .setor,

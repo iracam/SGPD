@@ -86,6 +86,44 @@ export interface TarefaDoCiclo {
   completed_at: string | null;
 }
 
+/** Quantas linhas de cada tipo a exclusão destrói (ADR-056). */
+export interface ContagemExclusao {
+  tasks: number;
+  completed_tasks: number;
+  checklist_items: number;
+  pending_items: number;
+  pending_amounts: number;
+  pending_comments: number;
+  evidences: number;
+  notifications: number;
+  audit_events: number;
+  validation_groups: number;
+  sector_overrides: number;
+}
+
+/** O aviso que antecede a exclusão: o que some e se este ator pode apagar. */
+export interface PreviaExclusao {
+  process: ProcessoFormal;
+  counts: ContagemExclusao;
+  had_material_history: boolean;
+  requires_override: boolean;
+  can_purge: boolean;
+  /** Vazio quando `can_purge`; caso contrário diz por que a exclusão é recusada. */
+  refusal: string;
+}
+
+export interface ResultadoExclusao {
+  purge_uuid: string;
+  process_uuid: string;
+  process_status: EstadoFormal;
+  employee_name: string;
+  purged_at: string;
+  reason: string;
+  had_material_history: boolean;
+  deleted_counts: ContagemExclusao;
+  idempotency_replayed: boolean;
+}
+
 export interface ConferenciaEncerramento {
   process: ProcessoFormal;
   readiness: Prontidao;
