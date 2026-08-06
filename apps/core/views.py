@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import DatabaseError, connection
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
@@ -30,6 +31,11 @@ def liveness(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
 
 
+#: Chave escrita e lida na sondagem de prontidão. Vale por si: se o cache não
+#: devolve o que acabou de guardar, ele não está servindo.
+READINESS_CACHE_KEY = "readiness-probe"
+
+
 @require_GET
 def readiness(request: HttpRequest) -> JsonResponse:
     try:
@@ -42,6 +48,20 @@ def readiness(request: HttpRequest) -> JsonResponse:
 
     if row != (1,):
         logger.warning("database readiness check returned an unexpected result")
+        return JsonResponse({"status": "unavailable"}, status=503)
+
+    # O cache entrou na prontidão com a ADR-057: é nele que vive o limite de
+    # tentativas de login. Sem ele o controle contra força bruta não é
+    # aplicável, e receber tráfego nessa condição seria pior que não receber.
+    try:
+        cache.set(READINESS_CACHE_KEY, "ok", timeout=30)
+        cached = cache.get(READINESS_CACHE_KEY)
+    except Exception:
+        logger.warning("cache readiness check failed")
+        return JsonResponse({"status": "unavailable"}, status=503)
+
+    if cached != "ok":
+        logger.warning("cache readiness check returned an unexpected result")
         return JsonResponse({"status": "unavailable"}, status=503)
 
     return JsonResponse({"status": "ok"})

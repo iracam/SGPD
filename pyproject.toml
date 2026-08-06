@@ -5,6 +5,11 @@ description = "SGPD / DesligaFlow — Sistema de Gestão do Processo Demissional
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    # Runtime assíncrono da ADR-057: worker e Beat no lugar do agendador do
+    # sistema operacional. O extra `redis` traz o cliente que o broker usa e
+    # que o `RedisCache` nativo do Django 5.2 também consome — por isso não
+    # entra `django-redis`.
+    "celery[redis]>=5.5,<6",
     "cryptography>=49,<50",
     "django>=5.2.8,<5.3",
     "django-auth-ldap>=5.3,<5.4",
@@ -20,6 +25,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    # O Celery não publica `py.typed`; sem os stubs o Mypy estrito recusa o
+    # módulo inteiro e as tarefas ficariam sem tipagem.
+    "celery-types>=0.23,<1",
     "django-stubs>=5.2,<6",
     "djangorestframework-stubs>=3.16,<4",
     "mypy>=1.15,<2",

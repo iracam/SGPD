@@ -27,11 +27,16 @@ if len(SECRET_KEY) < 50:  # noqa: F405
         "DJANGO_SECRET_KEY precisa ter ao menos 50 caracteres aleatórios no host publicado."
     )
 
+# Cache compartilhado no Redis do host (ADR-057). É ele que torna o limite de
+# tentativas de login um número só para todos os processos — e, por isso, o que
+# libera a guarda logo abaixo.
+CACHES = redis_cache()  # noqa: F405
+
 # `WEB_CONCURRENCY` é a variável que o próprio Gunicorn lê para `--workers`, então
-# a guarda e o servidor enxergam o mesmo número. O limite de tentativas de login
-# vive no `LocMemCache` de `base.py`, que é privado de cada processo: com dois
-# workers a taxa efetiva dobra, e é justamente o controle que protege o login
-# contra força bruta. Mais de um worker só depois de um cache compartilhado.
+# a guarda e o servidor enxergam o mesmo número. Ela continua aqui como trava
+# permanente: se alguém voltar o cache para o `LocMemCache` de `base.py`, que é
+# privado de cada processo, dois workers dobrariam a taxa efetiva do controle que
+# protege o login contra força bruta.
 WEB_CONCURRENCY = env_int("WEB_CONCURRENCY", 1)  # noqa: F405
 if WEB_CONCURRENCY > 1 and "locmem" in CACHES["default"]["BACKEND"]:  # noqa: F405
     raise ImproperlyConfigured(

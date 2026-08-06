@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from types import ModuleType
 from typing import Any
 
@@ -22,7 +22,10 @@ STRONG_KEY = "k" * 60
 
 @pytest.fixture
 def load_production(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
-    def _load(**overrides: str) -> ModuleType:
+    def _load(
+        _patch_base: Callable[[ModuleType], None] | None = None,
+        **overrides: str,
+    ) -> ModuleType:
         # O cliente Oracle Thick não existe na suíte, e o que se verifica aqui
         # é a postura de segurança, não a conexão.
         monkeypatch.setattr("config.settings.oracle.init_thick_client", lambda: None)
@@ -40,7 +43,12 @@ def load_production(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
         # suíte já o carregou pelos settings de teste.
         for name in (MODULE, "config.settings.base"):
             sys.modules.pop(name, None)
-        importlib.import_module("config.settings.base")
+        base = importlib.import_module("config.settings.base")
+        # O gancho existe para exercer o que o ambiente não alcança: `base` é
+        # reimportado a cada carga, então substituir algo nele só vale depois
+        # desta linha e antes de `production` fazer o `import *`.
+        if _patch_base is not None:
+            _patch_base(base)
         return importlib.import_module(MODULE)
 
     yield _load
@@ -88,15 +96,36 @@ def test_the_read_only_admin_is_off_by_default(load_production: Any) -> None:
     assert load_production(DJANGO_ADMIN_ENABLED="true").ADMIN_SITE_ENABLED is True
 
 
-def test_more_than_one_worker_refuses_to_boot_with_a_per_process_cache(
-    load_production: Any,
-) -> None:
-    # O limite de tentativas de login mora no cache local, privado de cada
-    # processo: dois workers dobrariam a taxa efetiva.
-    assert load_production().WEB_CONCURRENCY == 1
+def test_the_login_throttle_cache_is_shared_between_processes(load_production: Any) -> None:
+    # O limite de tentativas de login mora no cache. Compartilhado, ele é um
+    # número só para todos os processos — é o que a ADR-057 destravou.
+    settings = load_production()
+
+    backend = settings.CACHES["default"]["BACKEND"]
+    assert "locmem" not in backend
+    assert backend.endswith("redis.RedisCache")
+    # O Redis é de outras aplicações também: sem prefixo, uma chave de nome
+    # comum atravessaria sistemas.
+    assert settings.CACHES["default"]["KEY_PREFIX"] == "sgpd"
+    # Broker e cache em índices distintos, para que um `FLUSHDB` de manutenção
+    # em um não leve o outro junto.
+    assert settings.CACHES["default"]["LOCATION"] != settings.CELERY_BROKER_URL
+
+
+def test_more_than_one_worker_boots_with_the_shared_cache(load_production: Any) -> None:
+    assert load_production(WEB_CONCURRENCY="4").WEB_CONCURRENCY == 4
+
+
+def test_more_than_one_worker_still_refuses_a_per_process_cache(load_production: Any) -> None:
+    # A trava continua de pé para quem voltar o cache para o processo: dois
+    # workers dobrariam a taxa efetiva do controle contra força bruta.
+    def force_local_cache(base: ModuleType) -> None:
+        base.redis_cache = lambda: {  # type: ignore[attr-defined]
+            "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}
+        }
 
     with pytest.raises(ImproperlyConfigured, match="WEB_CONCURRENCY"):
-        load_production(WEB_CONCURRENCY="2")
+        load_production(force_local_cache, WEB_CONCURRENCY="2")
 
 
 def test_static_assets_are_not_reread_from_disk_on_every_request(load_production: Any) -> None:

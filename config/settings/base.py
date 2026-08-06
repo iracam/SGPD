@@ -191,12 +191,70 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 # Explícito porque o limite de tentativas de login vive aqui. Cache local basta
 # enquanto a aplicação roda em um processo só; uma execução multi-worker exige
 # cache compartilhado, senão a taxa efetiva é multiplicada pelo número de workers.
+# DEV e PRD trocam este bloco pelo Redis (ADR-057); a suíte fica no cache local,
+# que é privado de cada execução e não depende de serviço externo.
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "sgpd-default",
     }
 }
+
+# Redis do host, compartilhado com outras aplicações (ADR-057). O SGPD ocupa
+# índices dedicados e prefixa as próprias chaves; a URL não carrega o índice
+# justamente para que broker e cache não possam apontar para o mesmo lugar.
+SGPD_REDIS_URL = os.getenv("SGPD_REDIS_URL", "redis://127.0.0.1:6379").rstrip("/")
+SGPD_REDIS_BROKER_DB = env_int("SGPD_REDIS_BROKER_DB", 0)
+SGPD_REDIS_CACHE_DB = env_int("SGPD_REDIS_CACHE_DB", 1)
+SGPD_CACHE_KEY_PREFIX = "sgpd"
+
+
+def redis_url(db: int) -> str:
+    return f"{SGPD_REDIS_URL}/{db}"
+
+
+def redis_cache() -> dict[str, dict[str, str]]:
+    """Cache compartilhado, para quem roda com Redis disponível.
+
+    O prefixo não é cosmético: o serviço é de outras aplicações também, e sem
+    ele uma chave de nome comum atravessaria sistemas.
+    """
+
+    return {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": redis_url(SGPD_REDIS_CACHE_DB),
+            "KEY_PREFIX": SGPD_CACHE_KEY_PREFIX,
+        }
+    }
+
+
+# Celery (ADR-057). A fila nomeada é obrigatória pelo mesmo motivo do prefixo do
+# cache: o broker é compartilhado.
+CELERY_BROKER_URL = redis_url(SGPD_REDIS_BROKER_DB)
+CELERY_TASK_DEFAULT_QUEUE = "sgpd"
+# Sem backend de resultado: nenhuma tarefa devolve valor a quem a disparou. O
+# resultado de uma notificação é a linha em `SGPD_NOTIFICATION`, no Oracle.
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+# Confirmação depois da execução: worker morto no meio devolve a tarefa. A
+# idempotência que isso exige é a mesma que o replay do outbox já tinha.
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# Os dois limites ficam bem abaixo do `visibility_timeout` padrão do Redis (1h)
+# para que nenhuma tarefa seja reentregue enquanto ainda está rodando. São
+# decisão de engenharia, não ajuste de operação: não vêm do ambiente.
+CELERY_TASK_SOFT_TIME_LIMIT = 540
+CELERY_TASK_TIME_LIMIT = 600
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+
+# Agenda do Beat, em segundos (config/celery.py).
+SGPD_BEAT_SCAN_SECONDS = env_int("SGPD_BEAT_SCAN_SECONDS", 600)
+SGPD_BEAT_DISPATCH_SECONDS = env_int("SGPD_BEAT_DISPATCH_SECONDS", 60)
+SGPD_BEAT_OPERATIONS_SECONDS = env_int("SGPD_BEAT_OPERATIONS_SECONDS", 1800)
 
 # Backend dinâmico: lê a configuração da central por envio (ADR-050). As
 # variáveis abaixo continuam valendo como baseline do primeiro boot.
@@ -216,8 +274,8 @@ LOGIN_THROTTLE_RATE = os.getenv("LOGIN_THROTTLE_RATE", "10/min")
 # desligado; no desenvolvimento continua acessível.
 ADMIN_SITE_ENABLED = env_bool("DJANGO_ADMIN_ENABLED", True)
 
-# Notificações (ADR-049). A fila vive no Oracle e o despacho roda fora da
-# requisição, por comando acionado pelo agendador do sistema operacional.
+# Notificações (ADR-049 e ADR-057). A fila vive no Oracle e o despacho roda fora
+# da requisição, no worker.
 # `SGPD_BASE_URL` compõe os links das mensagens; vazio produz link relativo.
 SGPD_BASE_URL = os.getenv("SGPD_BASE_URL", "").rstrip("/")
 NOTIFICATION_MAX_ATTEMPTS = env_int("NOTIFICATION_MAX_ATTEMPTS", 5)

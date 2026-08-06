@@ -40,3 +40,13 @@ DATABASES = {
         "NAME": ":memory:",
     }
 }
+
+# A suíte executa a tarefa no próprio processo e propaga a exceção: nenhum teste
+# depende de broker de pé, e um erro dentro da tarefa falha o teste em vez de
+# sumir no worker. O `.delay()` disparado por `on_commit` continua sendo
+# exercido — o que muda é quem executa.
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+# Sem broker configurado: qualquer caminho que tente falar com o Redis na suíte
+# falha de imediato, em vez de ficar tentando reconectar.
+CELERY_BROKER_URL = "memory://"

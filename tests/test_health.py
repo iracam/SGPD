@@ -48,3 +48,37 @@ def test_readiness_hides_database_failure(
 
     assert response.status_code == 503
     assert response.json() == {"status": "unavailable"}
+
+
+@patch("apps.core.views.cache.set", side_effect=ConnectionError("Redis fora do ar"))
+@patch("apps.core.views.connection.cursor")
+def test_readiness_fails_when_the_shared_cache_is_down(
+    cursor_factory: MagicMock,
+    cache_set: MagicMock,
+    client: Client,
+) -> None:
+    # O limite de tentativas de login vive no cache (ADR-057). Sem ele o
+    # controle contra força bruta não é aplicável, e receber tráfego nessa
+    # condição seria pior que não receber.
+    cursor_factory.return_value.__enter__.return_value.fetchone.return_value = (1,)
+
+    response = client.get("/health/ready/")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "unavailable"}
+
+
+@patch("apps.core.views.cache.get", return_value=None)
+@patch("apps.core.views.connection.cursor")
+def test_readiness_fails_when_the_cache_does_not_return_what_it_stored(
+    cursor_factory: MagicMock,
+    cache_get: MagicMock,
+    client: Client,
+) -> None:
+    # Cache que aceita a escrita e não devolve a leitura não está servindo.
+    cursor_factory.return_value.__enter__.return_value.fetchone.return_value = (1,)
+
+    response = client.get("/health/ready/")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "unavailable"}
