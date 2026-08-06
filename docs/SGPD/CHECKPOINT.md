@@ -10,7 +10,10 @@
 - Fases em andamento: 4 — workflow; 5 — pendências e evidências
 - Publicação: `https://sgpd.bsabioenergia.com.br` por proxy em outro host desde
   2026-08-03; a aplicação sobe com `config.settings.production` (ADR-052) e, no
-  host de produção, pelo Gunicorn sob systemd com um worker (ADR-055)
+  host de produção, pelo Gunicorn sob systemd com um worker (ADR-055). **Desde
+  2026-08-06 quem responde nessa URL é o host de produção da ADR-055**, com o
+  serviço do host anterior parado — este último segue como DEV, apontando para o
+  mesmo schema
 - Concluído: os cinco papéis funcionais atribuíveis (ADR-054) — as cinco
   fatias implementadas, comitadas e **homologadas no Oracle DEV em
   2026-08-04**, com `accounts.0011` e
@@ -18,21 +21,33 @@
   `bootstrap_roles` executado no ambiente
 - Concluído: exclusão de processo não encerrado e cancelamento do já
   formalizado (ADR-056) — implementado, testado e validado localmente;
-  `offboarding.0012` e `offboarding.0013` **ainda não aplicadas no Oracle**
+  `offboarding.0012` e `offboarding.0013` **aplicadas no Oracle em 2026-08-06**
 - Concluído: preparação de produção (ADR-055) — Gunicorn sob systemd com um
   worker, `scripts/deploy.sh` com gate manual de migration, contrato de `.env` do
-  host publicado e checklist de corte no `RUNBOOK.md` §11. **Implementado e
-  validado localmente; ainda não executado no host de produção**
+  host publicado e checklist de corte no `RUNBOOK.md` §11. **Corte executado em
+  2026-08-06**: o host de produção responde pela URL publicada, com
+  `/health/live/` e `/health/ready/` em 200 e usuários reais operando pela SPA
 - Concluído: runtime assíncrono com Redis e Celery (ADR-057) — worker, Beat,
   cache compartilhado, despacho imediato por `on_commit` e batimento do
-  agendamento na sonda. Os dois timers do systemd saíram. **Implementado,
-  testado e validado localmente contra o Redis do host; as units ainda não
-  foram instaladas no PRD e o `crontab` do DEV ainda precisa ser removido**
-- Próximo incremento: executar o corte pelo checklist do `RUNBOOK.md` §11 —
-  provisionar o host, levar o mesmo `DJANGO_SECRET_KEY` (ou reinformar as senhas
-  da central), copiar as evidências para `/home/macari/prd/sgpd-data/evidence`,
-  parar o serviço anterior e
-  reapontar o proxy. Fora do repositório e aceitos com prazo: rotacionar as
+  agendamento na sonda. Os dois timers do systemd saíram. **Em produção desde
+  2026-08-06**, com o `crontab` do DEV desativado. O despacho por `on_commit`
+  ficou homologado ponta a ponta com e-mail real no próprio corte: as
+  notificações saíram de um a dois segundos depois do fato, com `attempts=1`, e
+  a fila está inteira em `ENVIADA` — 58 mensagens, nenhuma em `PENDENTE` ou
+  `FALHA`, incluindo a que estava presa desde 2026-07-31
+- Próximo incremento: fechar as validações do bloco **Depois** do
+  `RUNBOOK.md` §11.3 que o corte deixou em aberto — nenhuma delas é observável
+  do DEV, todas dependem do host de produção ou de uma sessão na tela:
+  (a) batimento do agendamento em `/fe/operacao`, único sinal que prova o
+  **Beat** de pé, já que a fila drenando prova apenas o worker;
+  (b) `systemctl is-enabled sgpd-web sgpd-celery-worker sgpd-celery-beat`, para
+  que os três sobrevivam a um reboot;
+  (c) upload e download de uma evidência, que é o que exercita
+  `/home/macari/prd/sgpd-data/evidence` pela primeira vez;
+  (d) descoberta em `/fe/configuracoes/ldap`, prova de que o Fernet decifrou a
+  senha de bind;
+  (e) ensaio de supervisão com `systemctl kill -s SIGKILL sgpd-web`.
+  Fora do repositório e aceitos com prazo: rotacionar as
   senhas do Oracle e do SMTP (R66), trocar o bind do AD por conta de serviço com
   TLS (R67), validar backup e restauração com o DBA (`RUNBOOK.md` §6) e criar o
   usuário Oracle de aplicação separado do owner
@@ -122,9 +137,11 @@ dentro da requisição: o início do processo, a pendência bloqueante e o eixo 
 valor gravam a mensagem na mesma transação do fato. Quem despacha é o worker do
 Celery e quem dispara a agenda periódica é o Beat (ADR-057); o aviso de um ato
 feito na tela sai em segundos, por `on_commit`, e a varredura periódica é a rede
-de segurança. Com o worker ou o Beat fora, a fila acumula em `PENDENTE` e
-ninguém é avisado — é o risco R63, agora visível por dois sinais em
-`/fe/operacao`: a fila parada e o batimento vencido.
+de segurança. Com o **worker** fora, a fila acumula em `PENDENTE` e ninguém é
+avisado. Com só o **Beat** fora é pior de enxergar: o despacho por `on_commit`
+continua saindo do processo web, a fila fica em dia e apenas a varredura de
+prazos deixa de acontecer. É o risco R63, e por isso `/fe/operacao` traz dois
+sinais separados — a fila parada e o batimento vencido.
 
 ## Incremento autorizado implementado
 
@@ -198,11 +215,13 @@ Contrato Senior — legibilidade cadastral:
 
 ## Riscos e pendências relevantes
 
-- `offboarding.0012` (constraint `SGPD_CK_PROCESS_FORMAL` reescrita para o
-  cancelado preservar marcas) e `offboarding.0013` (tabela `SGPD_PROCESS_PURGE` e
-  texto da permissão) foram revisadas no SQL Oracle e **ainda não aplicadas**: a
-  0012 é drop/add de check constraint, validada contra as linhas existentes, e a
-  0013 só cria tabela nova. Nenhuma toca dado;
+- o schema `SGPD` agora é **produtivo, com usuários reais dentro**, e o DEV
+  continua apontando para ele. O `.env` do DEV traz
+  `DJANGO_SETTINGS_MODULE=config.settings.production`, então qualquer
+  `uv run manage.py <comando>` na árvore de desenvolvimento escreve na base viva.
+  O mesmo vale para subir worker ou Beat no DEV pelo comando do `CLAUDE.md`: o
+  broker é outro — Redis local, host distinto —, mas a fila e a varredura são as
+  de produção. Até o schema do DEV se separar, leitura é o único uso seguro;
 - a exclusão remove o processo dos indicadores e relatórios retroativamente,
   porque `apps/reporting` calcula tudo na leitura. O número congelado só existe
   nas exportações CSV já registradas em `SGPD_REPORT_EXPORT`;
@@ -216,10 +235,11 @@ Contrato Senior — legibilidade cadastral:
 - paginação visual adicional dos painéis pode ser necessária com maior volume;
 - o conjunto de dados de homologação das fases anteriores (`5bfc0d3a`,
   `8c5ff6bf`, `9cbed216`, `c8787348` e `d80327c7`, com as seis pendências e as
-  cinco pretensões) **não existe mais no DEV** — a base foi refeita entre
-  2026-08-01 e 2026-08-03. Restou um único processo, `222e587b`. As seções
-  históricas que citam aqueles UUIDs valem como registro do que foi exercido,
-  não como estado atual;
+  cinco pretensões) **não existe mais** — a base foi refeita entre 2026-08-01 e
+  2026-08-03. As seções históricas que citam aqueles UUIDs valem como registro
+  do que foi exercido, não como estado atual. O acervo em 2026-08-06, depois do
+  corte, é de 3 processos — dois `LIBERADO_PARA_RESCISAO` e um `INICIADO` —,
+  30 usuários e nenhuma evidência;
 - o usuário `homolog.visual` permanece no DEV desativado e com senha
   inutilizável: a FK da auditoria append-only impede a exclusão;
 - setores, catálogo de workflow, auditoria, usuários e colaboradores receberam a
@@ -238,20 +258,29 @@ Contrato Senior — legibilidade cadastral:
   rejeitada e a abonada; quem confere lê o aprovado para saber o que vira
   cobrança. Se o total informado passar a ser lido como cobrança pretendida,
   vale separar as decididas em zero;
-- o `crontab` do DEV instalado em 2026-08-01 **precisa ser removido**: o worker e
-  o Beat cobrem as duas entradas, e deixar as duas coisas rodando dobraria o
-  trabalho à toa. O resíduo do R63 mudou de forma — sem código de saída para o
-  systemd marcar `failed`, quem testemunha o agendamento parado é a tela, e
-  alguém precisa abri-la;
+- o `crontab` do DEV instalado em 2026-08-01 foi desativado em 2026-08-06: as
+  duas entradas continuam no arquivo, comentadas, e o worker e o Beat as cobrem.
+  O resíduo do R63 mudou de forma — sem código de saída para o systemd marcar
+  `failed`, quem testemunha o agendamento parado é a tela, e alguém precisa
+  abri-la. A fila drenando não substitui esse olhar: o despacho por `on_commit`
+  parte do processo web, então o Beat pode estar morto com a fila em dia e só a
+  varredura de prazos deixando de acontecer;
+- o storage privado de evidências **nunca foi exercido no host de produção**: a
+  tabela `SGPD_EVIDENCE` está vazia, então o corte não teve bytes a copiar e
+  `/home/macari/prd/sgpd-data/evidence` segue sem prova de permissão nem de
+  `SGPD_EVIDENCE_ROOT`. O primeiro upload real é que vai dizer;
 - um `FLUSHALL` ou reinício do Redis por aplicação vizinha zera o contador de
   tentativas de login em curso e descarta os sinais ainda não consumidos.
   Nenhuma notificação se perde — a fila é a tabela no Oracle;
-- a URL base continua vazia no DEV, então o link da mensagem sai relativo e não
-  clicável; agora é preenchível em `/fe/configuracoes/email`, sem tocar no host;
-- as 16 notificações entregues na homologação permanecem no DEV, mais a
-  notificação da reabertura que ficou pendente desde 2026-07-31 19:41 por falta
-  de agendamento: a fila é append-only e não pode ser apagada, como a auditoria
-  e as pendências;
+- a URL base foi preenchida em 2026-08-06 com
+  `https://sgpd.bsabioenergia.com.br` pela própria tela
+  `/fe/configuracoes/email`, sem tocar no host; o link da notificação sai
+  clicável. Como o valor mora no schema compartilhado, ele vale para DEV e PRD ao
+  mesmo tempo;
+- as 58 notificações da fila permanecem no schema, todas em `ENVIADA`: as 16 da
+  homologação anterior, a da reabertura que ficou presa desde 2026-07-31 19:41
+  por falta de agendamento — drenada no corte — e as do uso real. A fila é
+  append-only e não pode ser apagada, como a auditoria e as pendências;
 - as três exportações da homologação da Fase 9 deixaram três linhas permanentes
   em `SGPD_REPORT_EXPORT`, também append-only;
 - a entrega da notificação é ao menos uma vez: se o processo morrer entre o

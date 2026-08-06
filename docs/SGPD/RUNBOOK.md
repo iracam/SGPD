@@ -67,6 +67,12 @@ uv run celery -A config worker -Q sgpd -l info
 uv run celery -A config beat -l info
 ```
 
+Com uma ressalva que nasceu no corte de 2026-08-06: o broker do DEV é outro
+Redis, mas **a fila é a tabela no Oracle produtivo**. Um worker levantado no DEV
+despacha e-mail de verdade para gente de verdade, e um Beat levantado ali roda a
+varredura de prazos de produção. Enquanto o DEV não tiver schema próprio, suba
+os dois só quando for isso mesmo que você quer (R71).
+
 ### Verificar
 
 ```bash
@@ -194,16 +200,23 @@ Verificação periódica sugerida, com o DBA:
   com o metadado no banco — é o teste que prova que banco e storage foram
   restaurados do mesmo instante.
 
-**Pendente no DEV**: a validação com o DBA ainda não foi executada. Enquanto
-não for, considere que só existe o backup corporativo do Oracle, sem prova de
-restauração e sem cobertura confirmada do storage de evidências.
+**Pendente**: a validação com o DBA ainda não foi executada. Enquanto não for,
+considere que só existe o backup corporativo do Oracle, sem prova de restauração
+e sem cobertura confirmada do storage de evidências. Desde 2026-08-06 o schema é
+produtivo e o que estaria em jogo numa perda deixou de ser dado de teste.
 
 ## 7. Saúde da aplicação
 
-O host é publicado em `https://sgpd.bsabioenergia.com.br` por um proxy que roda
-em outro servidor e encaminha para a porta `8002` deste (ADR-052). A aplicação
-sobe pelo Gunicorn sob systemd (ADR-055), com os settings escolhidos pelo
-`DJANGO_SETTINGS_MODULE` do `.env`:
+A aplicação é publicada em `https://sgpd.bsabioenergia.com.br` por um proxy que
+roda em outro servidor e encaminha para a porta `8002` do host de produção
+(ADR-052). Ela sobe pelo Gunicorn sob systemd (ADR-055), com os settings
+escolhidos pelo `DJANGO_SETTINGS_MODULE` do `.env`.
+
+**Rode esta seção no host de produção.** Desde o corte de 2026-08-06 o DEV não
+tem serviço do SGPD instalado — os comandos de systemd abaixo não existem lá.
+Pior: os comandos de `manage.py` existem, e o `.env` do DEV aponta para o mesmo
+Oracle produtivo, então eles respondem sobre produção sem avisar que foram
+rodados no lugar errado (R71).
 
 ```bash
 sudo systemctl status sgpd-web        # está de pé?
@@ -252,6 +265,11 @@ uv run manage.py makemigrations --check --dry-run --settings=config.settings.tes
 uv run manage.py sqlmigrate <app> <numero>     # ler o SQL Oracle
 uv run manage.py migrate <app>                 # aplicar
 ```
+
+**O `migrate` é o mesmo em qualquer host: existe um schema só.** Rodá-lo da
+árvore do DEV altera produção exatamente como rodá-lo da árvore do PRD — o
+diretório corrente não protege nada (R71). Aplique do host de produção, para que
+o que você vê ao conferir depois seja o que a aplicação está usando.
 
 Conferir no SQL: nomes dentro de 30 caracteres, condição de check anulável no
 idioma `IS NULL OR …`, ausência de índice redundante com FK, lock e volume.
@@ -311,16 +329,21 @@ Pontos que costumam gerar dúvida e valem ser ditos em voz alta no treinamento:
 
 ## 11. Deploy e go-live do PRD
 
-O ambiente produtivo é o da ADR-055: `/home/macari/prd/SGPD`, Gunicorn sob
-systemd e **o mesmo schema `SGPD` do host anterior**. Não há carga inicial: o
-acervo atual é promovido a produtivo.
+**O corte foi executado em 2026-08-06.** O que segue vale como procedimento de
+deploy recorrente (§11.2) e como roteiro caso um novo corte de host aconteça; o
+que ficou em aberto depois deste está no `CHECKPOINT.md`, não aqui.
+
+O ambiente produtivo é o da ADR-055: `/home/macari/prd/SGPD`, em máquina
+separada da do DEV, Gunicorn sob systemd e **o mesmo schema `SGPD` do host
+anterior**. Não houve carga inicial: o acervo foi promovido a produtivo.
 
 O serviço roda como `macari`, dono do diretório — `/home/macari` é `0700` e uma
-conta de serviço separada não leria a árvore. O mesmo usuário roda o DEV em
-`/home/macari/dev/SGPD`: os dois `.env` são visíveis um ao outro, e o cuidado
-com o diretório corrente deixa de ser cosmético (R72).
+conta de serviço separada não leria a árvore. Como o corte levou o PRD para
+outra máquina, os dois `.env` deixaram de se ver e o erro de diretório saiu de
+cena (R72); o que continua valendo é o schema único, e esse não tem barreira
+nenhuma (R71).
 
-### 11.1 Provisionamento (uma vez)
+### 11.1 Provisionamento (uma vez) — feito em 2026-08-06
 
 ```bash
 install -d -m 750 /home/macari/prd
@@ -354,13 +377,17 @@ do `.env.example`.
 /home/macari/prd/SGPD/scripts/deploy.sh v1.2.0       # uma tag
 ```
 
-Rode **de dentro do diretório do PRD**, ou pelo caminho absoluto acima. O script
-opera sobre a árvore onde ele mesmo está, então chamá-lo pelo caminho certo é o
-que separa um deploy de produção de um deploy no DEV.
+Rode **no host de produção**, de dentro do diretório do PRD ou pelo caminho
+absoluto acima. O script opera sobre a árvore onde ele mesmo está: chamado da
+árvore do DEV ele constrói o DEV e falha ao reiniciar units que não existem lá.
 
-**Na primeira execução, aponte a sonda para o próprio host.** O passo final bate
-na URL publicada, que ainda resolve para o host anterior: sem isto o script
-diria "ok" depois de checar a máquina errada.
+Desde 2026-08-06 a URL publicada resolve para este host, então a chamada acima
+já verifica a máquina certa e não precisa de nada em volta.
+
+**A ressalva vale de novo no próximo corte de host**: enquanto o proxy ainda
+apontar para o host antigo, o passo final do script bate na URL publicada e
+diria "ok" depois de checar a máquina errada. Aponte a sonda para o próprio
+host até o proxy virar:
 
 ```bash
 SGPD_HEALTH_BASE_URL=http://127.0.0.1:8002 /home/macari/prd/SGPD/scripts/deploy.sh
@@ -381,6 +408,11 @@ deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
 §9 e a §8 deste runbook. Revise, aplique à mão, rode o script de novo.
 
 ### 11.3 Checklist de corte
+
+Marcas em branco de propósito: o checklist é o roteiro de **um** corte, e o de
+2026-08-06 já passou. O que dele ficou por fazer está no `CHECKPOINT.md`, em
+*Próximo incremento* — reproduzir a lista aqui daria duas versões da mesma
+verdade.
 
 **Antes**
 
@@ -428,6 +460,15 @@ deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
 
 Parar `sgpd-web`, reapontar o proxy para o host anterior e subi-lo. O schema é o
 mesmo e os dados ficam intactos.
+
+**Depois do corte de 2026-08-06 esse caminho deixou de ser imediato.** O host
+anterior virou DEV e não tem mais unit do SGPD instalada — `systemctl status
+sgpd-web` lá responde `not-found`. Voltar exige reinstalar as units a partir de
+`scripts/systemd/`, conferir que a árvore de `/home/macari/dev/SGPD` está na
+referência que se quer servir e só então reapontar o proxy. Enquanto isso, o
+PRD precisa estar parado: os dois não podem escrever no mesmo schema (R71).
+Rollback deixou de ser questão de minutos — conte com isso antes de escolhê-lo
+no lugar de corrigir para a frente.
 
 O único passo irreversível seria uma migration aplicada durante o corte — e é
 exatamente por isso que o script de deploy não aplica nenhuma. Se houve

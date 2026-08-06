@@ -190,7 +190,10 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 1. Confirmar TLS/wallet da conexão única `SGPD`.
 2. ~~Instalar o agendamento das notificações no DEV~~ — feito em 2026-08-01 no
    `crontab` e **substituído em 2026-08-06 pelo worker e pelo Beat do Celery**
-   (ADR-057). O procedimento vigente está no `RUNBOOK.md` §2.
+   (ADR-057), com as units instaladas no host de produção e as duas entradas do
+   `crontab` do DEV comentadas. O procedimento vigente está no `RUNBOOK.md` §2.
+   Falta conferir que `sgpd-web`, `sgpd-celery-worker` e `sgpd-celery-beat` estão
+   sob `enable`, e não apenas de pé: sem isso um reboot derruba os três.
 3. Decidir operacionalmente entre TLS e LDAP simples. Para TLS, instalar a CA
    `BSA-AD-CA`; sem TLS, aceitar explicitamente o warning de credenciais e
    senhas sem criptografia. Bind, bases, grupo `BSA_SGPD` e descoberta já foram
