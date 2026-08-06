@@ -2468,3 +2468,126 @@ checks pela URL publicada. **Ele para diante de migration pendente** e imprime o
   como ferramenta de desenvolvimento, com o módulo de settings passado na mão;
 - o R68 fica **mitigado, não fechado**: ganhou supervisão, mas o teto de um
   processo continua sendo limitação conhecida.
+
+## ADR-056 — Exclusão do processo não encerrado e cancelamento do já formalizado
+
+### Estado
+
+Aceita em 2026-08-06. Substitui parcialmente a ADR-051 em dois pontos: a origem
+do cancelamento e o que o estado `CANCELADO` pode carregar. Não altera a
+autoridade da liberação nem a natureza declaratória do processamento.
+
+### Contexto
+
+O SGPD nasceu append-only: toda FK do domínio é `PROTECT`, os querysets de
+processo, pendência, evidência, notificação e auditoria recusam `delete()`, e o
+`AGENTS.md` §3 proíbe apagar processos encerrados e auditoria. A regra protegeu
+o que precisava ser protegido — o registro de um desligamento real.
+
+Ela também deixou a base sem saída para o que não é registro de nada: rascunho
+aberto para a matrícula errada, processo duplicado do mesmo colaborador,
+cancelado que só existe porque alguém errou o cadastro. Nada disso vira
+histórico útil, e o acúmulo é permanente por construção.
+
+Ao mesmo tempo, a ADR-051 fechou o cancelamento em `RASCUNHO` e `INICIADO`. Um
+processo liberado por engano — ou encerrado sobre uma rescisão que o Jurídico
+anulou depois — só podia ser desfeito pela reabertura, exclusiva do SuperAdmin,
+e mesmo assim voltava ao ciclo em vez de terminar.
+
+### Decisão
+
+**1. Excluir alcança tudo, menos o encerrado.** `RASCUNHO`, `INICIADO`,
+`CANCELADO`, `LIBERADO_PARA_RESCISAO` e `RESCISAO_PROCESSADA` podem ser
+excluídos definitivamente. `ENCERRADO` nunca — para ele o caminho é o
+cancelamento. A proibição do `AGENTS.md` §3 permanece intacta e passa a ser lida
+como o que sempre foi: *processo encerrado* não se apaga.
+
+**2. A exclusão deixa lápide.** `SGPD_PROCESS_PURGE` é append-only e guarda UUID
+do processo, situação no momento da exclusão, identificação do colaborador, quem
+abriu, quem excluiu, quando, a justificativa obrigatória, quantas linhas de cada
+tabela sumiram, os caminhos dos arquivos removidos e **a trilha
+`SGPD_PROCESS_AUDIT` inteira, copiada evento a evento**. A invariante "auditoria
+não é apagada" se estreita para o que ela sempre quis dizer: a trilha muda de
+lugar, não desaparece.
+
+**3. A autoridade depende do que já foi produzido.** `DP` vigente no escopo — ou
+SuperAdmin — exclui processo **sem histórico material**. Havendo tarefa
+concluída, pendência ou evidência, a exclusão exige
+`offboarding.override_process_blockers`, isto é, `DP_GERENTE` ou SuperAdmin. A
+permissão da ADR-054 passa a nomear a autoridade da gerência sobre o processo
+como um todo, não só o override de impedimentos.
+
+Tarefa apenas gerada ou em análise não conta como histórico material. Exigir a
+gerência para apagar um processo iniciado por engano empurraria o lixo de volta
+para a base, que é o problema que esta decisão resolve.
+
+**4. Cancelar alcança o processo já formalizado.** `LIBERADO_PARA_RESCISAO`,
+`RESCISAO_PROCESSADA` e `ENCERRADO` passam a aceitar cancelamento direto, sob a
+mesma `offboarding.override_process_blockers` e com justificativa. Desfazer um
+ato formal é da gerência; `DP` puro continua cancelando apenas rascunho e
+iniciado.
+
+**5. O cancelamento não reescreve a história.** O processo cancelado preserva as
+marcas de liberação, processamento e encerramento que já existiam. O modelo e a
+constraint `SGPD_CK_PROCESS_FORMAL` passam a aceitar, no `CANCELADO`, qualquer
+**prefixo coerente** do ciclo — nenhuma marca, a liberação, a liberação com o
+processamento, ou o ciclo inteiro. Marca solta seria história inventada.
+
+### Autoridade
+
+| Ato | Quem pode |
+| --- | --- |
+| excluir processo sem histórico material | `DP` vigente no escopo ou SuperAdmin |
+| excluir processo com tarefa concluída, pendência ou evidência | `DP_GERENTE` ou SuperAdmin |
+| excluir processo `ENCERRADO` | ninguém |
+| cancelar `RASCUNHO` ou `INICIADO` | `DP` vigente no escopo ou SuperAdmin |
+| cancelar `LIBERADO`, `PROCESSADA` ou `ENCERRADO` | `DP_GERENTE` ou SuperAdmin |
+
+### A guarda de exclusão continua fechada
+
+Os querysets do domínio seguem recusando `delete()`. A porta de saída é uma só e
+tem nome próprio: `PurgeableQuerySet.hard_delete()`, em `apps/core/db.py`, usada
+exclusivamente por `_delete_process_rows`. Um `_raw_delete()` furando a guarda
+por baixo seria invisível numa varredura; este nome não é.
+
+A ordem da exclusão vai das folhas para a raiz porque toda FK é `PROTECT`. Isso
+é proteção, não obstáculo: um modelo novo que passe a apontar para o processo
+sem entrar na lista derruba a transação inteira com `ProtectedError` em vez de
+deixar linha órfã.
+
+### Idempotência sem tabela de idempotência
+
+`ProcessActionIdempotency` é apagada junto com o processo, então a lápide é o
+próprio registro de idempotência: mesma chave e mesmo ator devolvem o registro
+existente; chave diferente conflita em 409. `process_uuid` é único e nunca
+reaproveitado.
+
+### Arquivo depois do commit
+
+As linhas caem dentro da transação; os arquivos de evidência só saem do disco em
+`transaction.on_commit`. Um rollback ressuscita as linhas, e elas precisam
+encontrar os bytes que apontam. A troca é deliberada: falha no `unlink` deixa
+arquivo órfão, nunca evidência sem arquivo. A lápide lista os caminhos para a
+conferência.
+
+### Consequências
+
+- **não há desfazer.** É a única operação do sistema que destrói dado. A
+  mitigação é processual: justificativa obrigatória, aviso na SPA com a
+  contagem do que será destruído, confirmação em dois passos e revalidação da
+  autoridade sob lock;
+- **os indicadores mudam retroativamente.** `apps/reporting` calcula tudo na
+  leitura, sem contador guardado: um processo excluído deixa de existir também
+  nos números históricos do painel e dos relatórios. Quem precisa do número
+  congelado tem a exportação CSV, que é append-only em `SGPD_REPORT_EXPORT`;
+- **a fila de notificações do processo vai junto**, inclusive mensagens ainda
+  em `PENDENTE`. Avisar sobre processo inexistente não faz sentido;
+- **a lápide cresce com a trilha.** `AUDIT_TRAIL` é `NCLOB`; um processo com
+  centenas de eventos gera uma linha grande. É o preço de não perder o relato, e
+  o volume é irrisório perto do que a purga libera;
+- **DEV e PRD dividem o schema** (ADR-055): excluir em um exclui no outro.
+  Enquanto isso valer, a exclusão é operação de produção mesmo quando exercida
+  do ambiente de desenvolvimento;
+- a ADR-051 permanece vigente em tudo o mais — prontidão calculada, estado
+  formal persistido, processamento como declaração e a impossibilidade de
+  reabrir um cancelado.

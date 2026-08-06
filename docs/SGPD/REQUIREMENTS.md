@@ -687,12 +687,35 @@ não dispensa nenhuma.
 
 ### RF-031 — Cancelamento
 
-Usuário com o papel `DP` vigente no escopo poderá cancelar um processo com
-justificativa.
+Usuário com o papel `DP` vigente no escopo poderá cancelar um processo em
+rascunho ou iniciado, com justificativa.
+
+Cancelar um processo já liberado, com rescisão processada ou encerrado desfaz um
+ato formal e por isso é do `DP_GERENTE` ou do SuperAdmin, sob a permissão
+`offboarding.override_process_blockers` e igualmente com justificativa
+(ADR-056). O cancelamento preserva as marcas formais anteriores: ele acrescenta
+o último capítulo, não apaga os anteriores.
 
 ### RF-032 — Reabertura
 
 A reabertura deverá exigir permissão especial e registrar motivo.
+
+### RF-038 — Exclusão de processo
+
+O sistema deverá permitir excluir definitivamente um processo que ainda não foi
+encerrado, para que rascunho abandonado, abertura equivocada e duplicidade não
+permaneçam indefinidamente na base.
+
+- alcança `RASCUNHO`, `INICIADO`, `CANCELADO`, `LIBERADO_PARA_RESCISAO` e
+  `RESCISAO_PROCESSADA`; **processo `ENCERRADO` nunca é excluído**;
+- exige justificativa e é precedida de aviso que informa quantas tarefas,
+  pendências, evidências, notificações e eventos de trilha serão destruídos;
+- o `DP` vigente no escopo exclui processo sem histórico material; havendo
+  tarefa concluída, pendência ou evidência, a exclusão exige `DP_GERENTE` ou
+  SuperAdmin;
+- deverá registrar, em trilha própria e append-only, quem excluiu, quando, por
+  quê, o que foi destruído e uma cópia integral da auditoria do processo;
+- não há desfazer.
 
 ### RF-033 — Histórico
 

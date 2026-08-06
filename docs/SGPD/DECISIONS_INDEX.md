@@ -34,8 +34,9 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 045 | Vigente | Abertura sem gestor imediato |
 | 046 | Vigente | Regra de aplicabilidade como sugestão não vinculante |
 | 048 | Vigente | Segregação nos valores e SuperAdmin sem barreira |
-| 051 | Vigente | Estado formal persistido e situação funcional calculada |
+| 051 | Parcial por 056 | Estado formal persistido e situação funcional calculada |
 | 054 | Vigente | Cinco papéis funcionais, atribuição só do SuperAdmin e override dos impedimentos |
+| 056 | Vigente | Exclusão do processo não encerrado, com lápide, e cancelamento do já formalizado |
 
 ## Integrações, identidade e frontend
 

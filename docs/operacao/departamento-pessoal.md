@@ -406,8 +406,48 @@ O cancelamento cancela as tarefas ainda abertas, libera o colaborador para um
 processo novo e preserva todo o histórico — pendências, evidências, comentários
 e trilha continuam existindo.
 
+Um processo já `Liberado para rescisão`, com `Rescisão processada` ou
+`Encerrado` também pode ser cancelado, mas isso desfaz um ato formal e é
+reservado à **gerência do Departamento Pessoal** e ao SuperAdmin. Nesse caso as
+marcas do que já aconteceu continuam registradas: a liberação, o processamento e
+o encerramento não somem da ficha. O cancelamento é o último capítulo, não uma
+borracha.
+
 > **Nunca** Cancelamento é **terminal**. Um processo cancelado não volta. Para
 > retomar o desligamento, abra um processo novo — os dois ficam registrados.
+
+### Excluir um processo
+
+Cancelar mantém tudo. **Excluir apaga.** É a única ação do sistema que destrói
+dado, e existe para o que nunca virou registro de nada: rascunho abandonado,
+processo aberto para a matrícula errada, duplicidade do mesmo colaborador.
+
+Onde: botão **Excluir processo…** na tela do ciclo formal, e **Excluir
+rascunho…** na tela do rascunho.
+
+O que acontece:
+
+- somem o processo, as tarefas, as respostas, as pendências, as evidências (com
+  os arquivos), as notificações e a trilha;
+- fica um registro permanente da exclusão: quem excluiu, quando, por quê, a
+  contagem do que foi destruído e uma cópia da trilha;
+- o colaborador volta a ficar livre para um processo novo.
+
+Quem pode:
+
+| Situação do processo | Quem exclui |
+| --- | --- |
+| sem tarefa concluída, pendência ou evidência | você, com o papel DP no escopo |
+| com tarefa concluída, pendência ou evidência | só a gerência do DP ou o SuperAdmin |
+| `Encerrado` | ninguém — para esse, o caminho é cancelar |
+
+Antes de confirmar, o sistema mostra exatamente o que será destruído: quantas
+tarefas concluídas, quantas pendências, quantas evidências, quantos eventos de
+trilha. Leia essa lista. Depois de confirmar, não há de onde recuperar.
+
+> **Nunca** Não existe desfazer, lixeira nem restauração. Se o processo tem
+> qualquer chance de precisar ser consultado depois, **cancele em vez de
+> excluir** — o cancelado guarda tudo.
 
 ### Reabrir
 

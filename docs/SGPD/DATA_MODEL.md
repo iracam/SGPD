@@ -452,6 +452,29 @@ Estado implementado em `SGPD_EMPLOYEE_SNAPSHOT`:
 `DRAFT_SELECTION_UPDATED`, `PROCESS_STARTED`, `SECTOR_TASK_STARTED` e
 `SECTOR_TASK_COMPLETED`, sem nome, e-mail, CPF ou valor das respostas.
 
+#### PROCESSO_EXCLUSAO
+
+- `ID`
+- `UUID`
+- `PROCESSO_UUID` — único; um processo só é excluído uma vez
+- `SITUACAO_NA_EXCLUSAO`
+- `EMPRESA`, `FILIAL`, `TIPO_COLABORADOR`, `MATRICULA`
+- `NOME_COLABORADOR` — copiado do snapshot, que some junto
+- `ABERTO_EM`, `ABERTO_POR_ID`
+- `EXCLUIDO_EM`, `EXCLUIDO_POR_ID`
+- `JUSTIFICATIVA`
+- `POSSUIA_HISTORICO_MATERIAL`
+- `LINHAS_EXCLUIDAS_JSON` — contagem por tabela
+- `TRILHA_JSON` — cópia integral de `SGPD_PROCESS_AUDIT` do processo
+- `ARQUIVOS_JSON` — caminhos das evidências removidas do storage
+- `CHAVE_IDEMPOTENCIA`
+- `CORRELATION_ID`
+
+`SGPD_PROCESS_PURGE` é a lápide da ADR-056: append-only e imutável, é o que
+resta de um processo excluído. Guarda o relato e a trilha; não guarda respostas
+de checklist, valores nem bytes de evidência. `PROCESSO_UUID` também serve de
+registro de idempotência, porque `SGPD_PROCESS_IDEMPOTENCY` some com o processo.
+
 #### PROCESSO_GRUPO E AJUSTE_MANUAL
 
 `SGPD_PROCESS_GROUP` fixa as versões de grupo confirmadas pelo DP.
@@ -772,3 +795,13 @@ Evitar exclusão física de:
 - auditoria.
 
 Cadastros poderão ser inativados.
+
+A única exceção é a purga do processo **não encerrado** (ADR-056): ela apaga de
+fato as linhas de todas as tabelas acima que pertençam àquele processo, na ordem
+das FKs `PROTECT`, e grava `SGPD_PROCESS_PURGE` com a trilha copiada. Processo
+`ENCERRADO` continua intocável, e as trilhas que não são do processo — auditoria
+de contas, de setores, de configuração de workflow e `SGPD_REPORT_EXPORT` — nunca
+são alcançadas.
+
+A porta é `PurgeableQuerySet.hard_delete()`, em `apps/core/db.py`. Fora dela, os
+querysets do domínio continuam recusando `delete()`.

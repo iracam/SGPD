@@ -801,7 +801,17 @@ td code {
 <h3 id="cancelar">Cancelar</h3>
 <p>Disponível para processo em <code>Rascunho</code> ou <code>Iniciado</code>. Exige <strong>Motivo do cancelamento</strong> preenchido.</p>
 <p>O cancelamento cancela as tarefas ainda abertas, libera o colaborador para um processo novo e preserva todo o histórico — pendências, evidências, comentários e trilha continuam existindo.</p>
+<p>Um processo já <code>Liberado para rescisão</code>, com <code>Rescisão processada</code> ou <code>Encerrado</code> também pode ser cancelado, mas isso desfaz um ato formal e é reservado à <strong>gerência do Departamento Pessoal</strong> e ao SuperAdmin. Nesse caso as marcas do que já aconteceu continuam registradas: a liberação, o processamento e o encerramento não somem da ficha. O cancelamento é o último capítulo, não uma borracha.</p>
 <blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> Cancelamento é <strong>terminal</strong>. Um processo cancelado não volta. Para retomar o desligamento, abra um processo novo — os dois ficam registrados.</p></blockquote>
+<h3 id="excluir-um-processo">Excluir um processo</h3>
+<p>Cancelar mantém tudo. <strong>Excluir apaga.</strong> É a única ação do sistema que destrói dado, e existe para o que nunca virou registro de nada: rascunho abandonado, processo aberto para a matrícula errada, duplicidade do mesmo colaborador.</p>
+<p>Onde: botão <strong>Excluir processo…</strong> na tela do ciclo formal, e <strong>Excluir rascunho…</strong> na tela do rascunho.</p>
+<p>O que acontece:</p>
+<ul><li>somem o processo, as tarefas, as respostas, as pendências, as evidências (com os arquivos), as notificações e a trilha;</li><li>fica um registro permanente da exclusão: quem excluiu, quando, por quê, a contagem do que foi destruído e uma cópia da trilha;</li><li>o colaborador volta a ficar livre para um processo novo.</li></ul>
+<p>Quem pode:</p>
+<div class="tabela-rolagem"><table><thead><tr><th style="text-align:left">Situação do processo</th><th style="text-align:left">Quem exclui</th></tr></thead><tbody><tr><td style="text-align:left">sem tarefa concluída, pendência ou evidência</td><td style="text-align:left">você, com o papel DP no escopo</td></tr><tr><td style="text-align:left">com tarefa concluída, pendência ou evidência</td><td style="text-align:left">só a gerência do DP ou o SuperAdmin</td></tr><tr><td style="text-align:left"><code>Encerrado</code></td><td style="text-align:left">ninguém — para esse, o caminho é cancelar</td></tr></tbody></table></div>
+<p>Antes de confirmar, o sistema mostra exatamente o que será destruído: quantas tarefas concluídas, quantas pendências, quantas evidências, quantos eventos de trilha. Leia essa lista. Depois de confirmar, não há de onde recuperar.</p>
+<blockquote class="destaque destaque--proibido"><p><strong>Nunca</strong> Não existe desfazer, lixeira nem restauração. Se o processo tem qualquer chance de precisar ser consultado depois, <strong>cancele em vez de excluir</strong> — o cancelado guarda tudo.</p></blockquote>
 <h3 id="reabrir">Reabrir</h3>
 <p>Só aparece para <strong>SuperAdmin</strong>, e apenas em processo <code>Liberado para rescisão</code>, <code>Rescisão processada</code> ou <code>Encerrado</code>.</p>
 <p>A reabertura exige <strong>Motivo</strong>, desfaz as marcas formais, registra o estado anterior inteiro na trilha e permite escolher quais tarefas concluídas voltam para análise do setor. Sem nenhuma marcada, corrige apenas a marca formal sem devolver trabalho a ninguém.</p>

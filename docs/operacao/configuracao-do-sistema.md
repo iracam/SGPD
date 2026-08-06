@@ -280,8 +280,8 @@ administrador de contas poderia se promover a qualquer papel do sistema.
 
 | Papel | Autoriza | Escopo aceito |
 | --- | --- | --- |
-| **Departamento Pessoal** | Conduzir o processo: abrir, iniciar, acompanhar, decidir valores, liberar, encerrar e cancelar. | Global, empresa ou filial |
-| **Gerência do Departamento Pessoal** | Tudo do DP, mais liberar e encerrar processo **com impedimento**, sob justificativa. | Global, empresa ou filial |
+| **Departamento Pessoal** | Conduzir o processo: abrir, iniciar, acompanhar, decidir valores, liberar, encerrar e cancelar. Exclui processo que ainda não produziu nada. | Global, empresa ou filial |
+| **Gerência do Departamento Pessoal** | Tudo do DP, mais: liberar e encerrar **com impedimento**, cancelar processo já liberado, processado ou encerrado, e excluir processo que já tem trabalho registrado. Sempre sob justificativa. | Global, empresa ou filial |
 | **Administração de grupos e templates** | Templates, perguntas, grupos de validação e regras de aplicabilidade. Nenhuma autoridade sobre processo. | **Somente global** |
 | **Administração de setores** | Setores, escopos, prazos e responsáveis. | **Somente global** |
 | **Administração de usuários** | Contas, senhas temporárias, vínculo com o AD e leitura da auditoria de contas. | **Somente global** |

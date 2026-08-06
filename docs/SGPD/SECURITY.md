@@ -704,6 +704,38 @@ encerramento formal da Fase 8 já dá o marco de contagem, e `/fe/operacao` cont
 quantos processos encerrados passaram da retenção — contar não é apagar. O
 expurgo permanece manual e autorizado, com o procedimento no `RUNBOOK.md` §5.
 
+### Exclusão de processo não encerrado
+
+A exclusão da ADR-056 é destruição legítima e autorizada, e não se confunde com
+o expurgo por retenção. Ela existe para o processo que **nunca virou registro de
+nada** — rascunho abandonado, abertura equivocada, duplicidade — e por isso
+alcança qualquer estado menos `ENCERRADO`, que é justamente o que dispara a
+contagem da retenção.
+
+Controles:
+
+- **autorização graduada.** `DP` vigente no escopo exclui processo sem histórico
+  material; havendo tarefa concluída, pendência ou evidência, exige
+  `offboarding.override_process_blockers` (`DP_GERENTE` ou SuperAdmin). A
+  autoridade é revalidada sob lock, depois da conferência da SPA;
+- **justificativa obrigatória**, gravada na lápide;
+- **aviso prévio quantificado**: a SPA informa quantas tarefas, pendências,
+  evidências, notificações e eventos de trilha serão destruídos, e a confirmação
+  é um segundo ato;
+- **trilha preservada por transposição**: `SGPD_PROCESS_PURGE` é append-only e
+  guarda a cópia integral de `SGPD_PROCESS_AUDIT` daquele processo, além de quem
+  excluiu, quando, por quê e o que sumiu;
+- **arquivos removidos do storage privado** após o commit, com os caminhos
+  listados na lápide para conferência de órfão.
+
+Do ponto de vista da LGPD a exclusão é favorável: elimina dado pessoal que
+deixou de ter finalidade. O que a lápide preserva é o mínimo de rastreabilidade
+do ato — identificação do processo e do colaborador, autoria e motivo —, não o
+conteúdo operacional.
+
+Não há desfazer, e DEV e PRD dividem o schema (ADR-055): excluir em um exclui no
+outro.
+
 O sistema deve suportar:
 
 - retenção por classe;

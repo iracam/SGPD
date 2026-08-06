@@ -62,7 +62,9 @@ grants homologados.
 - Regras críticas vivem em services e operações compostas usam transação.
 - Integrações e retries precisam ser idempotentes.
 - Toda mutação relevante gera auditoria; auditoria e processos encerrados não
-  são apagados.
+  são apagados. A ADR-056 abre a única exceção: o processo **não encerrado**
+  pode ser excluído de vez, sob justificativa, e a trilha dele é copiada para
+  `SGPD_PROCESS_PURGE` antes de sumir — muda de lugar, não desaparece.
 - Snapshots e versões publicadas são imutáveis.
 - Templates, perguntas e grupos são versionados; processos preservam a versão
   histórica.
@@ -124,7 +126,9 @@ a exportação CSV é auditada e a sonda de operação torna visível o agendame
 parado (R63).
 A prontidão calculada, a liberação, o processamento declarado, o encerramento,
 o cancelamento e a reabertura estão operacionais pela ADR-051, com tela própria
-de conferência do ciclo formal. A caixa de notificações por usuário continua
+de conferência do ciclo formal. Pela ADR-056 o cancelamento alcança também o
+processo já formalizado, sob a permissão da gerência, e existe exclusão
+definitiva para todo estado menos `ENCERRADO`. A caixa de notificações por usuário continua
 nos incrementos seguintes.
 
 ## Leitura por escopo
@@ -137,6 +141,7 @@ nos incrementos seguintes.
 | Senior/Oracle cadastral | `INTEGRATION_SENIOR_ORACLE.md` |
 | autenticação, autorização, upload ou LGPD | `SECURITY.md` e integração aplicável |
 | papel funcional, atribuição ou override de impedimento | ADR-054 e `SECURITY.md` §3–§4 |
+| exclusão de processo, cancelamento ou retenção | ADR-056, RF-038 e `SECURITY.md` §14 |
 | Angular, layout ou entrega SPA | `ARCHITECTURE.md` e ADRs 025–028 |
 | notificação, fila ou agendamento | ADR-049, `WORKFLOWS.md` §7 e `ENVIRONMENT.md` §3 |
 | indicador, relatório ou exportação | `REQUIREMENTS.md` RF-034 a RF-036 e `SECURITY.md` §5–§6 |

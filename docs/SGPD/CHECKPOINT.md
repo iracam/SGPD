@@ -16,6 +16,9 @@
   2026-08-04**, com `accounts.0011` e
   `offboarding.0011_alter_offboardingprocess_options_and_more` aplicadas e o
   `bootstrap_roles` executado no ambiente
+- Concluído: exclusão de processo não encerrado e cancelamento do já
+  formalizado (ADR-056) — implementado, testado e validado localmente;
+  `offboarding.0012` e `offboarding.0013` **ainda não aplicadas no Oracle**
 - Concluído: preparação de produção (ADR-055) — Gunicorn sob systemd com um
   worker, timers substituindo o `crontab`, `scripts/deploy.sh` com gate manual
   de migration, contrato de `.env` do host publicado e checklist de corte no
@@ -67,6 +70,9 @@
   auditada de rascunhos de template e de grupo;
 - protocolo de conferência da ADR-047 exercido por todas as telas da SPA, com
   cabeçalho de página global e selo de domínio;
+- exclusão definitiva do processo não encerrado, com aviso quantificado antes de
+  confirmar, justificativa obrigatória e lápide append-only em
+  `SGPD_PROCESS_PURGE` guardando a trilha copiada (ADR-056);
 - notificações por e-mail com outbox no Oracle, varredura de prazos, escaladas,
   painel de falhas e reprocessamento auditado;
 - central de configuração de e-mail: transporte SMTP, remetente, URL base, ritmo
@@ -167,6 +173,9 @@ Contrato Senior — legibilidade cadastral:
   `WEB_CONCURRENCY` acima de 1 enquanto o cache for local;
 - enquanto DEV e PRD apontarem para o mesmo schema, o `DJANGO_SECRET_KEY` é o
   mesmo nos dois: dele deriva a cifra dos segredos da central (R69);
+- exclusão de processo é a única operação que destrói dado: `ENCERRADO` nunca é
+  alcançado, a justificativa é obrigatória e não existe desfazer. Como DEV e PRD
+  dividem o schema (ADR-055), excluir em um exclui no outro;
 - não antecipar desconto automático; liberação e encerramento existem apenas
   como ato humano explícito, nunca como consequência automática de estado;
 - e-mail de notificação não carrega nome do colaborador, CPF, valor nem
@@ -177,6 +186,17 @@ Contrato Senior — legibilidade cadastral:
 
 ## Riscos e pendências relevantes
 
+- `offboarding.0012` (constraint `SGPD_CK_PROCESS_FORMAL` reescrita para o
+  cancelado preservar marcas) e `offboarding.0013` (tabela `SGPD_PROCESS_PURGE` e
+  texto da permissão) foram revisadas no SQL Oracle e **ainda não aplicadas**: a
+  0012 é drop/add de check constraint, validada contra as linhas existentes, e a
+  0013 só cria tabela nova. Nenhuma toca dado;
+- a exclusão remove o processo dos indicadores e relatórios retroativamente,
+  porque `apps/reporting` calcula tudo na leitura. O número congelado só existe
+  nas exportações CSV já registradas em `SGPD_REPORT_EXPORT`;
+- se o `unlink` do arquivo de evidência falhar depois do commit da purga, sobra
+  arquivo órfão no storage privado; a lápide lista os caminhos e o log registra
+  a falha com o `correlation_id`;
 - homologar o limite de 10 MiB e o catálogo inicial PDF/PNG/JPEG;
 - o expurgo de evidências é manual: a retenção de 5 anos está definida e o
   encerramento formal já dá o marco de contagem, mas não há rotina automática;
@@ -236,7 +256,7 @@ Contrato Senior — legibilidade cadastral:
 ## Baseline de qualidade
 
 A validação padrão vigente, executada por inteiro na última entrega
-(2026-08-05): **523 testes backend e 129 frontend**, Ruff, formatação, Mypy em
+(2026-08-06): **540 testes backend e 135 frontend**, Ruff, formatação, Mypy em
 226 arquivos, Django check, verificação de migrations, `check --deploy` com os
 dois avisos de HSTS já deliberados e build Angular sem avisos. A trava de worker
 foi conferida também no boot real: `WEB_CONCURRENCY=2 uv run manage.py

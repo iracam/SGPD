@@ -121,11 +121,28 @@ Rescisão registrada como processada no Senior.
 
 ### ENCERRADO
 
-Processo concluído e bloqueado para alterações comuns.
+Processo concluído e bloqueado para alterações comuns. É o único estado que a
+exclusão nunca alcança (ADR-056): para desfazê-lo, cancele.
 
 ### CANCELADO
 
-Processo cancelado com justificativa.
+Processo cancelado com justificativa. Alcança rascunho e iniciado pelo `DP`
+vigente no escopo e, pela ADR-056, também o liberado, o processado e o
+encerrado — nesses três, sob `offboarding.override_process_blockers`, isto é,
+`DP_GERENTE` ou SuperAdmin.
+
+O cancelado **preserva as marcas formais que já existiam**: liberação,
+processamento e encerramento continuam gravados com data e ator. Cancelar
+acrescenta o desfecho, não apaga o percurso. Continua sendo terminal — não há
+reabertura de cancelado.
+
+### Exclusão (fora da máquina de estados)
+
+Excluir não é transição: o processo deixa de existir. Alcança todos os estados
+**menos `ENCERRADO`**, exige justificativa e deixa a lápide append-only em
+`SGPD_PROCESS_PURGE`, com a trilha copiada. O `DP` exclui o que não produziu
+nada; com tarefa concluída, pendência ou evidência, é ato da gerência. Ver
+RF-038 e ADR-056.
 
 ## 3. Estados da tarefa de setor
 
