@@ -205,6 +205,31 @@ considere que só existe o backup corporativo do Oracle, sem prova de restauraç
 e sem cobertura confirmada do storage de evidências. Desde 2026-08-06 o schema é
 produtivo e o que estaria em jogo numa perda deixou de ser dado de teste.
 
+### 6.1 Recompor o banco a partir das fixtures
+
+`scripts/reset_from_fixtures.sh` devolve o banco ao retrato da configuração —
+contas, papéis, setores, central e catálogo de workflow — e descarta todo o
+operacional. Ele exporta as fixtures do estado atual, guarda um despejo
+integral, esvazia as tabelas com `flush` e recarrega só as fixtures. O cabeçalho
+do script é a fonte do que ele faz e do que deixa de fora; `--help` imprime.
+
+```bash
+scripts/reset_from_fixtures.sh --export-only   # só o retrato e o despejo
+scripts/reset_from_fixtures.sh                 # o reset, com confirmação
+```
+
+Duas regras não negociáveis:
+
+- **pare `sgpd-web`, `sgpd-celery-worker` e `sgpd-celery-beat` antes.** O
+  esvaziamento é `TRUNCATE`, que é DDL e comita tabela por tabela: uma sessão
+  viva segurando lock derruba o passo no meio, com o banco já parcialmente
+  vazio;
+- **o despejo do passo 2 é a única volta, e é manual.** Auditoria é append-only
+  (`AGENTS.md`): recompor o banco é ato de ambiente, não operação de rotina.
+
+Executado em 2026-08-06 sobre o schema produtivo, a pedido: o acervo de teste
+saiu e ficou a configuração. Despejo em `docs/fixtures/`, fora do Git.
+
 ## 7. Saúde da aplicação
 
 A aplicação é publicada em `https://sgpd.bsabioenergia.com.br` por um proxy que

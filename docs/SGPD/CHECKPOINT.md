@@ -35,6 +35,15 @@
   notificações saíram de um a dois segundos depois do fato, com `attempts=1`, e
   a fila está inteira em `ENVIADA` — 58 mensagens, nenhuma em `PENDENTE` ou
   `FALHA`, incluindo a que estava presa desde 2026-07-31
+- **Acervo do banco zerado em 2026-08-06, a pedido**, por
+  `scripts/reset_from_fixtures.sh` (`RUNBOOK.md` §6.1): ficou só a configuração
+  — 30 contas, os 5 papéis com 15 atribuições, 12 setores com 31
+  responsabilidades, 12 templates com 13 versões publicadas, 3 grupos de
+  validação e os dois singletons da central. Saíram os 3 processos de teste, as
+  pendências, as 58 notificações, as sessões e as três trilhas de auditoria. O
+  despejo integral do instante anterior está em `docs/fixtures/`, fora do Git.
+  As contagens de notificação e de fila citadas acima valem como registro do que
+  foi homologado, não como estado atual
 - Próximo incremento: fechar as validações do bloco **Depois** do
   `RUNBOOK.md` §11.3 que o corte deixou em aberto — nenhuma delas é observável
   do DEV, todas dependem do host de produção ou de uma sessão na tela:
@@ -237,11 +246,13 @@ Contrato Senior — legibilidade cadastral:
   `8c5ff6bf`, `9cbed216`, `c8787348` e `d80327c7`, com as seis pendências e as
   cinco pretensões) **não existe mais** — a base foi refeita entre 2026-08-01 e
   2026-08-03. As seções históricas que citam aqueles UUIDs valem como registro
-  do que foi exercido, não como estado atual. O acervo em 2026-08-06, depois do
-  corte, é de 3 processos — dois `LIBERADO_PARA_RESCISAO` e um `INICIADO` —,
-  30 usuários e nenhuma evidência;
-- o usuário `homolog.visual` permanece no DEV desativado e com senha
-  inutilizável: a FK da auditoria append-only impede a exclusão;
+  do que foi exercido, não como estado atual. O acervo logo depois do corte de
+  2026-08-06 era de 3 processos — dois `LIBERADO_PARA_RESCISAO` e um `INICIADO`
+  —, 30 usuários e nenhuma evidência; o reset do mesmo dia zerou os processos;
+- o usuário `homolog.visual` permanece desativado e com senha inutilizável. A FK
+  da auditoria append-only impedia a exclusão; com as trilhas zeradas pelo reset
+  de 2026-08-06 esse impedimento deixou de existir, e o que segura a conta agora
+  é só a decisão de não mexer;
 - setores, catálogo de workflow, auditoria, usuários e colaboradores receberam a
   ADR-047 em 2026-07-31 e foram conferidos por build e testes, mas a varredura
   headless de 2026-07-31 cobriu apenas painel, processos, tarefas e valores;
@@ -277,12 +288,13 @@ Contrato Senior — legibilidade cadastral:
   `/fe/configuracoes/email`, sem tocar no host; o link da notificação sai
   clicável. Como o valor mora no schema compartilhado, ele vale para DEV e PRD ao
   mesmo tempo;
-- as 58 notificações da fila permanecem no schema, todas em `ENVIADA`: as 16 da
-  homologação anterior, a da reabertura que ficou presa desde 2026-07-31 19:41
-  por falta de agendamento — drenada no corte — e as do uso real. A fila é
-  append-only e não pode ser apagada, como a auditoria e as pendências;
-- as três exportações da homologação da Fase 9 deixaram três linhas permanentes
-  em `SGPD_REPORT_EXPORT`, também append-only;
+- a fila chegou a 58 notificações, todas em `ENVIADA`: as 16 da homologação
+  anterior, a da reabertura que ficou presa desde 2026-07-31 19:41 por falta de
+  agendamento — drenada no corte — e as do uso real. A fila é append-only para a
+  aplicação, que não tem caminho para apagá-la; o reset de 2026-08-06 a esvaziou
+  por fora, pelo banco, junto com a auditoria e as pendências;
+- as três exportações da homologação da Fase 9 deixaram três linhas em
+  `SGPD_REPORT_EXPORT`, também append-only e também zeradas pelo reset;
 - a entrega da notificação é ao menos uma vez: se o processo morrer entre o
   envio SMTP e a confirmação no banco, a mensagem volta para a fila e pode
   chegar duplicada. Duplicar aviso é aceitável; perder aviso não é;
