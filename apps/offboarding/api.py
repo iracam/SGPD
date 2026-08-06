@@ -44,6 +44,7 @@ from .serializers import (
     CompleteSectorTaskSerializer,
     OpenOffboardingProcessSerializer,
     ProcessQuerySerializer,
+    PurgeProcessSerializer,
     RegisterTerminationProcessingSerializer,
     ReleaseProcessSerializer,
     ReopenProcessSerializer,
@@ -65,7 +66,10 @@ from .services import (
     IdempotencyConflict,
     OpenOffboardingProcessCommand,
     OpenOffboardingProcessService,
+    ProcessPurgePreview,
     ProcessTransitionResult,
+    PurgeOffboardingProcessService,
+    PurgeProcessCommand,
     RegisterTerminationProcessingCommand,
     RegisterTerminationProcessingService,
     ReleaseProcessCommand,
@@ -81,6 +85,7 @@ from .services import (
     completed_processes_for_actor,
     open_processes_for_actor,
     processes_for_actor,
+    purge_preview,
     sector_tasks_for_actor,
 )
 
@@ -837,6 +842,84 @@ class ProcessReopenView(_ProcessTransitionView):
                 reason=data["reason"],
                 task_ids=tuple(data["task_ids"]),
             )
+        )
+
+
+def _purge_preview_payload(preview: ProcessPurgePreview) -> dict[str, Any]:
+    return {
+        "process": process_payload(preview.process),
+        "counts": preview.counts,
+        "had_material_history": preview.had_material_history,
+        "requires_override": preview.requires_override,
+        "can_purge": preview.can_purge,
+        "refusal": preview.refusal,
+    }
+
+
+class ProcessPurgeView(APIView):
+    """Excluir de vez o processo ainda não encerrado (ADR-056).
+
+    `GET` responde o aviso: o que será destruído, se a exclusão exige a
+    gerência e se este ator pode. `POST` executa. Diferente das demais
+    transições, a resposta não pode ser a conferência do processo — depois do
+    `POST` ele não existe mais —, então é a lápide que volta.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, process_uuid: str) -> Response:
+        actor = cast(User, request.user)
+        _require_process_coordinator(actor)
+        process = get_object_or_404(
+            processes_for_actor(actor).select_related(*PROCESS_RELATED),
+            uuid=process_uuid,
+        )
+        return Response(_purge_preview_payload(purge_preview(actor, process)))
+
+    def post(self, request: Request, process_uuid: str) -> Response:
+        actor = cast(User, request.user)
+        _require_process_coordinator(actor)
+        serializer = PurgeProcessSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = cast(dict[str, Any], serializer.validated_data)
+        try:
+            # Sem `get_object_or_404` antes: o replay idempotente precisa
+            # responder justamente quando o processo já não existe. A autoridade
+            # e o escopo são revalidados dentro do service, sob lock.
+            result = PurgeOffboardingProcessService().execute(
+                PurgeProcessCommand(
+                    actor=actor,
+                    process_uuid=process_uuid,
+                    expected_version=data["expected_version"],
+                    idempotency_key=request.headers.get("Idempotency-Key", ""),
+                    reason=data["reason"],
+                )
+            )
+        except IdempotencyConflict as exc:
+            return api_error(code="idempotency_conflict", message=str(exc), status_code=409)
+        except PermissionDenied as exc:
+            return api_error(code="permission_denied", message=str(exc), status_code=403)
+        record = result.record
+        logger.warning(
+            "Processo demissional excluído definitivamente.",
+            extra={
+                "process_uuid": str(record.process_uuid),
+                "purged_by": actor.get_username(),
+                "deleted_counts": record.deleted_counts,
+            },
+        )
+        return Response(
+            {
+                "purge_uuid": str(record.uuid),
+                "process_uuid": str(record.process_uuid),
+                "process_status": record.process_status,
+                "employee_name": record.employee_name,
+                "purged_at": record.purged_at,
+                "reason": record.reason,
+                "had_material_history": record.had_material_history,
+                "deleted_counts": record.deleted_counts,
+                "idempotency_replayed": result.replayed,
+            }
         )
 
 

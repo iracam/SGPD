@@ -10,6 +10,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from apps.core.db import PurgeableQuerySet
+
 from .storage import evidence_storage
 
 
@@ -24,7 +26,7 @@ def evidence_upload_to(instance: Evidence, filename: str) -> str:
     return f"{instance.uuid.hex[:2]}/{instance.uuid.hex}{suffix}"
 
 
-class EvidenceQuerySet(models.QuerySet["Evidence"]):
+class EvidenceQuerySet(PurgeableQuerySet["Evidence"]):
     def update(self, **kwargs: Any) -> int:
         raise ValidationError("Evidências devem ser alteradas por services auditados.")
 

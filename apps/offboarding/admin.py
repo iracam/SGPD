@@ -9,6 +9,7 @@ from .models import (
     ProcessActionIdempotency,
     ProcessAuditEvent,
     ProcessChecklistItem,
+    ProcessPurgeRecord,
     ProcessSectorOverride,
     ProcessSectorTask,
     ProcessTaskGroupSource,
@@ -70,6 +71,25 @@ class ProcessAuditEventAdmin(
     list_display = ("occurred_at", "event_type", "process", "actor", "correlation_id")
     list_filter = ("event_type",)
     search_fields = ("process__uuid", "correlation_id")
+
+
+@admin.register(ProcessPurgeRecord)
+class ProcessPurgeRecordAdmin(
+    ReadOnlyAdminMixin,
+    admin.ModelAdmin,  # type: ignore[type-arg]
+):
+    """A lápide dos processos excluídos (ADR-056): é o que restou deles."""
+
+    list_display = (
+        "purged_at",
+        "process_uuid",
+        "process_status",
+        "employee_registration",
+        "purged_by",
+        "had_material_history",
+    )
+    list_filter = ("process_status", "had_material_history")
+    search_fields = ("process_uuid", "employee_registration", "employee_name")
 
 
 class ProcessRelatedAdmin(

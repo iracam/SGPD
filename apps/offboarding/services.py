@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -27,13 +28,22 @@ from apps.accounts.models import (
     RoleAssignment,
     User,
 )
+from apps.evidence.models import Evidence
 from apps.integrations.senior.dto import EmployeeDetail
 from apps.integrations.senior.exceptions import SeniorContractError
 from apps.integrations.senior.repository import SeniorRepository
+from apps.notifications.models import Notification, NotificationAttempt
 from apps.notifications.triggers import (
     notify_process_cancelled,
     notify_process_reopened,
     notify_task_assigned,
+)
+from apps.pending_items.models import (
+    PendingAmount,
+    PendingComment,
+    PendingDecision,
+    PendingItem,
+    PendingItemLine,
 )
 from apps.sectors.models import (
     SectorResponsible,
@@ -58,6 +68,7 @@ from .models import (
     ProcessAuditEvent,
     ProcessChecklistItem,
     ProcessEventType,
+    ProcessPurgeRecord,
     ProcessSectorOverride,
     ProcessSectorTask,
     ProcessStatus,
@@ -66,6 +77,8 @@ from .models import (
     SectorTaskStatus,
 )
 from .readiness import closing_blockers, evaluate_process_readiness
+
+logger = logging.getLogger(__name__)
 
 PROCESS_OPENED_DESCRIPTION = "Abertura explícita de processo demissional por ator autorizado."
 DRAFT_SELECTION_DESCRIPTION = "Seleção de grupos e ajustes por ator autorizado."
@@ -107,6 +120,9 @@ PENDING_RESOLUTION_PROCESS_STATUSES = (
 )
 
 #: Estados formais que já saíram das mãos dos setores e vão para `Concluídos`.
+#: São também os que a reabertura alcança e os que, pela ADR-056, só a gerência
+#: do `DP` ou o SuperAdmin cancela — e que a purga nunca alcança no caso do
+#: encerrado.
 FORMALLY_ADVANCED_PROCESS_STATUSES = (
     ProcessStatus.RELEASED,
     ProcessStatus.PROCESSED,
@@ -2071,6 +2087,11 @@ class CancelProcessService:
     O cancelamento é terminal (ADR-051): cancela as tarefas ainda abertas,
     libera a chave do colaborador e preserva integralmente pendências,
     evidências e trilha.
+
+    Pela ADR-056 ele alcança também o processo já liberado, processado ou
+    encerrado — e aí exige `offboarding.override_process_blockers`, porque
+    desfaz um ato formal praticado. As marcas do que já aconteceu continuam
+    gravadas: cancelar não reescreve a história, acrescenta o último capítulo.
     """
 
     @transaction.atomic
@@ -2090,8 +2111,18 @@ class CancelProcessService:
         )
         if replay is not None:
             return replay
-        if process.status not in (ProcessStatus.DRAFT, ProcessStatus.STARTED):
-            raise ValidationError("Somente um rascunho ou processo iniciado pode ser cancelado.")
+        if process.status == ProcessStatus.CANCELLED:
+            raise ValidationError("O processo já está cancelado.")
+        if process.status in FORMALLY_ADVANCED_PROCESS_STATUSES and not has_permission(
+            actor,
+            "offboarding.override_process_blockers",
+            company_code=process.company_code,
+            branch_code=process.branch_code,
+        ):
+            raise PermissionDenied(
+                "Cancelar processo liberado, processado ou encerrado é ato da gerência do "
+                "Departamento Pessoal ou do SuperAdmin."
+            )
         if process.version != command.expected_version:
             raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
 
@@ -2343,3 +2374,246 @@ class ReopenProcessService:
         for task in tasks:
             notify_process_reopened(task, reopening=reopening)
         return ProcessTransitionResult(process=process, replayed=False)
+
+
+@dataclass(frozen=True, slots=True)
+class PurgeProcessCommand:
+    actor: User
+    process_uuid: str
+    expected_version: int
+    idempotency_key: str
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessPurgePreview:
+    """O que a exclusão vai destruir, para o aviso antes de confirmar."""
+
+    process: OffboardingProcess
+    counts: dict[str, int]
+    had_material_history: bool
+    requires_override: bool
+    can_purge: bool
+    refusal: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProcessPurgeResult:
+    record: ProcessPurgeRecord
+    replayed: bool
+
+
+def _purge_counts(process: OffboardingProcess) -> dict[str, int]:
+    """Contar o que some com o processo, tabela a tabela.
+
+    É o que a SPA mostra antes de confirmar e o que fica gravado na lápide: sem
+    isto, depois da exclusão ninguém sabe o tamanho do que foi destruído.
+    """
+
+    tasks = ProcessSectorTask.objects.filter(process=process)
+    pending_items = PendingItem.objects.filter(process=process)
+    return {
+        "tasks": tasks.count(),
+        "completed_tasks": tasks.filter(status=SectorTaskStatus.COMPLETED).count(),
+        "checklist_items": ProcessChecklistItem.objects.filter(task__process=process).count(),
+        "pending_items": pending_items.count(),
+        "pending_amounts": PendingAmount.objects.filter(pending_item__process=process).count(),
+        "pending_comments": PendingComment.objects.filter(pending_item__process=process).count(),
+        "evidences": Evidence.objects.filter(process=process).count(),
+        "notifications": Notification.objects.filter(process=process).count(),
+        "audit_events": ProcessAuditEvent.objects.filter(process=process).count(),
+        "validation_groups": ProcessValidationGroup.objects.filter(process=process).count(),
+        "sector_overrides": ProcessSectorOverride.objects.filter(process=process).count(),
+    }
+
+
+def _has_material_history(counts: dict[str, int]) -> bool:
+    """Houve trabalho registrado que a exclusão destrói?
+
+    Tarefa concluída, pendência ou evidência. Tarefa apenas gerada ou em
+    análise não conta: nada foi produzido ainda, e exigir a gerência para
+    apagar um processo iniciado por engano só empurraria o lixo para a base.
+    """
+
+    return any(counts[key] > 0 for key in ("completed_tasks", "pending_items", "evidences"))
+
+
+def purge_preview(actor: User, process: OffboardingProcess) -> ProcessPurgePreview:
+    """Prévia da exclusão, sem lock: a decisão é revalidada no service."""
+
+    counts = _purge_counts(process)
+    material = _has_material_history(counts)
+    may_override = has_permission(
+        actor,
+        "offboarding.override_process_blockers",
+        company_code=process.company_code,
+        branch_code=process.branch_code,
+    )
+    refusal = ""
+    if process.status == ProcessStatus.CLOSED:
+        refusal = (
+            "Processo encerrado não é excluído. Para desfazer o encerramento, cancele-o "
+            "com justificativa."
+        )
+    elif material and not may_override:
+        refusal = (
+            "Este processo já possui trabalho registrado; excluí-lo é ato da gerência do "
+            "Departamento Pessoal ou do SuperAdmin."
+        )
+    return ProcessPurgePreview(
+        process=process,
+        counts=counts,
+        had_material_history=material,
+        requires_override=material,
+        can_purge=not refusal,
+        refusal=refusal,
+    )
+
+
+def _serialized_audit_trail(process: OffboardingProcess) -> list[dict[str, Any]]:
+    """Copiar a trilha antes de apagá-la — é o que a lápide preserva."""
+
+    return [
+        {
+            "uuid": str(event.uuid),
+            "event_type": event.event_type,
+            "actor": event.actor.get_username(),
+            "occurred_at": event.occurred_at.isoformat(),
+            "description": event.description,
+            "data": event.data,
+            "correlation_id": event.correlation_id,
+        }
+        for event in ProcessAuditEvent.objects.filter(process=process)
+        .select_related("actor")
+        .order_by("occurred_at", "pk")
+    ]
+
+
+def _delete_process_rows(process: OffboardingProcess) -> None:
+    """Apagar as linhas do processo das folhas para a raiz.
+
+    A ordem não é estética: toda FK do domínio é `PROTECT`, então cada tabela só
+    pode cair depois de quem aponta para ela. Um passo fora de ordem levanta
+    `ProtectedError` e desfaz a transação inteira — que é exatamente o
+    comportamento desejado se algum modelo novo passar a apontar para o processo
+    sem entrar nesta lista.
+    """
+
+    Evidence.objects.filter(process=process).hard_delete()
+    PendingDecision.objects.filter(pending_item__process=process).hard_delete()
+    PendingAmount.objects.filter(pending_item__process=process).hard_delete()
+    PendingComment.objects.filter(pending_item__process=process).hard_delete()
+    PendingItemLine.objects.filter(pending_item__process=process).hard_delete()
+    PendingItem.objects.filter(process=process).hard_delete()
+    NotificationAttempt.objects.filter(notification__process=process).hard_delete()
+    Notification.objects.filter(
+        Q(process=process) | Q(task__process=process)
+    ).distinct().hard_delete()
+    ProcessChecklistItem.objects.filter(task__process=process).delete()
+    ProcessTaskGroupSource.objects.filter(task__process=process).delete()
+    ProcessSectorTask.objects.filter(process=process).delete()
+    ProcessActionIdempotency.objects.filter(process=process).delete()
+    ProcessSectorOverride.objects.filter(process=process).delete()
+    ProcessValidationGroup.objects.filter(process=process).delete()
+    EmployeeSnapshot.objects.filter(process=process).hard_delete()
+    ProcessAuditEvent.objects.filter(process=process).hard_delete()
+    OffboardingProcess.objects.filter(pk=process.pk).hard_delete()
+
+
+class PurgeOffboardingProcessService:
+    """Excluir de vez um processo que ainda não foi encerrado (ADR-056).
+
+    A base não precisa guardar processo aberto por engano, rascunho abandonado
+    ou cancelado sem serventia. O que ela precisa guardar é o relato: a lápide
+    em `SGPD_PROCESS_PURGE` fica com quem excluiu, quando, por quê, o tamanho do
+    que sumiu e a trilha inteira copiada. Processo `ENCERRADO` nunca é
+    alcançado — para esse, o caminho é o cancelamento.
+
+    Não há desfazer. É a única operação do sistema que destrói dado, e por isso
+    exige justificativa, revalida a autoridade sob lock e confere a versão.
+    """
+
+    @transaction.atomic
+    def execute(self, command: PurgeProcessCommand) -> ProcessPurgeResult:
+        key = _validated_idempotency_key(command.idempotency_key)
+        reason = _validated_notes(command.reason, "reason", required=True)
+        # A lápide é o próprio registro de idempotência: as linhas de
+        # `ProcessActionIdempotency` somem junto com o processo, então não há
+        # onde guardar a chave a não ser no que sobrevive.
+        replay = ProcessPurgeRecord.objects.filter(process_uuid=command.process_uuid).first()
+        if replay is not None:
+            if replay.idempotency_key != key or replay.purged_by_id != command.actor.pk:
+                raise IdempotencyConflict(
+                    "A chave de idempotência já foi usada com outro conteúdo."
+                )
+            return ProcessPurgeResult(record=replay, replayed=True)
+
+        actor, process = _lock_process_for_transition(command.actor, command.process_uuid)
+        if process.status == ProcessStatus.CLOSED:
+            raise ValidationError(
+                "Processo encerrado não pode ser excluído; cancele-o com justificativa."
+            )
+        if process.version != command.expected_version:
+            raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
+
+        counts = _purge_counts(process)
+        material = _has_material_history(counts)
+        if material and not has_permission(
+            actor,
+            "offboarding.override_process_blockers",
+            company_code=process.company_code,
+            branch_code=process.branch_code,
+        ):
+            raise PermissionDenied(
+                "Excluir processo com trabalho registrado é ato da gerência do Departamento "
+                "Pessoal ou do SuperAdmin."
+            )
+
+        snapshot = EmployeeSnapshot.objects.filter(process=process).first()
+        evidence_files = [
+            name
+            for name in Evidence.objects.filter(process=process).values_list("file", flat=True)
+            if name
+        ]
+        record = ProcessPurgeRecord(
+            process_uuid=process.uuid,
+            process_status=process.status,
+            company_code=process.company_code,
+            branch_code=process.branch_code,
+            employee_type_code=process.employee_type_code,
+            employee_registration=process.employee_registration,
+            employee_name=snapshot.employee_name if snapshot is not None else "",
+            opened_at=process.opened_at,
+            opened_by=process.opened_by,
+            purged_by=actor,
+            reason=reason,
+            had_material_history=material,
+            deleted_counts=counts,
+            audit_trail=_serialized_audit_trail(process),
+            evidence_files=evidence_files,
+            idempotency_key=key,
+            correlation_id=correlation_id.get(),
+        )
+        record.full_clean()
+        record.save()
+
+        _delete_process_rows(process)
+
+        # O arquivo só sai do disco depois do commit: se a transação voltar
+        # atrás, as linhas ressuscitam e precisam encontrar o que apontam.
+        # Falhar aqui deixa arquivo órfão, não linha órfã — o inverso seria
+        # evidência sem bytes, e a lápide lista os caminhos para a conferência.
+        transaction.on_commit(lambda: _remove_evidence_files(evidence_files))
+        return ProcessPurgeResult(record=record, replayed=False)
+
+
+def _remove_evidence_files(names: list[str]) -> None:
+    storage = Evidence._meta.get_field("file").storage
+    for name in names:
+        try:
+            storage.delete(name)
+        except OSError:
+            logger.exception(
+                "Arquivo de evidência não pôde ser removido na purga.",
+                extra={"evidence_file": name},
+            )

@@ -58,6 +58,12 @@ urlpatterns = [
         api.ProcessReopenView.as_view(),
         name="process-reopen",
     ),
+    # `GET` avisa o que a exclusão destrói; `POST` executa e nada volta atrás.
+    path(
+        "<uuid:process_uuid>/purge/",
+        api.ProcessPurgeView.as_view(),
+        name="process-purge",
+    ),
     # A consolidação é do domínio de pendências, mas a conferência é por
     # processo: a rota mora aqui e a view continua no app dono do dado.
     path(

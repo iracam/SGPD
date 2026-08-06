@@ -9,6 +9,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from apps.core.db import PurgeableQuerySet
+
 
 class PendingCategory(models.TextChoices):
     VALUE = "VALOR", "Valor"
@@ -84,7 +86,7 @@ class DecisionOutcome(models.TextChoices):
     WAIVED = "ABONADA", "Abonada"
 
 
-class ImmutableOperationalQuerySet(models.QuerySet[Any]):
+class ImmutableOperationalQuerySet(PurgeableQuerySet[Any]):
     def update(self, **kwargs: Any) -> int:
         raise ValidationError("Pendências devem ser alteradas por services auditados.")
 

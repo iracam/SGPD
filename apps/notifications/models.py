@@ -15,6 +15,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from apps.core.db import PurgeableQuerySet
+
 
 class NotificationEvent(models.TextChoices):
     """Fato que originou a mensagem.
@@ -61,7 +63,7 @@ TERMINAL_STATUSES = frozenset(
 )
 
 
-class NotificationQuerySet(models.QuerySet[Any]):
+class NotificationQuerySet(PurgeableQuerySet[Any]):
     def update(self, **kwargs: Any) -> int:
         raise ValidationError("Notificações devem ser alteradas pelos services de despacho.")
 

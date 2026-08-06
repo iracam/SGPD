@@ -32,6 +32,7 @@ from apps.offboarding.services import (
 from apps.pending_items.models import BlockingLevel, PendingItem
 from tests.test_offboarding_release import (
     close,
+    manager_coordinator,
     ready_process,
     register_processing,
     release,
@@ -201,19 +202,69 @@ def test_cancel_refuses_empty_reason_stale_version_and_a_reused_key(
         )
 
 
-def test_cancel_is_terminal_and_unreachable_from_a_released_process(
+def test_plain_dp_cannot_cancel_a_released_process(
     actor: User,
     process: OffboardingProcess,
 ) -> None:
+    """Desfazer ato formal é da gerência; `DP` puro para na liberação (ADR-056)."""
+
     process, _ = ready_process(actor, process)
     release(actor, process)
     process.refresh_from_db()
 
-    with pytest.raises(ValidationError, match="rascunho ou processo iniciado"):
+    with pytest.raises(PermissionDenied, match="gerência do Departamento Pessoal"):
         cancel(actor, process, key="cancel-liberado")
 
     process.refresh_from_db()
     assert process.status == ProcessStatus.RELEASED
+
+
+def test_manager_cancels_a_closed_process_preserving_the_formal_marks(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Cancelar o encerrado não reescreve a história: acrescenta o fim dela (ADR-056)."""
+
+    process, _ = ready_process(actor, process)
+    release(actor, process)
+    process.refresh_from_db()
+    register_processing(actor, process)
+    process.refresh_from_db()
+    close(actor, process)
+    process.refresh_from_db()
+    assert process.status == ProcessStatus.CLOSED
+    released_at = process.released_at
+    closed_at = process.closed_at
+
+    manager = manager_coordinator(actor)
+    cancel(manager, process, key="cancel-encerrado", reason="Rescisão anulada em juízo.")
+
+    process.refresh_from_db()
+    assert process.status == ProcessStatus.CANCELLED
+    assert process.cancelled_by == manager
+    assert process.cancellation_reason == "Rescisão anulada em juízo."
+    # As marcas do que aconteceu antes continuam gravadas.
+    assert process.released_at == released_at
+    assert process.closed_at == closed_at
+    assert process.termination_reference
+    event = ProcessAuditEvent.objects.filter(
+        process=process,
+        event_type=ProcessEventType.CANCELLED,
+    ).get()
+    assert event.actor == manager
+
+
+def test_cancelling_an_already_cancelled_process_is_refused(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    started_task(actor, process)
+    process.refresh_from_db()
+    cancel(actor, process, key="cancel-primeiro")
+    process.refresh_from_db()
+
+    with pytest.raises(ValidationError, match="já está cancelado"):
+        cancel(actor, process, key="cancel-segundo")
 
 
 def test_sector_responsible_without_dp_cannot_cancel(

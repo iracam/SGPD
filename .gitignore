@@ -93,3 +93,5 @@ var/log/
 
 # Fixtures locais de reset do DEV (nunca versionar)
 docs/fixtures/
+
+email.lista

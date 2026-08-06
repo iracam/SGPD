@@ -145,6 +145,13 @@ class CancelProcessSerializer(serializers.Serializer[dict[str, Any]]):
     reason = serializers.CharField(max_length=1000, trim_whitespace=True)
 
 
+class PurgeProcessSerializer(serializers.Serializer[dict[str, Any]]):
+    """Exclusão definitiva (ADR-056): a justificativa é o que fica de relato."""
+
+    expected_version = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(max_length=1000, trim_whitespace=True)
+
+
 class ReopenProcessSerializer(serializers.Serializer[dict[str, Any]]):
     expected_version = serializers.IntegerField(min_value=1)
     reason = serializers.CharField(max_length=1000, trim_whitespace=True)

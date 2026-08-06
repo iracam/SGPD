@@ -9,6 +9,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from apps.core.db import PurgeableQuerySet
+
 
 class ProcessStatus(models.TextChoices):
     """Estado **formal** do processo: o que alguém decidiu, com data e ator.
@@ -38,11 +40,13 @@ STARTED_PROCESS_STATUSES = (
 #: Estados que encerram o ciclo e liberam a chave do colaborador.
 TERMINAL_PROCESS_STATUSES = (ProcessStatus.CLOSED, ProcessStatus.CANCELLED)
 
-#: Estados que ainda não receberam nenhuma marca formal da Fase 8.
+#: Estados que ainda não receberam nenhuma marca formal da Fase 8. `CANCELADO`
+#: ficou de fora pela ADR-056: cancelar alcança também o processo já liberado,
+#: processado ou encerrado, e o cancelamento não apaga a marca do que de fato
+#: aconteceu antes dele.
 UNRELEASED_PROCESS_STATUSES = (
     ProcessStatus.DRAFT,
     ProcessStatus.STARTED,
-    ProcessStatus.CANCELLED,
 )
 
 
@@ -87,12 +91,14 @@ class SectorTaskStatus(models.TextChoices):
 OPEN_TASK_STATUSES = (SectorTaskStatus.PENDING, SectorTaskStatus.IN_ANALYSIS)
 
 
-class OffboardingProcessQuerySet(models.QuerySet["OffboardingProcess"]):
+class OffboardingProcessQuerySet(PurgeableQuerySet["OffboardingProcess"]):
     def update(self, **kwargs: Any) -> int:
         raise ValidationError("Processos devem ser alterados por services auditados.")
 
     def delete(self) -> tuple[int, dict[str, int]]:
-        raise ValidationError("Processos demissionais não podem ser excluídos.")
+        raise ValidationError(
+            "Processos demissionais não podem ser excluídos; use o serviço de purga (ADR-056)."
+        )
 
 
 class OffboardingProcess(models.Model):
@@ -226,10 +232,15 @@ class OffboardingProcess(models.Model):
         ordering = ("-opened_at", "-id")
         verbose_name = "processo demissional"
         verbose_name_plural = "processos demissionais"
+        # Autoridade da gerência do `DP` sobre o processo (ADR-054, estendida
+        # pela ADR-056): passar por cima de impedimento na liberação e no
+        # encerramento, cancelar o que já foi liberado, processado ou encerrado,
+        # e excluir processo que já acumulou trabalho registrado.
         permissions = [
             (
                 "override_process_blockers",
-                "Pode liberar e encerrar processo com impedimentos, mediante justificativa",
+                "Pode passar por cima de impedimentos, cancelar processo já formalizado "
+                "e excluir processo com histórico, sempre mediante justificativa",
             ),
         ]
         constraints = [
@@ -317,6 +328,49 @@ class OffboardingProcess(models.Model):
                         released_by__isnull=False,
                         processing_registered_at__isnull=False,
                         processing_registered_by__isnull=False,
+                        closed_at__isnull=False,
+                        closed_by__isnull=False,
+                    )
+                    # O cancelado preserva o prefixo de marcas que já existia
+                    # quando ele foi cancelado (ADR-056): nenhuma, a liberação,
+                    # a liberação com o processamento, ou o ciclo inteiro.
+                    | models.Q(
+                        status=ProcessStatus.CANCELLED,
+                        released_at__isnull=True,
+                        released_by__isnull=True,
+                        processing_registered_at__isnull=True,
+                        processing_registered_by__isnull=True,
+                        closed_at__isnull=True,
+                        closed_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.CANCELLED,
+                        released_at__isnull=False,
+                        released_by__isnull=False,
+                        processing_registered_at__isnull=True,
+                        processing_registered_by__isnull=True,
+                        closed_at__isnull=True,
+                        closed_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.CANCELLED,
+                        released_at__isnull=False,
+                        released_by__isnull=False,
+                        processing_registered_at__isnull=False,
+                        processing_registered_by__isnull=False,
+                        termination_reference__isnull=False,
+                        termination_processed_on__isnull=False,
+                        closed_at__isnull=True,
+                        closed_by__isnull=True,
+                    )
+                    | models.Q(
+                        status=ProcessStatus.CANCELLED,
+                        released_at__isnull=False,
+                        released_by__isnull=False,
+                        processing_registered_at__isnull=False,
+                        processing_registered_by__isnull=False,
+                        termination_reference__isnull=False,
+                        termination_processed_on__isnull=False,
                         closed_at__isnull=False,
                         closed_by__isnull=False,
                     )
@@ -439,6 +493,21 @@ class OffboardingProcess(models.Model):
                 raise ValidationError("O cancelamento exige data e ator.")
             if not self.cancellation_reason:
                 raise ValidationError({"cancellation_reason": "O motivo é obrigatório."})
+            # O cancelado carrega o que já tinha sido praticado (ADR-056), mas
+            # só na ordem em que os atos existem: encerrar pressupõe processar,
+            # que pressupõe liberar. Marca solta seria história inventada.
+            if has_closing and not (has_release and has_processing):
+                raise ValidationError(
+                    "O cancelamento do encerrado preserva também liberação e processamento."
+                )
+            if has_processing and not has_release:
+                raise ValidationError("O cancelamento do processado preserva também a liberação.")
+            if has_processing and (
+                not self.termination_reference or self.termination_processed_on is None
+            ):
+                raise ValidationError(
+                    "O processamento preservado exige o número declarado e a data da rescisão."
+                )
         elif has_cancellation:
             raise ValidationError("Somente um processo cancelado possui marca de cancelamento.")
 
@@ -446,7 +515,7 @@ class OffboardingProcess(models.Model):
         raise ValidationError("Processos demissionais não podem ser excluídos.")
 
 
-class EmployeeSnapshotQuerySet(models.QuerySet["EmployeeSnapshot"]):
+class EmployeeSnapshotQuerySet(PurgeableQuerySet["EmployeeSnapshot"]):
     def update(self, **kwargs: Any) -> int:
         raise ValidationError("O snapshot do colaborador é imutável.")
 
@@ -852,7 +921,7 @@ class ProcessActionIdempotency(models.Model):
         ]
 
 
-class ProcessAuditEventQuerySet(models.QuerySet["ProcessAuditEvent"]):
+class ProcessAuditEventQuerySet(PurgeableQuerySet["ProcessAuditEvent"]):
     def update(self, **kwargs: Any) -> int:
         raise ValidationError("Eventos do processo são imutáveis.")
 
@@ -925,3 +994,118 @@ class ProcessAuditEvent(models.Model):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Eventos do processo não podem ser excluídos.")
+
+
+class ProcessPurgeRecordQuerySet(models.QuerySet["ProcessPurgeRecord"]):
+    """Sem `hard_delete()`: a lápide é o que resta, e não tem para onde ir."""
+
+    def update(self, **kwargs: Any) -> int:
+        raise ValidationError("A lápide da purga é imutável.")
+
+    def delete(self) -> tuple[int, dict[str, int]]:
+        raise ValidationError("A lápide da purga não pode ser excluída.")
+
+
+class ProcessPurgeRecord(models.Model):
+    """O que sobra de um processo excluído (ADR-056).
+
+    A purga apaga as linhas operacionais para que a base não guarde processo
+    inútil, mas não apaga o relato: quem excluiu, quando, por quê, o que foi
+    destruído e a trilha `SGPD_PROCESS_AUDIT` inteira, copiada em JSON antes de
+    sumir. É append-only como a trilha que substitui, e um processo só pode ser
+    purgado uma vez — `process_uuid` é único e nunca é reaproveitado.
+    """
+
+    uuid = models.UUIDField("UUID", default=uuid.uuid4, unique=True, editable=False)
+    process_uuid = models.UUIDField("UUID do processo excluído", unique=True, editable=False)
+    process_status = models.CharField(
+        "situação no momento da exclusão",
+        max_length=30,
+        choices=ProcessStatus.choices,
+    )
+    company_code = models.PositiveIntegerField("código da empresa")
+    branch_code = models.PositiveIntegerField("código da filial")
+    employee_type_code = models.PositiveIntegerField("tipo de colaborador")
+    employee_registration = models.PositiveIntegerField("matrícula")
+    # Copiado do snapshot: depois da purga não há mais de onde ler o nome, e
+    # sem ele a lápide não identifica de quem era o processo.
+    employee_name = models.CharField("nome do colaborador", max_length=200, blank=True)
+    opened_at = models.DateTimeField("processo aberto em")
+    opened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="processo aberto por",
+        on_delete=models.PROTECT,
+        related_name="purged_offboarding_processes_opened",
+    )
+    purged_at = models.DateTimeField("excluído em", auto_now_add=True)
+    purged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="excluído por",
+        on_delete=models.PROTECT,
+        related_name="purged_offboarding_processes",
+    )
+    reason = models.CharField("justificativa da exclusão", max_length=1000)
+    #: Verdadeiro quando a exclusão precisou de `override_process_blockers` por
+    #: haver trabalho registrado — tarefa concluída, pendência ou evidência.
+    had_material_history = models.BooleanField("possuía histórico material", default=False)
+    #: Quantas linhas de cada tabela sumiram, por nome de modelo.
+    deleted_counts = models.JSONField("linhas excluídas", default=dict, blank=True)
+    #: A trilha do processo, copiada evento a evento antes da exclusão.
+    audit_trail = models.JSONField("trilha copiada", default=list, blank=True)
+    #: Caminhos no storage privado cujos arquivos foram removidos após o commit.
+    #: Vazio é o caso comum: a maioria dos processos excluídos nunca teve anexo.
+    evidence_files = models.JSONField("arquivos de evidência removidos", default=list, blank=True)
+    idempotency_key = models.CharField("chave de idempotência", max_length=64)
+    correlation_id = models.CharField("correlation ID", max_length=64, default="-")
+
+    objects = ProcessPurgeRecordQuerySet.as_manager()
+
+    class Meta:
+        db_table = "SGPD_PROCESS_PURGE"
+        ordering = ("-purged_at", "-id")
+        verbose_name = "exclusão de processo"
+        verbose_name_plural = "exclusões de processos"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    process_uuid__isnull=False,
+                    process_status__isnull=False,
+                    company_code__gt=0,
+                    branch_code__gt=0,
+                    employee_type_code__gt=0,
+                    employee_registration__gt=0,
+                    opened_by__isnull=False,
+                    purged_by__isnull=False,
+                    reason__isnull=False,
+                    idempotency_key__isnull=False,
+                ),
+                name="SGPD_CK_PROCESS_PURGE_REQ",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("purged_at",), name="SGPD_IX_PURGE_AT"),
+            models.Index(
+                fields=("company_code", "branch_code", "employee_registration"),
+                name="SGPD_IX_PURGE_EMPLOYEE",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.process_uuid} / {self.process_status}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if self.pk is not None:
+            raise ValidationError("A lápide da purga é imutável.")
+        super().save(*args, **kwargs)
+
+    def clean(self) -> None:
+        super().clean()
+        self.reason = self.reason.strip()
+        self.employee_name = self.employee_name.strip()
+        if not self.reason:
+            raise ValidationError({"reason": "A justificativa da exclusão é obrigatória."})
+        if not self.idempotency_key:
+            raise ValidationError({"idempotency_key": "A chave de idempotência é obrigatória."})
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("A lápide da purga não pode ser excluída.")
