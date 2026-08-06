@@ -159,6 +159,34 @@ def _default_scope(command: EnqueueNotificationCommand) -> str:
     return f"p{command.process.pk}"
 
 
+def _schedule_immediate_dispatch(notification_pk: int) -> None:
+    """Pede ao worker que despache esta mensagem assim que o fato for confirmado.
+
+    Depois do commit, nunca antes: agendar dentro da transação enviaria e-mail
+    de um fato que ainda pode ser revertido.
+
+    Falhar aqui não é erro de domínio. Se o broker estiver fora, a mensagem
+    continua `PENDENTE` no Oracle e a varredura periódica a entrega — a fila
+    durável é exatamente o que permite tratar este disparo como aceleração, e
+    não como transporte (ADR-057).
+    """
+
+    def _publish() -> None:
+        # Import tardio: `tasks` importa este módulo, e o ciclo só não existe
+        # porque a resolução acontece na hora da chamada.
+        from .tasks import dispatch_notification
+
+        try:
+            dispatch_notification.delay(notification_pk)
+        except Exception:
+            logger.warning(
+                "notification.immediate_dispatch_not_scheduled",
+                extra={"notification_pk": notification_pk},
+            )
+
+    transaction.on_commit(_publish)
+
+
 class EnqueueNotificationService:
     """Grava a mensagem na mesma transação do fato que a originou.
 
@@ -242,6 +270,8 @@ class EnqueueNotificationService:
                 duplicated += 1
                 continue
             created.append(notification)
+        for notification in created:
+            _schedule_immediate_dispatch(notification.pk)
         return EnqueueResult(
             created=tuple(created),
             duplicated=duplicated,
@@ -290,17 +320,12 @@ class DispatchNotificationsService:
         )
         sent = failed = rescheduled = 0
         for notification_pk in candidates:
-            claimed = self._claim(notification_pk)
-            if claimed is None:
-                continue
-            notification, attempt_pk = claimed
-            error = self._deliver(notification, config)
-            status = self._close(notification.pk, attempt_pk, error=error)
+            status = self._attempt(notification_pk, config)
             if status == NotificationStatus.SENT:
                 sent += 1
             elif status == NotificationStatus.FAILED:
                 failed += 1
-            else:
+            elif status is not None:
                 rescheduled += 1
         return DispatchResult(
             sent=sent,
@@ -308,6 +333,36 @@ class DispatchNotificationsService:
             rescheduled=rescheduled,
             requeued=requeued,
         )
+
+    def execute_one(self, notification_pk: int) -> str | None:
+        """Tenta uma única mensagem, para o despacho imediato do `on_commit`.
+
+        Devolve o estado em que a mensagem ficou, ou `None` quando não havia o
+        que fazer — envio desligado na central, mensagem já entregue, tomada por
+        outro despachante ou ainda esperando o backoff. Rodar duas vezes a mesma
+        mensagem é seguro pela mesma razão do lote: `_claim` revalida sob lock.
+        """
+
+        config = EmailConfig.from_settings()
+        if not config.enabled:
+            logger.warning("notification.dispatch_disabled")
+            return None
+        return self._attempt(notification_pk, config)
+
+    def _attempt(self, notification_pk: int, config: EmailConfig) -> str | None:
+        try:
+            claimed = self._claim(notification_pk)
+        except Notification.DoesNotExist:
+            # A exclusão do processo leva a fila dele junto (ADR-056). Uma
+            # tarefa agendada antes disso chega aqui sem alvo, e não ter o que
+            # enviar é resultado legítimo, não erro.
+            logger.info("notification.vanished", extra={"notification_pk": notification_pk})
+            return None
+        if claimed is None:
+            return None
+        notification, attempt_pk = claimed
+        error = self._deliver(notification, config)
+        return self._close(notification.pk, attempt_pk, error=error)
 
     @transaction.atomic
     def _requeue_stale(self, threshold: datetime) -> int:

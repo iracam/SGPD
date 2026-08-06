@@ -1,8 +1,9 @@
-"""Despacha a fila de notificações (ADR-049).
+"""Despacha a fila de notificações (ADR-049, ADR-057).
 
-Acionado pelo agendador do sistema operacional no DEV. Rodar duas vezes em
-paralelo é seguro: cada mensagem é tomada sob lock e revalidada antes de
-consumir tentativa.
+Quem despacha em operação normal é o worker. Este comando é a saída manual de
+quando ele está fora — o procedimento está no `RUNBOOK.md` §2 — e roda o mesmo
+service, no processo de quem o chamou. Rodar junto com o worker é seguro: cada
+mensagem é tomada sob lock e revalidada antes de consumir tentativa.
 """
 
 from __future__ import annotations

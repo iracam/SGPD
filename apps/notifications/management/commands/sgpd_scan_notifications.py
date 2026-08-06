@@ -1,7 +1,8 @@
-"""Varre prazos e enfileira lembretes, atrasos e escaladas (ADR-049).
+"""Varre prazos e enfileira lembretes, atrasos e escaladas (ADR-049, ADR-057).
 
-Acionado pelo agendador do sistema operacional no DEV. Rodar de novo não
-duplica aviso: cada marco tem chave própria por destinatário.
+Quem varre em operação normal é o Beat. Este comando é a saída manual de quando
+ele está fora e roda o mesmo service. Rodar de novo não duplica aviso: cada
+marco tem chave própria por destinatário.
 """
 
 from __future__ import annotations
