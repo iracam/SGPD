@@ -11,13 +11,14 @@ em `DECISIONS.md`. “Parcial” exige consultar também a ADR substituta.
 | 002 | Substituída por 025 | Interface server-side |
 | 003 | Vigente com exceção 022 | Oracle principal |
 | 004 | Substituída por 020 | Sincronização local de referências |
-| 013–019 | Vigentes | DEV único, WhiteNoise, Redis sob demanda, validação local, secrets, SMTP e storage |
-| 049 | Vigente | Outbox no Oracle em vez de broker para notificações |
+| 013–019 | Vigentes; 015 emendada por 057 | DEV único, WhiteNoise, Redis sob demanda, validação local, secrets, SMTP e storage |
+| 049 | Parcial por 057 | Outbox no Oracle em vez de broker para notificações |
+| 057 | Vigente | Redis e Celery como runtime assíncrono, com o outbox preservado |
 | 050 | Vigente | Configuração de e-mail na central, com `.env` como baseline |
 | 022 | Vigente no DEV | Owner `SGPD` também como runtime |
 | 023 | Vigente | Fundação Python, Django e conexão Oracle |
 | 052 | Vigente | Publicação atrás de proxy e settings do host publicado |
-| 055 | Vigente | Ambiente de produção em host próprio, Gunicorn supervisionado e deploy |
+| 055 | Emendada por 057 | Ambiente de produção em host próprio, Gunicorn supervisionado e deploy |
 
 ## Domínio e workflow
 

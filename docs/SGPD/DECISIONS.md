@@ -2591,3 +2591,135 @@ conferência.
 - a ADR-051 permanece vigente em tudo o mais — prontidão calculada, estado
   formal persistido, processamento como declaração e a impossibilidade de
   reabrir um cancelado.
+
+## ADR-057 — Redis e Celery como runtime assíncrono, com o outbox preservado
+
+### Estado
+
+Aceita em 2026-08-06 por decisão explícita do responsável funcional. Substitui a
+cláusula de transporte da ADR-049 e emenda as ADRs 015 e 055.
+
+### Contexto
+
+A ADR-049 resolveu a Fase 7 sem broker: a fila de notificações é a tabela
+`SGPD_NOTIFICATION`, gravada na mesma transação do fato, e o envio sai por
+comando `manage.py` acionado pelo agendador do sistema operacional. A decisão
+estava certa para o problema daquela fase e continua certa naquilo que ela
+protege. O que mudou não é o volume — é o preço de três coisas que o desenho
+cobra desde então:
+
+1. **latência de dez minutos em todo aviso.** O intervalo da varredura é a
+   latência mínima de qualquer mensagem, inclusive a de pendência bloqueante e a
+   de pretensão esperando decisão. A ADR-049 registrou que nenhum marco de prazo
+   é sensível a minutos, e isso segue valendo para lembrete e escalada; não vale
+   para o aviso que nasce de um ato que acabou de acontecer na tela;
+2. **um worker virou teto declarado.** O limite de tentativas de login vive no
+   `LocMemCache` de `config/settings/base.py`, privado de cada processo, e
+   `config/settings/production.py` recusa subir com `WEB_CONCURRENCY` acima de
+   1 justamente por isso (ADR-055). O que falta para destravar não é servidor: é
+   um cache compartilhado;
+3. **o agendador é a peça que para em silêncio.** É o risco R63, e a mitigação
+   atual é a sonda mais o olho de quem lê `systemctl list-units --failed`.
+
+A ADR-015 já autorizava subir Redis quando uma funcionalidade exigisse cache,
+fila ou lock distribuído. Duas das três exigências estão postas.
+
+### Decisão
+
+O SGPD passa a ter **Redis e Celery como runtime assíncrono**. O worker executa
+as tarefas e o Celery Beat assume o agendamento periódico, no lugar do `crontab`
+do DEV e dos dois timers do systemd do PRD.
+
+**O outbox no Oracle permanece a fila durável.** O Redis carrega o sinal de
+trabalho, não a mensagem. As três razões que sustentam a ADR-049 continuam
+sendo o desenho e nenhuma delas é papel de broker:
+
+- o painel de falhas e o reprocessamento exigem registro durável por mensagem,
+  com tentativa, erro e resultado — `SGPD_NOTIFICATION_ATTEMPT`;
+- a varredura de prazos é idempotente por chave única no banco;
+- a mensagem nasce dentro de uma transação Oracle e só existe se o fato existir.
+
+O enfileiramento não muda uma linha: continua gravando na transação do domínio.
+O que se acrescenta é um `transaction.on_commit` que pede ao worker para
+despachar **aquela** mensagem logo. Se o broker estiver fora, o pedido se perde
+e a varredura periódica entrega — o outbox é a rede de segurança, e é por isso
+que ele não sai.
+
+**O Redis é requisito de infraestrutura do host, não do projeto.** Ele já roda
+em container e é compartilhado com outras aplicações; este repositório não o
+instala, não versiona Compose e não é dono do serviço. Em troca, convive com
+vizinhos: índice de banco dedicado, `KEY_PREFIX` próprio e fila nomeada
+`sgpd`.
+
+**A agenda do Beat é estática, no código.** Sem `django-celery-beat`: agenda em
+`config/celery.py`, intervalos por variável de ambiente, nenhuma tabela de
+terceiro no schema `SGPD` e nenhum comportamento não homologado sobre
+`python-oracledb` Thick. Mudar a agenda é diff revisável, como qualquer outra
+regra.
+
+**Nenhum payload de tarefa carrega dado pessoal.** A tarefa recebe a chave
+primária e relê do Oracle. O Redis é infraestrutura compartilhada e persistida
+em disco por AOF; nome, e-mail, CPF, valor e parecer não trafegam nem repousam
+nele (`SECURITY.md` §13.1).
+
+### Decisões substituídas e emendadas
+
+- **ADR-049 — parcial.** Cai a cláusula "envio por comando `manage.py` acionado
+  pelo agendador do sistema operacional" e caem as alternativas descartadas
+  naquele texto. Permanecem o outbox, a deduplicação por chave, o painel de
+  falhas, o reprocessamento auditado e a entrega ao menos uma vez;
+- **ADR-015 — emendada.** Redis deixa de ser "sob demanda": é requisito de
+  runtime. A condição que ela impunha — "quando uma funcionalidade exigir cache,
+  fila ou lock distribuído" — foi satisfeita, e o container previsto ali é o que
+  já existe no host;
+- **ADR-055 — emendada.** Os dois timers (`sgpd-notifications` e
+  `sgpd-operations-check`) saem e entram `sgpd-celery-worker.service` e
+  `sgpd-celery-beat.service`. O teto de um worker deixa de ser imposto pelo
+  cache local; subir a concorrência passa a ser decisão operacional, não
+  impedimento técnico;
+- **ADR-010 reafirmada**: o processamento continua assíncrono em relação à
+  requisição, agora com broker;
+- **ADR-016 reafirmada**: não há CI/CD; a validação continua local e o deploy
+  continua sendo `scripts/deploy.sh` à mão.
+
+### Alternativas descartadas
+
+Manter os timers e apenas encurtar o intervalo: reduz a latência ao custo de
+varrer o Oracle a cada minuto sem ter o que fazer, e não resolve nem o cache
+compartilhado nem o sinal de parada. Trata o sintoma mais barato dos três.
+
+Redis só como cache, sem Celery: destravaria o worker múltiplo com uma linha de
+settings, mas deixaria o agendamento no sistema operacional e a latência onde
+está. Metade do custo para um terço do ganho — e a metade que sobra é a que
+exige o processo supervisionado de qualquer jeito.
+
+`django-celery-beat`: agenda editável em runtime, ao custo de dependência nova,
+migrations de terceiro no schema `SGPD` e comportamento não homologado sobre o
+driver Thick. A agenda deste sistema muda por decisão de engenharia, não de
+operação; o ritmo que a operação ajusta — tentativas, lote e janela — já vive na
+central pela ADR-050.
+
+### Consequências
+
+- **o SGPD passa a depender de um serviço compartilhado que não controla.** Um
+  vizinho pode dar `FLUSHALL`, encher a memória ou reiniciar o container. O
+  impacto é reset do limite de tentativas de login e perda dos sinais ainda não
+  consumidos — **nunca perda de notificação**, porque a mensagem está no Oracle
+  e a varredura periódica a alcança. Índice dedicado e `KEY_PREFIX` reduzem
+  colisão; não eliminam;
+- **`readiness` passa a depender do Redis.** Com o cache fora, o limite de login
+  não é aplicável e a aplicação não está pronta para receber tráfego. O
+  `liveness` não muda: o processo continua vivo e o proxy distingue os dois;
+- **o sinal de parada muda de lugar.** Hoje a sonda sai com código 1 e o systemd
+  marca a unidade como `failed`. Com o Beat não há código de saída a observar, e
+  sem substituto a troca pioraria o R63. O substituto é um batimento que as
+  tarefas periódicas gravam no cache e que o **processo web** lê a cada consulta
+  de `/fe/operacao`: quem detecta é quem está vivo, não quem parou. Os comandos
+  `manage.py` continuam existindo e continuam com código de saída, para quem
+  quiser consumir por monitor externo;
+- **dois processos supervisionados a mais**, com o mesmo usuário e o mesmo
+  `.env` do serviço web (R72). O custo operacional que a ADR-049 recusou é o
+  mesmo; o que mudou é o que ele compra;
+- **no DEV o Redis não tem autenticação**, ligado apenas em `127.0.0.1`. É
+  aceitável enquanto o bind for local e o host for de uso restrito; publicar a
+  porta ou compartilhar o host com terceiros exige `requirepass` antes.

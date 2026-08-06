@@ -60,10 +60,44 @@ O repositório possui:
 - configuração de SMTP;
 - integração LDAP/Active Directory com descoberta e autenticação em estágios;
 - definição de storage de evidências;
-- health checks e logs JSON com correlation ID.
+- health checks e logs JSON com correlation ID;
+- Redis e Celery como runtime assíncrono (ADR-057).
 
-Redis e worker continuam adiados: a Fase 7 resolveu notificações com outbox no
-Oracle e comandos agendados, sem broker (ADR-049).
+### Redis compartilhado
+
+Desde a ADR-057 o Redis é **requisito de infraestrutura do host**, não deste
+projeto: já roda em container, atende outras aplicações e não é instalado,
+versionado nem supervisionado pelo repositório do SGPD. O que o SGPD garante é
+convivência:
+
+| Item | Contrato |
+|---|---|
+| Endereço | `SGPD_REDIS_URL`, `127.0.0.1:6379` |
+| Autenticação | ausente no DEV, aceitável só com bind local; senha entra na própria URL |
+| Índice do broker | `SGPD_REDIS_BROKER_DB=0` |
+| Índice do cache | `SGPD_REDIS_CACHE_DB=1` |
+| Prefixo das chaves de cache | `sgpd` |
+| Fila do Celery | `sgpd`, nomeada de propósito para não colidir com vizinho |
+| Backend de resultado | nenhum — as tarefas não devolvem resultado |
+
+Duas configurações do serviço importam para o SGPD e devem ser conferidas
+depois de qualquer mexida no container: `maxmemory-policy` precisa continuar
+`noeviction` — despejar chave do broker descartaria sinal de trabalho — e a
+persistência (`appendonly`) deve seguir ligada. Nenhuma das duas é crítica para
+não perder notificação, porque a mensagem está no Oracle e a varredura
+periódica a alcança de qualquer forma.
+
+**Nenhum dado pessoal trafega ou repousa no Redis**: as tarefas recebem chave
+primária e releem do Oracle (ADR-057, `SECURITY.md` §13.1).
+
+### Worker e agendamento
+
+`sgpd-celery-worker.service` executa as tarefas e `sgpd-celery-beat.service`
+dispara a agenda periódica — varredura de prazos, despacho do lote e sonda de
+operação. Os intervalos vêm de `SGPD_BEAT_*` e a agenda é estática, declarada
+em `config/celery.py`. Os comandos `manage.py` correspondentes continuam
+existindo como saída manual quando o worker está fora; o procedimento está no
+`RUNBOOK.md` §2.
 
 ### Configuração de e-mail
 
@@ -75,12 +109,13 @@ vez, o `.env` continua governando — nada quebra por não haver registro.
 
 ### Agendamento das notificações
 
-A fila só anda quando o sistema operacional chama os comandos, e a sonda
-`sgpd_operations_check` é quem torna o agendamento parado visível (R63). No DEV
-o `crontab` foi instalado em 2026-08-01; no PRD o mesmo par de comandos roda por
-timers do systemd, que expõem a saída diferente de zero da sonda como unidade
-`failed`. As entradas exatas, a verificação e o que fazer quando a fila empaca
-estão no `RUNBOOK.md` §2 — fonte canônica do procedimento.
+A fila só anda quando o Beat dispara e o worker executa (ADR-057). Se um dos
+dois parar, nada quebra e as mensagens se acumulam em `PENDENTE` — é o risco
+R63. Quem torna isso visível é a sonda `sgpd_operations_check`, lida em
+`/fe/operacao`: ela compara a mensagem pendente mais antiga com a janela
+tolerada e confere o batimento que as tarefas periódicas gravam no cache. A
+verificação e o que fazer quando a fila empaca estão no `RUNBOOK.md` §2 — fonte
+canônica do procedimento.
 
 ## 4. Ambientes
 
@@ -94,9 +129,10 @@ estão no `RUNBOOK.md` §2 — fonte canônica do procedimento.
 | Oracle SGPD | Owner `SGPD` como conexão única; `CREATE TABLE` e `CREATE SEQUENCE` sem `ADMIN OPTION`; quota de 500 MB em `PIMS_DATA`; migrations aplicadas | **O mesmo schema**, promovido a produtivo; ADR-022 estendida como risco aceito |
 | Senior HCM | Schema `VETORH` no mesmo serviço; cinco grants `SELECT` confirmados para `SGPD` | Mesmo contrato |
 | Servidor | `runserver` com `--settings=config.settings.development` | Gunicorn sob `sgpd-web.service`, **um worker** e oito threads, em `:8002` |
-| Agendamento | `crontab` do usuário (`RUNBOOK.md` §2) | `sgpd-notifications.timer` e `sgpd-operations-check.timer` |
-| Redis | Container sob demanda | Ausente; exigido apenas se a concorrência subir de um worker |
-| Worker | Adiado até necessidade | Adiado |
+| Agendamento | `celery beat` no terminal ou como serviço (`RUNBOOK.md` §2) | `sgpd-celery-beat.service` |
+| Redis | Container do host em `127.0.0.1:6379`, sem autenticação, compartilhado com outras aplicações (ADR-057) | Mesmo serviço; senha obrigatória se o bind deixar de ser local |
+| Worker | `celery -A config worker -Q sgpd` | `sgpd-celery-worker.service`, supervisionado |
+| Cache | `RedisCache`, índice 1, prefixo `sgpd` | Mesmo; é ele que destrava `WEB_CONCURRENCY` acima de 1 |
 | SMTP | Microsoft 365; SMTP AUTH e `Send As` validados com uma mensagem de prova aceita | Mesma conta; transporte efetivo vem da central (ADR-050) |
 | Autenticação | Local operacional; descoberta e login AD compartilham o transporte definido pelo SuperAdmin; LDAP simples funciona com warning; login AD desligado até teste controlado | Mesma configuração, lida do mesmo schema |
 | Estáticos | WhiteNoise configurado para assets da SPA e Django Admin | Mesmo, sem releitura de disco |
@@ -129,8 +165,8 @@ O arquivo `.env.example` define, sem valores sensíveis:
 As variáveis de LDAP/AD são o baseline de primeiro boot. Depois do primeiro
 salvamento por SuperAdmin, o singleton versionado do schema SGPD passa a ser a
 fonte dinâmica dos backends e consultas, sempre sujeito às chaves explícitas
-de descoberta e autenticação. Redis/Celery e S3 continuam como reservas para
-fases futuras.
+de descoberta e autenticação. As chaves `SGPD_REDIS_*` e `SGPD_BEAT_*` passaram
+de reserva a contrato ativo pela ADR-057; S3 continua reserva para fase futura.
 
 O `.env` local contém o owner `SGPD`, que será reutilizado no runtime DEV por decisão explícita. A conexão separada com o owner `VETORH` não faz parte do contrato da aplicação.
 
