@@ -628,8 +628,10 @@ alcança a conferência.
 ### RF-027 — Notificações
 
 O sistema envia notificações por e-mail a partir de uma fila durável no Oracle
-(ADR-049). Cada mensagem nasce na mesma transação do fato que a origina, guarda
-o texto que foi enviado e registra cada tentativa de entrega.
+(ADR-049), despachada pelo worker (ADR-057). Cada mensagem nasce na mesma
+transação do fato que a origina, guarda o texto que foi enviado e registra cada
+tentativa de entrega. O aviso de um ato feito na tela sai em segundos; os marcos
+de prazo saem na varredura periódica.
 
 Eventos de domínio implementados: tarefa atribuída no início do processo,
 pendência bloqueante registrada, pretensão de cobrança aguardando decisão e

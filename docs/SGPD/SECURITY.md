@@ -532,12 +532,35 @@ coletivo, e não impediria quem já tem sessão de tentar a senha de terceiros.
 O Django Admin fica desligado onde a aplicação está publicada: seu login nativo
 não passa pelo limite de tentativas do DRF.
 
-O limite de tentativas mora no cache local do processo, e é isso que fixa o
-servidor do host publicado em **um worker** (ADR-055): dois processos manteriam
-dois baldes independentes e dobrariam a taxa efetiva. `config.settings.production`
-recusa subir com `WEB_CONCURRENCY` acima de 1 enquanto o cache for local — a
-trava é de boot, não de convenção. Threads do mesmo processo compartilham o
-cache e não têm esse efeito.
+O limite de tentativas mora no cache. Enquanto ele era local ao processo, era
+isso que fixava o servidor do host publicado em **um worker** (ADR-055): dois
+processos manteriam dois baldes independentes e dobrariam a taxa efetiva. Desde
+a ADR-057 o cache é o Redis compartilhado e o balde é um só, para todos os
+processos. `config.settings.production` mantém a trava de boot para o caso de
+alguém devolver o cache ao processo: `WEB_CONCURRENCY` acima de 1 com
+`LocMemCache` recusa subir.
+
+### O que o SGPD guarda no Redis
+
+O Redis é do host e compartilhado com outras aplicações (ADR-057). O que isso
+significa para a segurança:
+
+- **nenhum dado pessoal** trafega ou repousa nele. As tarefas recebem chave
+  primária e releem do Oracle; o corpo da mensagem, o endereço do destinatário,
+  o nome do colaborador e o valor da pretensão ficam no banco (§13.1). A
+  persistência AOF do serviço, portanto, não cria depósito novo de dado pessoal;
+- o que vive lá é o contador do limite de login, o batimento do agendamento e a
+  fila de sinais de trabalho;
+- as chaves de cache são prefixadas com `sgpd` e ocupam um índice dedicado, para
+  que nome comum não atravesse sistemas;
+- **uma aplicação vizinha pode apagar tudo.** Um `FLUSHALL` ou um reinício do
+  container zera o contador de tentativas de login em curso e descarta os sinais
+  ainda não consumidos. Nenhuma notificação se perde — a fila é a tabela no
+  Oracle, e a varredura periódica alcança o que ficou. O risco residual é a
+  janela em que o limite de login recomeça do zero;
+- sem autenticação, o serviço só é aceitável ligado a `127.0.0.1`. Expor a porta
+  exige `requirepass` antes, e a senha entra na `SGPD_REDIS_URL` do `.env`, sob
+  a ADR-017.
 
 ## 11. Logs
 

@@ -1,0 +1,46 @@
+# Worker do runtime assíncrono (ADR-057).
+#
+# Executa as tarefas de notificação e a sonda periódica. Substitui, junto com o
+# Beat, os timers `sgpd-notifications` e `sgpd-operations-check`.
+#
+# O Redis é do host e compartilhado com outras aplicações: este serviço o
+# consome e não o gerencia. `After=docker.service` só ordena o boot — se o
+# container estiver fora, o worker espera pela reconexão em vez de morrer.
+
+[Unit]
+Description=SGPD — worker de tarefas assíncronas
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Mesmo usuário do serviço web: `/home/macari` é 0700 e conta de serviço
+# separada não leria a árvore (R72, ADR-055).
+User=macari
+Group=macari
+WorkingDirectory=/home/macari/prd/SGPD
+Environment=PYTHONUNBUFFERED=1
+
+# Caminho absoluto do venv em vez de `uv run`: o systemd sobe com PATH mínimo.
+# `--queues sgpd` não é detalhe: o broker é compartilhado e um worker sem fila
+# nomeada consumiria trabalho de outra aplicação.
+ExecStart=/home/macari/prd/SGPD/.venv/bin/celery -A config worker \
+    --queues sgpd \
+    --concurrency 2 \
+    --loglevel INFO \
+    --without-gossip \
+    --without-mingle
+Restart=always
+RestartSec=5s
+# SIGTERM deixa a tarefa em curso terminar; o que passar do prazo volta para a
+# fila e é reexecutado — as tarefas são idempotentes por isso.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Sem ProtectHome: a aplicação está dentro de /home (ver sgpd-web.service).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -163,8 +163,9 @@ rotina antes do vencimento.
 ## E-mail e notificações
 
 O SGPD não envia nada dentro da requisição: cada aviso é gravado numa fila e
-despachado depois, por um comando agendado no servidor. Esta tela governa o
-transporte e o ritmo dessa fila.
+despachado depois, por um processo separado no servidor. O aviso que nasce de um
+ato feito na tela sai em segundos; os lembretes de prazo saem na varredura
+periódica. Esta tela governa o transporte e o ritmo dessa fila.
 
 ### O interruptor de envio
 
@@ -195,7 +196,7 @@ A tela separa os dois deliberadamente:
 | Campo | O que decide |
 | --- | --- |
 | **Tentativas por mensagem** | Quantas vezes o sistema insiste antes de desistir e marcar `Falha`. |
-| **Mensagens por despacho** | Quantas cada execução do agendador tenta entregar. |
+| **Mensagens por despacho** | Quantas cada rodada de despacho tenta entregar. |
 | **Minutos para reabrir envio preso** | Se o processo morre entre o envio e a confirmação, a mensagem fica travada em *Em envio*; depois desse tempo ela volta para a fila. |
 
 A entrega é **ao menos uma vez**: nessa reabertura, um aviso pode chegar
@@ -233,12 +234,25 @@ nunca para um endereço digitado, e o envio fica registrado na auditoria.
 Tela somente leitura. Ela não envia, não reprocessa e não apaga: responde uma
 pergunta que nenhuma outra responde — **o ambiente está andando?**
 
+### Agendamento
+
+Dois serviços no servidor fazem a fila andar: um executa as tarefas, outro
+dispara a agenda periódica. Cada rodada deixa um **batimento** — a marca de que
+o agendamento está vivo.
+
+| Informação | Como ler |
+| --- | --- |
+| **Último batimento** | `Nunca`, ou mais velho que a tolerância, significa agendamento parado. |
+| **Tolerância** | Quantos minutos sem batimento o sistema aceita antes de dar o veredito. |
+
+Esta é a única linha da tela que denuncia um agendamento morto **quando não há
+aviso nenhum esperando**. A fila vazia parece saudável; o batimento vencido diz
+que ela está vazia porque ninguém está trabalhando.
+
 ### Fila de avisos
 
-A fila só anda quando o agendador do sistema operacional chama os comandos de
-varredura e despacho. Se o agendamento parar, nada quebra e **ninguém é avisado
-de que ninguém está sendo avisado**. É exatamente esse silêncio que esta tela
-rompe.
+Se o agendamento parar, nada quebra e **ninguém é avisado de que ninguém está
+sendo avisado**. É exatamente esse silêncio que esta tela rompe.
 
 | Informação | Como ler |
 | --- | --- |
@@ -360,8 +374,9 @@ a tela vira a fonte da verdade.
 Marco já disparado não volta. A mudança vale para os próximos vencimentos.
 
 **A fila está cheia de `Pendente` e o último envio é “Nunca”.**
-O agendamento não está instalado ou não está rodando. É configuração de
-servidor, pelo runbook — nenhuma tela do SGPD substitui o agendador.
+Os serviços de agendamento não estão instalados ou não estão rodando. Confira
+também o **Último batimento**, logo acima na mesma tela. É configuração de
+servidor, pelo runbook — nenhuma tela do SGPD substitui o agendamento.
 
 **Posso apagar as mensagens antigas da fila, ou a auditoria?**
 Não, e nem pela sua autoridade. Fila, auditoria, comentários de pendência e

@@ -41,6 +41,11 @@ npm --prefix frontend run build
 uv run manage.py runserver --settings=config.settings.development
 # Dev do frontend: ng serve em :4200 com proxy de /api e /admin para :8000
 npm --prefix frontend start
+
+# Runtime assíncrono (ADR-057). O Redis é do host, em container compartilhado:
+# o projeto não o sobe. Worker e Beat rodam em terminais separados no DEV.
+uv run celery -A config worker -Q sgpd -l info
+uv run celery -A config beat -l info
 ```
 
 Testes usam `config.settings.test` (SQLite, sem Oracle). Pytest só coleta `tests/` na raiz.

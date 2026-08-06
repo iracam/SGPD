@@ -1,0 +1,43 @@
+# Agendador do runtime assíncrono (ADR-057).
+#
+# Dispara a varredura de prazos, o despacho do lote e a sonda de operação. A
+# agenda é estática, declarada em `config/celery.py`; os intervalos vêm de
+# `SGPD_BEAT_*` no `.env`.
+#
+# **Só pode existir uma instância.** Dois Beats disparariam a mesma agenda em
+# dobro — o que não duplica aviso, porque a varredura é idempotente e o
+# despacho toma cada mensagem sob lock, mas dobra o trabalho à toa.
+
+[Unit]
+Description=SGPD — agendador de tarefas periódicas
+After=network-online.target docker.service sgpd-celery-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=macari
+Group=macari
+WorkingDirectory=/home/macari/prd/SGPD
+Environment=PYTHONUNBUFFERED=1
+
+# Diretório de estado criado e mantido pelo systemd, com o dono do serviço. Não
+# pode ser /tmp: `PrivateTmp=true` daria um /tmp vazio a cada reinício e o Beat
+# perderia a marca de quando cada entrada rodou. Perder essa marca não estraga
+# nada — a varredura é idempotente e o despacho toma cada mensagem sob lock —,
+# mas faria a agenda inteira disparar a cada restart, sem motivo.
+StateDirectory=sgpd-celery
+ExecStart=/home/macari/prd/SGPD/.venv/bin/celery -A config beat \
+    --loglevel INFO \
+    --schedule /var/lib/sgpd-celery/beat-schedule
+Restart=always
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Sem ProtectHome: a aplicação está dentro de /home (ver sgpd-web.service).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -24,10 +24,10 @@ Django 5.2
            |
            +--> VETORH (SELECT direto em objetos autorizados)
     |
-    +--> Redis em container, quando necessário
+    +--> Redis do host (broker do Celery e cache compartilhado)
              |
              v
-        Worker assíncrono
+        Worker + Beat (tarefas e agenda periódica)
 ```
 
 O Django Admin, somente leitura, é a única interface Django que renderiza
@@ -75,18 +75,31 @@ de autorização continua sendo do backend.
 
 ### Processamento assíncrono
 
-Implementado pela ADR-049, sem broker: a fila de notificações é a tabela
-`SGPD_NOTIFICATION`, gravada na mesma transação do fato que a origina, e o
-envio acontece fora da requisição por dois comandos acionados pelo agendador do
-sistema operacional:
+A fila de notificações é a tabela `SGPD_NOTIFICATION`, gravada na mesma
+transação do fato que a origina (ADR-049), e o envio acontece fora da
+requisição, no worker do Celery (ADR-057). O broker carrega o sinal de trabalho;
+a fila durável continua sendo a tabela.
 
-- `manage.py sgpd_scan_notifications` varre prazos e enfileira lembretes,
-  atrasos e escaladas;
-- `manage.py sgpd_dispatch_notifications` envia o que está na fila, registra
-  cada tentativa em `SGPD_NOTIFICATION_ATTEMPT` e reabre o que ficou preso.
+Três tarefas, em `apps/notifications/tasks.py`, todas cascas finas sobre os
+services:
 
-Ambos são idempotentes: a chave de deduplicação impede o aviso repetido e o
-lock impede o envio concorrente. A entrega é ao menos uma vez.
+- `scan_deadlines` varre prazos e enfileira lembretes, atrasos e escaladas;
+- `dispatch_queue` envia o lote pendente, registra cada tentativa em
+  `SGPD_NOTIFICATION_ATTEMPT` e reabre o que ficou preso;
+- `dispatch_notification` trata uma mensagem específica, agendada por
+  `transaction.on_commit` no próprio enfileiramento — é o que faz o aviso de um
+  ato na tela sair em segundos, em vez de esperar a varredura.
+
+O Beat dispara as duas primeiras e a sonda de operação, por agenda estática
+declarada em `config/celery.py`. Falhar ao publicar no broker não derruba a
+transação de domínio: a mensagem fica `PENDENTE` e o lote periódico a alcança.
+
+Todas são idempotentes: a chave de deduplicação impede o aviso repetido e o lock
+impede o envio concorrente, inclusive quando o broker reentrega a tarefa. A
+entrega é ao menos uma vez.
+
+O payload de tarefa nunca carrega dado pessoal — vai a chave primária, e a
+tarefa relê do Oracle.
 
 O transporte é dinâmico: `EMAIL_BACKEND` é `ConfiguredEmailBackend`, que lê o
 singleton `SGPD_EMAIL_CONFIG` a cada envio (ADR-050). Mudar servidor, remetente,
@@ -97,9 +110,14 @@ Relatórios e reprocessamentos em massa continuam sem caso de uso assíncrono.
 
 ### Cache e filas
 
-Redis continua sem caso de uso (ADR-015 e ADR-049) e não faz parte do runtime.
-Se cache, lock distribuído ou limitação de taxa aparecerem, ele sobe em
-container conforme a ADR-015.
+Redis faz parte do runtime desde a ADR-057, em duas funções distintas e em
+índices separados: broker do Celery e cache compartilhado do Django. O cache é
+o que torna o limite de tentativas de login um número só entre processos e o
+que guarda o batimento do agendamento lido por `/fe/operacao`.
+
+O serviço é do host e compartilhado com outras aplicações: o projeto o consome,
+não o gerencia, e por isso usa fila nomeada, índices dedicados e `KEY_PREFIX`
+próprio. O contrato de convivência está em `ENVIRONMENT.md` §3.
 
 ### Autenticação
 
@@ -735,8 +753,8 @@ separados.
 
 ## 9. Execução
 
-- `runserver` no DEV; Gunicorn sob systemd, com um worker, no host de produção
-  (ADR-055);
+- `runserver` no DEV; Gunicorn sob systemd no host de produção (ADR-055), com um
+  worker por escolha operacional — a trava do cache local caiu na ADR-057;
 - WhiteNoise para arquivos estáticos e para os assets da SPA, nos dois
   ambientes;
 - SPA construída por `ng build` e servida pelo próprio Django, em origem única;
@@ -745,8 +763,8 @@ separados.
   outro host, mas ele apenas termina o TLS e encaminha — não serve arquivo;
 - sem pipeline de CI/CD; deploy por `scripts/deploy.sh`, à mão (ADR-016);
 - Oracle externo;
-- Redis em container somente quando necessário;
-- worker e scheduler somente quando houver casos de uso assíncronos;
+- Redis do host, em container compartilhado (ADR-057);
+- worker e Beat do Celery sob systemd no PRD, executando tarefas e agenda;
 - armazenamento de evidências separado dos arquivos estáticos.
 
 ## 10. Testes

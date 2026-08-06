@@ -32,8 +32,8 @@ Nenhum segredo foi exibido ou registrado. A inspeção documental considerou nom
 | Oracle Instant Client | 19.28 em `/opt/oracle/instantclient_19_28` | Cliente nativo confirmado |
 | Driver Python Oracle | `python-oracledb` 4.0.2 | Modo Thick validado com o Instant Client 19.28 |
 | SQLcl local | 26.1 em `/opt/sqlcl/bin/sql` | Conexões Oracle validadas |
-| Redis | Somente `redis-cli` 8.0.2; servidor local ausente/inativo | Será iniciado em container quando necessário |
-| Celery / Django-Q2 | Ausentes | Worker adiado até existir caso de uso |
+| Redis | Container `redis:7-alpine` do host em `127.0.0.1:6379`, sem autenticação, `noeviction` e AOF ligado | Requisito de runtime desde a ADR-057, fornecido pelo host e compartilhado com outras aplicações; contrato de convivência na §3 |
+| Celery | 5.6.3, bloqueado em `uv.lock` | Worker e Beat do runtime assíncrono (ADR-057), sob systemd no PRD. Django-Q2 não entrou |
 | Gunicorn | 23.0.0, bloqueado em `uv.lock` | Servidor WSGI do host de produção, sob systemd com **um worker** (ADR-055). `runserver` volta a ser exclusivo de desenvolvimento |
 | Nginx | Ausente, também no PRD | Estáticos e assets da SPA são servidos pelo WhiteNoise, no próprio processo (ADR-014, reafirmada pela ADR-055). O proxy em `192.168.1.6` só termina o TLS e encaminha; ele não tem o build da SPA e não serve arquivo (ADR-052) |
 | WhiteNoise | 6.12.0 | Serve assets da SPA e estáticos do Django Admin; nunca evidências |
@@ -188,16 +188,17 @@ Nenhum valor real de usuário, senha ou token deve ser incluído no repositório
 ## 7. Pendências operacionais
 
 1. Confirmar TLS/wallet da conexão única `SGPD`.
-2. ~~Instalar o agendamento das notificações no DEV~~ — feito em 2026-08-01:
-   varredura com despacho a cada dez minutos e sonda a cada trinta, ambas no
-   `crontab` do usuário da aplicação (`RUNBOOK.md` §2). Celery e Django-Q2
-   continuam sem caso de uso.
+2. ~~Instalar o agendamento das notificações no DEV~~ — feito em 2026-08-01 no
+   `crontab` e **substituído em 2026-08-06 pelo worker e pelo Beat do Celery**
+   (ADR-057). O procedimento vigente está no `RUNBOOK.md` §2.
 3. Decidir operacionalmente entre TLS e LDAP simples. Para TLS, instalar a CA
    `BSA-AD-CA`; sem TLS, aceitar explicitamente o warning de credenciais e
    senhas sem criptografia. Bind, bases, grupo `BSA_SGPD` e descoberta já foram
    validados no DEV.
-4. Definir o Compose do Redis quando surgir a primeira dependência de cache,
-   lock distribuído ou limitação de taxa; notificações não exigem Redis.
+4. ~~Definir o Compose do Redis~~ — encerrada pela ADR-057 por outro caminho: o
+   Redis é requisito do host, já em container e compartilhado com outras
+   aplicações, e este repositório não o versiona nem o gerencia. O contrato de
+   convivência está na §3.
 5. Validar o backup com o DBA: cobertura do schema `SGPD`, do storage privado
    de evidências e prova de restauração. O procedimento está no `RUNBOOK.md`
    §6 e ainda não foi executado.

@@ -22,6 +22,9 @@ project_root=$(cd -- "$script_dir/.." && pwd)
 target_ref="${1:-origin/main}"
 service_name="${SGPD_SERVICE_NAME:-sgpd-web}"
 health_base="${SGPD_HEALTH_BASE_URL:-https://sgpd.bsabioenergia.com.br}"
+# Worker e Beat sobem com o mesmo código do web (ADR-057). Reiniciar só o web
+# deixaria o worker rodando a versão anterior das tarefas.
+async_services=("sgpd-celery-worker" "sgpd-celery-beat")
 
 cd "$project_root"
 
@@ -73,8 +76,35 @@ echo "Nenhuma migration pendente."
 step "Postura de segurança"
 uv run manage.py check --deploy
 
-step "Reinício do serviço"
+step "Redis"
+# O Redis é do host e compartilhado (ADR-057): o deploy não o sobe, só confere
+# que está lá. Sem ele o cache não responde, `readiness` falha e as tarefas
+# ficam sem broker — melhor descobrir aqui do que depois de reiniciar.
+# `manage.py shell` e não `python -c`: o módulo de settings vem do `.env` pelo
+# bootstrap do projeto, e reproduzi-lo aqui daria duas fontes para a mesma
+# decisão.
+if ! uv run manage.py shell -c '
+import sys
+
+from django.core.cache import cache
+
+try:
+    cache.set("deploy-probe", "ok", timeout=30)
+    sys.exit(0 if cache.get("deploy-probe") == "ok" else 1)
+except Exception as failure:
+    print(failure, file=sys.stderr)
+    sys.exit(1)
+'; then
+    echo "Redis não respondeu. Confira o container do host e SGPD_REDIS_URL no .env." >&2
+    exit 4
+fi
+echo "Redis respondendo."
+
+step "Reinício dos serviços"
 sudo systemctl restart "$service_name"
+for unit in "${async_services[@]}"; do
+    sudo systemctl restart "$unit"
+done
 
 step "Saúde"
 # Sempre pela URL publicada: em HTTP puro o navegador descarta o cookie Secure e
@@ -87,3 +117,6 @@ done
 
 step "Concluído"
 systemctl --no-pager --lines=0 status "$service_name" || true
+for unit in "${async_services[@]}"; do
+    systemctl --no-pager --lines=0 status "$unit" || true
+done

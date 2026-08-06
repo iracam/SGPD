@@ -66,8 +66,9 @@ Backend:
 - Django REST Framework.
 - Oracle.
 - WhiteNoise para arquivos estáticos e para os assets da SPA.
-- Redis em container, quando necessário.
-- Celery ou Django-Q2, quando necessário.
+- Redis do host, em container compartilhado, como broker e cache (ADR-057). O
+  projeto o consome e não o gerencia: não versiona Compose nem o instala.
+- Celery: worker e Beat, sob systemd no PRD. Django-Q2 não entrou.
 - Pytest.
 - Ruff.
 - Mypy quando viável.

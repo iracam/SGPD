@@ -20,10 +20,14 @@
   formalizado (ADR-056) — implementado, testado e validado localmente;
   `offboarding.0012` e `offboarding.0013` **ainda não aplicadas no Oracle**
 - Concluído: preparação de produção (ADR-055) — Gunicorn sob systemd com um
-  worker, timers substituindo o `crontab`, `scripts/deploy.sh` com gate manual
-  de migration, contrato de `.env` do host publicado e checklist de corte no
-  `RUNBOOK.md` §11. **Implementado e validado localmente; ainda não executado
-  no host de produção**
+  worker, `scripts/deploy.sh` com gate manual de migration, contrato de `.env` do
+  host publicado e checklist de corte no `RUNBOOK.md` §11. **Implementado e
+  validado localmente; ainda não executado no host de produção**
+- Concluído: runtime assíncrono com Redis e Celery (ADR-057) — worker, Beat,
+  cache compartilhado, despacho imediato por `on_commit` e batimento do
+  agendamento na sonda. Os dois timers do systemd saíram. **Implementado,
+  testado e validado localmente contra o Redis do host; as units ainda não
+  foram instaladas no PRD e o `crontab` do DEV ainda precisa ser removido**
 - Próximo incremento: executar o corte pelo checklist do `RUNBOOK.md` §11 —
   provisionar o host, levar o mesmo `DJANGO_SECRET_KEY` (ou reinformar as senhas
   da central), copiar as evidências para `/home/macari/prd/sgpd-data/evidence`,
@@ -34,6 +38,9 @@
   usuário Oracle de aplicação separado do owner
 - Configuração técnica: LDAP e e-mail administrados na central por SuperAdmin;
   o `.env` é baseline do primeiro boot (ADR-031, ADR-050)
+- Runtime assíncrono: Redis do host, compartilhado com outras aplicações, como
+  broker e cache; worker e Beat do Celery no lugar do agendador do sistema
+  operacional (ADR-057)
 - Interface: SPA Angular 21; Django Admin técnico preservado
 - Autorização: SuperAdmin global; cinco papéis atribuíveis (ADR-054), com
   `DP_GERENTE` satisfazendo `DP` e podendo passar por cima de impedimento sob
@@ -112,10 +119,12 @@ cancelado tem card próprio no hub.
 
 As notificações saem por e-mail a partir de uma fila no Oracle. Nada é enviado
 dentro da requisição: o início do processo, a pendência bloqueante e o eixo de
-valor gravam a mensagem na mesma transação do fato, e dois comandos agendados
-varrem prazos e despacham. Sem agendamento instalado, a fila acumula em
-`PENDENTE` e ninguém é avisado — é o risco R63 e a primeira pendência
-operacional da fase.
+valor gravam a mensagem na mesma transação do fato. Quem despacha é o worker do
+Celery e quem dispara a agenda periódica é o Beat (ADR-057); o aviso de um ato
+feito na tela sai em segundos, por `on_commit`, e a varredura periódica é a rede
+de segurança. Com o worker ou o Beat fora, a fila acumula em `PENDENTE` e
+ninguém é avisado — é o risco R63, agora visível por dois sinais em
+`/fe/operacao`: a fila parada e o batimento vencido.
 
 ## Incremento autorizado implementado
 
@@ -168,9 +177,12 @@ Contrato Senior — legibilidade cadastral:
 - evidências não podem ser servidas pelo WhiteNoise;
 - migrations exigem inspeção do SQL Oracle antes de aplicação; o
   `scripts/deploy.sh` para diante de migration pendente em vez de aplicá-la;
-- o host publicado roda com **um worker**: o limite de tentativas de login vive
-  no cache local do processo e `config.settings.production` recusa subir com
-  `WEB_CONCURRENCY` acima de 1 enquanto o cache for local;
+- o host publicado roda com **um worker por escolha operacional**: a trava caiu
+  com o cache compartilhado no Redis (ADR-057), e `config.settings.production` só
+  recusa `WEB_CONCURRENCY` acima de 1 se alguém devolver o cache ao processo.
+  Subir a concorrência exige medir Oracle e pool de conexões antes;
+- o Redis é do host e compartilhado com outras aplicações: o projeto o consome,
+  não o gerencia, e convive por índice dedicado, `KEY_PREFIX` e fila nomeada;
 - enquanto DEV e PRD apontarem para o mesmo schema, o `DJANGO_SECRET_KEY` é o
   mesmo nos dois: dele deriva a cifra dos segredos da central (R69);
 - exclusão de processo é a única operação que destrói dado: `ENCERRADO` nunca é
@@ -226,9 +238,14 @@ Contrato Senior — legibilidade cadastral:
   rejeitada e a abonada; quem confere lê o aprovado para saber o que vira
   cobrança. Se o total informado passar a ser lido como cobrança pretendida,
   vale separar as decididas em zero;
-- o agendamento das notificações foi instalado no DEV em 2026-08-01 e a sonda
-  passou a acusar parada em trinta minutos (R63); o resíduo agora é o inverso —
-  ninguém confere o log do `cron`, então a sonda é a única testemunha;
+- o `crontab` do DEV instalado em 2026-08-01 **precisa ser removido**: o worker e
+  o Beat cobrem as duas entradas, e deixar as duas coisas rodando dobraria o
+  trabalho à toa. O resíduo do R63 mudou de forma — sem código de saída para o
+  systemd marcar `failed`, quem testemunha o agendamento parado é a tela, e
+  alguém precisa abri-la;
+- um `FLUSHALL` ou reinício do Redis por aplicação vizinha zera o contador de
+  tentativas de login em curso e descarta os sinais ainda não consumidos.
+  Nenhuma notificação se perde — a fila é a tabela no Oracle;
 - a URL base continua vazia no DEV, então o link da mensagem sai relativo e não
   clicável; agora é preenchível em `/fe/configuracoes/email`, sem tocar no host;
 - as 16 notificações entregues na homologação permanecem no DEV, mais a
@@ -256,11 +273,12 @@ Contrato Senior — legibilidade cadastral:
 ## Baseline de qualidade
 
 A validação padrão vigente, executada por inteiro na última entrega
-(2026-08-06): **540 testes backend e 135 frontend**, Ruff, formatação, Mypy em
-226 arquivos, Django check, verificação de migrations, `check --deploy` com os
-dois avisos de HSTS já deliberados e build Angular sem avisos. A trava de worker
-foi conferida também no boot real: `WEB_CONCURRENCY=2 uv run manage.py
-check --deploy` recusa subir. Toda mudança
+(2026-08-06): **554 testes backend e 139 frontend**, Ruff, formatação, Mypy em
+234 arquivos, Django check, verificação de migrations, `check --deploy` com os
+dois avisos de HSTS já deliberados e build Angular sem avisos. Desde a ADR-057 o
+boot real confirma o inverso do que confirmava antes: `WEB_CONCURRENCY=4 uv run
+manage.py check --deploy` **sobe**, porque o cache é compartilhado — e a suíte
+guarda a trava para o caso de alguém devolver o cache ao processo. Toda mudança
 executa o subconjunto pertinente e justifica qualquer validação omitida.
 
 Duas armadilhas do Oracle que a suíte já cobre e que nenhuma mudança deve

@@ -14,7 +14,7 @@ agendador faz é varrer prazos e despachar avisos.
 
 | Quando | O quê | Onde |
 | --- | --- | --- |
-| Início do expediente | Conferir se a fila de avisos andou | `/fe/operacao` |
+| Início do expediente | Conferir se a fila de avisos andou e se o agendamento bateu ponto | `/fe/operacao` |
 | Início do expediente | Conferir falhas de envio e reprocessar o que desistiu | `/fe/notificacoes` |
 | Ao longo do dia | Acompanhar vencidos e setores atrasados | `/fe/painel` |
 | Semanal | Conferir tempo médio, pendências e valores do período | `/fe/relatorios` |
@@ -24,70 +24,86 @@ vigente no escopo.
 
 ## 2. Agendamento das notificações
 
-A fila é uma tabela no Oracle e o envio roda fora da requisição (ADR-049). Sem
-agendamento instalado, **nada é enviado e nada quebra** — as mensagens se
-acumulam em `PENDENTE` e o sistema segue respondendo. É o risco R63.
+A fila é uma tabela no Oracle e o envio roda fora da requisição (ADR-049). Quem
+executa é o worker; quem dispara a agenda periódica é o Beat (ADR-057). Com os
+dois fora, **nada é enviado e nada quebra** — as mensagens se acumulam em
+`PENDENTE` e o sistema segue respondendo. É o risco R63.
 
-**No PRD** (ADR-055), por timers do systemd instalados de `scripts/systemd/`:
+O aviso que nasce de um ato na tela não espera a varredura: o enfileiramento
+pede o despacho daquela mensagem assim que a transação confirma, e ela sai em
+segundos. A varredura periódica é a rede de segurança do que esse pedido não
+alcançou.
+
+### Serviços
 
 ```bash
-sudo cp scripts/systemd/sgpd-*.service scripts/systemd/sgpd-*.timer /etc/systemd/system/
+sudo systemctl status sgpd-celery-worker sgpd-celery-beat
+sudo systemctl restart sgpd-celery-worker sgpd-celery-beat
+journalctl -u sgpd-celery-worker -n 100 -f
+journalctl -u sgpd-celery-beat -n 50
+```
+
+Instalação, uma vez, de `scripts/systemd/`:
+
+```bash
+sudo cp scripts/systemd/sgpd-*.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now sgpd-notifications.timer sgpd-operations-check.timer
+sudo systemctl enable --now sgpd-celery-worker sgpd-celery-beat
 ```
 
-Varredura com despacho a cada dez minutos; sonda a cada trinta. A vantagem sobre
-o `cron` é o resíduo do R63: a sonda sai com código 1 quando a fila está parada,
-o systemd marca `sgpd-operations-check.service` como `failed`, e isso aparece em
-`systemctl list-units --failed` — ninguém precisa abrir um log para descobrir.
+**Só pode haver um Beat.** Dois disparariam a mesma agenda em dobro — o que não
+duplica aviso, porque a varredura é idempotente e cada mensagem é tomada sob
+lock, mas dobra o trabalho à toa.
 
-**No DEV**, entradas no `crontab` do usuário da aplicação desde 2026-08-01:
+O Redis é do host e compartilhado com outras aplicações (`ENVIRONMENT.md` §3):
+o SGPD o consome e não o gerencia. Reiniciar o container é operação de
+infraestrutura, e o efeito no SGPD é perder os sinais ainda não consumidos e o
+limite de tentativas de login em curso — nunca a fila, que está no Oracle.
 
-```cron
-*/10 * * * * cd /home/macari/dev/SGPD && /home/macari/.local/bin/uv run manage.py sgpd_scan_notifications --dispatch >> /home/macari/dev/SGPD/var/log/sgpd-notificacoes.log 2>&1
-*/30 * * * * cd /home/macari/dev/SGPD && /home/macari/.local/bin/uv run manage.py sgpd_operations_check --quiet >> /home/macari/dev/SGPD/var/log/sgpd-operacao.log 2>&1
+**No DEV**, os mesmos dois processos em terminais separados:
+
+```bash
+uv run celery -A config worker -Q sgpd -l info
+uv run celery -A config beat -l info
 ```
-
-Caminho absoluto do `uv` e `cd` explícito não são preciosismo: o `cron` roda com
-`PATH` mínimo e a partir do `HOME`, e `uv run manage.py` fora da raiz do projeto
-falha com `Failed to spawn: manage.py`. Redirecionar o log por caminho absoluto
-pela mesma razão. Os units do PRD usam o binário do venv pelo caminho absoluto
-pelo mesmo motivo.
-
-A varredura é idempotente: rodar de dez em dez minutos muda a latência do
-aviso, nunca a quantidade. Separar varredura e despacho em duas entradas é
-igualmente válido.
-
-Em modo `--quiet` a sonda só escreve quando há problema — assim o log fica
-vazio enquanto está tudo bem, e o código de saída é o que qualquer monitor
-externo, ou o próprio systemd, enxerga.
 
 ### Verificar
 
 ```bash
-# PRD
-systemctl list-timers 'sgpd-*'               # quando rodou e quando roda de novo
-systemctl list-units --failed 'sgpd-*'       # a sonda acusou fila parada?
-journalctl -u sgpd-notifications -n 50       # a última execução falou o quê
-
-# DEV
-crontab -l                                   # o agendamento existe?
-tail -n 50 var/log/sgpd-notificacoes.log     # a última execução falou o quê
-
-# Nos dois
-uv run manage.py sgpd_operations_check       # o que a sonda vê agora
+systemctl status sgpd-celery-worker sgpd-celery-beat   # os dois de pé?
+uv run celery -A config inspect ping                   # o worker responde?
+uv run manage.py sgpd_operations_check                 # o que a sonda vê agora
 ```
+
+Na tela, `/fe/operacao` responde as duas perguntas separadamente: **a fila está
+andando?** e **o agendamento está vivo?**. A segunda existe porque a primeira
+não distingue silêncio de tranquilidade — sem mensagem esperando, uma fila vazia
+parece saudável mesmo com o Beat morto. O batimento é gravado a cada rodada da
+sonda e lido pelo processo web; batimento com mais de sessenta minutos denuncia
+o agendamento parado.
+
+O `sgpd_operations_check` continua saindo com código 1 quando a **fila** está
+parada, para quem quiser consumir por monitor externo. O batimento ausente não
+derruba o código de saída: logo depois de um boot ele está vazio por definição,
+e sonda que reclama sempre deixa de ser lida.
 
 ### Sintoma: fila crescendo em `PENDENTE`
 
-1. `/fe/operacao` mostra o veredito e a mensagem pendente mais antiga;
-2. confirme o `crontab` e o log acima;
-3. rode uma vez à mão para destravar:
+1. `/fe/operacao` mostra os dois vereditos e a mensagem pendente mais antiga;
+2. confira os serviços e o log acima; um worker morto aparece em
+   `systemctl status`, e um que não responde ao `inspect ping` está preso;
+3. rode uma vez à mão para destravar, sem depender do worker:
    `uv run manage.py sgpd_scan_notifications --dispatch`;
 4. se o comando falhar, o erro é de transporte ou de configuração: confira
    `/fe/configuracoes/email` — servidor, remetente, interruptor de envio;
 5. nada se perde no caminho: a fila é durável e a chave de deduplicação impede
    aviso repetido quando a varredura roda de novo.
+
+### Sintoma: agendamento sem batimento, fila em dia
+
+O Beat parou, ou o cache compartilhado foi reiniciado e perdeu a marca. Confira
+`systemctl status sgpd-celery-beat` e o Redis do host. Enquanto isso, a
+varredura à mão do item 3 acima cobre o que precisar sair.
 
 ### Sintoma: mensagens em `FALHA`
 
@@ -98,7 +114,8 @@ reprocessamento é auditado e a numeração das tentativas nunca se repete.
 
 Aviso conhecido: a entrega é **ao menos uma vez**. Se o processo morrer entre o
 envio SMTP e a confirmação no banco, a mensagem volta para a fila e pode chegar
-duplicada. Duplicar aviso é aceitável; perder aviso não é.
+duplicada. Vale também para o worker: com `acks_late`, a tarefa interrompida é
+reentregue pelo broker. Duplicar aviso é aceitável; perder aviso não é.
 
 ### Sintoma: marco sem destinatário
 
@@ -195,12 +212,13 @@ sudo systemctl reload sgpd-web        # recarga graciosa, sem derrubar conexão
 journalctl -u sgpd-web -n 100 -f      # log de acesso e de erro
 ```
 
-**Um worker é trava, não default.** O limite de tentativas de login vive no
-cache local de cada processo, então dois workers dobrariam a taxa efetiva do
-controle que protege o login contra força bruta. `config.settings.production`
-recusa subir com `WEB_CONCURRENCY` acima de 1 enquanto o cache for local — subir
-a concorrência exige cache compartilhado antes. Threads podem crescer à vontade:
-compartilham o mesmo cache.
+**Um worker continua sendo o número em produção, agora por escolha.** A trava
+que o impunha caiu com o cache compartilhado no Redis (ADR-057): o limite de
+tentativas de login passou a ser um número só para todos os processos.
+`config.settings.production` ainda recusa subir com `WEB_CONCURRENCY` acima de 1
+se alguém devolver o cache ao processo. Subir a concorrência é decisão
+operacional — mede-se antes o Oracle e o pool de conexões, e muda-se
+`WEB_CONCURRENCY` em `sgpd-web.service`.
 
 Verificação, sempre pela URL publicada — em HTTP puro o navegador descarta o
 cookie `Secure` e o login não completa:
@@ -315,10 +333,13 @@ git clone git@github.com:iracam/SGPD.git /home/macari/prd/SGPD
 # As units precisam existir antes do primeiro deploy: o script termina com
 # `systemctl restart` e abortaria sem elas. Instalar sem `enable` — o serviço só
 # sobe depois que o primeiro `uv sync` criar o .venv.
-sudo cp /home/macari/prd/SGPD/scripts/systemd/sgpd-*.service \
-        /home/macari/prd/SGPD/scripts/systemd/sgpd-*.timer /etc/systemd/system/
+sudo cp /home/macari/prd/SGPD/scripts/systemd/sgpd-*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
+
+O Redis é pré-requisito do host, não deste provisionamento (ADR-057): ele já
+roda em container e atende outras aplicações. O que precisa existir aqui é o
+acesso — `SGPD_REDIS_URL` no `.env` e a porta alcançável de `127.0.0.1`.
 
 O storage fica **fora** de `/home/macari/prd/SGPD` de propósito: `git checkout`,
 `npm ci` e `collectstatic` nunca chegam perto dos bytes das evidências.
@@ -350,8 +371,10 @@ SGPD_HEALTH_BASE_URL=http://127.0.0.1:8002 /home/macari/prd/SGPD/scripts/deploy.
 de host acontece antes da view.
 
 O script busca a referência, sincroniza pelo `uv.lock`, constrói a SPA e os
-manuais, coleta estáticos, roda `check --deploy`, reinicia o serviço e confere
-os dois health checks pela URL publicada.
+manuais, coleta estáticos, roda `check --deploy`, confere que o Redis responde,
+reinicia web, worker e Beat e verifica os dois health checks pela URL publicada.
+Reiniciar os três é obrigatório: worker e Beat carregam o mesmo código, e deixar
+só o web novo faria as tarefas rodarem a versão anterior.
 
 **Ele para diante de migration pendente** e imprime o `sqlmigrate` a rodar. É
 deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
@@ -371,6 +394,8 @@ deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
       estão no Oracle: sem essa cópia, o banco aponta para arquivos que não
       existem. Conferir o SHA-256 de uma amostra contra `SGPD_EVIDENCE`
 - [ ] Oracle alcançável do host novo; porta `8002` liberada só para `192.168.1.6`
+- [ ] Redis do host respondendo em `127.0.0.1:6379`, com os índices 0 e 1 livres
+      para o SGPD (`ENVIRONMENT.md` §3)
 - [ ] saneamento do acervo: processos de teste encerrados ou cancelados, contas
       de teste desativadas. Auditoria, fila de notificações e
       `SGPD_REPORT_EXPORT` são append-only e permanecem
@@ -381,7 +406,7 @@ deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
 - [ ] serviço do host anterior parado e desabilitado — dois hosts não podem
       escrever no mesmo schema
 - [ ] `scripts/deploy.sh` no host novo
-- [ ] `sudo systemctl enable --now sgpd-web sgpd-notifications.timer sgpd-operations-check.timer`
+- [ ] `sudo systemctl enable --now sgpd-web sgpd-celery-worker sgpd-celery-beat`
 - [ ] proxy de `192.168.1.6` reapontado para o IP novo em `:8002`
 - [ ] `uv run manage.py check --deploy` — só os dois avisos de HSTS deliberados
 
@@ -390,6 +415,8 @@ deliberado: aplicar migration sem revisar o SQL Oracle contraria o `AGENTS.md`
 - [ ] login real pela URL publicada, com cookie `Secure` aceito
 - [ ] `/health/live/` e `/health/ready/` em 200
 - [ ] `uv run manage.py sgpd_operations_check` sem veredito de fila parada
+- [ ] `/fe/operacao` com batimento do agendamento recente — é o que prova que o
+      Beat subiu e que o worker está executando
 - [ ] prova de envio em `/fe/configuracoes/email` — é o que comprova que o
       Fernet decifrou a senha SMTP com a chave em uso
 - [ ] descoberta em `/fe/configuracoes/ldap` — mesma prova para a senha de bind

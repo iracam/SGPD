@@ -25,16 +25,20 @@ online pelo contrato SQL homologado e o snapshot histórico é criado na abertur
 - sessão Django, CSRF e API na mesma origem, publicada em
   `https://sgpd.bsabioenergia.com.br` por um proxy que roda em outro host e
   termina o TLS; a aplicação sobe com `config.settings.production` (ADR-052);
-- no PRD o servidor é o Gunicorn sob systemd, com **um worker** — o limite de
-  tentativas de login vive no cache local do processo, e o boot recusa
-  concorrência maior sem cache compartilhado. `runserver` é só de
-  desenvolvimento. Deploy por `scripts/deploy.sh`, à mão, sem CI/CD (ADR-016);
+- no PRD o servidor é o Gunicorn sob systemd, com **um worker** — agora por
+  escolha operacional, não por trava: o cache compartilhado no Redis destravou o
+  limite (ADR-057), e o boot só recusa concorrência maior se alguém devolver o
+  cache ao processo. `runserver` é só de desenvolvimento. Deploy por
+  `scripts/deploy.sh`, à mão, sem CI/CD (ADR-016);
 - estáticos e assets da SPA saem do WhiteNoise, no próprio processo Django, em
   DEV e em PRD. Não há Nginx (ADR-014): o proxy que publica o domínio só termina
   o TLS e encaminha. Evidências nunca são servidas por servidor de arquivos;
 - WhiteNoise somente para estáticos e assets da SPA;
 - filesystem privado para evidências;
-- Redis e worker somente quando uma funcionalidade exigir;
+- Redis como requisito de runtime (ADR-057): broker do Celery e cache
+  compartilhado, em container do host, compartilhado com outras aplicações — o
+  projeto o consome e não o gerencia;
+- worker e Beat do Celery sob systemd, executando as tarefas e a agenda;
 - testes locais com Pytest e Vitest; Ruff, Mypy e build Angular;
 - versões exatas em `uv.lock` e `frontend/package-lock.json`.
 
@@ -96,7 +100,10 @@ consulta, sem contador guardado, e possui uma única tabela —
 `SGPD_REPORT_EXPORT`, a trilha append-only de quem exportou o quê.
 
 Notificações usam outbox no Oracle gravado na transação do domínio, com envio
-por comando agendado fora da requisição (ADR-049). Não há broker nem worker. O
+fora da requisição (ADR-049). Quem executa é o worker do Celery e quem dispara a
+agenda periódica é o Beat (ADR-057): o broker carrega o sinal de trabalho, e a
+fila durável continua sendo a tabela. O aviso que nasce de um ato na tela sai em
+segundos, por `on_commit`; a varredura periódica é a rede de segurança. O
 transporte SMTP, o remetente, o ritmo da fila e os marcos de lembrete são
 configurados na central por SuperAdmin (ADR-050); o `.env` é só o baseline.
 
@@ -143,7 +150,7 @@ nos incrementos seguintes.
 | papel funcional, atribuição ou override de impedimento | ADR-054 e `SECURITY.md` §3–§4 |
 | exclusão de processo, cancelamento ou retenção | ADR-056, RF-038 e `SECURITY.md` §14 |
 | Angular, layout ou entrega SPA | `ARCHITECTURE.md` e ADRs 025–028 |
-| notificação, fila ou agendamento | ADR-049, `WORKFLOWS.md` §7 e `ENVIRONMENT.md` §3 |
+| notificação, fila ou agendamento | ADR-049, ADR-057, `WORKFLOWS.md` §7 e `ENVIRONMENT.md` §3 |
 | indicador, relatório ou exportação | `REQUIREMENTS.md` RF-034 a RF-036 e `SECURITY.md` §5–§6 |
 | operação, monitoramento ou plantão | `RUNBOOK.md` e `ENVIRONMENT.md` §7 |
 | settings, transporte, proxy ou publicação | `SECURITY.md` §10, ADR-052 e `RUNBOOK.md` §7 |
