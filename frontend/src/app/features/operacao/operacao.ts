@@ -13,10 +13,11 @@ import { OperacaoService } from './operacao.service';
 /**
  * Operação e monitoramento do ambiente (R63, RNF-009).
  *
- * A fila de avisos só anda quando o agendador do sistema operacional chama os
- * comandos (ADR-049). Se ele parar, nada quebra e ninguém é avisado — esta
- * tela é onde isso fica visível. Ela não envia, não reprocessa e não apaga:
- * lê e dá o veredito.
+ * A fila de avisos só anda quando o agendamento dispara e o worker executa
+ * (ADR-057). Se um dos dois parar, nada quebra e ninguém é avisado — esta tela
+ * é onde isso fica visível, por dois sinais independentes: a fila parada e o
+ * batimento vencido. Ela não envia, não reprocessa e não apaga: lê e dá o
+ * veredito.
  */
 @Component({
   selector: 'app-operacao-page',

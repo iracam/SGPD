@@ -239,6 +239,16 @@ def operations_payload(status: OperationsStatus) -> dict[str, Any]:
             "is_stalled": status.queue.is_stalled,
             "verdict": status.queue.verdict,
         },
+        "scheduler": {
+            "last_beat_at": (
+                status.scheduler.last_beat_at.isoformat()
+                if status.scheduler.last_beat_at is not None
+                else None
+            ),
+            "stale_minutes": status.scheduler.stale_minutes,
+            "is_stalled": status.scheduler.is_stalled,
+            "verdict": status.scheduler.verdict,
+        },
         "storage": {
             "evidence_count": status.storage.evidence_count,
             "evidence_bytes": status.storage.evidence_bytes,

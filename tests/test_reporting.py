@@ -10,6 +10,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import connection
@@ -21,6 +22,8 @@ from apps.accounts.models import User
 from apps.notifications.models import NotificationStatus
 from apps.offboarding.models import OffboardingProcess, ProcessSectorTask, ProcessStatus
 from apps.reporting.models import ExportDataset, ReportExport
+from apps.reporting.operations import record_scheduler_beat
+from apps.reporting.tasks import operations_check
 from apps.sectors.models import SectorResponsible
 from tests.test_notifications import build_notification
 from tests.test_offboarding_release import release, second_coordinator
@@ -593,6 +596,13 @@ def test_the_process_export_never_asks_oracle_to_group_by_a_lob(
 OPERATIONS_URL = "/api/v1/reporting/operations/"
 
 
+@pytest.fixture(autouse=True)
+def _clear_scheduler_beat() -> None:
+    # O batimento vive no cache, que é do processo inteiro na suíte: vazar de um
+    # teste para outro faria o agendamento parecer vivo onde ele nunca subiu.
+    cache.clear()
+
+
 def superadmin(username: str = "super.operacao") -> User:
     return User.objects.create_superuser(
         username=username,
@@ -638,6 +648,62 @@ def test_the_probe_does_not_cry_for_a_message_just_queued(
 
     assert body["queue"]["is_stalled"] is False
     assert "próximo despacho" in body["queue"]["verdict"]
+
+
+def test_the_probe_reports_the_scheduler_beat(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """O sinal que substituiu a unidade `failed` do systemd (ADR-057).
+
+    Quem grava o batimento é a tarefa periódica; quem o lê é o processo web.
+    Por isso ele denuncia o agendamento parado mesmo com a fila vazia — o
+    silêncio que a fila sozinha não distingue de tranquilidade.
+    """
+
+    client = logged_client(superadmin())
+
+    # Nada gravado ainda: o agendamento pode nunca ter subido.
+    body = client.get(OPERATIONS_URL).json()
+    assert body["scheduler"]["last_beat_at"] is None
+    assert body["scheduler"]["is_stalled"] is True
+    assert "Nenhum batimento" in body["scheduler"]["verdict"]
+
+    record_scheduler_beat()
+    body = client.get(OPERATIONS_URL).json()
+    assert body["scheduler"]["is_stalled"] is False
+    assert body["scheduler"]["last_beat_at"] is not None
+    assert body["scheduler"]["verdict"] == "Agendamento ativo."
+
+    # Batimento velho: o Beat subiu um dia e parou.
+    record_scheduler_beat(timezone.now() - timedelta(hours=3))
+    body = client.get(OPERATIONS_URL).json()
+    assert body["scheduler"]["is_stalled"] is True
+    assert "não dá sinal" in body["scheduler"]["verdict"]
+
+
+def test_the_scheduler_beat_is_recorded_even_when_the_queue_is_stalled(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Batimento responde "está rodando?", não "está tudo bem?".
+
+    Se a fila parada impedisse o registro, uma fila travada esconderia um Beat
+    morto — e o operador perderia a informação de que precisa para saber qual
+    dos dois consertar.
+    """
+
+    task = started_task(actor, process)
+    mensagem = build_notification(task=task, recipient=actor)
+    with mock.patch("django.utils.timezone.now", return_value=timezone.now() - timedelta(hours=2)):
+        mensagem.save()
+
+    resultado = operations_check()
+
+    assert resultado["queue_stalled"] is True
+    body = logged_client(superadmin()).get(OPERATIONS_URL).json()
+    assert body["queue"]["is_stalled"] is True
+    assert body["scheduler"]["is_stalled"] is False
 
 
 def test_the_probe_counts_storage_and_retention_without_purging(

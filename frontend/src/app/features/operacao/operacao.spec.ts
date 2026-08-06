@@ -20,6 +20,12 @@ function operacao(overrides: Partial<Operacao> = {}): Operacao {
       verdict:
         'Há mensagem pendente há mais de 30 minutos: o agendamento provavelmente parou.',
     },
+    scheduler: {
+      last_beat_at: '2026-07-31T09:55:00-03:00',
+      stale_minutes: 60,
+      is_stalled: false,
+      verdict: 'Agendamento ativo.',
+    },
     storage: { evidence_count: 3, evidence_bytes: 5 * 1024 * 1024 },
     retention: {
       closed_processes: 2,
@@ -72,6 +78,40 @@ describe('OperacaoPage', () => {
     expect(texto).toContain('5 MiB');
     expect(texto).toContain('Além de 5 anos');
     expect(texto).toContain('nenhuma rotina apaga arquivo');
+  });
+
+  it('acusa o agendamento parado mesmo com a fila em dia', () => {
+    // O sinal que substituiu a unidade `failed` do systemd (ADR-057): sem ele,
+    // um Beat morto com a fila vazia passaria por tranquilidade.
+    carregar({
+      queue: {
+        counts: {},
+        oldest_pending_at: null,
+        last_sent_at: '2026-07-31T09:30:00-03:00',
+        stale_minutes: 30,
+        is_stalled: false,
+        verdict: 'Nenhuma mensagem aguardando envio.',
+      },
+      scheduler: {
+        last_beat_at: '2026-07-30T22:00:00-03:00',
+        stale_minutes: 60,
+        is_stalled: true,
+        verdict: 'O agendamento não dá sinal há mais de 60 minutos.',
+      },
+    });
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('não dá sinal');
+    expect(texto).toContain('Nenhuma mensagem aguardando envio');
+  });
+
+  it('mostra o batimento vivo sem alarme', () => {
+    carregar();
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('Último batimento');
+    expect(texto).toContain('Agendamento ativo.');
+    expect(texto).not.toContain('não dá sinal');
   });
 
   it('não alarma quando a fila está apenas aguardando o próximo despacho', () => {

@@ -1,14 +1,26 @@
 """Monitoramento operacional (RNF-007, RNF-009, risco R63).
 
-A fila de notificações só anda quando o agendador do sistema operacional chama
-os comandos (ADR-049). Se ele parar, nada quebra e ninguém é avisado: as
-mensagens simplesmente se acumulam em `PENDENTE` e o sistema segue respondendo
+A fila de notificações só anda quando o Beat dispara e o worker executa
+(ADR-057). Se um dos dois parar, nada quebra e ninguém é avisado: as mensagens
+simplesmente se acumulam em `PENDENTE` e o sistema segue respondendo
 normalmente. É o risco R63, e este módulo é a sonda que o torna visível.
 
-O veredito é deliberadamente simples e explicável: mensagem pendente há mais
-tempo que a janela tolerada significa que ninguém a despachou. Não há
-heartbeat do agendador — inventar um seria mais uma coisa para parar em
-silêncio; a própria fila é a evidência.
+São dois sinais independentes, de propósito:
+
+- **a fila**: mensagem pendente há mais tempo que a janela tolerada significa
+  que ninguém a despachou. É a evidência mais direta, e não depende de nada
+  além do próprio Oracle;
+- **o batimento**: cada execução periódica grava o instante no cache
+  compartilhado. Batimento velho denuncia o agendamento parado mesmo quando não
+  há mensagem alguma esperando — o silêncio que a fila sozinha não distingue de
+  tranquilidade.
+
+Enquanto o agendamento vivia no sistema operacional, este módulo dizia que um
+heartbeat seria só mais uma coisa para parar em silêncio, e o código de saída do
+comando bastava: o systemd marcava a unidade como `failed`. Com o Beat não há
+código de saída a observar, e a decisão se inverteu pelo motivo que a
+desqualificava antes — quem lê o batimento é o processo web, que está vivo por
+definição quando alguém abre a tela. Quem escreve pode morrer; quem lê, não.
 
 Tudo aqui é leitura. Nenhuma sonda envia, reprocessa ou apaga o que quer que
 seja.
@@ -19,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from django.core.cache import cache
 from django.db.models import Count, Max, Min, Q, Sum
 from django.utils import timezone
 
@@ -26,10 +39,22 @@ from apps.evidence.models import Evidence
 from apps.notifications.models import Notification, NotificationStatus
 from apps.offboarding.models import OffboardingProcess, ProcessStatus
 
-#: Minutos de tolerância antes de declarar a fila parada. A sugestão de
-#: `crontab` em `ENVIRONMENT.md` §3 roda de dez em dez minutos; o triplo disso
-#: absorve execução atrasada sem esconder agendador morto.
+#: Minutos de tolerância antes de declarar a fila parada. A varredura do Beat
+#: roda de dez em dez minutos; o triplo disso absorve execução atrasada sem
+#: esconder agendamento morto.
 STALE_QUEUE_MINUTES = 30
+
+#: Chave do batimento no cache compartilhado. Prefixada pelo `KEY_PREFIX` dos
+#: settings, porque o Redis é de outras aplicações também (ADR-057).
+SCHEDULER_HEARTBEAT_KEY = "scheduler-heartbeat"
+
+#: Quanto o batimento sobrevive sem ser renovado. Bem acima do intervalo da
+#: sonda: expirar a chave rápido demais acusaria parada a cada atraso normal.
+SCHEDULER_HEARTBEAT_TTL_SECONDS = 24 * 60 * 60
+
+#: Minutos sem batimento antes de declarar o agendamento parado. A sonda roda a
+#: cada trinta; o dobro tolera um atraso sem tolerar um serviço morto.
+STALE_HEARTBEAT_MINUTES = 60
 
 #: Retenção operacional definida em `SECURITY.md` §14, contada do encerramento.
 RETENTION_YEARS = 5
@@ -40,6 +65,14 @@ class QueueHealth:
     counts: dict[str, int]
     oldest_pending_at: datetime | None
     last_sent_at: datetime | None
+    stale_minutes: int
+    is_stalled: bool
+    verdict: str
+
+
+@dataclass(frozen=True, slots=True)
+class SchedulerHealth:
+    last_beat_at: datetime | None
     stale_minutes: int
     is_stalled: bool
     verdict: str
@@ -63,8 +96,59 @@ class RetentionStatus:
 class OperationsStatus:
     checked_at: datetime
     queue: QueueHealth
+    scheduler: SchedulerHealth
     storage: StorageUsage
     retention: RetentionStatus
+
+
+def record_scheduler_beat(at: datetime | None = None) -> datetime:
+    """Marca que o agendamento está vivo. Chamado pela tarefa periódica.
+
+    Escrever é a única coisa que este módulo faz fora da leitura, e é sobre o
+    próprio monitoramento — não toca domínio.
+    """
+
+    beat = at or timezone.now()
+    cache.set(SCHEDULER_HEARTBEAT_KEY, beat.isoformat(), timeout=SCHEDULER_HEARTBEAT_TTL_SECONDS)
+    return beat
+
+
+def _scheduler_health(now: datetime) -> SchedulerHealth:
+    raw = cache.get(SCHEDULER_HEARTBEAT_KEY)
+    last_beat: datetime | None = None
+    if isinstance(raw, str):
+        try:
+            last_beat = datetime.fromisoformat(raw)
+        except ValueError:
+            # Chave de outra origem ou de um formato antigo: tratada como
+            # ausência, que já é o veredito conservador.
+            last_beat = None
+    if last_beat is None:
+        return SchedulerHealth(
+            last_beat_at=None,
+            stale_minutes=STALE_HEARTBEAT_MINUTES,
+            is_stalled=True,
+            verdict=(
+                "Nenhum batimento do agendamento registrado: o worker e o Beat podem "
+                "nunca ter subido, ou o cache compartilhado foi reiniciado. "
+                "Confira os serviços — RUNBOOK.md, seção 2."
+            ),
+        )
+    is_stalled = last_beat < now - timedelta(minutes=STALE_HEARTBEAT_MINUTES)
+    if is_stalled:
+        verdict = (
+            f"O agendamento não dá sinal há mais de {STALE_HEARTBEAT_MINUTES} minutos: "
+            "o Beat ou o worker provavelmente pararam. "
+            "Confira os serviços — RUNBOOK.md, seção 2."
+        )
+    else:
+        verdict = "Agendamento ativo."
+    return SchedulerHealth(
+        last_beat_at=last_beat,
+        stale_minutes=STALE_HEARTBEAT_MINUTES,
+        is_stalled=is_stalled,
+        verdict=verdict,
+    )
 
 
 def _queue_health(now: datetime) -> QueueHealth:
@@ -137,6 +221,7 @@ def evaluate_operations() -> OperationsStatus:
     return OperationsStatus(
         checked_at=now,
         queue=_queue_health(now),
+        scheduler=_scheduler_health(now),
         storage=_storage_usage(),
         retention=_retention_status(now),
     )
