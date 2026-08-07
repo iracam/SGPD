@@ -1,5 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -31,6 +39,12 @@ export class LoginPage {
     username: ['', [Validators.required]],
     password: ['', [Validators.required]],
   });
+
+  private readonly usernameInput = viewChild.required<ElementRef<HTMLInputElement>>('usernameInput');
+
+  constructor() {
+    afterNextRender(() => this.usernameInput().nativeElement.focus());
+  }
 
   submit(): void {
     if (this.form.invalid || this.isSubmitting()) {
