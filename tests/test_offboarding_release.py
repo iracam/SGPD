@@ -21,11 +21,13 @@ from apps.accounts.models import (
     User,
     build_scope_key,
 )
+from apps.notifications.models import Notification, NotificationEvent
 from apps.offboarding.models import (
     OffboardingProcess,
     ProcessAuditEvent,
     ProcessEventType,
     ProcessStatus,
+    SectorTaskStatus,
 )
 from apps.offboarding.readiness import (
     ProcessSituation,
@@ -33,6 +35,7 @@ from apps.offboarding.readiness import (
     evaluate_process_readiness,
 )
 from apps.offboarding.services import (
+    SECTOR_TASK_CLOSED_ON_RELEASE_DESCRIPTION,
     CloseProcessCommand,
     CloseProcessService,
     IdempotencyConflict,
@@ -42,6 +45,7 @@ from apps.offboarding.services import (
     ReleaseProcessService,
     completed_processes_for_actor,
     open_processes_for_actor,
+    sector_tasks_for_actor,
 )
 from apps.pending_items.models import BlockingLevel, PendingItem, PendingStatus
 from apps.pending_items.services import (
@@ -386,6 +390,79 @@ def test_release_override_by_manager_requires_reason_and_is_audited(
     event = ProcessAuditEvent.objects.get(process=process, event_type=ProcessEventType.RELEASED)
     assert event.data["overridden_blockers"]
     assert event.data["override_reason"] == reason
+
+
+def test_release_closes_the_task_that_the_sector_never_concluded(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """A tarefa passada por cima pelo override morre com a liberação.
+
+    Sem isto ela ficava `PENDENTE` para sempre: visível em *Minhas tarefas*,
+    recusada pelo service a cada tentativa de concluir, e contada como aberta e
+    atrasada nos indicadores do setor.
+    """
+
+    task = started_task(actor, process)
+    process.refresh_from_db()
+    manager = manager_coordinator(actor)
+
+    release(
+        manager,
+        process,
+        key="release-tarefa-aberta",
+        override_reason="Setor não realizou a conferência dentro do prazo.",
+    )
+    process.refresh_from_db()
+    task.refresh_from_db()
+
+    assert process.status == ProcessStatus.RELEASED
+    assert task.status == SectorTaskStatus.CANCELLED
+
+    closing = ProcessAuditEvent.objects.get(
+        process=process,
+        event_type=ProcessEventType.SECTOR_TASK_CANCELLED,
+    )
+    assert closing.actor == manager
+    assert closing.data["task_id"] == task.pk
+    assert closing.description == SECTOR_TASK_CLOSED_ON_RELEASE_DESCRIPTION
+    released = ProcessAuditEvent.objects.get(
+        process=process,
+        event_type=ProcessEventType.RELEASED,
+    )
+    assert released.data["closed_task_ids"] == [task.pk]
+
+    # O setor é avisado de que não é mais esperado, e a tarefa vira história:
+    # continua visível, mas nenhuma ação é oferecida nem aceita.
+    message = Notification.objects.get(event=NotificationEvent.TASK_CLOSED_ON_RELEASE)
+    assert message.recipient == actor
+    assert message.task_id == task.pk
+    assert list(sector_tasks_for_actor(actor)) == [task]
+    with pytest.raises(ValidationError, match="processo iniciado"):
+        start_task(actor, task, key="start-depois-da-liberacao")
+
+
+def test_release_without_blockers_has_no_task_left_to_close(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    process, task = ready_process(actor, process)
+
+    release(actor, process, key="release-sem-tarefa-aberta")
+    process.refresh_from_db()
+    task.refresh_from_db()
+
+    assert task.status == SectorTaskStatus.COMPLETED
+    released = ProcessAuditEvent.objects.get(
+        process=process,
+        event_type=ProcessEventType.RELEASED,
+    )
+    assert released.data["closed_task_ids"] == []
+    assert not ProcessAuditEvent.objects.filter(
+        process=process,
+        event_type=ProcessEventType.SECTOR_TASK_CANCELLED,
+    ).exists()
+    assert not Notification.objects.filter(event=NotificationEvent.TASK_CLOSED_ON_RELEASE).exists()
 
 
 def test_override_reason_is_refused_when_there_is_no_blocker(

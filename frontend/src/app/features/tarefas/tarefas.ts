@@ -126,7 +126,19 @@ export class TarefasPage {
         emptyTitle: 'Nenhuma tarefa ativa',
         emptyText: 'Não há tarefas pendentes ou em análise para seus vínculos vigentes.',
         processos: agruparPorProcesso(
-          tarefas.filter((tarefa) => tarefa.status !== 'CONCLUIDA'),
+          tarefas.filter((tarefa) => tarefa.is_actionable),
+          false,
+        ),
+      },
+      {
+        key: 'encerradas',
+        title: 'Encerradas sem conclusão',
+        description: 'O processo seguiu sem elas; nada mais é esperado do setor.',
+        icon: 'pi pi-ban',
+        emptyTitle: 'Nenhuma tarefa encerrada sem conclusão',
+        emptyText: 'Toda tarefa fora da sua mão foi concluída pelo setor.',
+        processos: agruparPorProcesso(
+          tarefas.filter((tarefa) => this.congelada(tarefa)),
           false,
         ),
       },
@@ -613,14 +625,44 @@ export class TarefasPage {
   }
 
   protected rotuloStatus(status: TarefaStatus): string {
-    return { PENDENTE: 'Pendente', EM_ANALISE: 'Em análise', CONCLUIDA: 'Concluída' }[
-      status
-    ];
+    return {
+      PENDENTE: 'Pendente',
+      EM_ANALISE: 'Em análise',
+      CONCLUIDA: 'Concluída',
+      CANCELADA: 'Encerrada sem conclusão',
+    }[status];
   }
 
   /** Modificador do chip: reutiliza os tokens --status-* da identidade. */
   protected estadoTarefa(status: TarefaStatus): string {
-    return { PENDENTE: 'pending', EM_ANALISE: 'review', CONCLUIDA: 'released' }[status];
+    return {
+      PENDENTE: 'pending',
+      EM_ANALISE: 'review',
+      CONCLUIDA: 'released',
+      CANCELADA: 'blocked',
+    }[status];
+  }
+
+  /**
+   * Tarefa que saiu da mão do setor sem ter sido concluída.
+   *
+   * Quem decide se ainda cabe ação é o backend, por `is_actionable`; aqui só se
+   * separa o que virou história do que ainda espera trabalho.
+   */
+  protected congelada(tarefa: TarefaSetor): boolean {
+    return !tarefa.is_actionable && tarefa.status !== 'CONCLUIDA';
+  }
+
+  /** Por que a tarefa parou, na palavra do estado formal do processo. */
+  protected motivoCongelamento(tarefa: TarefaSetor): string {
+    const motivos: Record<string, string> = {
+      LIBERADO_PARA_RESCISAO: 'O processo foi liberado para rescisão',
+      RESCISAO_PROCESSADA: 'A rescisão já foi processada',
+      ENCERRADO: 'O processo foi encerrado',
+      CANCELADO: 'O processo foi cancelado',
+    };
+    const motivo = motivos[tarefa.process.status] ?? 'O processo saiu da validação setorial';
+    return `${motivo} e esta tarefa foi encerrada sem conclusão. Nada mais é esperado do setor.`;
   }
 
   protected rotuloStatusPendencia(status: PendenciaStatus): string {

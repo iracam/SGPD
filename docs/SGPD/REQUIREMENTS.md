@@ -687,6 +687,12 @@ pelo SuperAdmin — com justificativa obrigatória registrada no processo e na
 trilha (ADR-054). O mesmo vale para os impedimentos do encerramento. `DP` puro
 não dispensa nenhuma.
 
+A liberação encerra as tarefas que continuavam abertas — a opcional deixada
+correr e a obrigatória dispensada pelo override. Elas passam a `CANCELADA`, com
+trilha e aviso ao setor: depois da liberação o setor não movimenta mais nada, e
+manter a tarefa aberta só produziria a promessa de um trabalho que o sistema
+recusa. Ver `WORKFLOWS.md` §2 e §3.
+
 ### RF-031 — Cancelamento
 
 Usuário com o papel `DP` vigente no escopo poderá cancelar um processo em
@@ -701,6 +707,10 @@ o último capítulo, não apaga os anteriores.
 ### RF-032 — Reabertura
 
 A reabertura deverá exigir permissão especial e registrar motivo.
+
+Quem reabre escolhe quais tarefas voltam ao setor: a concluída retorna a
+`EM_ANALISE` e a encerrada sem conclusão retorna a `PENDENTE`, para que o
+trabalho dispensado pelo override possa ser feito depois.
 
 ### RF-038 — Exclusão de processo
 

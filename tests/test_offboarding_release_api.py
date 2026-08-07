@@ -256,6 +256,52 @@ def test_release_override_reaches_the_api_with_permission_and_mandatory_reason(
     assert body["process"]["formal"]["release_override_reason"] == reason
 
 
+def test_the_sector_list_stops_offering_action_on_the_task_the_release_closed(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """O defeito relatado: tarefa aberta em processo liberado não pode virar erro.
+
+    Antes ela ficava `PENDENTE` em *Minhas tarefas*, a tela oferecia *Iniciar
+    análise* e o service recusava. Agora a liberação a encerra, e o contrato diz
+    à tela que não há ação — nenhum botão a oferecer, nenhum 400 a receber.
+    """
+
+    task = started_task(actor, process)
+    process.refresh_from_db()
+    manager = manager_coordinator(actor)
+    sector_client = logged_client(actor)
+
+    before = sector_client.get("/api/v1/tasks/").json()["results"][0]
+    assert before["status"] == SectorTaskStatus.PENDING
+    assert before["is_actionable"] is True
+
+    released = post(
+        logged_client(manager),
+        process,
+        "release",
+        {
+            "expected_version": process.version,
+            "override_reason": "Setor não realizou a conferência dentro do prazo.",
+        },
+        key="api-release-tarefa-aberta",
+    )
+    assert released.status_code == 200
+
+    after = sector_client.get("/api/v1/tasks/").json()["results"][0]
+    assert after["status"] == SectorTaskStatus.CANCELLED
+    assert after["is_actionable"] is False
+    assert after["process"]["status"] == ProcessStatus.RELEASED
+
+    refused = sector_client.post(
+        f"/api/v1/tasks/{task.pk}/start/",
+        data=json.dumps({"expected_version": after["version"]}),
+        content_type="application/json",
+        headers={"Idempotency-Key": "api-start-depois-da-liberacao"},
+    )
+    assert refused.status_code == 400
+
+
 def test_processing_refuses_a_future_date_by_contract_of_the_service(
     actor: User,
     process: OffboardingProcess,

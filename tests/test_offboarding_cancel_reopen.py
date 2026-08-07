@@ -417,6 +417,52 @@ def test_reopening_without_task_only_undoes_the_formal_mark(
     assert not Notification.objects.filter(event=NotificationEvent.PROCESS_REOPENED).exists()
 
 
+def test_reopening_gives_back_the_task_the_release_closed_without_conclusion(
+    actor: User,
+    process: OffboardingProcess,
+) -> None:
+    """Reabrir devolve ao setor o trabalho que o override passou por cima.
+
+    A concluída volta para análise; a que a liberação encerrou sem conclusão
+    nunca chegou lá e recomeça pendente — do contrário, reabrir devolveria o
+    processo à ativa sem caminho para o setor fazer o que faltou.
+    """
+
+    task = started_task(actor, process)
+    process.refresh_from_db()
+    manager = manager_coordinator(actor)
+    release(
+        manager,
+        process,
+        key="release-override-reabertura",
+        override_reason="Setor não realizou a conferência dentro do prazo.",
+    )
+    process.refresh_from_db()
+    task.refresh_from_db()
+    assert task.status == SectorTaskStatus.CANCELLED
+    admin = superadmin()
+
+    reopen(admin, process, task_ids=(task.pk,))
+    process.refresh_from_db()
+    task.refresh_from_db()
+
+    assert process.status == ProcessStatus.STARTED
+    assert task.status == SectorTaskStatus.PENDING
+    event = ProcessAuditEvent.objects.get(
+        process=process,
+        event_type=ProcessEventType.SECTOR_TASK_REOPENED,
+    )
+    assert event.data["previous_status"] == SectorTaskStatus.CANCELLED
+    assert event.data["status"] == SectorTaskStatus.PENDING
+
+    # E o setor volta a poder trabalhar: o caminho completo, do zero.
+    start_task(actor, task, key="start-apos-reabertura")
+    task.refresh_from_db()
+    complete_task(actor, task, key="complete-apos-reabertura")
+    task.refresh_from_db()
+    assert task.status == SectorTaskStatus.COMPLETED
+
+
 def test_each_reopening_warns_the_sector_again(
     actor: User,
     process: OffboardingProcess,

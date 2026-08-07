@@ -1,4 +1,12 @@
-export type TarefaStatus = 'PENDENTE' | 'EM_ANALISE' | 'CONCLUIDA';
+export type TarefaStatus = 'PENDENTE' | 'EM_ANALISE' | 'CONCLUIDA' | 'CANCELADA';
+
+export type ProcessoStatus =
+  | 'RASCUNHO'
+  | 'INICIADO'
+  | 'LIBERADO_PARA_RESCISAO'
+  | 'RESCISAO_PROCESSADA'
+  | 'ENCERRADO'
+  | 'CANCELADO';
 
 export type TipoRespostaChecklist =
   | 'BOOLEAN'
@@ -138,6 +146,7 @@ export interface TarefaSetor {
   template: { version_id: number; code: string; version_number: number };
   process: {
     uuid: string;
+    status: ProcessoStatus;
     company_code: number;
     branch_code: number;
     employee_name: string;
@@ -152,6 +161,8 @@ export interface TarefaSetor {
   completed_at: string | null;
   notes: string;
   checklist_item_count: number;
+  /** Decidido pelo backend: fora do processo iniciado a tarefa é história. */
+  is_actionable: boolean;
   checklist_items: ItemChecklist[];
   pending_items: Pendencia[];
   evidences: Evidencia[];

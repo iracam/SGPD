@@ -75,8 +75,15 @@ export class ProcessoEncerramentoPage {
       this.dados()?.can_override_blockers === true,
   );
 
-  readonly tarefasConcluidas = computed(() =>
-    (this.dados()?.tasks ?? []).filter((tarefa) => tarefa.status === 'CONCLUIDA'),
+  /**
+   * O que a reabertura pode devolver ao setor: a tarefa concluída, que volta
+   * para análise, e a encerrada sem conclusão pela liberação, que recomeça
+   * pendente. Quem confere a regra é o serviço; aqui só se monta a escolha.
+   */
+  readonly tarefasReabriveis = computed(() =>
+    (this.dados()?.tasks ?? []).filter(
+      (tarefa) => tarefa.status === 'CONCLUIDA' || tarefa.status === 'CANCELADA',
+    ),
   );
 
   /**

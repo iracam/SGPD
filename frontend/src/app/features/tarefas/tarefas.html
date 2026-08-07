@@ -95,7 +95,12 @@
                       </div>
                     </dl>
 
-                    @if (tarefa.status === 'PENDENTE') {
+                    @if (congelada(tarefa)) {
+                      <p-message
+                        severity="info"
+                        [text]="motivoCongelamento(tarefa)"
+                      ></p-message>
+                    } @else if (tarefa.status === 'PENDENTE') {
                       <div class="acoes">
                         <p-button
                           type="button"

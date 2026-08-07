@@ -15,6 +15,7 @@ function tarefa(status: TarefaSetor['status'] = 'PENDENTE'): TarefaSetor {
     template: { version_id: 20, code: '2', version_number: 1 },
     process: {
       uuid: '3ca25d06-ca5d-4a49-a9df-d42d74a1d6b2',
+      status: status === 'CANCELADA' ? 'LIBERADO_PARA_RESCISAO' : 'INICIADO',
       company_code: 1,
       branch_code: 2,
       employee_name: 'Pessoa de Teste',
@@ -48,6 +49,7 @@ function tarefa(status: TarefaSetor['status'] = 'PENDENTE'): TarefaSetor {
     ],
     pending_items: [],
     evidences: [],
+    is_actionable: status === 'PENDENTE' || status === 'EM_ANALISE',
     version: status === 'PENDENTE' ? 1 : status === 'EM_ANALISE' ? 2 : 3,
   };
 }
@@ -154,13 +156,21 @@ describe('TarefasPage', () => {
     fixture.detectChanges();
   }
 
+  function grupo(key: string) {
+    const encontrado = component.grupos().find((item) => item.key === key);
+    if (!encontrado) {
+      throw new Error(`Grupo ${key} não existe.`);
+    }
+    return encontrado;
+  }
+
   it('separa tarefas ativas e concluídas em dois cards', () => {
     carregar(tarefa());
 
     expect(component.tarefas()).toHaveLength(1);
-    expect(component.grupos()[0].processos).toHaveLength(1);
-    expect(component.grupos()[0].processos[0].tarefas).toHaveLength(1);
-    expect(component.grupos()[1].processos).toHaveLength(0);
+    expect(grupo('ativas').processos).toHaveLength(1);
+    expect(grupo('ativas').processos[0].tarefas).toHaveLength(1);
+    expect(grupo('concluidas').processos).toHaveLength(0);
     expect(fixture.nativeElement.textContent).toContain('Ativas (a concluir)');
     expect(fixture.nativeElement.textContent).toContain('Concluídas');
     expect(fixture.nativeElement.textContent).toContain('Tecnologia da Informação');
@@ -196,7 +206,7 @@ describe('TarefasPage', () => {
     carregar([antiga, nova]);
 
     expect(
-      component.grupos()[1].processos.map((processo) => processo.employeeName),
+      grupo('concluidas').processos.map((processo) => processo.employeeName),
     ).toEqual(['Conclusão nova', 'Conclusão antiga']);
     const text = fixture.nativeElement.textContent as string;
     expect(text.indexOf('Conclusão nova')).toBeLessThan(text.indexOf('Conclusão antiga'));
@@ -248,8 +258,23 @@ describe('TarefasPage', () => {
     request.flush(tarefa('CONCLUIDA'));
 
     expect(component.tarefas()[0].status).toBe('CONCLUIDA');
-    expect(component.grupos()[0].processos).toHaveLength(0);
-    expect(component.grupos()[1].processos).toHaveLength(1);
+    expect(grupo('ativas').processos).toHaveLength(0);
+    expect(grupo('concluidas').processos).toHaveLength(1);
+  });
+
+  it('não oferece ação na tarefa encerrada pela liberação do processo', () => {
+    carregar(tarefa('CANCELADA'));
+
+    expect(grupo('ativas').processos).toHaveLength(0);
+    expect(grupo('concluidas').processos).toHaveLength(0);
+    expect(grupo('encerradas').processos).toHaveLength(1);
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Encerradas sem conclusão');
+    expect(text).toContain('O processo foi liberado para rescisão');
+    expect(text).not.toContain('Iniciar análise');
+    expect(text).not.toContain('Concluir tarefa');
+    expect(fixture.nativeElement.querySelector('.checklist')).toBeNull();
   });
 
   it('registra pendência estruturada com versão e idempotência', () => {

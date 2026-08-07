@@ -115,6 +115,14 @@ Todos os setores concluíram suas tarefas.
 
 Usuário com papel `DP` vigente no escopo autorizou o prosseguimento.
 
+A liberação **encerra em `CANCELADA` toda tarefa que ainda estava aberta** —
+a opcional que o setor deixou correr e a obrigatória que o override da ADR-054
+passou por cima. Depois dela o processo não admite mais movimento do setor, e
+tarefa aberta em processo congelado só produziria erro: o responsável a veria
+em *Minhas tarefas*, tentaria concluir e seria recusado. Cada encerramento gera
+`SECTOR_TASK_CANCELLED` na trilha, o evento `PROCESS_RELEASED` lista os
+`closed_task_ids` e o setor é avisado de que nada mais é esperado dele.
+
 ### RESCISAO_PROCESSADA
 
 Rescisão registrada como processada no Senior.
@@ -163,6 +171,11 @@ regularização. As ações usam locks, versão otimista, chave idempotente e
 auditoria na mesma transação. Arquivos são enviados antes da conclusão pelo
 endpoint privado da Fase 5. Neste incremento a conclusão da última tarefa não
 altera automaticamente o estado do processo.
+
+`CANCELADA` é o desfecho de quem nunca concluiu: chega pelo cancelamento do
+processo ou pela liberação, e é terminal para o setor — nenhuma ação é oferecida
+nem aceita. Só a reabertura a desfaz, e devolvendo a tarefa a `PENDENTE`, do
+zero; a concluída volta a `EM_ANALISE`, no ponto em que estava.
 
 ## 4. Estados da pendência
 
@@ -322,6 +335,12 @@ Reabertura exige:
 - identificação do motivo;
 - registro do estado anterior;
 - notificação aos setores afetados.
+
+Quem reabre escolhe explicitamente quais tarefas voltam ao setor. Alcança a
+`CONCLUIDA`, que retorna a `EM_ANALISE`, e a `CANCELADA`, que retorna a
+`PENDENTE` — sem esta, reabrir um processo liberado por override devolveria o
+processo à ativa sem caminho para o setor entregar o que faltou. Lista vazia
+corrige só a marca formal.
 
 ## 9. Cancelamento
 

@@ -31,11 +31,13 @@ from apps.templates_engine.services import resolve_applicable_group_versions
 from config.api import api_error
 
 from .models import (
+    OPEN_TASK_STATUSES,
     DraftOverrideAction,
     EmployeeSnapshot,
     OffboardingProcess,
     ProcessChecklistItem,
     ProcessSectorTask,
+    ProcessStatus,
 )
 from .readiness import ProcessReadiness, closing_blockers, evaluate_process_readiness
 from .serializers import (
@@ -290,6 +292,12 @@ def _task_payload(
         "completed_at": task.completed_at.isoformat() if task.completed_at else None,
         "notes": task.notes,
         "checklist_item_count": task.checklist_items.count(),
+        # Quem decide se o setor ainda pode mexer é o backend, sempre: a tela
+        # não recalcula a regra, só deixa de oferecer o que a API já disse que
+        # não passa. Fora do processo iniciado a tarefa é história.
+        "is_actionable": (
+            task.status in OPEN_TASK_STATUSES and task.process.status == ProcessStatus.STARTED
+        ),
         "version": task.version,
     }
     if include_items:
@@ -301,6 +309,7 @@ def _task_payload(
 
         payload["process"] = {
             "uuid": str(task.process.uuid),
+            "status": task.process.status,
             "company_code": task.process.company_code,
             "branch_code": task.process.branch_code,
             "employee_name": task.process.employee_snapshot.employee_name,
@@ -446,6 +455,7 @@ def _draft_payload(actor: User, process_uuid: str) -> dict[str, Any]:
         "template_version__template",
     ).order_by("sector_id")
     tasks = process.sector_tasks.select_related(
+        "process",
         "sector",
         "template_version",
     ).prefetch_related("checklist_items")
@@ -656,7 +666,7 @@ def _formal_payload(actor: User, process_uuid: Any) -> dict[str, Any]:
     readiness = evaluate_process_readiness(process)
     tasks = (
         ProcessSectorTask.objects.filter(process=process)
-        .select_related("sector", "template_version")
+        .select_related("process", "sector", "template_version")
         .prefetch_related("checklist_items")
         .order_by("sector_code_snapshot", "pk")
     )
@@ -938,7 +948,7 @@ class ProcessTaskListView(APIView):
         data = cast(dict[str, Any], serializer.validated_data)
         tasks = (
             ProcessSectorTask.objects.filter(process=process)
-            .select_related("sector", "template_version", "completed_by")
+            .select_related("process", "sector", "template_version", "completed_by")
             .prefetch_related("checklist_items")
         )
         if data["status"]:

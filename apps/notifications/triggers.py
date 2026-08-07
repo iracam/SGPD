@@ -108,8 +108,27 @@ def notify_process_cancelled(task: ProcessSectorTask) -> None:
     )
 
 
+def notify_task_closed_on_release(task: ProcessSectorTask) -> None:
+    """Avisa o setor de que a tarefa aberta morreu com a liberação do processo.
+
+    Diferente do cancelamento: o processo segue vivo e vai para rescisão — o que
+    acabou foi a espera pelo setor.
+    """
+
+    EnqueueNotificationService().execute(
+        EnqueueNotificationCommand(
+            event=NotificationEvent.TASK_CLOSED_ON_RELEASE,
+            process=task.process,
+            task=task,
+            sector=task.sector,
+            recipients=sector_responsibles(sector_id=task.sector_id, at=timezone.now()),
+            context={"task_id": task.pk},
+        )
+    )
+
+
 def notify_process_reopened(task: ProcessSectorTask, *, reopening: int) -> None:
-    """Avisa o setor de que a tarefa concluída voltou para análise.
+    """Avisa o setor de que a tarefa reaberta voltou para a mão dele.
 
     A chave carrega a tarefa e a ordem da reabertura: sem a tarefa, dois setores
     do mesmo responsável — ou dois processos reabertos pela primeira vez —

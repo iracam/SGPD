@@ -95,8 +95,9 @@ fim: Com todos os setores concluídos, o Departamento Pessoal libera a rescisão
 
 ## A tela Minhas tarefas
 
-As tarefas vêm agrupadas em duas seções: as **ativas**, que ainda esperam algo
-de você, e as **concluídas**, que ficam disponíveis para consulta.
+As tarefas vêm agrupadas em três seções: as **ativas**, que ainda esperam algo
+de você; as **encerradas sem conclusão**, que o processo deixou para trás; e as
+**concluídas**, que ficam disponíveis para consulta.
 
 Dentro de cada seção, as tarefas são agrupadas **por colaborador**. Você vê o
 nome da pessoa, a matrícula, a empresa, a filial e quantas tarefas existem ali.
@@ -113,13 +114,14 @@ situação. Logo abaixo, três informações de registro:
 | **Template** | Qual modelo de checklist está sendo usado e em que versão (por exemplo `12 · v3`). Serve para rastreabilidade: se o checklist mudar depois, a sua tarefa continua com as perguntas que existiam quando o processo começou. |
 | **Versão** | Contador de alterações da tarefa. Só importa em um caso: se aparecer o aviso de que a tarefa foi alterada por outra sessão, é porque um colega mexeu nela. Recarregue a página. |
 
-### As três situações da tarefa
+### As quatro situações da tarefa
 
 | Situação | O que quer dizer | O que você pode fazer |
 | --- | --- | --- |
 | `Pendente` | A tarefa foi criada e ninguém abriu ainda. | Só uma coisa: clicar em **Iniciar análise**. O checklist só aparece depois disso. |
 | `Em análise` | Alguém do setor já começou. | Tudo: responder o checklist, anexar evidências, registrar e tratar pendências, informar valores e concluir. |
 | `Concluída` | O setor terminou. | Apenas consultar. As respostas aparecem como texto, com a data em que foram registradas. Para reabrir, é preciso pedir ao Departamento Pessoal. |
+| `Encerrada sem conclusão` | O processo seguiu sem a sua tarefa: foi liberado para rescisão ou cancelado antes de você concluir. | Nada. O cartão explica o motivo e a tarefa vira histórico. Se a área ainda precisar entregar aquilo, fale com o Departamento Pessoal — só uma reabertura devolve a tarefa. |
 
 > **Atenção** Não deixe a tarefa em `Pendente` só porque você ainda não vai
 > resolver. Clicar em **Iniciar análise** é o que registra que a área tomou
@@ -417,6 +419,7 @@ mensagem.
 | **Tarefa vencida em nível crítico** | 48 horas depois do vencimento. Vai também para o setor de escalada. |
 | **Valor decidido** | Quando o DP decide uma pretensão que o seu setor informou. |
 | **Processo cancelado** / **Processo reaberto** | Quando o processo muda de rumo e afeta a sua tarefa. |
+| **Processo liberado — tarefa encerrada** | Quando o DP libera a rescisão e a sua tarefa ainda estava aberta. Ela é encerrada sem conclusão e nada mais é esperado do setor. |
 
 > **Importante** O e-mail **não traz** o nome do colaborador, CPF, valores nem
 > pareceres. Ele diz o que fazer e onde. O dado fica no sistema, protegido por

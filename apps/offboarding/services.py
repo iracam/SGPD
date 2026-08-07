@@ -37,6 +37,7 @@ from apps.notifications.triggers import (
     notify_process_cancelled,
     notify_process_reopened,
     notify_task_assigned,
+    notify_task_closed_on_release,
 )
 from apps.pending_items.models import (
     PendingAmount,
@@ -91,6 +92,9 @@ PROCESS_CLOSED_DESCRIPTION = "Encerramento formal do processo por ator autorizad
 PROCESS_CANCELLED_DESCRIPTION = "Cancelamento justificado do processo por ator autorizado."
 PROCESS_REOPENED_DESCRIPTION = "Reabertura justificada do processo por SuperAdmin."
 SECTOR_TASK_CANCELLED_DESCRIPTION = "Tarefa cancelada junto com o processo."
+SECTOR_TASK_CLOSED_ON_RELEASE_DESCRIPTION = (
+    "Tarefa encerrada sem conclusão pela liberação do processo."
+)
 SECTOR_TASK_REOPENED_DESCRIPTION = "Tarefa devolvida ao setor pela reabertura do processo."
 START_ACTION = "START"
 RELEASE_ACTION = "RELEASE"
@@ -118,6 +122,10 @@ PENDING_RESOLUTION_PROCESS_STATUSES = (
     ProcessStatus.RELEASED,
     ProcessStatus.PROCESSED,
 )
+
+#: Situações a partir das quais a reabertura devolve a tarefa ao setor: a
+#: concluída volta para análise, a encerrada sem conclusão volta para pendente.
+REOPENABLE_TASK_STATUSES = (SectorTaskStatus.COMPLETED, SectorTaskStatus.CANCELLED)
 
 #: Estados formais que já saíram das mãos dos setores e vão para `Concluídos`.
 #: São também os que a reabertura alcança e os que, pela ADR-056, só a gerência
@@ -1793,6 +1801,47 @@ def _record_process_idempotency(
     )
 
 
+def _close_open_tasks(
+    *,
+    process: OffboardingProcess,
+    actor: User,
+    description: str,
+) -> list[ProcessSectorTask]:
+    """Encerrar em `CANCELADA` as tarefas que ainda esperavam trabalho do setor.
+
+    Serve ao cancelamento e à liberação: nos dois o processo saiu das mãos das
+    áreas, e tarefa aberta em processo que não admite mais movimento é convite a
+    um erro — o setor a vê em *Minhas tarefas*, tenta concluir e recebe recusa.
+    Encerrá-la é o registro honesto de que aquele trabalho não vai acontecer, e
+    tira a tarefa das contagens de aberta e atrasada.
+    """
+
+    open_tasks = list(
+        ProcessSectorTask.objects.select_for_update()
+        .filter(process=process, status__in=OPEN_TASK_STATUSES)
+        .order_by("pk")
+    )
+    for task in open_tasks:
+        task.status = SectorTaskStatus.CANCELLED
+        task.version += 1
+        task.full_clean()
+        task.save(update_fields=("status", "version"))
+        ProcessAuditEvent.objects.create(
+            process=process,
+            event_type=ProcessEventType.SECTOR_TASK_CANCELLED,
+            actor=actor,
+            description=description,
+            data={
+                "task_id": task.pk,
+                "sector_id": task.sector_id,
+                "status": task.status,
+                "task_version": task.version,
+            },
+            correlation_id=correlation_id.get(),
+        )
+    return open_tasks
+
+
 class ReleaseProcessService:
     """Liberar o processo para rescisão (RF-029, RF-030, ADR-012).
 
@@ -1836,6 +1885,16 @@ class ReleaseProcessService:
             field="release",
         )
 
+        # Depois daqui o processo não admite mais movimento do setor: a tarefa
+        # que sobrou aberta — opcional, ou obrigatória passada por cima pelo
+        # override da ADR-054 — é encerrada junto, e não fica esperando um
+        # trabalho que ninguém pode mais entregar.
+        closed_tasks = _close_open_tasks(
+            process=process,
+            actor=actor,
+            description=SECTOR_TASK_CLOSED_ON_RELEASE_DESCRIPTION,
+        )
+
         released_at = timezone.now()
         process.status = ProcessStatus.RELEASED
         process.released_at = released_at
@@ -1871,6 +1930,9 @@ class ReleaseProcessService:
                 # (ADR-054) — a auditoria é a única evidência do rompimento.
                 "overridden_blockers": list(readiness.blockers),
                 "override_reason": override_reason,
+                # Quem ficou sem entregar: a liberação encerrou estas tarefas
+                # sem conclusão, e a trilha diz quais foram.
+                "closed_task_ids": [task.pk for task in closed_tasks],
                 "process_version": process.version,
             },
             correlation_id=correlation_id.get(),
@@ -1882,6 +1944,10 @@ class ReleaseProcessService:
             key=key,
             request_hash=request_hash,
         )
+        # Quem tinha tarefa aberta precisa saber que não é mais esperado; quem
+        # já concluiu não é incomodado.
+        for task in closed_tasks:
+            notify_task_closed_on_release(task)
         return ProcessTransitionResult(process=process, replayed=False)
 
 
@@ -2127,29 +2193,11 @@ class CancelProcessService:
             raise ValidationError("O processo foi alterado por outra sessão. Recarregue a página.")
 
         cancelled_at = timezone.now()
-        open_tasks = list(
-            ProcessSectorTask.objects.select_for_update()
-            .filter(process=process, status__in=OPEN_TASK_STATUSES)
-            .order_by("pk")
+        open_tasks = _close_open_tasks(
+            process=process,
+            actor=actor,
+            description=SECTOR_TASK_CANCELLED_DESCRIPTION,
         )
-        for task in open_tasks:
-            task.status = SectorTaskStatus.CANCELLED
-            task.version += 1
-            task.full_clean()
-            task.save(update_fields=("status", "version"))
-            ProcessAuditEvent.objects.create(
-                process=process,
-                event_type=ProcessEventType.SECTOR_TASK_CANCELLED,
-                actor=actor,
-                description=SECTOR_TASK_CANCELLED_DESCRIPTION,
-                data={
-                    "task_id": task.pk,
-                    "sector_id": task.sector_id,
-                    "status": task.status,
-                    "task_version": task.version,
-                },
-                correlation_id=correlation_id.get(),
-            )
 
         process.status = ProcessStatus.CANCELLED
         process.cancelled_at = cancelled_at
@@ -2244,9 +2292,14 @@ class ReopenProcessService:
         if len(tasks) != len(task_ids):
             raise ValidationError({"task_ids": "Uma das tarefas não pertence ao processo."})
         for task in tasks:
-            if task.status != SectorTaskStatus.COMPLETED:
+            if task.status not in REOPENABLE_TASK_STATUSES:
                 raise ValidationError(
-                    {"task_ids": f"A tarefa de {task.sector_name_snapshot} não está concluída."}
+                    {
+                        "task_ids": (
+                            f"A tarefa de {task.sector_name_snapshot} não está concluída "
+                            "nem encerrada sem conclusão."
+                        )
+                    }
                 )
 
         previous_state = {
@@ -2330,7 +2383,14 @@ class ReopenProcessService:
             + 1
         )
         for task in tasks:
-            task.status = SectorTaskStatus.IN_ANALYSIS
+            previous_status = task.status
+            # A concluída volta ao ponto em que estava quando o setor respondeu;
+            # a encerrada sem conclusão nunca chegou lá e recomeça do zero.
+            task.status = (
+                SectorTaskStatus.PENDING
+                if previous_status == SectorTaskStatus.CANCELLED
+                else SectorTaskStatus.IN_ANALYSIS
+            )
             task.completed_at = None
             task.completed_by = None
             task.version += 1
@@ -2344,6 +2404,7 @@ class ReopenProcessService:
                 data={
                     "task_id": task.pk,
                     "sector_id": task.sector_id,
+                    "previous_status": previous_status,
                     "status": task.status,
                     "task_version": task.version,
                 },

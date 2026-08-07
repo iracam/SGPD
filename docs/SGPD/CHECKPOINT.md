@@ -35,6 +35,16 @@
   notificações saíram de um a dois segundos depois do fato, com `attempts=1`, e
   a fila está inteira em `ENVIADA` — 58 mensagens, nenhuma em `PENDENTE` ou
   `FALHA`, incluindo a que estava presa desde 2026-07-31
+- Concluído: a liberação encerra a tarefa que o setor deixou aberta —
+  implementado e testado localmente em 2026-08-07, sem migration de domínio
+  (só a de `choices` da notificação, `notifications.0003`, que gera SQL vazio).
+  Antes, liberar por cima de impedimento (ADR-054) deixava a tarefa `PENDENTE`
+  para sempre: visível em *Minhas tarefas*, recusada pelo service a cada
+  tentativa de concluir, e contada como aberta e atrasada nos indicadores do
+  setor. Agora a liberação a encerra em `CANCELADA`, com trilha, aviso ao setor
+  e `closed_task_ids` no evento de liberação; a reabertura devolve essa tarefa
+  como `PENDENTE`, e o contrato da API passou a dizer à SPA, por
+  `is_actionable`, quando não há ação a oferecer
 - **Acervo do banco zerado em 2026-08-06, a pedido**, por
   `scripts/reset_from_fixtures.sh` (`RUNBOOK.md` §6.1): ficou só a configuração
   — 30 contas, os 5 papéis com 15 atribuições, 12 setores com 31
@@ -224,6 +234,15 @@ Contrato Senior — legibilidade cadastral:
 
 ## Riscos e pendências relevantes
 
+- o processo `8f0f7d0f` foi liberado em 2026-08-07 com o override da ADR-054
+  por cima das tarefas obrigatórias de TI e Segurança, **antes** da regra que
+  as encerra. As duas tarefas seguem `PENDENTE` no Oracle: a SPA já não oferece
+  ação sobre elas — `is_actionable` vem falso —, mas continuam contadas como
+  abertas e atrasadas no painel do setor e no relatório de atraso, e a trilha
+  não registra o encerramento delas. Limpar exige ato humano auditado:
+  reabri-las pelo SuperAdmin e liberar de novo, que aí a regra nova se aplica.
+  Não há migration de dados para isso — a auditoria exige ator, e nenhuma
+  migration tem um;
 - o schema `SGPD` agora é **produtivo, com usuários reais dentro**, e o DEV
   continua apontando para ele. O `.env` do DEV traz
   `DJANGO_SETTINGS_MODULE=config.settings.production`, então qualquer
@@ -314,8 +333,8 @@ Contrato Senior — legibilidade cadastral:
 ## Baseline de qualidade
 
 A validação padrão vigente, executada por inteiro na última entrega
-(2026-08-06): **554 testes backend e 139 frontend**, Ruff, formatação, Mypy em
-234 arquivos, Django check, verificação de migrations, `check --deploy` com os
+(2026-08-07): **558 testes backend e 141 frontend**, Ruff, formatação, Mypy em
+235 arquivos, Django check, verificação de migrations, `check --deploy` com os
 dois avisos de HSTS já deliberados e build Angular sem avisos. Desde a ADR-057 o
 boot real confirma o inverso do que confirmava antes: `WEB_CONCURRENCY=4 uv run
 manage.py check --deploy` **sobe**, porque o cache é compartilhado — e a suíte

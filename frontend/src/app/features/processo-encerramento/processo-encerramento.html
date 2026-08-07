@@ -532,10 +532,10 @@
           (input)="texto('motivo', $event)"
         ></textarea>
       </label>
-      @if (tarefasConcluidas().length) {
+      @if (tarefasReabriveis().length) {
         <fieldset class="tarefas">
-          <legend>Tarefas que voltam para análise</legend>
-          @for (tarefa of tarefasConcluidas(); track tarefa.id) {
+          <legend>Tarefas que voltam para o setor</legend>
+          @for (tarefa of tarefasReabriveis(); track tarefa.id) {
             <label class="tarefa">
               <input
                 type="checkbox"
@@ -544,7 +544,11 @@
               />
               <span>
                 <strong>{{ tarefa.sector.name }}</strong>
-                @if (tarefa.completed_at) {
+                @if (tarefa.status === 'CANCELADA') {
+                  <small class="registro">
+                    Encerrada sem conclusão — volta pendente
+                  </small>
+                } @else if (tarefa.completed_at) {
                   <small class="registro">
                     Concluída em {{ tarefa.completed_at | date: 'dd/MM/yyyy HH:mm' }}
                   </small>

@@ -36,6 +36,10 @@ class NotificationEvent(models.TextChoices):
     AMOUNT_DECIDED = "VALOR_DECIDIDO", "Valor decidido"
     PROCESS_CANCELLED = "PROCESSO_CANCELADO", "Processo cancelado"
     PROCESS_REOPENED = "PROCESSO_REABERTO", "Processo reaberto"
+    TASK_CLOSED_ON_RELEASE = (
+        "TAREFA_ENCERRADA_LIBERACAO",
+        "Tarefa encerrada pela liberação do processo",
+    )
 
 
 class NotificationChannel(models.TextChoices):
