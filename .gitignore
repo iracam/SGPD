@@ -93,5 +93,11 @@ var/log/
 
 # Fixtures locais de reset do DEV (nunca versionar)
 docs/fixtures/
+
+# PDF dos manuais: o Chromium carimba a data de criação dentro do arquivo, então
+# cada geração muda os bytes e sujaria a árvore do host a cada deploy. Ninguém o
+# lê pelo sistema — `apps.core.views.manual` serve o `.html`, que continua
+# versionado. Gere o PDF quando precisar entregá-lo a alguém.
 docs/operacao/*.pdf
+
 email.lista

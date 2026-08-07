@@ -51,7 +51,9 @@ npm --prefix frontend ci
 npm --prefix frontend run build
 
 step "Manuais operacionais (ADR-053)"
-node docs/operacao/build.mjs
+# `--html`: é o `.html` que o `/ajuda/<slug>/` serve. O PDF é entrega para
+# humanos, ninguém o pede ao host, e gerá-lo abriria o Chromium por nada.
+node docs/operacao/build.mjs --html
 
 step "Estáticos"
 uv run manage.py collectstatic --noinput

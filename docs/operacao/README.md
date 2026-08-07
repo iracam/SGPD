@@ -15,6 +15,9 @@ Há um manual por público, e o público é o **papel** (ADR-054) — não a tel
 | Manual do SuperAdmin | contas com `is_superuser=true` | `configuracao-do-sistema.md` |
 
 Cada manual tem três arquivos: o `.md` (fonte), o `.html` e o `.pdf` (entregas).
+O `.md` e o `.html` são versionados — o `.html` é o que o sistema serve. O `.pdf`
+não: o Chromium carimba a data de criação dentro dele, e cada geração mudaria os
+bytes sem mudar o conteúdo. Gere-o localmente quando for entregá-lo a alguém.
 
 ## Corrigir e regerar
 
